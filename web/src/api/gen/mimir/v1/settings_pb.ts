@@ -2,8 +2,8 @@
 // @generated from file mimir/v1/settings.proto (package mimir.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/settings.proto.
  */
 export const file_mimir_v1_settings: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW1pci92MS9zZXR0aW5ncy5wcm90bxIIbWltaXIudjEijgEKC0VtYWlsQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSDAoEaG9zdBgCIAEoCRIMCgRwb3J0GAMgASgFEhAKCHVzZXJuYW1lGAQgASgJEhAKCHBhc3N3b3JkGAUgASgJEhQKDHBhc3N3b3JkX3NldBgGIAEoCBIMCgRmcm9tGAcgASgJEgoKAnRvGAggAygJIlgKDlRlbGVncmFtQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSEQoJYm90X3Rva2VuGAIgASgJEhEKCXRva2VuX3NldBgDIAEoCBIPCgdjaGF0X2lkGAQgASgJIjYKCVJldGVudGlvbhISCgphdWRpdF9kYXlzGAEgASgFEhUKDWRlbGl2ZXJ5X2RheXMYAiABKAUiFAoSR2V0U2V0dGluZ3NSZXF1ZXN0Io8BChNHZXRTZXR0aW5nc1Jlc3BvbnNlEiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cxImCglyZXRlbnRpb24YAyABKAsyEy5taW1pci52MS5SZXRlbnRpb24iZwoTVXBkYXRlQWxlcnRzUmVxdWVzdBIkCgVlbWFpbBgBIAEoCzIVLm1pbWlyLnYxLkVtYWlsQWxlcnRzEioKCHRlbGVncmFtGAIgASgLMhgubWltaXIudjEuVGVsZWdyYW1BbGVydHMiaAoUVXBkYXRlQWxlcnRzUmVzcG9uc2USJAoFZW1haWwYASABKAsyFS5taW1pci52MS5FbWFpbEFsZXJ0cxIqCgh0ZWxlZ3JhbRgCIAEoCzIYLm1pbWlyLnYxLlRlbGVncmFtQWxlcnRzIicKFFNlbmRUZXN0QWxlcnRSZXF1ZXN0Eg8KB2NoYW5uZWwYASABKAkiFwoVU2VuZFRlc3RBbGVydFJlc3BvbnNlIkAKFlVwZGF0ZVJldGVudGlvblJlcXVlc3QSJgoJcmV0ZW50aW9uGAEgASgLMhMubWltaXIudjEuUmV0ZW50aW9uIkEKF1VwZGF0ZVJldGVudGlvblJlc3BvbnNlEiYKCXJldGVudGlvbhgBIAEoCzITLm1pbWlyLnYxLlJldGVudGlvbiIYChZHZXREYXRhYmFzZUluZm9SZXF1ZXN0IpUCChdHZXREYXRhYmFzZUluZm9SZXNwb25zZRIMCgRraW5kGAEgASgJEgwKBHBhdGgYAiABKAkSEgoKc2l6ZV9ieXRlcxgDIAEoAxIWCg5zY2hlbWFfdmVyc2lvbhgEIAEoBRIdChVsYXRlc3Rfc2NoZW1hX3ZlcnNpb24YBSABKAUSDgoGbW9kZWxzGAYgASgFEg0KBXVzZXJzGAcgASgFEhQKDGF1ZGl0X2V2ZW50cxgIIAEoBRISCgpkZWxpdmVyaWVzGAkgASgFEjIKDmxhc3RfdHJpbV90aW1lGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIWCg5sYXN0X3RyaW1fcm93cxgLIAEoAzK4AwoPU2V0dGluZ3NTZXJ2aWNlEk8KC0dldFNldHRpbmdzEhwubWltaXIudjEuR2V0U2V0dGluZ3NSZXF1ZXN0Gh0ubWltaXIudjEuR2V0U2V0dGluZ3NSZXNwb25zZSIDkAIBEk0KDFVwZGF0ZUFsZXJ0cxIdLm1pbWlyLnYxLlVwZGF0ZUFsZXJ0c1JlcXVlc3QaHi5taW1pci52MS5VcGRhdGVBbGVydHNSZXNwb25zZRJQCg1TZW5kVGVzdEFsZXJ0Eh4ubWltaXIudjEuU2VuZFRlc3RBbGVydFJlcXVlc3QaHy5taW1pci52MS5TZW5kVGVzdEFsZXJ0UmVzcG9uc2USVgoPVXBkYXRlUmV0ZW50aW9uEiAubWltaXIudjEuVXBkYXRlUmV0ZW50aW9uUmVxdWVzdBohLm1pbWlyLnYxLlVwZGF0ZVJldGVudGlvblJlc3BvbnNlElsKD0dldERhdGFiYXNlSW5mbxIgLm1pbWlyLnYxLkdldERhdGFiYXNlSW5mb1JlcXVlc3QaIS5taW1pci52MS5HZXREYXRhYmFzZUluZm9SZXNwb25zZSIDkAIBQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+  fileDesc("ChdtaW1pci92MS9zZXR0aW5ncy5wcm90bxIIbWltaXIudjEijgEKC0VtYWlsQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSDAoEaG9zdBgCIAEoCRIMCgRwb3J0GAMgASgFEhAKCHVzZXJuYW1lGAQgASgJEhAKCHBhc3N3b3JkGAUgASgJEhQKDHBhc3N3b3JkX3NldBgGIAEoCBIMCgRmcm9tGAcgASgJEgoKAnRvGAggAygJIlgKDlRlbGVncmFtQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSEQoJYm90X3Rva2VuGAIgASgJEhEKCXRva2VuX3NldBgDIAEoCBIPCgdjaGF0X2lkGAQgASgJIjYKCVJldGVudGlvbhISCgphdWRpdF9kYXlzGAEgASgFEhUKDWRlbGl2ZXJ5X2RheXMYAiABKAUiFAoSR2V0U2V0dGluZ3NSZXF1ZXN0IrUBChNHZXRTZXR0aW5nc1Jlc3BvbnNlEiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cxImCglyZXRlbnRpb24YAyABKAsyEy5taW1pci52MS5SZXRlbnRpb24SJAoIc2VjdXJpdHkYBCABKAsyEi5taW1pci52MS5TZWN1cml0eSI5CghTZWN1cml0eRItCgp0d29fZmFjdG9yGAEgASgOMhkubWltaXIudjEuVHdvRmFjdG9yUG9saWN5Ij0KFVVwZGF0ZVNlY3VyaXR5UmVxdWVzdBIkCghzZWN1cml0eRgBIAEoCzISLm1pbWlyLnYxLlNlY3VyaXR5Ij4KFlVwZGF0ZVNlY3VyaXR5UmVzcG9uc2USJAoIc2VjdXJpdHkYASABKAsyEi5taW1pci52MS5TZWN1cml0eSJnChNVcGRhdGVBbGVydHNSZXF1ZXN0EiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cyJoChRVcGRhdGVBbGVydHNSZXNwb25zZRIkCgVlbWFpbBgBIAEoCzIVLm1pbWlyLnYxLkVtYWlsQWxlcnRzEioKCHRlbGVncmFtGAIgASgLMhgubWltaXIudjEuVGVsZWdyYW1BbGVydHMiJwoUU2VuZFRlc3RBbGVydFJlcXVlc3QSDwoHY2hhbm5lbBgBIAEoCSIXChVTZW5kVGVzdEFsZXJ0UmVzcG9uc2UiQAoWVXBkYXRlUmV0ZW50aW9uUmVxdWVzdBImCglyZXRlbnRpb24YASABKAsyEy5taW1pci52MS5SZXRlbnRpb24iQQoXVXBkYXRlUmV0ZW50aW9uUmVzcG9uc2USJgoJcmV0ZW50aW9uGAEgASgLMhMubWltaXIudjEuUmV0ZW50aW9uIhgKFkdldERhdGFiYXNlSW5mb1JlcXVlc3QilQIKF0dldERhdGFiYXNlSW5mb1Jlc3BvbnNlEgwKBGtpbmQYASABKAkSDAoEcGF0aBgCIAEoCRISCgpzaXplX2J5dGVzGAMgASgDEhYKDnNjaGVtYV92ZXJzaW9uGAQgASgFEh0KFWxhdGVzdF9zY2hlbWFfdmVyc2lvbhgFIAEoBRIOCgZtb2RlbHMYBiABKAUSDQoFdXNlcnMYByABKAUSFAoMYXVkaXRfZXZlbnRzGAggASgFEhIKCmRlbGl2ZXJpZXMYCSABKAUSMgoObGFzdF90cmltX3RpbWUYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDmxhc3RfdHJpbV9yb3dzGAsgASgDKpIBCg9Ud29GYWN0b3JQb2xpY3kSIQodVFdPX0ZBQ1RPUl9QT0xJQ1lfVU5TUEVDSUZJRUQQABIeChpUV09fRkFDVE9SX1BPTElDWV9PUFRJT05BTBABEhwKGFRXT19GQUNUT1JfUE9MSUNZX0FETUlOUxACEh4KGlRXT19GQUNUT1JfUE9MSUNZX0VWRVJZT05FEAMyjQQKD1NldHRpbmdzU2VydmljZRJPCgtHZXRTZXR0aW5ncxIcLm1pbWlyLnYxLkdldFNldHRpbmdzUmVxdWVzdBodLm1pbWlyLnYxLkdldFNldHRpbmdzUmVzcG9uc2UiA5ACARJNCgxVcGRhdGVBbGVydHMSHS5taW1pci52MS5VcGRhdGVBbGVydHNSZXF1ZXN0Gh4ubWltaXIudjEuVXBkYXRlQWxlcnRzUmVzcG9uc2USUAoNU2VuZFRlc3RBbGVydBIeLm1pbWlyLnYxLlNlbmRUZXN0QWxlcnRSZXF1ZXN0Gh8ubWltaXIudjEuU2VuZFRlc3RBbGVydFJlc3BvbnNlElYKD1VwZGF0ZVJldGVudGlvbhIgLm1pbWlyLnYxLlVwZGF0ZVJldGVudGlvblJlcXVlc3QaIS5taW1pci52MS5VcGRhdGVSZXRlbnRpb25SZXNwb25zZRJTCg5VcGRhdGVTZWN1cml0eRIfLm1pbWlyLnYxLlVwZGF0ZVNlY3VyaXR5UmVxdWVzdBogLm1pbWlyLnYxLlVwZGF0ZVNlY3VyaXR5UmVzcG9uc2USWwoPR2V0RGF0YWJhc2VJbmZvEiAubWltaXIudjEuR2V0RGF0YWJhc2VJbmZvUmVxdWVzdBohLm1pbWlyLnYxLkdldERhdGFiYXNlSW5mb1Jlc3BvbnNlIgOQAgFCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * EmailAlerts sends alerts through an SMTP server. The password is never
@@ -165,6 +165,11 @@ export type GetSettingsResponse = Message<"mimir.v1.GetSettingsResponse"> & {
    * @generated from field: mimir.v1.Retention retention = 3;
    */
   retention?: Retention | undefined;
+
+  /**
+   * @generated from field: mimir.v1.Security security = 4;
+   */
+  security?: Security | undefined;
 };
 
 /**
@@ -173,6 +178,59 @@ export type GetSettingsResponse = Message<"mimir.v1.GetSettingsResponse"> & {
  */
 export const GetSettingsResponseSchema: GenMessage<GetSettingsResponse> = /*@__PURE__*/
   messageDesc(file_mimir_v1_settings, 4);
+
+/**
+ * Security says who must use two-step verification.
+ *
+ * @generated from message mimir.v1.Security
+ */
+export type Security = Message<"mimir.v1.Security"> & {
+  /**
+   * @generated from field: mimir.v1.TwoFactorPolicy two_factor = 1;
+   */
+  twoFactor: TwoFactorPolicy;
+};
+
+/**
+ * Describes the message mimir.v1.Security.
+ * Use `create(SecuritySchema)` to create a new message.
+ */
+export const SecuritySchema: GenMessage<Security> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 5);
+
+/**
+ * @generated from message mimir.v1.UpdateSecurityRequest
+ */
+export type UpdateSecurityRequest = Message<"mimir.v1.UpdateSecurityRequest"> & {
+  /**
+   * @generated from field: mimir.v1.Security security = 1;
+   */
+  security?: Security | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.UpdateSecurityRequest.
+ * Use `create(UpdateSecurityRequestSchema)` to create a new message.
+ */
+export const UpdateSecurityRequestSchema: GenMessage<UpdateSecurityRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 6);
+
+/**
+ * @generated from message mimir.v1.UpdateSecurityResponse
+ */
+export type UpdateSecurityResponse = Message<"mimir.v1.UpdateSecurityResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Security security = 1;
+   */
+  security?: Security | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.UpdateSecurityResponse.
+ * Use `create(UpdateSecurityResponseSchema)` to create a new message.
+ */
+export const UpdateSecurityResponseSchema: GenMessage<UpdateSecurityResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 7);
 
 /**
  * @generated from message mimir.v1.UpdateAlertsRequest
@@ -194,7 +252,7 @@ export type UpdateAlertsRequest = Message<"mimir.v1.UpdateAlertsRequest"> & {
  * Use `create(UpdateAlertsRequestSchema)` to create a new message.
  */
 export const UpdateAlertsRequestSchema: GenMessage<UpdateAlertsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 5);
+  messageDesc(file_mimir_v1_settings, 8);
 
 /**
  * @generated from message mimir.v1.UpdateAlertsResponse
@@ -216,7 +274,7 @@ export type UpdateAlertsResponse = Message<"mimir.v1.UpdateAlertsResponse"> & {
  * Use `create(UpdateAlertsResponseSchema)` to create a new message.
  */
 export const UpdateAlertsResponseSchema: GenMessage<UpdateAlertsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 6);
+  messageDesc(file_mimir_v1_settings, 9);
 
 /**
  * @generated from message mimir.v1.SendTestAlertRequest
@@ -235,7 +293,7 @@ export type SendTestAlertRequest = Message<"mimir.v1.SendTestAlertRequest"> & {
  * Use `create(SendTestAlertRequestSchema)` to create a new message.
  */
 export const SendTestAlertRequestSchema: GenMessage<SendTestAlertRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 7);
+  messageDesc(file_mimir_v1_settings, 10);
 
 /**
  * @generated from message mimir.v1.SendTestAlertResponse
@@ -248,7 +306,7 @@ export type SendTestAlertResponse = Message<"mimir.v1.SendTestAlertResponse"> & 
  * Use `create(SendTestAlertResponseSchema)` to create a new message.
  */
 export const SendTestAlertResponseSchema: GenMessage<SendTestAlertResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 8);
+  messageDesc(file_mimir_v1_settings, 11);
 
 /**
  * @generated from message mimir.v1.UpdateRetentionRequest
@@ -265,7 +323,7 @@ export type UpdateRetentionRequest = Message<"mimir.v1.UpdateRetentionRequest"> 
  * Use `create(UpdateRetentionRequestSchema)` to create a new message.
  */
 export const UpdateRetentionRequestSchema: GenMessage<UpdateRetentionRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 9);
+  messageDesc(file_mimir_v1_settings, 12);
 
 /**
  * @generated from message mimir.v1.UpdateRetentionResponse
@@ -282,7 +340,7 @@ export type UpdateRetentionResponse = Message<"mimir.v1.UpdateRetentionResponse"
  * Use `create(UpdateRetentionResponseSchema)` to create a new message.
  */
 export const UpdateRetentionResponseSchema: GenMessage<UpdateRetentionResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 10);
+  messageDesc(file_mimir_v1_settings, 13);
 
 /**
  * @generated from message mimir.v1.GetDatabaseInfoRequest
@@ -295,7 +353,7 @@ export type GetDatabaseInfoRequest = Message<"mimir.v1.GetDatabaseInfoRequest"> 
  * Use `create(GetDatabaseInfoRequestSchema)` to create a new message.
  */
 export const GetDatabaseInfoRequestSchema: GenMessage<GetDatabaseInfoRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 11);
+  messageDesc(file_mimir_v1_settings, 14);
 
 /**
  * @generated from message mimir.v1.GetDatabaseInfoResponse
@@ -366,7 +424,44 @@ export type GetDatabaseInfoResponse = Message<"mimir.v1.GetDatabaseInfoResponse"
  * Use `create(GetDatabaseInfoResponseSchema)` to create a new message.
  */
 export const GetDatabaseInfoResponseSchema: GenMessage<GetDatabaseInfoResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 12);
+  messageDesc(file_mimir_v1_settings, 15);
+
+/**
+ * @generated from enum mimir.v1.TwoFactorPolicy
+ */
+export enum TwoFactorPolicy {
+  /**
+   * @generated from enum value: TWO_FACTOR_POLICY_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * OPTIONAL lets each person decide.
+   *
+   * @generated from enum value: TWO_FACTOR_POLICY_OPTIONAL = 1;
+   */
+  OPTIONAL = 1,
+
+  /**
+   * ADMINS requires it for admins and owners.
+   *
+   * @generated from enum value: TWO_FACTOR_POLICY_ADMINS = 2;
+   */
+  ADMINS = 2,
+
+  /**
+   * EVERYONE requires it for every account.
+   *
+   * @generated from enum value: TWO_FACTOR_POLICY_EVERYONE = 3;
+   */
+  EVERYONE = 3,
+}
+
+/**
+ * Describes the enum mimir.v1.TwoFactorPolicy.
+ */
+export const TwoFactorPolicySchema: GenEnum<TwoFactorPolicy> = /*@__PURE__*/
+  enumDesc(file_mimir_v1_settings, 0);
 
 /**
  * SettingsService configures the server: alerts, retention and the
@@ -408,6 +503,14 @@ export const SettingsService: GenService<{
     methodKind: "unary";
     input: typeof UpdateRetentionRequestSchema;
     output: typeof UpdateRetentionResponseSchema;
+  },
+  /**
+   * @generated from rpc mimir.v1.SettingsService.UpdateSecurity
+   */
+  updateSecurity: {
+    methodKind: "unary";
+    input: typeof UpdateSecurityRequestSchema;
+    output: typeof UpdateSecurityResponseSchema;
   },
   /**
    * @generated from rpc mimir.v1.SettingsService.GetDatabaseInfo

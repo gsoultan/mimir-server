@@ -45,6 +45,9 @@ const (
 	// SettingsServiceUpdateRetentionProcedure is the fully-qualified name of the SettingsService's
 	// UpdateRetention RPC.
 	SettingsServiceUpdateRetentionProcedure = "/mimir.v1.SettingsService/UpdateRetention"
+	// SettingsServiceUpdateSecurityProcedure is the fully-qualified name of the SettingsService's
+	// UpdateSecurity RPC.
+	SettingsServiceUpdateSecurityProcedure = "/mimir.v1.SettingsService/UpdateSecurity"
 	// SettingsServiceGetDatabaseInfoProcedure is the fully-qualified name of the SettingsService's
 	// GetDatabaseInfo RPC.
 	SettingsServiceGetDatabaseInfoProcedure = "/mimir.v1.SettingsService/GetDatabaseInfo"
@@ -57,6 +60,7 @@ type SettingsServiceClient interface {
 	// SendTestAlert sends "This is a test" through the chosen channel now.
 	SendTestAlert(context.Context, *connect.Request[v1.SendTestAlertRequest]) (*connect.Response[v1.SendTestAlertResponse], error)
 	UpdateRetention(context.Context, *connect.Request[v1.UpdateRetentionRequest]) (*connect.Response[v1.UpdateRetentionResponse], error)
+	UpdateSecurity(context.Context, *connect.Request[v1.UpdateSecurityRequest]) (*connect.Response[v1.UpdateSecurityResponse], error)
 	GetDatabaseInfo(context.Context, *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error)
 }
 
@@ -96,6 +100,12 @@ func NewSettingsServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(settingsServiceMethods.ByName("UpdateRetention")),
 			connect.WithClientOptions(opts...),
 		),
+		updateSecurity: connect.NewClient[v1.UpdateSecurityRequest, v1.UpdateSecurityResponse](
+			httpClient,
+			baseURL+SettingsServiceUpdateSecurityProcedure,
+			connect.WithSchema(settingsServiceMethods.ByName("UpdateSecurity")),
+			connect.WithClientOptions(opts...),
+		),
 		getDatabaseInfo: connect.NewClient[v1.GetDatabaseInfoRequest, v1.GetDatabaseInfoResponse](
 			httpClient,
 			baseURL+SettingsServiceGetDatabaseInfoProcedure,
@@ -112,6 +122,7 @@ type settingsServiceClient struct {
 	updateAlerts    *connect.Client[v1.UpdateAlertsRequest, v1.UpdateAlertsResponse]
 	sendTestAlert   *connect.Client[v1.SendTestAlertRequest, v1.SendTestAlertResponse]
 	updateRetention *connect.Client[v1.UpdateRetentionRequest, v1.UpdateRetentionResponse]
+	updateSecurity  *connect.Client[v1.UpdateSecurityRequest, v1.UpdateSecurityResponse]
 	getDatabaseInfo *connect.Client[v1.GetDatabaseInfoRequest, v1.GetDatabaseInfoResponse]
 }
 
@@ -135,6 +146,11 @@ func (c *settingsServiceClient) UpdateRetention(ctx context.Context, req *connec
 	return c.updateRetention.CallUnary(ctx, req)
 }
 
+// UpdateSecurity calls mimir.v1.SettingsService.UpdateSecurity.
+func (c *settingsServiceClient) UpdateSecurity(ctx context.Context, req *connect.Request[v1.UpdateSecurityRequest]) (*connect.Response[v1.UpdateSecurityResponse], error) {
+	return c.updateSecurity.CallUnary(ctx, req)
+}
+
 // GetDatabaseInfo calls mimir.v1.SettingsService.GetDatabaseInfo.
 func (c *settingsServiceClient) GetDatabaseInfo(ctx context.Context, req *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error) {
 	return c.getDatabaseInfo.CallUnary(ctx, req)
@@ -147,6 +163,7 @@ type SettingsServiceHandler interface {
 	// SendTestAlert sends "This is a test" through the chosen channel now.
 	SendTestAlert(context.Context, *connect.Request[v1.SendTestAlertRequest]) (*connect.Response[v1.SendTestAlertResponse], error)
 	UpdateRetention(context.Context, *connect.Request[v1.UpdateRetentionRequest]) (*connect.Response[v1.UpdateRetentionResponse], error)
+	UpdateSecurity(context.Context, *connect.Request[v1.UpdateSecurityRequest]) (*connect.Response[v1.UpdateSecurityResponse], error)
 	GetDatabaseInfo(context.Context, *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error)
 }
 
@@ -182,6 +199,12 @@ func NewSettingsServiceHandler(svc SettingsServiceHandler, opts ...connect.Handl
 		connect.WithSchema(settingsServiceMethods.ByName("UpdateRetention")),
 		connect.WithHandlerOptions(opts...),
 	)
+	settingsServiceUpdateSecurityHandler := connect.NewUnaryHandler(
+		SettingsServiceUpdateSecurityProcedure,
+		svc.UpdateSecurity,
+		connect.WithSchema(settingsServiceMethods.ByName("UpdateSecurity")),
+		connect.WithHandlerOptions(opts...),
+	)
 	settingsServiceGetDatabaseInfoHandler := connect.NewUnaryHandler(
 		SettingsServiceGetDatabaseInfoProcedure,
 		svc.GetDatabaseInfo,
@@ -199,6 +222,8 @@ func NewSettingsServiceHandler(svc SettingsServiceHandler, opts ...connect.Handl
 			settingsServiceSendTestAlertHandler.ServeHTTP(w, r)
 		case SettingsServiceUpdateRetentionProcedure:
 			settingsServiceUpdateRetentionHandler.ServeHTTP(w, r)
+		case SettingsServiceUpdateSecurityProcedure:
+			settingsServiceUpdateSecurityHandler.ServeHTTP(w, r)
 		case SettingsServiceGetDatabaseInfoProcedure:
 			settingsServiceGetDatabaseInfoHandler.ServeHTTP(w, r)
 		default:
@@ -224,6 +249,10 @@ func (UnimplementedSettingsServiceHandler) SendTestAlert(context.Context, *conne
 
 func (UnimplementedSettingsServiceHandler) UpdateRetention(context.Context, *connect.Request[v1.UpdateRetentionRequest]) (*connect.Response[v1.UpdateRetentionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.UpdateRetention is not implemented"))
+}
+
+func (UnimplementedSettingsServiceHandler) UpdateSecurity(context.Context, *connect.Request[v1.UpdateSecurityRequest]) (*connect.Response[v1.UpdateSecurityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.UpdateSecurity is not implemented"))
 }
 
 func (UnimplementedSettingsServiceHandler) GetDatabaseInfo(context.Context, *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error) {

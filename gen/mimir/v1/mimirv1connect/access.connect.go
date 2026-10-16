@@ -53,6 +53,24 @@ const (
 	// AuthServiceChangePasswordProcedure is the fully-qualified name of the AuthService's
 	// ChangePassword RPC.
 	AuthServiceChangePasswordProcedure = "/mimir.v1.AuthService/ChangePassword"
+	// AuthServiceVerifySecondFactorProcedure is the fully-qualified name of the AuthService's
+	// VerifySecondFactor RPC.
+	AuthServiceVerifySecondFactorProcedure = "/mimir.v1.AuthService/VerifySecondFactor"
+	// AuthServiceStartTwoFactorProcedure is the fully-qualified name of the AuthService's
+	// StartTwoFactor RPC.
+	AuthServiceStartTwoFactorProcedure = "/mimir.v1.AuthService/StartTwoFactor"
+	// AuthServiceEnableTwoFactorProcedure is the fully-qualified name of the AuthService's
+	// EnableTwoFactor RPC.
+	AuthServiceEnableTwoFactorProcedure = "/mimir.v1.AuthService/EnableTwoFactor"
+	// AuthServiceDisableTwoFactorProcedure is the fully-qualified name of the AuthService's
+	// DisableTwoFactor RPC.
+	AuthServiceDisableTwoFactorProcedure = "/mimir.v1.AuthService/DisableTwoFactor"
+	// AuthServiceListSessionsProcedure is the fully-qualified name of the AuthService's ListSessions
+	// RPC.
+	AuthServiceListSessionsProcedure = "/mimir.v1.AuthService/ListSessions"
+	// AuthServiceRevokeSessionsProcedure is the fully-qualified name of the AuthService's
+	// RevokeSessions RPC.
+	AuthServiceRevokeSessionsProcedure = "/mimir.v1.AuthService/RevokeSessions"
 	// UserServiceListUsersProcedure is the fully-qualified name of the UserService's ListUsers RPC.
 	UserServiceListUsersProcedure = "/mimir.v1.UserService/ListUsers"
 	// UserServiceCreateUserProcedure is the fully-qualified name of the UserService's CreateUser RPC.
@@ -88,6 +106,17 @@ type AuthServiceClient interface {
 	// WhoAmI returns the caller and what they may do.
 	WhoAmI(context.Context, *connect.Request[v1.WhoAmIRequest]) (*connect.Response[v1.WhoAmIResponse], error)
 	ChangePassword(context.Context, *connect.Request[v1.ChangePasswordRequest]) (*connect.Response[v1.ChangePasswordResponse], error)
+	// VerifySecondFactor finishes a sign-in that SignIn said needs a code.
+	VerifySecondFactor(context.Context, *connect.Request[v1.VerifySecondFactorRequest]) (*connect.Response[v1.VerifySecondFactorResponse], error)
+	// StartTwoFactor makes a fresh authenticator secret for the caller. It
+	// takes effect only once EnableTwoFactor confirms a code from it.
+	StartTwoFactor(context.Context, *connect.Request[v1.StartTwoFactorRequest]) (*connect.Response[v1.StartTwoFactorResponse], error)
+	EnableTwoFactor(context.Context, *connect.Request[v1.EnableTwoFactorRequest]) (*connect.Response[v1.EnableTwoFactorResponse], error)
+	DisableTwoFactor(context.Context, *connect.Request[v1.DisableTwoFactorRequest]) (*connect.Response[v1.DisableTwoFactorResponse], error)
+	// ListSessions shows where the caller is signed in.
+	ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
+	// RevokeSessions signs out one session, or every session but this one.
+	RevokeSessions(context.Context, *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error)
 }
 
 // NewAuthServiceClient constructs a client for the mimir.v1.AuthService service. By default, it
@@ -139,17 +168,60 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(authServiceMethods.ByName("ChangePassword")),
 			connect.WithClientOptions(opts...),
 		),
+		verifySecondFactor: connect.NewClient[v1.VerifySecondFactorRequest, v1.VerifySecondFactorResponse](
+			httpClient,
+			baseURL+AuthServiceVerifySecondFactorProcedure,
+			connect.WithSchema(authServiceMethods.ByName("VerifySecondFactor")),
+			connect.WithClientOptions(opts...),
+		),
+		startTwoFactor: connect.NewClient[v1.StartTwoFactorRequest, v1.StartTwoFactorResponse](
+			httpClient,
+			baseURL+AuthServiceStartTwoFactorProcedure,
+			connect.WithSchema(authServiceMethods.ByName("StartTwoFactor")),
+			connect.WithClientOptions(opts...),
+		),
+		enableTwoFactor: connect.NewClient[v1.EnableTwoFactorRequest, v1.EnableTwoFactorResponse](
+			httpClient,
+			baseURL+AuthServiceEnableTwoFactorProcedure,
+			connect.WithSchema(authServiceMethods.ByName("EnableTwoFactor")),
+			connect.WithClientOptions(opts...),
+		),
+		disableTwoFactor: connect.NewClient[v1.DisableTwoFactorRequest, v1.DisableTwoFactorResponse](
+			httpClient,
+			baseURL+AuthServiceDisableTwoFactorProcedure,
+			connect.WithSchema(authServiceMethods.ByName("DisableTwoFactor")),
+			connect.WithClientOptions(opts...),
+		),
+		listSessions: connect.NewClient[v1.ListSessionsRequest, v1.ListSessionsResponse](
+			httpClient,
+			baseURL+AuthServiceListSessionsProcedure,
+			connect.WithSchema(authServiceMethods.ByName("ListSessions")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		revokeSessions: connect.NewClient[v1.RevokeSessionsRequest, v1.RevokeSessionsResponse](
+			httpClient,
+			baseURL+AuthServiceRevokeSessionsProcedure,
+			connect.WithSchema(authServiceMethods.ByName("RevokeSessions")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // authServiceClient implements AuthServiceClient.
 type authServiceClient struct {
-	getSetupState  *connect.Client[v1.GetSetupStateRequest, v1.GetSetupStateResponse]
-	setup          *connect.Client[v1.SetupRequest, v1.SetupResponse]
-	signIn         *connect.Client[v1.SignInRequest, v1.SignInResponse]
-	signOut        *connect.Client[v1.SignOutRequest, v1.SignOutResponse]
-	whoAmI         *connect.Client[v1.WhoAmIRequest, v1.WhoAmIResponse]
-	changePassword *connect.Client[v1.ChangePasswordRequest, v1.ChangePasswordResponse]
+	getSetupState      *connect.Client[v1.GetSetupStateRequest, v1.GetSetupStateResponse]
+	setup              *connect.Client[v1.SetupRequest, v1.SetupResponse]
+	signIn             *connect.Client[v1.SignInRequest, v1.SignInResponse]
+	signOut            *connect.Client[v1.SignOutRequest, v1.SignOutResponse]
+	whoAmI             *connect.Client[v1.WhoAmIRequest, v1.WhoAmIResponse]
+	changePassword     *connect.Client[v1.ChangePasswordRequest, v1.ChangePasswordResponse]
+	verifySecondFactor *connect.Client[v1.VerifySecondFactorRequest, v1.VerifySecondFactorResponse]
+	startTwoFactor     *connect.Client[v1.StartTwoFactorRequest, v1.StartTwoFactorResponse]
+	enableTwoFactor    *connect.Client[v1.EnableTwoFactorRequest, v1.EnableTwoFactorResponse]
+	disableTwoFactor   *connect.Client[v1.DisableTwoFactorRequest, v1.DisableTwoFactorResponse]
+	listSessions       *connect.Client[v1.ListSessionsRequest, v1.ListSessionsResponse]
+	revokeSessions     *connect.Client[v1.RevokeSessionsRequest, v1.RevokeSessionsResponse]
 }
 
 // GetSetupState calls mimir.v1.AuthService.GetSetupState.
@@ -182,6 +254,36 @@ func (c *authServiceClient) ChangePassword(ctx context.Context, req *connect.Req
 	return c.changePassword.CallUnary(ctx, req)
 }
 
+// VerifySecondFactor calls mimir.v1.AuthService.VerifySecondFactor.
+func (c *authServiceClient) VerifySecondFactor(ctx context.Context, req *connect.Request[v1.VerifySecondFactorRequest]) (*connect.Response[v1.VerifySecondFactorResponse], error) {
+	return c.verifySecondFactor.CallUnary(ctx, req)
+}
+
+// StartTwoFactor calls mimir.v1.AuthService.StartTwoFactor.
+func (c *authServiceClient) StartTwoFactor(ctx context.Context, req *connect.Request[v1.StartTwoFactorRequest]) (*connect.Response[v1.StartTwoFactorResponse], error) {
+	return c.startTwoFactor.CallUnary(ctx, req)
+}
+
+// EnableTwoFactor calls mimir.v1.AuthService.EnableTwoFactor.
+func (c *authServiceClient) EnableTwoFactor(ctx context.Context, req *connect.Request[v1.EnableTwoFactorRequest]) (*connect.Response[v1.EnableTwoFactorResponse], error) {
+	return c.enableTwoFactor.CallUnary(ctx, req)
+}
+
+// DisableTwoFactor calls mimir.v1.AuthService.DisableTwoFactor.
+func (c *authServiceClient) DisableTwoFactor(ctx context.Context, req *connect.Request[v1.DisableTwoFactorRequest]) (*connect.Response[v1.DisableTwoFactorResponse], error) {
+	return c.disableTwoFactor.CallUnary(ctx, req)
+}
+
+// ListSessions calls mimir.v1.AuthService.ListSessions.
+func (c *authServiceClient) ListSessions(ctx context.Context, req *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error) {
+	return c.listSessions.CallUnary(ctx, req)
+}
+
+// RevokeSessions calls mimir.v1.AuthService.RevokeSessions.
+func (c *authServiceClient) RevokeSessions(ctx context.Context, req *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error) {
+	return c.revokeSessions.CallUnary(ctx, req)
+}
+
 // AuthServiceHandler is an implementation of the mimir.v1.AuthService service.
 type AuthServiceHandler interface {
 	// GetSetupState says whether the server still needs its first owner.
@@ -195,6 +297,17 @@ type AuthServiceHandler interface {
 	// WhoAmI returns the caller and what they may do.
 	WhoAmI(context.Context, *connect.Request[v1.WhoAmIRequest]) (*connect.Response[v1.WhoAmIResponse], error)
 	ChangePassword(context.Context, *connect.Request[v1.ChangePasswordRequest]) (*connect.Response[v1.ChangePasswordResponse], error)
+	// VerifySecondFactor finishes a sign-in that SignIn said needs a code.
+	VerifySecondFactor(context.Context, *connect.Request[v1.VerifySecondFactorRequest]) (*connect.Response[v1.VerifySecondFactorResponse], error)
+	// StartTwoFactor makes a fresh authenticator secret for the caller. It
+	// takes effect only once EnableTwoFactor confirms a code from it.
+	StartTwoFactor(context.Context, *connect.Request[v1.StartTwoFactorRequest]) (*connect.Response[v1.StartTwoFactorResponse], error)
+	EnableTwoFactor(context.Context, *connect.Request[v1.EnableTwoFactorRequest]) (*connect.Response[v1.EnableTwoFactorResponse], error)
+	DisableTwoFactor(context.Context, *connect.Request[v1.DisableTwoFactorRequest]) (*connect.Response[v1.DisableTwoFactorResponse], error)
+	// ListSessions shows where the caller is signed in.
+	ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
+	// RevokeSessions signs out one session, or every session but this one.
+	RevokeSessions(context.Context, *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error)
 }
 
 // NewAuthServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -242,6 +355,43 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(authServiceMethods.ByName("ChangePassword")),
 		connect.WithHandlerOptions(opts...),
 	)
+	authServiceVerifySecondFactorHandler := connect.NewUnaryHandler(
+		AuthServiceVerifySecondFactorProcedure,
+		svc.VerifySecondFactor,
+		connect.WithSchema(authServiceMethods.ByName("VerifySecondFactor")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceStartTwoFactorHandler := connect.NewUnaryHandler(
+		AuthServiceStartTwoFactorProcedure,
+		svc.StartTwoFactor,
+		connect.WithSchema(authServiceMethods.ByName("StartTwoFactor")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceEnableTwoFactorHandler := connect.NewUnaryHandler(
+		AuthServiceEnableTwoFactorProcedure,
+		svc.EnableTwoFactor,
+		connect.WithSchema(authServiceMethods.ByName("EnableTwoFactor")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceDisableTwoFactorHandler := connect.NewUnaryHandler(
+		AuthServiceDisableTwoFactorProcedure,
+		svc.DisableTwoFactor,
+		connect.WithSchema(authServiceMethods.ByName("DisableTwoFactor")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceListSessionsHandler := connect.NewUnaryHandler(
+		AuthServiceListSessionsProcedure,
+		svc.ListSessions,
+		connect.WithSchema(authServiceMethods.ByName("ListSessions")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceRevokeSessionsHandler := connect.NewUnaryHandler(
+		AuthServiceRevokeSessionsProcedure,
+		svc.RevokeSessions,
+		connect.WithSchema(authServiceMethods.ByName("RevokeSessions")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.AuthService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AuthServiceGetSetupStateProcedure:
@@ -256,6 +406,18 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 			authServiceWhoAmIHandler.ServeHTTP(w, r)
 		case AuthServiceChangePasswordProcedure:
 			authServiceChangePasswordHandler.ServeHTTP(w, r)
+		case AuthServiceVerifySecondFactorProcedure:
+			authServiceVerifySecondFactorHandler.ServeHTTP(w, r)
+		case AuthServiceStartTwoFactorProcedure:
+			authServiceStartTwoFactorHandler.ServeHTTP(w, r)
+		case AuthServiceEnableTwoFactorProcedure:
+			authServiceEnableTwoFactorHandler.ServeHTTP(w, r)
+		case AuthServiceDisableTwoFactorProcedure:
+			authServiceDisableTwoFactorHandler.ServeHTTP(w, r)
+		case AuthServiceListSessionsProcedure:
+			authServiceListSessionsHandler.ServeHTTP(w, r)
+		case AuthServiceRevokeSessionsProcedure:
+			authServiceRevokeSessionsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -287,6 +449,30 @@ func (UnimplementedAuthServiceHandler) WhoAmI(context.Context, *connect.Request[
 
 func (UnimplementedAuthServiceHandler) ChangePassword(context.Context, *connect.Request[v1.ChangePasswordRequest]) (*connect.Response[v1.ChangePasswordResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.AuthService.ChangePassword is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) VerifySecondFactor(context.Context, *connect.Request[v1.VerifySecondFactorRequest]) (*connect.Response[v1.VerifySecondFactorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.AuthService.VerifySecondFactor is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) StartTwoFactor(context.Context, *connect.Request[v1.StartTwoFactorRequest]) (*connect.Response[v1.StartTwoFactorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.AuthService.StartTwoFactor is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) EnableTwoFactor(context.Context, *connect.Request[v1.EnableTwoFactorRequest]) (*connect.Response[v1.EnableTwoFactorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.AuthService.EnableTwoFactor is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) DisableTwoFactor(context.Context, *connect.Request[v1.DisableTwoFactorRequest]) (*connect.Response[v1.DisableTwoFactorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.AuthService.DisableTwoFactor is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.AuthService.ListSessions is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) RevokeSessions(context.Context, *connect.Request[v1.RevokeSessionsRequest]) (*connect.Response[v1.RevokeSessionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.AuthService.RevokeSessions is not implemented"))
 }
 
 // UserServiceClient is a client for the mimir.v1.UserService service.

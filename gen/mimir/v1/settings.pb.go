@@ -22,6 +22,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type TwoFactorPolicy int32
+
+const (
+	TwoFactorPolicy_TWO_FACTOR_POLICY_UNSPECIFIED TwoFactorPolicy = 0
+	// OPTIONAL lets each person decide.
+	TwoFactorPolicy_TWO_FACTOR_POLICY_OPTIONAL TwoFactorPolicy = 1
+	// ADMINS requires it for admins and owners.
+	TwoFactorPolicy_TWO_FACTOR_POLICY_ADMINS TwoFactorPolicy = 2
+	// EVERYONE requires it for every account.
+	TwoFactorPolicy_TWO_FACTOR_POLICY_EVERYONE TwoFactorPolicy = 3
+)
+
+// Enum value maps for TwoFactorPolicy.
+var (
+	TwoFactorPolicy_name = map[int32]string{
+		0: "TWO_FACTOR_POLICY_UNSPECIFIED",
+		1: "TWO_FACTOR_POLICY_OPTIONAL",
+		2: "TWO_FACTOR_POLICY_ADMINS",
+		3: "TWO_FACTOR_POLICY_EVERYONE",
+	}
+	TwoFactorPolicy_value = map[string]int32{
+		"TWO_FACTOR_POLICY_UNSPECIFIED": 0,
+		"TWO_FACTOR_POLICY_OPTIONAL":    1,
+		"TWO_FACTOR_POLICY_ADMINS":      2,
+		"TWO_FACTOR_POLICY_EVERYONE":    3,
+	}
+)
+
+func (x TwoFactorPolicy) Enum() *TwoFactorPolicy {
+	p := new(TwoFactorPolicy)
+	*p = x
+	return p
+}
+
+func (x TwoFactorPolicy) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TwoFactorPolicy) Descriptor() protoreflect.EnumDescriptor {
+	return file_mimir_v1_settings_proto_enumTypes[0].Descriptor()
+}
+
+func (TwoFactorPolicy) Type() protoreflect.EnumType {
+	return &file_mimir_v1_settings_proto_enumTypes[0]
+}
+
+func (x TwoFactorPolicy) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TwoFactorPolicy.Descriptor instead.
+func (TwoFactorPolicy) EnumDescriptor() ([]byte, []int) {
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{0}
+}
+
 // EmailAlerts sends alerts through an SMTP server. The password is never
 // returned; password_set says whether one is stored.
 type EmailAlerts struct {
@@ -291,6 +346,7 @@ type GetSettingsResponse struct {
 	Email         *EmailAlerts           `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
 	Telegram      *TelegramAlerts        `protobuf:"bytes,2,opt,name=telegram,proto3" json:"telegram,omitempty"`
 	Retention     *Retention             `protobuf:"bytes,3,opt,name=retention,proto3" json:"retention,omitempty"`
+	Security      *Security              `protobuf:"bytes,4,opt,name=security,proto3" json:"security,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -346,6 +402,146 @@ func (x *GetSettingsResponse) GetRetention() *Retention {
 	return nil
 }
 
+func (x *GetSettingsResponse) GetSecurity() *Security {
+	if x != nil {
+		return x.Security
+	}
+	return nil
+}
+
+// Security says who must use two-step verification.
+type Security struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TwoFactor     TwoFactorPolicy        `protobuf:"varint,1,opt,name=two_factor,json=twoFactor,proto3,enum=mimir.v1.TwoFactorPolicy" json:"two_factor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Security) Reset() {
+	*x = Security{}
+	mi := &file_mimir_v1_settings_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Security) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Security) ProtoMessage() {}
+
+func (x *Security) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_settings_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Security.ProtoReflect.Descriptor instead.
+func (*Security) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Security) GetTwoFactor() TwoFactorPolicy {
+	if x != nil {
+		return x.TwoFactor
+	}
+	return TwoFactorPolicy_TWO_FACTOR_POLICY_UNSPECIFIED
+}
+
+type UpdateSecurityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Security      *Security              `protobuf:"bytes,1,opt,name=security,proto3" json:"security,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateSecurityRequest) Reset() {
+	*x = UpdateSecurityRequest{}
+	mi := &file_mimir_v1_settings_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateSecurityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateSecurityRequest) ProtoMessage() {}
+
+func (x *UpdateSecurityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_settings_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateSecurityRequest.ProtoReflect.Descriptor instead.
+func (*UpdateSecurityRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *UpdateSecurityRequest) GetSecurity() *Security {
+	if x != nil {
+		return x.Security
+	}
+	return nil
+}
+
+type UpdateSecurityResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Security      *Security              `protobuf:"bytes,1,opt,name=security,proto3" json:"security,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateSecurityResponse) Reset() {
+	*x = UpdateSecurityResponse{}
+	mi := &file_mimir_v1_settings_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateSecurityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateSecurityResponse) ProtoMessage() {}
+
+func (x *UpdateSecurityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_settings_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateSecurityResponse.ProtoReflect.Descriptor instead.
+func (*UpdateSecurityResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *UpdateSecurityResponse) GetSecurity() *Security {
+	if x != nil {
+		return x.Security
+	}
+	return nil
+}
+
 type UpdateAlertsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Email         *EmailAlerts           `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
@@ -356,7 +552,7 @@ type UpdateAlertsRequest struct {
 
 func (x *UpdateAlertsRequest) Reset() {
 	*x = UpdateAlertsRequest{}
-	mi := &file_mimir_v1_settings_proto_msgTypes[5]
+	mi := &file_mimir_v1_settings_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -368,7 +564,7 @@ func (x *UpdateAlertsRequest) String() string {
 func (*UpdateAlertsRequest) ProtoMessage() {}
 
 func (x *UpdateAlertsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_settings_proto_msgTypes[5]
+	mi := &file_mimir_v1_settings_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -381,7 +577,7 @@ func (x *UpdateAlertsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAlertsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAlertsRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{5}
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateAlertsRequest) GetEmail() *EmailAlerts {
@@ -408,7 +604,7 @@ type UpdateAlertsResponse struct {
 
 func (x *UpdateAlertsResponse) Reset() {
 	*x = UpdateAlertsResponse{}
-	mi := &file_mimir_v1_settings_proto_msgTypes[6]
+	mi := &file_mimir_v1_settings_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -420,7 +616,7 @@ func (x *UpdateAlertsResponse) String() string {
 func (*UpdateAlertsResponse) ProtoMessage() {}
 
 func (x *UpdateAlertsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_settings_proto_msgTypes[6]
+	mi := &file_mimir_v1_settings_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -433,7 +629,7 @@ func (x *UpdateAlertsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAlertsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateAlertsResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{6}
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UpdateAlertsResponse) GetEmail() *EmailAlerts {
@@ -460,7 +656,7 @@ type SendTestAlertRequest struct {
 
 func (x *SendTestAlertRequest) Reset() {
 	*x = SendTestAlertRequest{}
-	mi := &file_mimir_v1_settings_proto_msgTypes[7]
+	mi := &file_mimir_v1_settings_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -472,7 +668,7 @@ func (x *SendTestAlertRequest) String() string {
 func (*SendTestAlertRequest) ProtoMessage() {}
 
 func (x *SendTestAlertRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_settings_proto_msgTypes[7]
+	mi := &file_mimir_v1_settings_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -485,7 +681,7 @@ func (x *SendTestAlertRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendTestAlertRequest.ProtoReflect.Descriptor instead.
 func (*SendTestAlertRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{7}
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SendTestAlertRequest) GetChannel() string {
@@ -503,7 +699,7 @@ type SendTestAlertResponse struct {
 
 func (x *SendTestAlertResponse) Reset() {
 	*x = SendTestAlertResponse{}
-	mi := &file_mimir_v1_settings_proto_msgTypes[8]
+	mi := &file_mimir_v1_settings_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -515,7 +711,7 @@ func (x *SendTestAlertResponse) String() string {
 func (*SendTestAlertResponse) ProtoMessage() {}
 
 func (x *SendTestAlertResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_settings_proto_msgTypes[8]
+	mi := &file_mimir_v1_settings_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -528,7 +724,7 @@ func (x *SendTestAlertResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendTestAlertResponse.ProtoReflect.Descriptor instead.
 func (*SendTestAlertResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{8}
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{11}
 }
 
 type UpdateRetentionRequest struct {
@@ -540,7 +736,7 @@ type UpdateRetentionRequest struct {
 
 func (x *UpdateRetentionRequest) Reset() {
 	*x = UpdateRetentionRequest{}
-	mi := &file_mimir_v1_settings_proto_msgTypes[9]
+	mi := &file_mimir_v1_settings_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -552,7 +748,7 @@ func (x *UpdateRetentionRequest) String() string {
 func (*UpdateRetentionRequest) ProtoMessage() {}
 
 func (x *UpdateRetentionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_settings_proto_msgTypes[9]
+	mi := &file_mimir_v1_settings_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -565,7 +761,7 @@ func (x *UpdateRetentionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRetentionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRetentionRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{9}
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateRetentionRequest) GetRetention() *Retention {
@@ -584,7 +780,7 @@ type UpdateRetentionResponse struct {
 
 func (x *UpdateRetentionResponse) Reset() {
 	*x = UpdateRetentionResponse{}
-	mi := &file_mimir_v1_settings_proto_msgTypes[10]
+	mi := &file_mimir_v1_settings_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -596,7 +792,7 @@ func (x *UpdateRetentionResponse) String() string {
 func (*UpdateRetentionResponse) ProtoMessage() {}
 
 func (x *UpdateRetentionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_settings_proto_msgTypes[10]
+	mi := &file_mimir_v1_settings_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -609,7 +805,7 @@ func (x *UpdateRetentionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRetentionResponse.ProtoReflect.Descriptor instead.
 func (*UpdateRetentionResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{10}
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateRetentionResponse) GetRetention() *Retention {
@@ -627,7 +823,7 @@ type GetDatabaseInfoRequest struct {
 
 func (x *GetDatabaseInfoRequest) Reset() {
 	*x = GetDatabaseInfoRequest{}
-	mi := &file_mimir_v1_settings_proto_msgTypes[11]
+	mi := &file_mimir_v1_settings_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -639,7 +835,7 @@ func (x *GetDatabaseInfoRequest) String() string {
 func (*GetDatabaseInfoRequest) ProtoMessage() {}
 
 func (x *GetDatabaseInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_settings_proto_msgTypes[11]
+	mi := &file_mimir_v1_settings_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -652,7 +848,7 @@ func (x *GetDatabaseInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDatabaseInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetDatabaseInfoRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{11}
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{14}
 }
 
 type GetDatabaseInfoResponse struct {
@@ -676,7 +872,7 @@ type GetDatabaseInfoResponse struct {
 
 func (x *GetDatabaseInfoResponse) Reset() {
 	*x = GetDatabaseInfoResponse{}
-	mi := &file_mimir_v1_settings_proto_msgTypes[12]
+	mi := &file_mimir_v1_settings_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -688,7 +884,7 @@ func (x *GetDatabaseInfoResponse) String() string {
 func (*GetDatabaseInfoResponse) ProtoMessage() {}
 
 func (x *GetDatabaseInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_settings_proto_msgTypes[12]
+	mi := &file_mimir_v1_settings_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -701,7 +897,7 @@ func (x *GetDatabaseInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDatabaseInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetDatabaseInfoResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{12}
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetDatabaseInfoResponse) GetKind() string {
@@ -804,11 +1000,19 @@ const file_mimir_v1_settings_proto_rawDesc = "" +
 	"\n" +
 	"audit_days\x18\x01 \x01(\x05R\tauditDays\x12#\n" +
 	"\rdelivery_days\x18\x02 \x01(\x05R\fdeliveryDays\"\x14\n" +
-	"\x12GetSettingsRequest\"\xab\x01\n" +
+	"\x12GetSettingsRequest\"\xdb\x01\n" +
 	"\x13GetSettingsResponse\x12+\n" +
 	"\x05email\x18\x01 \x01(\v2\x15.mimir.v1.EmailAlertsR\x05email\x124\n" +
 	"\btelegram\x18\x02 \x01(\v2\x18.mimir.v1.TelegramAlertsR\btelegram\x121\n" +
-	"\tretention\x18\x03 \x01(\v2\x13.mimir.v1.RetentionR\tretention\"x\n" +
+	"\tretention\x18\x03 \x01(\v2\x13.mimir.v1.RetentionR\tretention\x12.\n" +
+	"\bsecurity\x18\x04 \x01(\v2\x12.mimir.v1.SecurityR\bsecurity\"D\n" +
+	"\bSecurity\x128\n" +
+	"\n" +
+	"two_factor\x18\x01 \x01(\x0e2\x19.mimir.v1.TwoFactorPolicyR\ttwoFactor\"G\n" +
+	"\x15UpdateSecurityRequest\x12.\n" +
+	"\bsecurity\x18\x01 \x01(\v2\x12.mimir.v1.SecurityR\bsecurity\"H\n" +
+	"\x16UpdateSecurityResponse\x12.\n" +
+	"\bsecurity\x18\x01 \x01(\v2\x12.mimir.v1.SecurityR\bsecurity\"x\n" +
 	"\x13UpdateAlertsRequest\x12+\n" +
 	"\x05email\x18\x01 \x01(\v2\x15.mimir.v1.EmailAlertsR\x05email\x124\n" +
 	"\btelegram\x18\x02 \x01(\v2\x18.mimir.v1.TelegramAlertsR\btelegram\"y\n" +
@@ -838,12 +1042,18 @@ const file_mimir_v1_settings_proto_rawDesc = "" +
 	"deliveries\x12@\n" +
 	"\x0elast_trim_time\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\flastTrimTime\x12$\n" +
-	"\x0elast_trim_rows\x18\v \x01(\x03R\flastTrimRows2\xb8\x03\n" +
+	"\x0elast_trim_rows\x18\v \x01(\x03R\flastTrimRows*\x92\x01\n" +
+	"\x0fTwoFactorPolicy\x12!\n" +
+	"\x1dTWO_FACTOR_POLICY_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aTWO_FACTOR_POLICY_OPTIONAL\x10\x01\x12\x1c\n" +
+	"\x18TWO_FACTOR_POLICY_ADMINS\x10\x02\x12\x1e\n" +
+	"\x1aTWO_FACTOR_POLICY_EVERYONE\x10\x032\x8d\x04\n" +
 	"\x0fSettingsService\x12O\n" +
 	"\vGetSettings\x12\x1c.mimir.v1.GetSettingsRequest\x1a\x1d.mimir.v1.GetSettingsResponse\"\x03\x90\x02\x01\x12M\n" +
 	"\fUpdateAlerts\x12\x1d.mimir.v1.UpdateAlertsRequest\x1a\x1e.mimir.v1.UpdateAlertsResponse\x12P\n" +
 	"\rSendTestAlert\x12\x1e.mimir.v1.SendTestAlertRequest\x1a\x1f.mimir.v1.SendTestAlertResponse\x12V\n" +
-	"\x0fUpdateRetention\x12 .mimir.v1.UpdateRetentionRequest\x1a!.mimir.v1.UpdateRetentionResponse\x12[\n" +
+	"\x0fUpdateRetention\x12 .mimir.v1.UpdateRetentionRequest\x1a!.mimir.v1.UpdateRetentionResponse\x12S\n" +
+	"\x0eUpdateSecurity\x12\x1f.mimir.v1.UpdateSecurityRequest\x1a .mimir.v1.UpdateSecurityResponse\x12[\n" +
 	"\x0fGetDatabaseInfo\x12 .mimir.v1.GetDatabaseInfoRequest\x1a!.mimir.v1.GetDatabaseInfoResponse\"\x03\x90\x02\x01B7Z5github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1b\x06proto3"
 
 var (
@@ -858,49 +1068,60 @@ func file_mimir_v1_settings_proto_rawDescGZIP() []byte {
 	return file_mimir_v1_settings_proto_rawDescData
 }
 
-var file_mimir_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_mimir_v1_settings_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_mimir_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_mimir_v1_settings_proto_goTypes = []any{
-	(*EmailAlerts)(nil),             // 0: mimir.v1.EmailAlerts
-	(*TelegramAlerts)(nil),          // 1: mimir.v1.TelegramAlerts
-	(*Retention)(nil),               // 2: mimir.v1.Retention
-	(*GetSettingsRequest)(nil),      // 3: mimir.v1.GetSettingsRequest
-	(*GetSettingsResponse)(nil),     // 4: mimir.v1.GetSettingsResponse
-	(*UpdateAlertsRequest)(nil),     // 5: mimir.v1.UpdateAlertsRequest
-	(*UpdateAlertsResponse)(nil),    // 6: mimir.v1.UpdateAlertsResponse
-	(*SendTestAlertRequest)(nil),    // 7: mimir.v1.SendTestAlertRequest
-	(*SendTestAlertResponse)(nil),   // 8: mimir.v1.SendTestAlertResponse
-	(*UpdateRetentionRequest)(nil),  // 9: mimir.v1.UpdateRetentionRequest
-	(*UpdateRetentionResponse)(nil), // 10: mimir.v1.UpdateRetentionResponse
-	(*GetDatabaseInfoRequest)(nil),  // 11: mimir.v1.GetDatabaseInfoRequest
-	(*GetDatabaseInfoResponse)(nil), // 12: mimir.v1.GetDatabaseInfoResponse
-	(*timestamppb.Timestamp)(nil),   // 13: google.protobuf.Timestamp
+	(TwoFactorPolicy)(0),            // 0: mimir.v1.TwoFactorPolicy
+	(*EmailAlerts)(nil),             // 1: mimir.v1.EmailAlerts
+	(*TelegramAlerts)(nil),          // 2: mimir.v1.TelegramAlerts
+	(*Retention)(nil),               // 3: mimir.v1.Retention
+	(*GetSettingsRequest)(nil),      // 4: mimir.v1.GetSettingsRequest
+	(*GetSettingsResponse)(nil),     // 5: mimir.v1.GetSettingsResponse
+	(*Security)(nil),                // 6: mimir.v1.Security
+	(*UpdateSecurityRequest)(nil),   // 7: mimir.v1.UpdateSecurityRequest
+	(*UpdateSecurityResponse)(nil),  // 8: mimir.v1.UpdateSecurityResponse
+	(*UpdateAlertsRequest)(nil),     // 9: mimir.v1.UpdateAlertsRequest
+	(*UpdateAlertsResponse)(nil),    // 10: mimir.v1.UpdateAlertsResponse
+	(*SendTestAlertRequest)(nil),    // 11: mimir.v1.SendTestAlertRequest
+	(*SendTestAlertResponse)(nil),   // 12: mimir.v1.SendTestAlertResponse
+	(*UpdateRetentionRequest)(nil),  // 13: mimir.v1.UpdateRetentionRequest
+	(*UpdateRetentionResponse)(nil), // 14: mimir.v1.UpdateRetentionResponse
+	(*GetDatabaseInfoRequest)(nil),  // 15: mimir.v1.GetDatabaseInfoRequest
+	(*GetDatabaseInfoResponse)(nil), // 16: mimir.v1.GetDatabaseInfoResponse
+	(*timestamppb.Timestamp)(nil),   // 17: google.protobuf.Timestamp
 }
 var file_mimir_v1_settings_proto_depIdxs = []int32{
-	0,  // 0: mimir.v1.GetSettingsResponse.email:type_name -> mimir.v1.EmailAlerts
-	1,  // 1: mimir.v1.GetSettingsResponse.telegram:type_name -> mimir.v1.TelegramAlerts
-	2,  // 2: mimir.v1.GetSettingsResponse.retention:type_name -> mimir.v1.Retention
-	0,  // 3: mimir.v1.UpdateAlertsRequest.email:type_name -> mimir.v1.EmailAlerts
-	1,  // 4: mimir.v1.UpdateAlertsRequest.telegram:type_name -> mimir.v1.TelegramAlerts
-	0,  // 5: mimir.v1.UpdateAlertsResponse.email:type_name -> mimir.v1.EmailAlerts
-	1,  // 6: mimir.v1.UpdateAlertsResponse.telegram:type_name -> mimir.v1.TelegramAlerts
-	2,  // 7: mimir.v1.UpdateRetentionRequest.retention:type_name -> mimir.v1.Retention
-	2,  // 8: mimir.v1.UpdateRetentionResponse.retention:type_name -> mimir.v1.Retention
-	13, // 9: mimir.v1.GetDatabaseInfoResponse.last_trim_time:type_name -> google.protobuf.Timestamp
-	3,  // 10: mimir.v1.SettingsService.GetSettings:input_type -> mimir.v1.GetSettingsRequest
-	5,  // 11: mimir.v1.SettingsService.UpdateAlerts:input_type -> mimir.v1.UpdateAlertsRequest
-	7,  // 12: mimir.v1.SettingsService.SendTestAlert:input_type -> mimir.v1.SendTestAlertRequest
-	9,  // 13: mimir.v1.SettingsService.UpdateRetention:input_type -> mimir.v1.UpdateRetentionRequest
-	11, // 14: mimir.v1.SettingsService.GetDatabaseInfo:input_type -> mimir.v1.GetDatabaseInfoRequest
-	4,  // 15: mimir.v1.SettingsService.GetSettings:output_type -> mimir.v1.GetSettingsResponse
-	6,  // 16: mimir.v1.SettingsService.UpdateAlerts:output_type -> mimir.v1.UpdateAlertsResponse
-	8,  // 17: mimir.v1.SettingsService.SendTestAlert:output_type -> mimir.v1.SendTestAlertResponse
-	10, // 18: mimir.v1.SettingsService.UpdateRetention:output_type -> mimir.v1.UpdateRetentionResponse
-	12, // 19: mimir.v1.SettingsService.GetDatabaseInfo:output_type -> mimir.v1.GetDatabaseInfoResponse
-	15, // [15:20] is the sub-list for method output_type
-	10, // [10:15] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	1,  // 0: mimir.v1.GetSettingsResponse.email:type_name -> mimir.v1.EmailAlerts
+	2,  // 1: mimir.v1.GetSettingsResponse.telegram:type_name -> mimir.v1.TelegramAlerts
+	3,  // 2: mimir.v1.GetSettingsResponse.retention:type_name -> mimir.v1.Retention
+	6,  // 3: mimir.v1.GetSettingsResponse.security:type_name -> mimir.v1.Security
+	0,  // 4: mimir.v1.Security.two_factor:type_name -> mimir.v1.TwoFactorPolicy
+	6,  // 5: mimir.v1.UpdateSecurityRequest.security:type_name -> mimir.v1.Security
+	6,  // 6: mimir.v1.UpdateSecurityResponse.security:type_name -> mimir.v1.Security
+	1,  // 7: mimir.v1.UpdateAlertsRequest.email:type_name -> mimir.v1.EmailAlerts
+	2,  // 8: mimir.v1.UpdateAlertsRequest.telegram:type_name -> mimir.v1.TelegramAlerts
+	1,  // 9: mimir.v1.UpdateAlertsResponse.email:type_name -> mimir.v1.EmailAlerts
+	2,  // 10: mimir.v1.UpdateAlertsResponse.telegram:type_name -> mimir.v1.TelegramAlerts
+	3,  // 11: mimir.v1.UpdateRetentionRequest.retention:type_name -> mimir.v1.Retention
+	3,  // 12: mimir.v1.UpdateRetentionResponse.retention:type_name -> mimir.v1.Retention
+	17, // 13: mimir.v1.GetDatabaseInfoResponse.last_trim_time:type_name -> google.protobuf.Timestamp
+	4,  // 14: mimir.v1.SettingsService.GetSettings:input_type -> mimir.v1.GetSettingsRequest
+	9,  // 15: mimir.v1.SettingsService.UpdateAlerts:input_type -> mimir.v1.UpdateAlertsRequest
+	11, // 16: mimir.v1.SettingsService.SendTestAlert:input_type -> mimir.v1.SendTestAlertRequest
+	13, // 17: mimir.v1.SettingsService.UpdateRetention:input_type -> mimir.v1.UpdateRetentionRequest
+	7,  // 18: mimir.v1.SettingsService.UpdateSecurity:input_type -> mimir.v1.UpdateSecurityRequest
+	15, // 19: mimir.v1.SettingsService.GetDatabaseInfo:input_type -> mimir.v1.GetDatabaseInfoRequest
+	5,  // 20: mimir.v1.SettingsService.GetSettings:output_type -> mimir.v1.GetSettingsResponse
+	10, // 21: mimir.v1.SettingsService.UpdateAlerts:output_type -> mimir.v1.UpdateAlertsResponse
+	12, // 22: mimir.v1.SettingsService.SendTestAlert:output_type -> mimir.v1.SendTestAlertResponse
+	14, // 23: mimir.v1.SettingsService.UpdateRetention:output_type -> mimir.v1.UpdateRetentionResponse
+	8,  // 24: mimir.v1.SettingsService.UpdateSecurity:output_type -> mimir.v1.UpdateSecurityResponse
+	16, // 25: mimir.v1.SettingsService.GetDatabaseInfo:output_type -> mimir.v1.GetDatabaseInfoResponse
+	20, // [20:26] is the sub-list for method output_type
+	14, // [14:20] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_settings_proto_init() }
@@ -913,13 +1134,14 @@ func file_mimir_v1_settings_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_settings_proto_rawDesc), len(file_mimir_v1_settings_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   13,
+			NumEnums:      1,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_mimir_v1_settings_proto_goTypes,
 		DependencyIndexes: file_mimir_v1_settings_proto_depIdxs,
+		EnumInfos:         file_mimir_v1_settings_proto_enumTypes,
 		MessageInfos:      file_mimir_v1_settings_proto_msgTypes,
 	}.Build()
 	File_mimir_v1_settings_proto = out.File

@@ -34,7 +34,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 
 	// Every RPC goes through the auth interceptor, which signs callers in
 	// from their cookie or API key and checks the procedure's permission.
-	guard := connect.WithInterceptors(auth.Interceptor(st))
+	guard := connect.WithInterceptors(auth.Interceptor(st, svc.MustEnroll))
 	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
 	mux.Handle(mimirv1connect.NewPredictServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewAuthServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
@@ -56,15 +56,38 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	)))
 	mux.Handle("/", uiHandler(ui))
 
-	return logRequests(mux, log)
+	return logRequests(harden(mux), log)
+}
+
+// harden refuses cross-site requests that carry a session cookie and adds
+// the response headers that keep the UI from being framed or sniffed.
+// Connect's JSON calls already need a CORS preflight that no other site
+// passes; this is the second lock on the same door.
+func harden(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "same-origin")
+		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
+		if strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		if auth.SessionToken(r.Header) != "" && !auth.SameOrigin(r.Header, r.Host) {
+			http.Error(w, "Cross-site requests can't use your sign-in.", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // backupHandler streams a consistent copy of the database to an admin.
 // It's a plain download rather than an RPC so the browser can save it.
 func backupHandler(st *store.Store, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, err := auth.Authenticate(r.Context(), st, r.Header)
-		if err != nil || p == nil || !p.Can(auth.SettingsManage) {
+		p, err := auth.Authenticate(r.Context(), st, r.Header, r.RemoteAddr)
+		if err != nil || p == nil || p.Session == nil || p.Session.Pending || !p.Can(auth.SettingsManage) {
 			http.Error(w, "Sign in as an admin to download a backup.", http.StatusForbidden)
 			return
 		}

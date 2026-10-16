@@ -1,6 +1,6 @@
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Group, NumberInput, PasswordInput, SimpleGrid, Stack, Switch, Table, Tabs, TagsInput, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Group, NumberInput, PasswordInput, Radio, SimpleGrid, Stack, Switch, Table, Tabs, TagsInput, Text, TextInput, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconDownload } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseInfiniteQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -9,13 +9,14 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { message } from "../../api/client";
-import { SettingsService } from "../../api/gen/mimir/v1/settings_pb";
-import { allSettingsQueries, auditLog, databaseInfo, settings } from "../../api/queries";
+import { SettingsService, TwoFactorPolicy } from "../../api/gen/mimir/v1/settings_pb";
+import { allSettingsQueries, auditLog, databaseInfo, settings, whoAmI } from "../../api/queries";
+import { AnchorLink } from "../../components/links";
 import { Page } from "../../components/Page";
 import { ago, bytes } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/settings")({
-  validateSearch: z.object({ tab: z.enum(["audit", "database", "alerts", "retention"]).optional() }),
+  validateSearch: z.object({ tab: z.enum(["audit", "database", "alerts", "retention", "security"]).optional() }),
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureInfiniteQueryData(auditLog),
     context.queryClient.ensureQueryData(settings),
@@ -35,11 +36,13 @@ function Settings() {
           <Tabs.Tab value="database">Database</Tabs.Tab>
           <Tabs.Tab value="alerts">Alerts</Tabs.Tab>
           <Tabs.Tab value="retention">Log retention</Tabs.Tab>
+          <Tabs.Tab value="security">Security</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="audit" pt="md"><AuditLog /></Tabs.Panel>
         <Tabs.Panel value="database" pt="md"><Database /></Tabs.Panel>
         <Tabs.Panel value="alerts" pt="md"><Alerts /></Tabs.Panel>
         <Tabs.Panel value="retention" pt="md"><Retention /></Tabs.Panel>
+        <Tabs.Panel value="security" pt="md"><SecurityPolicy /></Tabs.Panel>
       </Tabs>
     </Page>
   );
@@ -165,6 +168,36 @@ function Retention() {
   );
 }
 
+function SecurityPolicy() {
+  const { data } = useSuspenseQuery(settings);
+  const { data: me } = useSuspenseQuery(whoAmI);
+  const queryClient = useQueryClient();
+  const [policy, setPolicy] = useState(String(data.security?.twoFactor || TwoFactorPolicy.OPTIONAL));
+  const save = useMutation(SettingsService.method.updateSecurity, {
+    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: allSettingsQueries }); notifications.show({ color: "teal", message: "Security settings saved." }); },
+  });
+  return (
+    <Card withBorder radius="lg" padding="lg" className="max-w-xl">
+      <form onSubmit={(e) => { e.preventDefault(); save.mutate({ security: { twoFactor: Number(policy) as TwoFactorPolicy } }); }}>
+        <Stack>
+          <Radio.Group label="Who must use two-step verification" description="People without it set up can only do that until it's on. API keys keep working." value={policy} onChange={setPolicy}>
+            <Stack gap="xs" mt="xs">
+              <Radio value={String(TwoFactorPolicy.OPTIONAL)} label="Nobody; each person decides" />
+              <Radio value={String(TwoFactorPolicy.ADMINS)} label="Admins and owners" />
+              <Radio value={String(TwoFactorPolicy.EVERYONE)} label="Everyone" />
+            </Stack>
+          </Radio.Group>
+          {!me.user?.twoFactor && policy !== String(TwoFactorPolicy.OPTIONAL) && (
+            <Alert color="yellow" icon={<IconAlertCircle />}>Turn it on for your own account first, under <AnchorLink to="/security">Security</AnchorLink>.</Alert>
+          )}
+          {save.error && <Alert color="red" icon={<IconAlertCircle />}>{message(save.error)}</Alert>}
+          <Button type="submit" loading={save.isPending} className="self-start">Save</Button>
+        </Stack>
+      </form>
+    </Card>
+  );
+}
+
 // Plain words for each audit action.
 const actions: Record<string, string> = {
   "server.setup": "set up the server",
@@ -185,6 +218,12 @@ const actions: Record<string, string> = {
   "webhook.delete": "removed the webhook",
   "settings.alerts": "changed alert settings",
   "settings.retention": "changed log retention",
+  "settings.security": "changed security settings",
+  "user.code_failed": "entered a wrong code for",
+  "user.two_factor_on": "turned on two-step verification",
+  "user.two_factor_off": "turned off two-step verification",
+  "user.two_factor_reset": "reset two-step verification for",
+  "user.sessions_revoked": "signed out other devices",
 };
 
 const when = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });

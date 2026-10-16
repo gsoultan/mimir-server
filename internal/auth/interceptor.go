@@ -12,11 +12,37 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
-// SessionCookie carries the browser's session token.
-const SessionCookie = "mimir_session"
+// SessionCookie carries the browser's session token. Over HTTPS the
+// cookie gets the __Host- prefix, which browsers only accept from a secure
+// origin for the whole site, so a subdomain or a plain-HTTP page can't
+// plant one.
+const (
+	SessionCookie       = "mimir_session"
+	SecureSessionCookie = "__Host-mimir_session"
+)
 
-// SessionTTL is how long a sign-in lasts.
-const SessionTTL = 30 * 24 * time.Hour
+// SessionTTL is how long a sign-in lasts at most; idle sessions end
+// sooner (store.SessionIdleTTL). PendingTTL is how long a person has to
+// enter their second factor.
+const (
+	SessionTTL = 30 * 24 * time.Hour
+	PendingTTL = 10 * time.Minute
+)
+
+// PendingAllowed lists what a sign-in that still needs its code may call.
+var PendingAllowed = map[string]bool{
+	"/mimir.v1.AuthService/VerifySecondFactor": true,
+	"/mimir.v1.AuthService/SignOut":            true,
+}
+
+// EnrollAllowed lists what a person who must still set up two-step
+// verification may call: enough to set it up, and to leave.
+var EnrollAllowed = map[string]bool{
+	"/mimir.v1.AuthService/WhoAmI":          true,
+	"/mimir.v1.AuthService/StartTwoFactor":  true,
+	"/mimir.v1.AuthService/EnableTwoFactor": true,
+	"/mimir.v1.AuthService/SignOut":         true,
+}
 
 // Public lists procedures anyone may call without signing in.
 var Public = map[string]bool{
@@ -38,6 +64,12 @@ var Required = map[string]Permission{
 	"/mimir.v1.PredictService/Predict":          ModelsPredict,
 	"/mimir.v1.AuthService/WhoAmI":              "",
 	"/mimir.v1.AuthService/ChangePassword":      "",
+	"/mimir.v1.AuthService/VerifySecondFactor":  "",
+	"/mimir.v1.AuthService/StartTwoFactor":      "",
+	"/mimir.v1.AuthService/EnableTwoFactor":     "",
+	"/mimir.v1.AuthService/DisableTwoFactor":    "",
+	"/mimir.v1.AuthService/ListSessions":        "",
+	"/mimir.v1.AuthService/RevokeSessions":      "",
 	"/mimir.v1.UserService/ListUsers":           UsersRead,
 	"/mimir.v1.UserService/CreateUser":          UsersWrite,
 	"/mimir.v1.UserService/UpdateUser":          UsersWrite,
@@ -57,6 +89,7 @@ var Required = map[string]Permission{
 	"/mimir.v1.SettingsService/UpdateAlerts":    SettingsManage,
 	"/mimir.v1.SettingsService/SendTestAlert":   SettingsManage,
 	"/mimir.v1.SettingsService/UpdateRetention": SettingsManage,
+	"/mimir.v1.SettingsService/UpdateSecurity":  SettingsManage,
 	"/mimir.v1.SettingsService/GetDatabaseInfo": SettingsManage,
 }
 
@@ -66,16 +99,27 @@ var ErrSignedOut = connect.NewError(connect.CodeUnauthenticated, errors.New("Sig
 // ErrForbidden is returned to callers who lack a permission.
 var ErrForbidden = connect.NewError(connect.CodePermissionDenied, errors.New("You don't have permission to do that."))
 
+// ErrMustEnroll is returned when an admin requires two-step verification
+// and the caller hasn't set it up yet.
+var ErrMustEnroll = connect.NewError(connect.CodeFailedPrecondition, errors.New("Set up two-step verification to continue."))
+
+// MustEnroll decides whether a signed-in person has to set up two-step
+// verification before doing anything else.
+type MustEnroll func(ctx context.Context, u store.User) (bool, error)
+
 // Interceptor authenticates every request from its cookie or bearer key
 // and checks the procedure's permission. It never reaches the handler
 // for a procedure it doesn't know.
-func Interceptor(st *store.Store) connect.UnaryInterceptorFunc {
+func Interceptor(st *store.Store, mustEnroll MustEnroll) connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			proc := req.Spec().Procedure
-			p, err := Authenticate(ctx, st, req.Header())
+			p, err := Authenticate(ctx, st, req.Header(), req.Peer().Addr)
 			if err != nil {
 				return nil, err
+			}
+			if p != nil && p.Session != nil && p.Session.Pending && !PendingAllowed[proc] {
+				p = nil // half signed in: only the second factor counts
 			}
 			if p != nil {
 				ctx = WithPrincipal(ctx, *p)
@@ -93,14 +137,24 @@ func Interceptor(st *store.Store) connect.UnaryInterceptorFunc {
 			if perm != "" && !p.Can(perm) {
 				return nil, ErrForbidden
 			}
+			if p.Session != nil && !p.User.TwoFactor() && !EnrollAllowed[proc] && mustEnroll != nil {
+				must, err := mustEnroll(ctx, p.User)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+				if must {
+					return nil, ErrMustEnroll
+				}
+			}
 			return next(ctx, req)
 		}
 	}
 }
 
 // Authenticate returns the caller, nil when anonymous, or an error when
-// credentials were offered but are wrong.
-func Authenticate(ctx context.Context, st *store.Store, h http.Header) (*Principal, error) {
+// credentials were offered but are wrong. A session only counts from the
+// browser that started it: a token replayed elsewhere ends the session.
+func Authenticate(ctx context.Context, st *store.Store, h http.Header, remoteAddr string) (*Principal, error) {
 	if a := h.Get("Authorization"); a != "" {
 		secret, ok := strings.CutPrefix(a, "Bearer ")
 		if !ok || !strings.HasPrefix(secret, KeyPrefix) {
@@ -118,21 +172,32 @@ func Authenticate(ctx context.Context, st *store.Store, h http.Header) (*Princip
 		}
 		return &Principal{User: user, Key: &key, Access: Effective(user.Access, key.Access)}, nil
 	}
-	token := cookie(h, SessionCookie)
+	token := SessionToken(h)
 	if token == "" {
 		return nil, nil
 	}
-	user, err := st.SessionUser(ctx, HashToken(token))
-	if errors.Is(err, store.ErrNotFound) {
+	se, user, err := st.LookupSession(ctx, HashToken(token), Device(h.Get("User-Agent")))
+	switch {
+	case errors.Is(err, store.ErrNotFound):
 		return nil, nil // stale cookie: treat as signed out
-	}
-	if err != nil {
+	case errors.Is(err, store.ErrWrongDevice):
+		st.DeleteSession(ctx, HashToken(token))
+		return nil, nil
+	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if user.Disabled {
 		return nil, nil
 	}
-	return &Principal{User: user, Access: user.Access}, nil
+	return &Principal{User: user, Access: user.Access, Session: &se}, nil
+}
+
+// SessionToken reads the session cookie, preferring the secure one.
+func SessionToken(h http.Header) string {
+	if t := cookie(h, SecureSessionCookie); t != "" {
+		return t
+	}
+	return cookie(h, SessionCookie)
 }
 
 func cookie(h http.Header, name string) string {
@@ -148,16 +213,21 @@ func cookie(h http.Header, name string) string {
 }
 
 // SetSessionCookie writes a sign-in cookie on the response.
-func SetSessionCookie(h http.Header, token string, secure bool) {
+func SetSessionCookie(h http.Header, token string, secure bool, ttl time.Duration) {
 	c := &http.Cookie{
 		Name: SessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: secure,
-		SameSite: http.SameSiteLaxMode, MaxAge: int(SessionTTL / time.Second),
+		SameSite: http.SameSiteLaxMode, MaxAge: int(ttl / time.Second),
+	}
+	if secure {
+		c.Name = SecureSessionCookie
 	}
 	h.Add("Set-Cookie", c.String())
 }
 
-// ClearSessionCookie removes the sign-in cookie.
+// ClearSessionCookie removes the sign-in cookie, whichever name it had.
 func ClearSessionCookie(h http.Header) {
-	c := &http.Cookie{Name: SessionCookie, Value: "", Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1}
-	h.Add("Set-Cookie", c.String())
+	for _, name := range []string{SessionCookie, SecureSessionCookie} {
+		c := &http.Cookie{Name: name, Value: "", Path: "/", HttpOnly: true, Secure: name == SecureSessionCookie, SameSite: http.SameSiteLaxMode, MaxAge: -1}
+		h.Add("Set-Cookie", c.String())
+	}
 }

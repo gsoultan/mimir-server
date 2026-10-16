@@ -24,6 +24,21 @@ service AuthService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+
+  // VerifySecondFactor finishes a sign-in that SignIn said needs a code.
+  rpc VerifySecondFactor(VerifySecondFactorRequest) returns (VerifySecondFactorResponse);
+  // StartTwoFactor makes a fresh authenticator secret for the caller. It
+  // takes effect only once EnableTwoFactor confirms a code from it.
+  rpc StartTwoFactor(StartTwoFactorRequest) returns (StartTwoFactorResponse);
+  rpc EnableTwoFactor(EnableTwoFactorRequest) returns (EnableTwoFactorResponse);
+  rpc DisableTwoFactor(DisableTwoFactorRequest) returns (DisableTwoFactorResponse);
+
+  // ListSessions shows where the caller is signed in.
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // RevokeSessions signs out one session, or every session but this one.
+  rpc RevokeSessions(RevokeSessionsRequest) returns (RevokeSessionsResponse);
 }
 
 // UserService manages people and what they can reach.
@@ -83,6 +98,8 @@ message User {
   bool disabled = 5;
   google.protobuf.Timestamp create_time = 6;
   google.protobuf.Timestamp last_sign_in_time = 7;
+  // TwoFactor is true once the person confirmed an authenticator app.
+  bool two_factor = 8;
 }
 
 message GetSetupStateRequest {}
@@ -107,7 +124,11 @@ message SignInRequest {
 }
 
 message SignInResponse {
+  // User is set once the sign-in is complete.
   User user = 1;
+  // SecondFactorRequired means the password matched and the browser now
+  // holds a short-lived cookie that only VerifySecondFactor accepts.
+  bool second_factor_required = 2;
 }
 
 message SignOutRequest {}
@@ -120,6 +141,12 @@ message WhoAmIResponse {
   User user = 1;
   // Permissions are what the caller may do, such as "models.write".
   repeated string permissions = 2;
+  // SessionId is this browser's session, so it can be told apart in
+  // ListSessions. Empty for API keys.
+  string session_id = 3;
+  // MustSetUpTwoFactor means an admin requires two-step verification for
+  // this account and it isn't on yet; only setting it up is allowed.
+  bool must_set_up_two_factor = 4;
 }
 
 message ChangePasswordRequest {
@@ -128,6 +155,69 @@ message ChangePasswordRequest {
 }
 
 message ChangePasswordResponse {}
+
+message VerifySecondFactorRequest {
+  // Code is six digits from the authenticator app, or a recovery code.
+  string code = 1;
+}
+
+message VerifySecondFactorResponse {
+  User user = 1;
+  // RecoveryCodesLeft is set when a recovery code was used.
+  int32 recovery_codes_left = 2;
+  bool used_recovery_code = 3;
+}
+
+message StartTwoFactorRequest {
+  // Password proves the person at the keyboard, not just the cookie.
+  string password = 1;
+}
+
+message StartTwoFactorResponse {
+  // Secret is the base32 key to type by hand; otpauth_url goes in a QR code.
+  string secret = 1;
+  string otpauth_url = 2;
+}
+
+message EnableTwoFactorRequest {
+  string code = 1;
+}
+
+message EnableTwoFactorResponse {
+  // RecoveryCodes are shown once; each works a single time.
+  repeated string recovery_codes = 1;
+}
+
+message DisableTwoFactorRequest {
+  string password = 1;
+}
+
+message DisableTwoFactorResponse {}
+
+message Session {
+  string id = 1;
+  // Device is a short description from the browser, like "Chrome on Mac".
+  string device = 2;
+  string ip = 3;
+  google.protobuf.Timestamp create_time = 4;
+  google.protobuf.Timestamp last_seen_time = 5;
+  bool current = 6;
+}
+
+message ListSessionsRequest {}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message RevokeSessionsRequest {
+  // Id names one session; empty means every session except the current one.
+  string id = 1;
+}
+
+message RevokeSessionsResponse {
+  int32 revoked = 1;
+}
 
 message ListUsersRequest {}
 
@@ -156,6 +246,9 @@ message UpdateUserRequest {
   // NewPassword, when set, replaces the user's password and signs them out
   // everywhere.
   string new_password = 5;
+  // ResetTwoFactor turns off the user's authenticator so they can sign in
+  // with their password alone, for when they lost their phone.
+  bool reset_two_factor = 6;
 }
 
 message UpdateUserResponse {

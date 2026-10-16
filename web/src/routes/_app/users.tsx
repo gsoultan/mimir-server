@@ -2,7 +2,7 @@ import { useMutation } from "@connectrpc/connect-query";
 import { ActionIcon, Alert, Badge, Button, Card, Group, Menu, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconDots, IconUserPlus } from "@tabler/icons-react";
+import { IconAlertCircle, IconDots, IconShieldCheck, IconUserPlus } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -57,6 +57,7 @@ function Users() {
                     <Text fw={700} truncate>{u.name}</Text>
                     {mine && <Badge variant="light" color="gray">You</Badge>}
                     {u.disabled && <Badge variant="light" color="red">Disabled</Badge>}
+                    {u.twoFactor && <Badge variant="light" color="teal" leftSection={<IconShieldCheck size={12} />}>2-step</Badge>}
                   </Group>
                   <Text size="sm" c="dimmed" truncate>{u.email}</Text>
                   <Text size="sm" mt={4}>{describe(u.access, names)}</Text>
@@ -97,6 +98,7 @@ function UserModal({ opened, onClose, maxRole, user, onDone }: { opened: boolean
   const [email, setEmail] = useState(user?.email ?? "");
   const [password, setPassword] = useState("");
   const [disabled, setDisabled] = useState(user?.disabled ?? false);
+  const [resetTwoFactor, setResetTwoFactor] = useState(false);
   const [access, setAccess] = useState<AccessValue>(user ? fromProto(user.access) : defaultAccess);
   const finish = async (what: string) => { await onDone(); notifications.show({ color: "teal", message: what }); onClose(); };
   const create = useMutation(UserService.method.createUser, { onSuccess: () => finish(`${name} can now sign in.`) });
@@ -105,7 +107,7 @@ function UserModal({ opened, onClose, maxRole, user, onDone }: { opened: boolean
   const error = create.error ?? update.error;
 
   function submit() {
-    if (user) update.mutate({ id: user.id, name, access, disabled, newPassword: password });
+    if (user) update.mutate({ id: user.id, name, access, disabled, newPassword: password, resetTwoFactor });
     else create.mutate({ name, email, password, access });
   }
 
@@ -126,10 +128,18 @@ function UserModal({ opened, onClose, maxRole, user, onDone }: { opened: boolean
           />
           <AccessPicker value={access} onChange={setAccess} maxRole={maxRole} subject={name.trim() || "this person"} />
           {user && (
-            <Button variant={disabled ? "light" : "subtle"} color={disabled ? "teal" : "red"} onClick={() => setDisabled(!disabled)} className="self-start">
-              {disabled ? "Enable this account" : "Disable this account"}
-            </Button>
+            <Group gap="xs">
+              <Button variant={disabled ? "light" : "subtle"} color={disabled ? "teal" : "red"} onClick={() => setDisabled(!disabled)}>
+                {disabled ? "Enable this account" : "Disable this account"}
+              </Button>
+              {user.twoFactor && (
+                <Button variant={resetTwoFactor ? "light" : "subtle"} color={resetTwoFactor ? "yellow" : "gray"} onClick={() => setResetTwoFactor(!resetTwoFactor)}>
+                  {resetTwoFactor ? "Will reset two-step verification" : "Reset two-step verification"}
+                </Button>
+              )}
+            </Group>
           )}
+          {resetTwoFactor && <Text size="xs" c="dimmed">For when they lost their phone. They'll sign in with their password alone and can set it up again.</Text>}
           {error && <Alert color="red" icon={<IconAlertCircle />}>{message(error)}</Alert>}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>Cancel</Button>

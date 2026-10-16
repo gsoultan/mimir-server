@@ -43,9 +43,10 @@ func Permissions(r store.Role) []Permission {
 
 // Principal is who is calling and what they may do.
 type Principal struct {
-	User   store.User
-	Key    *store.APIKey // set when the caller used an API key
-	Access store.Access  // effective access: the key's, capped by the user's
+	User    store.User
+	Key     *store.APIKey  // set when the caller used an API key
+	Session *store.Session // set when the caller used a browser session
+	Access  store.Access   // effective access: the key's, capped by the user's
 }
 
 // Can reports whether the caller has p.

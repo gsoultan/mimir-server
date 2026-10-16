@@ -62,7 +62,7 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 		return nil, s.internal(ctx, err)
 	}
 	res := connect.NewResponse(&mimirv1.SetupResponse{User: userProto(u)})
-	if err := s.signIn(ctx, req.Header(), res.Header(), u); err != nil {
+	if _, err := s.signIn(ctx, req, res.Header(), u, false); err != nil {
 		return nil, s.internal(ctx, err)
 	}
 	s.audit(ctx, u.Email, "server.setup", u.Email, "")
@@ -71,32 +71,53 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 
 func (s *Service) SignIn(ctx context.Context, req *connect.Request[mimirv1.SignInRequest]) (*connect.Response[mimirv1.SignInResponse], error) {
 	email := auth.NormalizeEmail(req.Msg.GetEmail())
+	keys := []string{"email:" + email, "ip:" + auth.ClientIP(req.Header(), req.Peer().Addr)}
+	if wait := s.Limiter.Wait(keys...); wait > 0 {
+		return nil, tooMany(wait)
+	}
 	u, err := s.store.GetUserByEmail(ctx, email)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		// Hash anyway so a missing user takes as long as a wrong password.
 		auth.CheckPassword("$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", req.Msg.GetPassword())
+		s.Limiter.Fail(keys...)
 		return nil, badSignIn()
 	case err != nil:
 		return nil, s.internal(ctx, err)
 	}
 	if !auth.CheckPassword(u.PasswordHash, req.Msg.GetPassword()) {
-		s.audit(ctx, email, "user.signin_failed", email, "")
+		s.Limiter.Fail(keys...)
+		s.audit(ctx, email, "user.signin_failed", email, s.whence(req))
 		return nil, badSignIn()
 	}
 	if u.Disabled {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("This account is disabled. Ask an admin to enable it."))
 	}
-	res := connect.NewResponse(&mimirv1.SignInResponse{User: userProto(u)})
-	if err := s.signIn(ctx, req.Header(), res.Header(), u); err != nil {
+	s.Limiter.Clear(keys...)
+	// A stale cookie from before never carries over: the browser always
+	// leaves with a token minted for this sign-in.
+	if old := auth.SessionToken(req.Header()); old != "" {
+		s.store.DeleteSession(ctx, auth.HashToken(old))
+	}
+	res := connect.NewResponse(&mimirv1.SignInResponse{})
+	if u.TwoFactor() {
+		// Half way there: a short-lived cookie that only the code step accepts.
+		if _, err := s.signIn(ctx, req, res.Header(), u, true); err != nil {
+			return nil, s.internal(ctx, err)
+		}
+		res.Msg.SecondFactorRequired = true
+		return res, nil
+	}
+	if _, err := s.signIn(ctx, req, res.Header(), u, false); err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	s.audit(ctx, u.Email, "user.signin", u.Email, "")
+	res.Msg.User = userProto(u)
+	s.audit(ctx, u.Email, "user.signin", u.Email, s.whence(req))
 	return res, nil
 }
 
 func (s *Service) SignOut(ctx context.Context, req *connect.Request[mimirv1.SignOutRequest]) (*connect.Response[mimirv1.SignOutResponse], error) {
-	if token := cookieValue(req.Header().Values("Cookie"), auth.SessionCookie); token != "" {
+	if token := auth.SessionToken(req.Header()); token != "" {
 		if err := s.store.DeleteSession(ctx, auth.HashToken(token)); err != nil {
 			return nil, s.internal(ctx, err)
 		}
@@ -113,16 +134,23 @@ func (s *Service) WhoAmI(ctx context.Context, _ *connect.Request[mimirv1.WhoAmIR
 	for _, perm := range auth.Permissions(p.Access.Role) {
 		res.Permissions = append(res.Permissions, string(perm))
 	}
+	if p.Session != nil {
+		res.SessionId = p.Session.ID
+		if !p.User.TwoFactor() {
+			must, err := s.MustEnroll(ctx, p.User)
+			if err != nil {
+				return nil, s.internal(ctx, err)
+			}
+			res.MustSetUpTwoFactor = must
+		}
+	}
 	return connect.NewResponse(res), nil
 }
 
 func (s *Service) ChangePassword(ctx context.Context, req *connect.Request[mimirv1.ChangePasswordRequest]) (*connect.Response[mimirv1.ChangePasswordResponse], error) {
 	p, _ := auth.From(ctx)
-	if p.Key != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("API keys can't change passwords. Sign in on the web."))
-	}
-	if !auth.CheckPassword(p.User.PasswordHash, req.Msg.GetCurrentPassword()) {
-		return nil, invalid("Your current password doesn't match.")
+	if err := s.proveIdentity(ctx, req.Header(), req.Peer().Addr, p, req.Msg.GetCurrentPassword()); err != nil {
+		return nil, err
 	}
 	hash, err := auth.HashPassword(req.Msg.GetNewPassword())
 	if errors.Is(err, auth.ErrWeakPassword) {
@@ -136,7 +164,7 @@ func (s *Service) ChangePassword(ctx context.Context, req *connect.Request[mimir
 	}
 	// SetPassword ended every session, including this one; start a fresh one.
 	res := connect.NewResponse(&mimirv1.ChangePasswordResponse{})
-	if err := s.signIn(ctx, req.Header(), res.Header(), p.User); err != nil {
+	if _, err := s.signIn(ctx, req, res.Header(), p.User, false); err != nil {
 		return nil, s.internal(ctx, err)
 	}
 	s.audit(ctx, p.Actor(), "user.password_changed", p.User.Email, "")
@@ -219,6 +247,23 @@ func (s *Service) UpdateUser(ctx context.Context, req *connect.Request[mimirv1.U
 	u, err := s.store.UpdateUser(ctx, target.ID, name, access, disabled)
 	if err != nil {
 		return nil, s.internal(ctx, err)
+	}
+	// A smaller role or a disabled account takes effect at once, in every
+	// browser the person is signed in on.
+	if disabled || access.Role < target.Access.Role {
+		if err := s.store.EndSessions(ctx, u.ID); err != nil {
+			return nil, s.internal(ctx, err)
+		}
+	}
+	if req.Msg.GetResetTwoFactor() && target.TwoFactor() {
+		if err := s.store.DisableTOTP(ctx, u.ID); err != nil {
+			return nil, s.internal(ctx, err)
+		}
+		if err := s.store.EndSessions(ctx, u.ID); err != nil {
+			return nil, s.internal(ctx, err)
+		}
+		u.TOTPSecret = ""
+		s.audit(ctx, p.Actor(), "user.two_factor_reset", u.Email, "")
 	}
 	if pw := req.Msg.GetNewPassword(); pw != "" {
 		hash, err := auth.HashPassword(pw)
@@ -348,19 +393,30 @@ func (s *Service) ListAuditEvents(ctx context.Context, req *connect.Request[mimi
 
 // helpers
 
-func (s *Service) signIn(ctx context.Context, reqHeader, resHeader http.Header, u store.User) error {
+// signIn starts a session for u and sets its cookie. A pending session is
+// the short-lived half of a sign-in that still needs its second factor.
+func (s *Service) signIn(ctx context.Context, req connect.AnyRequest, resHeader http.Header, u store.User, pending bool) (store.Session, error) {
 	token, hash, err := auth.NewToken("")
 	if err != nil {
-		return err
+		return store.Session{}, err
 	}
-	if err := s.store.CreateSession(ctx, hash, u.ID, time.Now().Add(auth.SessionTTL)); err != nil {
-		return err
+	ttl := auth.SessionTTL
+	if pending {
+		ttl = auth.PendingTTL
+	}
+	h := req.Header()
+	se, err := s.store.CreateSession(ctx, hash, store.Session{
+		UserID: u.ID, Device: auth.Device(h.Get("User-Agent")), IP: auth.ClientIP(h, req.Peer().Addr),
+		Pending: pending, Expires: time.Now().Add(ttl),
+	})
+	if err != nil {
+		return store.Session{}, err
 	}
 	// Mark the cookie Secure when the browser reached us over HTTPS, which
 	// in production means through a TLS proxy.
-	secure := strings.EqualFold(reqHeader.Get("X-Forwarded-Proto"), "https")
-	auth.SetSessionCookie(resHeader, token, secure)
-	return nil
+	secure := strings.EqualFold(h.Get("X-Forwarded-Proto"), "https")
+	auth.SetSessionCookie(resHeader, token, secure, ttl)
+	return se, nil
 }
 
 // audit records an event, logging rather than failing on error: the action
@@ -436,18 +492,6 @@ func badSignIn() error {
 	return connect.NewError(connect.CodeUnauthenticated, errors.New("Wrong email or password."))
 }
 
-func cookieValue(cookies []string, name string) string {
-	for _, c := range cookies {
-		for part := range strings.SplitSeq(c, ";") {
-			k, v, _ := strings.Cut(strings.TrimSpace(part), "=")
-			if k == name {
-				return v
-			}
-		}
-	}
-	return ""
-}
-
 func describeAccess(a store.Access) string {
 	role := [...]string{"", "viewer", "editor", "admin", "owner"}[a.Role]
 	if a.AllModels {
@@ -470,7 +514,7 @@ func boolNote(note string, b bool) string {
 func userProto(u store.User) *mimirv1.User {
 	out := &mimirv1.User{
 		Id: u.ID, Email: u.Email, Name: u.Name, Access: accessProto(u.Access), Disabled: u.Disabled,
-		CreateTime: timestamppb.New(u.Created),
+		CreateTime: timestamppb.New(u.Created), TwoFactor: u.TwoFactor(),
 	}
 	if !u.LastSignIn.IsZero() {
 		out.LastSignInTime = timestamppb.New(u.LastSignIn)
