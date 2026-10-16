@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// ModelService manages the models the server can run.
+service ModelService {
+  // ListArchitectures returns the model architectures this server can build.
+  rpc ListArchitectures(ListArchitecturesRequest) returns (ListArchitecturesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // ListModels returns every model, newest first.
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // GetModel returns one model.
+  rpc GetModel(GetModelRequest) returns (GetModelResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // CreateModel stores weights for a known architecture and makes the model
+  // ready to answer.
+  rpc CreateModel(CreateModelRequest) returns (CreateModelResponse);
+  // UpdateModel renames a model or changes its description.
+  rpc UpdateModel(UpdateModelRequest) returns (UpdateModelResponse);
+  // DeleteModel removes a model and its weights.
+  rpc DeleteModel(DeleteModelRequest) returns (DeleteModelResponse);
+}
+
+// PredictService asks models questions.
+service PredictService {
+  // Predict runs one input through a model.
+  rpc Predict(PredictRequest) returns (PredictResponse);
+}
+
+// Architecture is a model shape the server knows how to build.
+message Architecture {
+  // Name identifies the architecture, for example "mnist-cnn".
+  string name = 1;
+  // Title is a short human name.
+  string title = 2;
+  // Description says in plain words what models of this shape do.
+  string description = 3;
+  // InputShape is the shape of one input, without the batch dimension.
+  repeated int64 input_shape = 4;
+  // Labels names each output class, in order.
+  repeated string labels = 5;
+}
+
+// ModelStatus says whether a model can answer.
+enum ModelStatus {
+  MODEL_STATUS_UNSPECIFIED = 0;
+  MODEL_STATUS_READY = 1;
+  MODEL_STATUS_FAILED = 2;
+}
+
+// Model is a trained model stored on the server.
+message Model {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  // Architecture is the name of the model's Architecture.
+  string architecture = 4;
+  ModelStatus status = 5;
+  // StatusDetail explains a failed status in plain words.
+  string status_detail = 6;
+  int64 size_bytes = 7;
+  google.protobuf.Timestamp create_time = 8;
+  google.protobuf.Timestamp update_time = 9;
+}
+
+// Tensor is a dense float32 array.
+message Tensor {
+  repeated int64 shape = 1;
+  repeated float values = 2;
+}
+
+// Guess is one possible answer and how likely the model thinks it is.
+message Guess {
+  string label = 1;
+  float probability = 2;
+}
+
+message ListArchitecturesRequest {}
+
+message ListArchitecturesResponse {
+  repeated Architecture architectures = 1;
+}
+
+message ListModelsRequest {}
+
+message ListModelsResponse {
+  repeated Model models = 1;
+}
+
+message GetModelRequest {
+  string id = 1;
+}
+
+message GetModelResponse {
+  Model model = 1;
+}
+
+message CreateModelRequest {
+  string name = 1;
+  string description = 2;
+  string architecture = 3;
+  // Weights is a safetensors file holding every parameter of the
+  // architecture, as mimir's nn.Save writes it.
+  bytes weights = 4;
+}
+
+message CreateModelResponse {
+  Model model = 1;
+}
+
+message UpdateModelRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message UpdateModelResponse {
+  Model model = 1;
+}
+
+message DeleteModelRequest {
+  string id = 1;
+}
+
+message DeleteModelResponse {}
+
+message PredictRequest {
+  string model_id = 1;
+  // Input is one example shaped like the architecture's input_shape.
+  Tensor input = 2;
+  // TopK is how many guesses to return; 0 means 3.
+  int32 top_k = 3;
+}
+
+message PredictResponse {
+  // Output is the model's raw output for the example.
+  Tensor output = 1;
+  // Guesses are the most likely labels, most likely first.
+  repeated Guess guesses = 2;
+  // DurationMicros is how long the model took.
+  int64 duration_micros = 3;
+  // Probabilities is the softmax of output: one value per label, summing to 1.
+  Tensor probabilities = 4;
+}
