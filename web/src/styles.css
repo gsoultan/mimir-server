@@ -1,0 +1,18 @@
+@layer theme, base, mantine, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "@mantine/core/styles.layer.css";
+@import "@mantine/dropzone/styles.layer.css";
+@import "@mantine/notifications/styles.layer.css";
+
+/* Mantine owns colors and components; Tailwind is for layout. */
+@theme {
+  --font-sans: "Figtree Variable", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Figtree Variable", sans-serif;
+}
+
+body {
+  background: var(--mantine-color-body);
+}
