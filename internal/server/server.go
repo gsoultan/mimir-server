@@ -7,7 +7,9 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -39,6 +41,9 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	mux.Handle(mimirv1connect.NewUserServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewApiKeyServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewAuditServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewWebhookServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewSettingsServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle("GET /api/backup", backupHandler(st, log))
 	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(
 		mimirv1connect.ModelServiceName,
 		mimirv1connect.PredictServiceName,
@@ -46,10 +51,46 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 		mimirv1connect.UserServiceName,
 		mimirv1connect.ApiKeyServiceName,
 		mimirv1connect.AuditServiceName,
+		mimirv1connect.WebhookServiceName,
+		mimirv1connect.SettingsServiceName,
 	)))
 	mux.Handle("/", uiHandler(ui))
 
 	return logRequests(mux, log)
+}
+
+// backupHandler streams a consistent copy of the database to an admin.
+// It's a plain download rather than an RPC so the browser can save it.
+func backupHandler(st *store.Store, log *slog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p, err := auth.Authenticate(r.Context(), st, r.Header)
+		if err != nil || p == nil || !p.Can(auth.SettingsManage) {
+			http.Error(w, "Sign in as an admin to download a backup.", http.StatusForbidden)
+			return
+		}
+		dir, err := os.MkdirTemp("", "mimir-backup-*")
+		if err != nil {
+			http.Error(w, "Couldn't make the backup.", http.StatusInternalServerError)
+			return
+		}
+		defer os.RemoveAll(dir)
+		path := filepath.Join(dir, "mimir.db")
+		if err := st.Backup(r.Context(), path); err != nil {
+			log.ErrorContext(r.Context(), "backup", "error", err)
+			http.Error(w, "Couldn't make the backup.", http.StatusInternalServerError)
+			return
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			http.Error(w, "Couldn't make the backup.", http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+		w.Header().Set("Content-Type", "application/vnd.sqlite3")
+		w.Header().Set("Content-Disposition", `attachment; filename="mimir-`+time.Now().UTC().Format("2006-01-02-150405")+`.db"`)
+		w.Header().Set("Cache-Control", "no-store")
+		http.ServeContent(w, r, "mimir.db", time.Now(), f)
+	})
 }
 
 // Protocols enables HTTP/1.1 and unencrypted HTTP/2, so gRPC clients can

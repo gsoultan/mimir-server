@@ -11,14 +11,16 @@ import (
 type Permission string
 
 const (
-	ModelsRead    Permission = "models.read"    // list and view models
-	ModelsPredict Permission = "models.predict" // ask models questions
-	ModelsWrite   Permission = "models.write"   // add, change and delete models
-	UsersRead     Permission = "users.read"
-	UsersWrite    Permission = "users.write" // manage viewers and editors
-	UsersAdmin    Permission = "users.admin" // manage admins and owners
-	AuditRead     Permission = "audit.read"
-	KeysManage    Permission = "keys.manage" // the caller's own API keys
+	ModelsRead     Permission = "models.read"    // list and view models
+	ModelsPredict  Permission = "models.predict" // ask models questions
+	ModelsWrite    Permission = "models.write"   // add, change and delete models
+	UsersRead      Permission = "users.read"
+	UsersWrite     Permission = "users.write" // manage viewers and editors
+	UsersAdmin     Permission = "users.admin" // manage admins and owners
+	AuditRead      Permission = "audit.read"
+	KeysManage     Permission = "keys.manage" // the caller's own API keys
+	WebhooksManage Permission = "webhooks.manage"
+	SettingsManage Permission = "settings.manage"
 )
 
 // Permissions returns what a role may do.
@@ -31,7 +33,7 @@ func Permissions(r store.Role) []Permission {
 		ps = append(ps, ModelsWrite)
 	}
 	if r >= store.Admin {
-		ps = append(ps, UsersRead, UsersWrite, AuditRead)
+		ps = append(ps, UsersRead, UsersWrite, AuditRead, WebhooksManage, SettingsManage)
 	}
 	if r >= store.Owner {
 		ps = append(ps, UsersAdmin)

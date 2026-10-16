@@ -9,16 +9,21 @@ import { useState } from "react";
 
 import { message } from "../../api/client";
 import { ApiKeyService, type ApiKey } from "../../api/gen/mimir/v1/access_pb";
-import { allKeyQueries, listApiKeys, listModels, whoAmI } from "../../api/queries";
+import { allKeyQueries, listApiKeys, listModels, listWebhooks, whoAmI } from "../../api/queries";
 import { AccessPicker, describe, type AccessValue } from "../../components/AccessPicker";
 import { Page } from "../../components/Page";
+import { Webhooks } from "../../components/Webhooks";
 import { ago } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/apps")({
-  loader: ({ context }) => Promise.all([
-    context.queryClient.ensureQueryData(listApiKeys),
-    context.queryClient.ensureQueryData(listModels),
-  ]),
+  loader: async ({ context }) => {
+    const me = await context.queryClient.ensureQueryData(whoAmI);
+    await Promise.all([
+      context.queryClient.ensureQueryData(listApiKeys),
+      context.queryClient.ensureQueryData(listModels),
+      me.permissions.includes("webhooks.manage") ? context.queryClient.ensureQueryData(listWebhooks) : null,
+    ]);
+  },
   component: Apps,
 });
 
@@ -78,10 +83,7 @@ function Apps() {
         </Tabs>
       </Card>
 
-      <Card withBorder radius="lg" padding="lg" className="border-dashed">
-        <Text fw={600}>Webhooks: coming soon</Text>
-        <Text size="sm" c="dimmed">Your apps will get a call when a model changes or training finishes.</Text>
-      </Card>
+      {me.permissions.includes("webhooks.manage") && <Webhooks />}
 
       <KeyModal key={creating ? "open" : "closed"} opened={creating} onClose={create.close} maxRole={me.user?.access?.role ?? 1} userAllModels={me.user?.access?.allModels ?? false} onCreated={async (s) => { await refresh(); setSecret(s); create.close(); }} />
 

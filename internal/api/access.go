@@ -182,6 +182,7 @@ func (s *Service) CreateUser(ctx context.Context, req *connect.Request[mimirv1.C
 		return nil, s.internal(ctx, err)
 	}
 	s.audit(ctx, p.Actor(), "user.create", u.Email, describeAccess(u.Access))
+	s.emit(ctx, "user.created", map[string]any{"user": map[string]any{"id": u.ID, "email": u.Email, "name": u.Name}, "actor": p.Actor()})
 	return connect.NewResponse(&mimirv1.CreateUserResponse{User: userProto(u)}), nil
 }
 
@@ -260,6 +261,7 @@ func (s *Service) DeleteUser(ctx context.Context, req *connect.Request[mimirv1.D
 		return nil, s.internal(ctx, err)
 	}
 	s.audit(ctx, p.Actor(), "user.delete", target.Email, "")
+	s.emit(ctx, "user.deleted", map[string]any{"user": map[string]any{"id": target.ID, "email": target.Email, "name": target.Name}, "actor": p.Actor()})
 	return connect.NewResponse(&mimirv1.DeleteUserResponse{}), nil
 }
 

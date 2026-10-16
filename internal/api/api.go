@@ -16,6 +16,7 @@ import (
 
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
+	"github.com/gsoultan/mimir-server/internal/alert"
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/runtime"
@@ -35,6 +36,14 @@ type Service struct {
 	cache   *runtime.Cache
 	log     *slog.Logger
 	setupMu sync.Mutex // serialises Setup so only one first owner is made
+
+	// Notifier sends alerts; nil means none.
+	Notifier *alert.Notifier
+	// Kick asks the webhook dispatcher to send now; nil means wait for its
+	// next tick.
+	Kick func()
+	// AllowPrivateWebhooks lets webhooks point at local addresses.
+	AllowPrivateWebhooks bool
 }
 
 var (
@@ -44,7 +53,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	return &Service{store: s, cache: runtime.NewCache(), log: log}
+	return &Service{store: s, cache: runtime.NewCache(), log: log, Notifier: alert.New(s, log)}
 }
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {
@@ -109,6 +118,7 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	}
 	p, _ := auth.From(ctx)
 	s.audit(ctx, p.Actor(), "model.create", m.Name, a.Title)
+	s.emit(ctx, "model.created", modelEvent(m, p))
 	s.log.InfoContext(ctx, "model created", "model_id", m.ID, "architecture", m.Architecture, "size_bytes", m.SizeBytes)
 	return connect.NewResponse(&mimirv1.CreateModelResponse{Model: toProto(m)}), nil
 }
@@ -131,6 +141,7 @@ func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.
 	}
 	p, _ := auth.From(ctx)
 	s.audit(ctx, p.Actor(), "model.update", m.Name, "")
+	s.emit(ctx, "model.updated", modelEvent(m, p))
 	return connect.NewResponse(&mimirv1.UpdateModelResponse{Model: toProto(m)}), nil
 }
 
@@ -150,6 +161,7 @@ func (s *Service) DeleteModel(ctx context.Context, req *connect.Request[mimirv1.
 	s.cache.Forget(id)
 	p, _ := auth.From(ctx)
 	s.audit(ctx, p.Actor(), "model.delete", m.Name, "")
+	s.emit(ctx, "model.deleted", modelEvent(m, p))
 	s.log.InfoContext(ctx, "model deleted", "model_id", id)
 	return connect.NewResponse(&mimirv1.DeleteModelResponse{}), nil
 }
@@ -259,4 +271,12 @@ func int64s(xs []int) []int64 {
 		out[i] = int64(x)
 	}
 	return out
+}
+
+// modelEvent is the data part of a model.* webhook payload.
+func modelEvent(m store.Model, p auth.Principal) map[string]any {
+	return map[string]any{
+		"model": map[string]any{"id": m.ID, "name": m.Name, "architecture": m.Architecture, "size_bytes": m.SizeBytes},
+		"actor": p.Actor(),
+	}
 }
