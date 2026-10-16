@@ -7,7 +7,9 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,6 +18,8 @@ import (
 
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/api"
+	"github.com/gsoultan/mimir-server/internal/auth"
+	"github.com/gsoultan/mimir-server/internal/store"
 )
 
 // Request size limits. Models can be large; predictions are small.
@@ -25,18 +29,91 @@ const (
 )
 
 // Handler returns the server's root handler.
-func Handler(svc *api.Service, ui fs.FS, log *slog.Logger) http.Handler {
+func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, connect.WithReadMaxBytes(maxModelBytes)))
-	mux.Handle(mimirv1connect.NewPredictServiceHandler(svc, connect.WithReadMaxBytes(maxPredictBytes)))
+	// Every RPC goes through the auth interceptor, which signs callers in
+	// from their cookie or API key and checks the procedure's permission.
+	guard := connect.WithInterceptors(auth.Interceptor(st, svc.MustEnroll))
+	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
+	mux.Handle(mimirv1connect.NewPredictServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewAuthServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewUserServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewApiKeyServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewAuditServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewWebhookServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewSettingsServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle("GET /api/backup", backupHandler(st, log))
 	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(
 		mimirv1connect.ModelServiceName,
 		mimirv1connect.PredictServiceName,
+		mimirv1connect.AuthServiceName,
+		mimirv1connect.UserServiceName,
+		mimirv1connect.ApiKeyServiceName,
+		mimirv1connect.AuditServiceName,
+		mimirv1connect.WebhookServiceName,
+		mimirv1connect.SettingsServiceName,
 	)))
 	mux.Handle("/", uiHandler(ui))
 
-	return logRequests(mux, log)
+	return logRequests(harden(mux), log)
+}
+
+// harden refuses cross-site requests that carry a session cookie and adds
+// the response headers that keep the UI from being framed or sniffed.
+// Connect's JSON calls already need a CORS preflight that no other site
+// passes; this is the second lock on the same door.
+func harden(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "same-origin")
+		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
+		if strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		if auth.SessionToken(r.Header) != "" && !auth.SameOrigin(r.Header, r.Host) {
+			http.Error(w, "Cross-site requests can't use your sign-in.", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// backupHandler streams a consistent copy of the database to an admin.
+// It's a plain download rather than an RPC so the browser can save it.
+func backupHandler(st *store.Store, log *slog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p, err := auth.Authenticate(r.Context(), st, r.Header, r.RemoteAddr)
+		if err != nil || p == nil || p.Session == nil || p.Session.Pending || !p.Can(auth.SettingsManage) {
+			http.Error(w, "Sign in as an admin to download a backup.", http.StatusForbidden)
+			return
+		}
+		dir, err := os.MkdirTemp("", "mimir-backup-*")
+		if err != nil {
+			http.Error(w, "Couldn't make the backup.", http.StatusInternalServerError)
+			return
+		}
+		defer os.RemoveAll(dir)
+		path := filepath.Join(dir, "mimir.db")
+		if err := st.Backup(r.Context(), path); err != nil {
+			log.ErrorContext(r.Context(), "backup", "error", err)
+			http.Error(w, "Couldn't make the backup.", http.StatusInternalServerError)
+			return
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			http.Error(w, "Couldn't make the backup.", http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+		w.Header().Set("Content-Type", "application/vnd.sqlite3")
+		w.Header().Set("Content-Disposition", `attachment; filename="mimir-`+time.Now().UTC().Format("2006-01-02-150405")+`.db"`)
+		w.Header().Set("Cache-Control", "no-store")
+		http.ServeContent(w, r, "mimir.db", time.Now(), f)
+	})
 }
 
 // Protocols enables HTTP/1.1 and unencrypted HTTP/2, so gRPC clients can

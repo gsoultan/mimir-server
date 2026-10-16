@@ -1,0 +1,319 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// AuthService signs people in. Browsers get a session cookie; apps use API
+// keys in an "Authorization: Bearer" header instead.
+service AuthService {
+  // GetSetupState says whether the server still needs its first owner.
+  // Anyone may call it.
+  rpc GetSetupState(GetSetupStateRequest) returns (GetSetupStateResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Setup creates the first owner and signs them in. It works only while
+  // the server has no users.
+  rpc Setup(SetupRequest) returns (SetupResponse);
+  rpc SignIn(SignInRequest) returns (SignInResponse);
+  rpc SignOut(SignOutRequest) returns (SignOutResponse);
+  // WhoAmI returns the caller and what they may do.
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+
+  // VerifySecondFactor finishes a sign-in that SignIn said needs a code.
+  rpc VerifySecondFactor(VerifySecondFactorRequest) returns (VerifySecondFactorResponse);
+  // StartTwoFactor makes a fresh authenticator secret for the caller. It
+  // takes effect only once EnableTwoFactor confirms a code from it.
+  rpc StartTwoFactor(StartTwoFactorRequest) returns (StartTwoFactorResponse);
+  rpc EnableTwoFactor(EnableTwoFactorRequest) returns (EnableTwoFactorResponse);
+  rpc DisableTwoFactor(DisableTwoFactorRequest) returns (DisableTwoFactorResponse);
+
+  // ListSessions shows where the caller is signed in.
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // RevokeSessions signs out one session, or every session but this one.
+  rpc RevokeSessions(RevokeSessionsRequest) returns (RevokeSessionsResponse);
+}
+
+// UserService manages people and what they can reach.
+service UserService {
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+}
+
+// ApiKeyService manages the caller's own API keys.
+service ApiKeyService {
+  rpc ListApiKeys(ListApiKeysRequest) returns (ListApiKeysResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // CreateApiKey returns the secret once. The server keeps only a hash.
+  rpc CreateApiKey(CreateApiKeyRequest) returns (CreateApiKeyResponse);
+  rpc RevokeApiKey(RevokeApiKeyRequest) returns (RevokeApiKeyResponse);
+}
+
+// AuditService reads the record of who changed what.
+service AuditService {
+  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// Role is a fixed set of permissions. Each role includes the ones before it.
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  // VIEWER sees models and asks them questions.
+  ROLE_VIEWER = 1;
+  // EDITOR also adds, renames and deletes models.
+  ROLE_EDITOR = 2;
+  // ADMIN also manages users and reads the audit log.
+  ROLE_ADMIN = 3;
+  // OWNER also manages admins and other owners.
+  ROLE_OWNER = 4;
+}
+
+// Access is a role and the models it applies to.
+message Access {
+  Role role = 1;
+  // AllModels grants the role on every model, including future ones.
+  bool all_models = 2;
+  // ModelIds lists the models the role applies to when all_models is false.
+  repeated string model_ids = 3;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+  Access access = 4;
+  bool disabled = 5;
+  google.protobuf.Timestamp create_time = 6;
+  google.protobuf.Timestamp last_sign_in_time = 7;
+  // TwoFactor is true once the person confirmed an authenticator app.
+  bool two_factor = 8;
+}
+
+message GetSetupStateRequest {}
+
+message GetSetupStateResponse {
+  bool needs_setup = 1;
+}
+
+message SetupRequest {
+  string email = 1;
+  string name = 2;
+  string password = 3;
+}
+
+message SetupResponse {
+  User user = 1;
+}
+
+message SignInRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message SignInResponse {
+  // User is set once the sign-in is complete.
+  User user = 1;
+  // SecondFactorRequired means the password matched and the browser now
+  // holds a short-lived cookie that only VerifySecondFactor accepts.
+  bool second_factor_required = 2;
+}
+
+message SignOutRequest {}
+
+message SignOutResponse {}
+
+message WhoAmIRequest {}
+
+message WhoAmIResponse {
+  User user = 1;
+  // Permissions are what the caller may do, such as "models.write".
+  repeated string permissions = 2;
+  // SessionId is this browser's session, so it can be told apart in
+  // ListSessions. Empty for API keys.
+  string session_id = 3;
+  // MustSetUpTwoFactor means an admin requires two-step verification for
+  // this account and it isn't on yet; only setting it up is allowed.
+  bool must_set_up_two_factor = 4;
+}
+
+message ChangePasswordRequest {
+  string current_password = 1;
+  string new_password = 2;
+}
+
+message ChangePasswordResponse {}
+
+message VerifySecondFactorRequest {
+  // Code is six digits from the authenticator app, or a recovery code.
+  string code = 1;
+}
+
+message VerifySecondFactorResponse {
+  User user = 1;
+  // RecoveryCodesLeft is set when a recovery code was used.
+  int32 recovery_codes_left = 2;
+  bool used_recovery_code = 3;
+}
+
+message StartTwoFactorRequest {
+  // Password proves the person at the keyboard, not just the cookie.
+  string password = 1;
+}
+
+message StartTwoFactorResponse {
+  // Secret is the base32 key to type by hand; otpauth_url goes in a QR code.
+  string secret = 1;
+  string otpauth_url = 2;
+}
+
+message EnableTwoFactorRequest {
+  string code = 1;
+}
+
+message EnableTwoFactorResponse {
+  // RecoveryCodes are shown once; each works a single time.
+  repeated string recovery_codes = 1;
+}
+
+message DisableTwoFactorRequest {
+  string password = 1;
+}
+
+message DisableTwoFactorResponse {}
+
+message Session {
+  string id = 1;
+  // Device is a short description from the browser, like "Chrome on Mac".
+  string device = 2;
+  string ip = 3;
+  google.protobuf.Timestamp create_time = 4;
+  google.protobuf.Timestamp last_seen_time = 5;
+  bool current = 6;
+}
+
+message ListSessionsRequest {}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message RevokeSessionsRequest {
+  // Id names one session; empty means every session except the current one.
+  string id = 1;
+}
+
+message RevokeSessionsResponse {
+  int32 revoked = 1;
+}
+
+message ListUsersRequest {}
+
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+message CreateUserRequest {
+  string email = 1;
+  string name = 2;
+  // Password is the first password; tell it to the person, who can change
+  // it after signing in.
+  string password = 3;
+  Access access = 4;
+}
+
+message CreateUserResponse {
+  User user = 1;
+}
+
+message UpdateUserRequest {
+  string id = 1;
+  string name = 2;
+  Access access = 3;
+  bool disabled = 4;
+  // NewPassword, when set, replaces the user's password and signs them out
+  // everywhere.
+  string new_password = 5;
+  // ResetTwoFactor turns off the user's authenticator so they can sign in
+  // with their password alone, for when they lost their phone.
+  bool reset_two_factor = 6;
+}
+
+message UpdateUserResponse {
+  User user = 1;
+}
+
+message DeleteUserRequest {
+  string id = 1;
+}
+
+message DeleteUserResponse {}
+
+message ApiKey {
+  string id = 1;
+  string name = 2;
+  // Prefix is the start of the secret, to tell keys apart.
+  string prefix = 3;
+  // Access is what the key may do. It never exceeds its owner's access,
+  // checked on every request.
+  Access access = 4;
+  google.protobuf.Timestamp create_time = 5;
+  google.protobuf.Timestamp last_used_time = 6;
+}
+
+message ListApiKeysRequest {}
+
+message ListApiKeysResponse {
+  repeated ApiKey api_keys = 1;
+}
+
+message CreateApiKeyRequest {
+  string name = 1;
+  Access access = 2;
+}
+
+message CreateApiKeyResponse {
+  ApiKey api_key = 1;
+  // Secret is shown only once.
+  string secret = 2;
+}
+
+message RevokeApiKeyRequest {
+  string id = 1;
+}
+
+message RevokeApiKeyResponse {}
+
+message AuditEvent {
+  string id = 1;
+  google.protobuf.Timestamp time = 2;
+  // Actor is who did it: a user's email, or "key <name> (<email>)".
+  string actor = 3;
+  // Action is what happened, such as "model.create".
+  string action = 4;
+  // Target is what it happened to, such as a model's name.
+  string target = 5;
+  string detail = 6;
+}
+
+message ListAuditEventsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListAuditEventsResponse {
+  repeated AuditEvent events = 1;
+  string next_page_token = 2;
+}

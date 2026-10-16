@@ -4,12 +4,12 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useDeferredValue, useState } from "react";
 
-import { listArchitectures, listModels } from "../../api/queries";
-import { ButtonLink, AnchorLink } from "../../components/links";
-import { Page } from "../../components/Page";
-import { ago, bytes } from "../../lib/format";
+import { listArchitectures, listModels, whoAmI } from "../../../api/queries";
+import { ButtonLink, AnchorLink } from "../../../components/links";
+import { Page } from "../../../components/Page";
+import { ago, bytes } from "../../../lib/format";
 
-export const Route = createFileRoute("/models/")({
+export const Route = createFileRoute("/_app/models/")({
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureQueryData(listModels),
     context.queryClient.ensureQueryData(listArchitectures),
@@ -20,6 +20,8 @@ export const Route = createFileRoute("/models/")({
 function Models() {
   const { data } = useSuspenseQuery(listModels);
   const { data: archs } = useSuspenseQuery(listArchitectures);
+  const { data: me } = useSuspenseQuery(whoAmI);
+  const canWrite = me.permissions.includes("models.write");
   const [query, setQuery] = useState("");
   const q = useDeferredValue(query).trim().toLowerCase();
   const title = (name: string) => archs.architectures.find((a) => a.name === name)?.title ?? name;
@@ -29,7 +31,7 @@ function Models() {
     <Page
       title="Models"
       intro="Everything this server can answer with."
-      actions={
+      actions={canWrite &&
         <Group gap="sm">
           <Button variant="default" leftSection={<IconSchool size={18} />} disabled title="Coming soon">Teach a new model</Button>
           <ButtonLink to="/models/new" leftSection={<IconUpload size={18} />}>Add a model</ButtonLink>
@@ -49,8 +51,8 @@ function Models() {
       {data.models.length === 0 ? (
         <Card withBorder radius="lg" padding="xl" className="text-center">
           <Text fw={600}>No models yet</Text>
-          <Text c="dimmed" mb="md">Add one and it shows up here.</Text>
-          <Group justify="center"><ButtonLink to="/models/new">Add a model</ButtonLink></Group>
+          <Text c="dimmed" mb="md">{canWrite ? "Add one and it shows up here." : "Ask an editor or admin to share one with you."}</Text>
+          {canWrite && <Group justify="center"><ButtonLink to="/models/new">Add a model</ButtonLink></Group>}
         </Card>
       ) : shown.length === 0 ? (
         <Text c="dimmed">No model matches "{query}".</Text>

@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// SettingsService configures the server: alerts, retention and the
+// database. Admins and owners only.
+service SettingsService {
+  rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc UpdateAlerts(UpdateAlertsRequest) returns (UpdateAlertsResponse);
+  // SendTestAlert sends "This is a test" through the chosen channel now.
+  rpc SendTestAlert(SendTestAlertRequest) returns (SendTestAlertResponse);
+  rpc UpdateRetention(UpdateRetentionRequest) returns (UpdateRetentionResponse);
+  rpc UpdateSecurity(UpdateSecurityRequest) returns (UpdateSecurityResponse);
+  rpc GetDatabaseInfo(GetDatabaseInfoRequest) returns (GetDatabaseInfoResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// EmailAlerts sends alerts through an SMTP server. The password is never
+// returned; password_set says whether one is stored.
+message EmailAlerts {
+  bool enabled = 1;
+  string host = 2;
+  int32 port = 3;
+  string username = 4;
+  // Password is write-only: empty keeps the stored one.
+  string password = 5;
+  bool password_set = 6;
+  string from = 7;
+  repeated string to = 8;
+}
+
+// TelegramAlerts sends alerts through a Telegram bot. The token is never
+// returned; token_set says whether one is stored.
+message TelegramAlerts {
+  bool enabled = 1;
+  // BotToken is write-only: empty keeps the stored one.
+  string bot_token = 2;
+  bool token_set = 3;
+  string chat_id = 4;
+}
+
+message Retention {
+  // AuditDays is how long audit events are kept. 0 means forever.
+  int32 audit_days = 1;
+  // DeliveryDays is how long webhook delivery history is kept.
+  int32 delivery_days = 2;
+}
+
+message GetSettingsRequest {}
+
+message GetSettingsResponse {
+  EmailAlerts email = 1;
+  TelegramAlerts telegram = 2;
+  Retention retention = 3;
+  Security security = 4;
+}
+
+// Security says who must use two-step verification.
+message Security {
+  TwoFactorPolicy two_factor = 1;
+}
+
+enum TwoFactorPolicy {
+  TWO_FACTOR_POLICY_UNSPECIFIED = 0;
+  // OPTIONAL lets each person decide.
+  TWO_FACTOR_POLICY_OPTIONAL = 1;
+  // ADMINS requires it for admins and owners.
+  TWO_FACTOR_POLICY_ADMINS = 2;
+  // EVERYONE requires it for every account.
+  TWO_FACTOR_POLICY_EVERYONE = 3;
+}
+
+message UpdateSecurityRequest {
+  Security security = 1;
+}
+
+message UpdateSecurityResponse {
+  Security security = 1;
+}
+
+message UpdateAlertsRequest {
+  EmailAlerts email = 1;
+  TelegramAlerts telegram = 2;
+}
+
+message UpdateAlertsResponse {
+  EmailAlerts email = 1;
+  TelegramAlerts telegram = 2;
+}
+
+message SendTestAlertRequest {
+  // Channel is "email" or "telegram".
+  string channel = 1;
+}
+
+message SendTestAlertResponse {}
+
+message UpdateRetentionRequest {
+  Retention retention = 1;
+}
+
+message UpdateRetentionResponse {
+  Retention retention = 1;
+}
+
+message GetDatabaseInfoRequest {}
+
+message GetDatabaseInfoResponse {
+  // Kind is the database engine, "sqlite" for now.
+  string kind = 1;
+  string path = 2;
+  int64 size_bytes = 3;
+  // SchemaVersion is the newest update applied; updates run on start.
+  int32 schema_version = 4;
+  int32 latest_schema_version = 5;
+  int32 models = 6;
+  int32 users = 7;
+  int32 audit_events = 8;
+  int32 deliveries = 9;
+  google.protobuf.Timestamp last_trim_time = 10;
+  int64 last_trim_rows = 11;
+}

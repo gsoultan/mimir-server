@@ -42,6 +42,7 @@ type Model struct {
 // Store is safe for concurrent use.
 type Store struct {
 	db      *sql.DB
+	dbPath  string
 	weights string // directory holding <id>.safetensors files
 }
 
@@ -51,18 +52,31 @@ func Open(ctx context.Context, dir string) (*Store, error) {
 	if err := os.MkdirAll(weights, 0o750); err != nil {
 		return nil, fmt.Errorf("store: create %s: %w", weights, err)
 	}
-	dsn := "file:" + filepath.Join(dir, "mimir.db") +
+	dbPath := filepath.Join(dir, "mimir.db")
+	dsn := "file:" + dbPath +
 		"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(on)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("store: open: %w", err)
 	}
-	s := &Store{db: db, weights: weights}
+	s := &Store{db: db, dbPath: dbPath, weights: weights}
 	if err := s.migrate(ctx); err != nil {
 		db.Close()
 		return nil, err
 	}
 	return s, nil
+}
+
+// LatestSchemaVersion is the newest migration shipped with this build.
+func LatestSchemaVersion() int {
+	names, _ := fs.Glob(migrations, "migrations/*.sql")
+	latest := 0
+	for _, name := range names {
+		if n, err := strconv.Atoi(strings.SplitN(filepath.Base(name), "_", 2)[0]); err == nil && n > latest {
+			latest = n
+		}
+	}
+	return latest
 }
 
 // Close closes the database.
