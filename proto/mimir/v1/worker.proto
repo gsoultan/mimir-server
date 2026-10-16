@@ -148,6 +148,12 @@ message TrainTask {
   string target = 7;
   // history is what earlier attempts already finished, for a resumed job.
   repeated EpochResult history = 8;
+  // base_weights, when set, are a model to continue training from.
+  bytes base_weights = 9;
+  // base_labels and base_features are what the base model answers and
+  // reads; its weights carry over only while they still match.
+  repeated string base_labels = 10;
+  repeated string base_features = 11;
 }
 
 message TrainProgress {
@@ -165,6 +171,8 @@ message TrainResult {
   ModelSpec spec = 4;
   string error = 5;
   bool cancelled = 6;
+  // fresh says the base weights didn't fit and it learned from scratch.
+  bool fresh = 7;
 }
 
 message CancelTask {

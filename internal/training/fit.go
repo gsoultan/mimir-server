@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
+	"github.com/gsoultan/mimir/io/safetensors"
 	"github.com/gsoultan/mimir/metrics"
 	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/nn/loss"
@@ -27,6 +29,15 @@ type Task struct {
 	// CheckpointDir is where a checkpoint is written after every epoch and
 	// resumed from. Empty means no checkpoints.
 	CheckpointDir string
+	// BaseWeights, when set, are a model to continue learning from. If the
+	// examples no longer fit it (a new column or answer appeared), the task
+	// starts fresh and Result.Fresh says so.
+	BaseWeights []byte
+	// BaseLabels and BaseFeatures are what the base model answers and
+	// reads. Weights only carry over when both still match, so an answer
+	// never silently changes meaning.
+	BaseLabels   []string
+	BaseFeatures []string
 }
 
 // Progress is told where a task is: the finished epoch, the step within
@@ -39,6 +50,8 @@ type Result struct {
 	History  []store.Epoch
 	Spec     arch.Spec
 	Features []string // column names, for a table
+	// Fresh is true when BaseWeights were given but didn't fit.
+	Fresh bool
 }
 
 // Fit trains a task to completion, or until ctx ends.
@@ -53,6 +66,20 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	}
 	spec = arch.Resolve(t.Arch, spec)
 	model := t.Arch.New(spec)
+	fresh := false
+	if len(t.BaseWeights) > 0 && (!slices.Equal(t.BaseLabels, spec.Labels) || !slices.Equal(t.BaseFeatures, features)) {
+		fresh = true
+	} else if len(t.BaseWeights) > 0 {
+		// Continue from the earlier model. Its column statistics come with
+		// it, so the inputs it already understands keep meaning the same.
+		f, err := safetensors.Parse(t.BaseWeights)
+		if err == nil {
+			err = nn.Load(f, model)
+		}
+		if err != nil {
+			model, fresh = t.Arch.New(spec), true
+		}
+	}
 	opt := optim.AdamW(nn.Parameters(model), optim.LR(s.LearningRate), optim.WeightDecay(0.01))
 
 	history := t.History
@@ -104,5 +131,5 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	if err := nn.Save(ctx, &buf, model); err != nil {
 		return Result{}, fmt.Errorf("couldn't save the model: %w", err)
 	}
-	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features}, nil
+	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features, Fresh: fresh}, nil
 }

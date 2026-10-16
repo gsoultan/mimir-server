@@ -224,6 +224,8 @@ const actions: Record<string, string> = {
   "settings.security": "changed security settings",
   "dataset.create": "added the examples",
   "dataset.delete": "removed the examples",
+  "dataset.refresh": "fetched the examples again",
+  "training.repeat": "changed how often it keeps learning",
   "training.create": "started teaching",
   "training.cancel": "stopped teaching",
   "training.resume": "resumed teaching",

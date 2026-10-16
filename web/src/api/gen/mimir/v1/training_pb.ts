@@ -12,7 +12,46 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/training.proto.
  */
 export const file_mimir_v1_training: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW1pci92MS90cmFpbmluZy5wcm90bxIIbWltaXIudjEi+QEKB0RhdGFzZXQSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIjCgRraW5kGAMgASgOMhUubWltaXIudjEuRGF0YXNldEtpbmQSDAoEcm93cxgEIAEoAxIQCghmZWF0dXJlcxgFIAMoCRIOCgZsYWJlbHMYBiADKAkSEwoLaW5wdXRfc2hhcGUYByADKAMSDgoGdGFyZ2V0GAggASgJEhIKCnNpemVfYnl0ZXMYCSABKAMSLwoLY3JlYXRlX3RpbWUYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhUKDWFyY2hpdGVjdHVyZXMYCyADKAkiFQoTTGlzdERhdGFzZXRzUmVxdWVzdCI7ChRMaXN0RGF0YXNldHNSZXNwb25zZRIjCghkYXRhc2V0cxgBIAMoCzIRLm1pbWlyLnYxLkRhdGFzZXQiHwoRR2V0RGF0YXNldFJlcXVlc3QSCgoCaWQYASABKAkiVwoSR2V0RGF0YXNldFJlc3BvbnNlEiIKB2RhdGFzZXQYASABKAsyES5taW1pci52MS5EYXRhc2V0Eh0KBnNhbXBsZRgCIAMoCzINLm1pbWlyLnYxLlJvdyIVCgNSb3cSDgoGdmFsdWVzGAEgAygJImYKFENyZWF0ZURhdGFzZXRSZXF1ZXN0EgwKBG5hbWUYASABKAkSIwoEa2luZBgCIAEoDjIVLm1pbWlyLnYxLkRhdGFzZXRLaW5kEgsKA2NzdhgDIAEoDBIOCgZ0YXJnZXQYBCABKAkiOwoVQ3JlYXRlRGF0YXNldFJlc3BvbnNlEiIKB2RhdGFzZXQYASABKAsyES5taW1pci52MS5EYXRhc2V0IiIKFERlbGV0ZURhdGFzZXRSZXF1ZXN0EgoKAmlkGAEgASgJIhcKFURlbGV0ZURhdGFzZXRSZXNwb25zZSJfChBUcmFpbmluZ1NldHRpbmdzEg4KBmVwb2NocxgBIAEoBRISCgpiYXRjaF9zaXplGAIgASgFEhUKDWxlYXJuaW5nX3JhdGUYAyABKAESEAoIaG9sZF9vdXQYBCABKAEiZwoLRXBvY2hSZXN1bHQSDQoFZXBvY2gYASABKAUSDAoEbG9zcxgCIAEoARIQCghhY2N1cmFjeRgDIAEoARIQCgh2YWxfbG9zcxgEIAEoARIXCg9kdXJhdGlvbl9taWxsaXMYBSABKAMiiwQKA0pvYhIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhQKDGFyY2hpdGVjdHVyZRgEIAEoCRISCgpkYXRhc2V0X2lkGAUgASgJEhQKDGRhdGFzZXRfbmFtZRgGIAEoCRIsCghzZXR0aW5ncxgHIAEoCzIaLm1pbWlyLnYxLlRyYWluaW5nU2V0dGluZ3MSIwoGc3RhdHVzGAggASgOMhMubWltaXIudjEuSm9iU3RhdHVzEg0KBWVycm9yGAkgASgJEg0KBWVwb2NoGAogASgFEiYKB2hpc3RvcnkYCyADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdBIQCghtb2RlbF9pZBgMIAEoCRISCgpjcmVhdGVkX2J5GA0gASgJEi8KC2NyZWF0ZV90aW1lGA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpzdGFydF90aW1lGA8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRfdGltZRgQIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIYWNjdXJhY3kYESABKAESFwoPc3RlcHNfcGVyX2Vwb2NoGBIgASgFEgwKBHN0ZXAYEyABKAUSDgoGd29ya2VyGBQgASgJIhEKD0xpc3RKb2JzUmVxdWVzdCIvChBMaXN0Sm9ic1Jlc3BvbnNlEhsKBGpvYnMYASADKAsyDS5taW1pci52MS5Kb2IiGwoNR2V0Sm9iUmVxdWVzdBIKCgJpZBgBIAEoCSIsCg5HZXRKb2JSZXNwb25zZRIaCgNqb2IYASABKAsyDS5taW1pci52MS5Kb2IijQEKEENyZWF0ZUpvYlJlcXVlc3QSDAoEbmFtZRgBIAEoCRITCgtkZXNjcmlwdGlvbhgCIAEoCRIUCgxhcmNoaXRlY3R1cmUYAyABKAkSEgoKZGF0YXNldF9pZBgEIAEoCRIsCghzZXR0aW5ncxgFIAEoCzIaLm1pbWlyLnYxLlRyYWluaW5nU2V0dGluZ3MiLwoRQ3JlYXRlSm9iUmVzcG9uc2USGgoDam9iGAEgASgLMg0ubWltaXIudjEuSm9iIh4KEENhbmNlbEpvYlJlcXVlc3QSCgoCaWQYASABKAkiLwoRQ2FuY2VsSm9iUmVzcG9uc2USGgoDam9iGAEgASgLMg0ubWltaXIudjEuSm9iIh4KEFJlc3VtZUpvYlJlcXVlc3QSCgoCaWQYASABKAkiLwoRUmVzdW1lSm9iUmVzcG9uc2USGgoDam9iGAEgASgLMg0ubWltaXIudjEuSm9iIh4KEERlbGV0ZUpvYlJlcXVlc3QSCgoCaWQYASABKAkiEwoRRGVsZXRlSm9iUmVzcG9uc2UqWwoLRGF0YXNldEtpbmQSHAoYREFUQVNFVF9LSU5EX1VOU1BFQ0lGSUVEEAASFgoSREFUQVNFVF9LSU5EX1RBQkxFEAESFgoSREFUQVNFVF9LSU5EX01OSVNUEAIqoQEKCUpvYlN0YXR1cxIaChZKT0JfU1RBVFVTX1VOU1BFQ0lGSUVEEAASFQoRSk9CX1NUQVRVU19RVUVVRUQQARIWChJKT0JfU1RBVFVTX1JVTk5JTkcQAhIYChRKT0JfU1RBVFVTX1NVQ0NFRURFRBADEhUKEUpPQl9TVEFUVVNfRkFJTEVEEAQSGAoUSk9CX1NUQVRVU19DQU5DRUxMRUQQBTLWAgoORGF0YXNldFNlcnZpY2USUgoMTGlzdERhdGFzZXRzEh0ubWltaXIudjEuTGlzdERhdGFzZXRzUmVxdWVzdBoeLm1pbWlyLnYxLkxpc3REYXRhc2V0c1Jlc3BvbnNlIgOQAgESTAoKR2V0RGF0YXNldBIbLm1pbWlyLnYxLkdldERhdGFzZXRSZXF1ZXN0GhwubWltaXIudjEuR2V0RGF0YXNldFJlc3BvbnNlIgOQAgESUAoNQ3JlYXRlRGF0YXNldBIeLm1pbWlyLnYxLkNyZWF0ZURhdGFzZXRSZXF1ZXN0Gh8ubWltaXIudjEuQ3JlYXRlRGF0YXNldFJlc3BvbnNlElAKDURlbGV0ZURhdGFzZXQSHi5taW1pci52MS5EZWxldGVEYXRhc2V0UmVxdWVzdBofLm1pbWlyLnYxLkRlbGV0ZURhdGFzZXRSZXNwb25zZTKzAwoPVHJhaW5pbmdTZXJ2aWNlEkYKCExpc3RKb2JzEhkubWltaXIudjEuTGlzdEpvYnNSZXF1ZXN0GhoubWltaXIudjEuTGlzdEpvYnNSZXNwb25zZSIDkAIBEkAKBkdldEpvYhIXLm1pbWlyLnYxLkdldEpvYlJlcXVlc3QaGC5taW1pci52MS5HZXRKb2JSZXNwb25zZSIDkAIBEkQKCUNyZWF0ZUpvYhIaLm1pbWlyLnYxLkNyZWF0ZUpvYlJlcXVlc3QaGy5taW1pci52MS5DcmVhdGVKb2JSZXNwb25zZRJECglDYW5jZWxKb2ISGi5taW1pci52MS5DYW5jZWxKb2JSZXF1ZXN0GhsubWltaXIudjEuQ2FuY2VsSm9iUmVzcG9uc2USRAoJUmVzdW1lSm9iEhoubWltaXIudjEuUmVzdW1lSm9iUmVxdWVzdBobLm1pbWlyLnYxLlJlc3VtZUpvYlJlc3BvbnNlEkQKCURlbGV0ZUpvYhIaLm1pbWlyLnYxLkRlbGV0ZUpvYlJlcXVlc3QaGy5taW1pci52MS5EZWxldGVKb2JSZXNwb25zZUI3WjVnaXRodWIuY29tL2dzb3VsdGFuL21pbWlyLXNlcnZlci9nZW4vbWltaXIvdjE7bWltaXJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChdtaW1pci92MS90cmFpbmluZy5wcm90bxIIbWltaXIudjEiNgoQU2V0UmVwZWF0UmVxdWVzdBIKCgJpZBgBIAEoCRIWCg5yZXBlYXRfc2Vjb25kcxgCIAEoAyIvChFTZXRSZXBlYXRSZXNwb25zZRIaCgNqb2IYASABKAsyDS5taW1pci52MS5Kb2IiygIKB0RhdGFzZXQSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIjCgRraW5kGAMgASgOMhUubWltaXIudjEuRGF0YXNldEtpbmQSDAoEcm93cxgEIAEoAxIQCghmZWF0dXJlcxgFIAMoCRIOCgZsYWJlbHMYBiADKAkSEwoLaW5wdXRfc2hhcGUYByADKAMSDgoGdGFyZ2V0GAggASgJEhIKCnNpemVfYnl0ZXMYCSABKAMSLwoLY3JlYXRlX3RpbWUYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmRyaXZlchgMIAEoCRINCgVxdWVyeRgNIAEoCRIwCgxyZWZyZXNoX3RpbWUYDiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhUKDWFyY2hpdGVjdHVyZXMYCyADKAkiFQoTTGlzdERhdGFzZXRzUmVxdWVzdCI7ChRMaXN0RGF0YXNldHNSZXNwb25zZRIjCghkYXRhc2V0cxgBIAMoCzIRLm1pbWlyLnYxLkRhdGFzZXQiHwoRR2V0RGF0YXNldFJlcXVlc3QSCgoCaWQYASABKAkiVwoSR2V0RGF0YXNldFJlc3BvbnNlEiIKB2RhdGFzZXQYASABKAsyES5taW1pci52MS5EYXRhc2V0Eh0KBnNhbXBsZRgCIAMoCzINLm1pbWlyLnYxLlJvdyIVCgNSb3cSDgoGdmFsdWVzGAEgAygJIp8BChRDcmVhdGVEYXRhc2V0UmVxdWVzdBIMCgRuYW1lGAEgASgJEiMKBGtpbmQYAiABKA4yFS5taW1pci52MS5EYXRhc2V0S2luZBILCgNjc3YYAyABKAwSDgoGdGFyZ2V0GAQgASgJEigKCmNvbm5lY3Rpb24YBSABKAsyFC5taW1pci52MS5Db25uZWN0aW9uEg0KBXF1ZXJ5GAYgASgJIikKCkNvbm5lY3Rpb24SDgoGZHJpdmVyGAEgASgJEgsKA2RzbhgCIAEoCSJLChBUZXN0UXVlcnlSZXF1ZXN0EigKCmNvbm5lY3Rpb24YASABKAsyFC5taW1pci52MS5Db25uZWN0aW9uEg0KBXF1ZXJ5GAIgASgJIlEKEVRlc3RRdWVyeVJlc3BvbnNlEg8KB2NvbHVtbnMYASADKAkSHQoGc2FtcGxlGAIgAygLMg0ubWltaXIudjEuUm93EgwKBHJvd3MYAyABKAMiIwoVUmVmcmVzaERhdGFzZXRSZXF1ZXN0EgoKAmlkGAEgASgJIjwKFlJlZnJlc2hEYXRhc2V0UmVzcG9uc2USIgoHZGF0YXNldBgBIAEoCzIRLm1pbWlyLnYxLkRhdGFzZXQiOwoVQ3JlYXRlRGF0YXNldFJlc3BvbnNlEiIKB2RhdGFzZXQYASABKAsyES5taW1pci52MS5EYXRhc2V0IiIKFERlbGV0ZURhdGFzZXRSZXF1ZXN0EgoKAmlkGAEgASgJIhcKFURlbGV0ZURhdGFzZXRSZXNwb25zZSJfChBUcmFpbmluZ1NldHRpbmdzEg4KBmVwb2NocxgBIAEoBRISCgpiYXRjaF9zaXplGAIgASgFEhUKDWxlYXJuaW5nX3JhdGUYAyABKAESEAoIaG9sZF9vdXQYBCABKAEiZwoLRXBvY2hSZXN1bHQSDQoFZXBvY2gYASABKAUSDAoEbG9zcxgCIAEoARIQCghhY2N1cmFjeRgDIAEoARIQCgh2YWxfbG9zcxgEIAEoARIXCg9kdXJhdGlvbl9taWxsaXMYBSABKAMijgUKA0pvYhIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhQKDGFyY2hpdGVjdHVyZRgEIAEoCRISCgpkYXRhc2V0X2lkGAUgASgJEhQKDGRhdGFzZXRfbmFtZRgGIAEoCRIsCghzZXR0aW5ncxgHIAEoCzIaLm1pbWlyLnYxLlRyYWluaW5nU2V0dGluZ3MSIwoGc3RhdHVzGAggASgOMhMubWltaXIudjEuSm9iU3RhdHVzEg0KBWVycm9yGAkgASgJEg0KBWVwb2NoGAogASgFEiYKB2hpc3RvcnkYCyADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdBIQCghtb2RlbF9pZBgMIAEoCRISCgpjcmVhdGVkX2J5GA0gASgJEi8KC2NyZWF0ZV90aW1lGA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpzdGFydF90aW1lGA8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRfdGltZRgQIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIYWNjdXJhY3kYESABKAESFwoPc3RlcHNfcGVyX2Vwb2NoGBIgASgFEgwKBHN0ZXAYEyABKAUSDgoGd29ya2VyGBQgASgJEhYKDnJlcGVhdF9zZWNvbmRzGBUgASgDEjEKDW5leHRfcnVuX3RpbWUYFiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCXBhcmVudF9pZBgXIAEoCRIVCg1iYXNlX21vZGVsX2lkGBggASgJEgwKBG5vdGUYGSABKAkiEQoPTGlzdEpvYnNSZXF1ZXN0Ii8KEExpc3RKb2JzUmVzcG9uc2USGwoEam9icxgBIAMoCzINLm1pbWlyLnYxLkpvYiIbCg1HZXRKb2JSZXF1ZXN0EgoKAmlkGAEgASgJIiwKDkdldEpvYlJlc3BvbnNlEhoKA2pvYhgBIAEoCzINLm1pbWlyLnYxLkpvYiKlAQoQQ3JlYXRlSm9iUmVxdWVzdBIMCgRuYW1lGAEgASgJEhMKC2Rlc2NyaXB0aW9uGAIgASgJEhQKDGFyY2hpdGVjdHVyZRgDIAEoCRISCgpkYXRhc2V0X2lkGAQgASgJEiwKCHNldHRpbmdzGAUgASgLMhoubWltaXIudjEuVHJhaW5pbmdTZXR0aW5ncxIWCg5yZXBlYXRfc2Vjb25kcxgGIAEoAyIvChFDcmVhdGVKb2JSZXNwb25zZRIaCgNqb2IYASABKAsyDS5taW1pci52MS5Kb2IiHgoQQ2FuY2VsSm9iUmVxdWVzdBIKCgJpZBgBIAEoCSIvChFDYW5jZWxKb2JSZXNwb25zZRIaCgNqb2IYASABKAsyDS5taW1pci52MS5Kb2IiHgoQUmVzdW1lSm9iUmVxdWVzdBIKCgJpZBgBIAEoCSIvChFSZXN1bWVKb2JSZXNwb25zZRIaCgNqb2IYASABKAsyDS5taW1pci52MS5Kb2IiHgoQRGVsZXRlSm9iUmVxdWVzdBIKCgJpZBgBIAEoCSITChFEZWxldGVKb2JSZXNwb25zZSpbCgtEYXRhc2V0S2luZBIcChhEQVRBU0VUX0tJTkRfVU5TUEVDSUZJRUQQABIWChJEQVRBU0VUX0tJTkRfVEFCTEUQARIWChJEQVRBU0VUX0tJTkRfTU5JU1QQAiqhAQoJSm9iU3RhdHVzEhoKFkpPQl9TVEFUVVNfVU5TUEVDSUZJRUQQABIVChFKT0JfU1RBVFVTX1FVRVVFRBABEhYKEkpPQl9TVEFUVVNfUlVOTklORxACEhgKFEpPQl9TVEFUVVNfU1VDQ0VFREVEEAMSFQoRSk9CX1NUQVRVU19GQUlMRUQQBBIYChRKT0JfU1RBVFVTX0NBTkNFTExFRBAFMvEDCg5EYXRhc2V0U2VydmljZRJSCgxMaXN0RGF0YXNldHMSHS5taW1pci52MS5MaXN0RGF0YXNldHNSZXF1ZXN0Gh4ubWltaXIudjEuTGlzdERhdGFzZXRzUmVzcG9uc2UiA5ACARJMCgpHZXREYXRhc2V0EhsubWltaXIudjEuR2V0RGF0YXNldFJlcXVlc3QaHC5taW1pci52MS5HZXREYXRhc2V0UmVzcG9uc2UiA5ACARJQCg1DcmVhdGVEYXRhc2V0Eh4ubWltaXIudjEuQ3JlYXRlRGF0YXNldFJlcXVlc3QaHy5taW1pci52MS5DcmVhdGVEYXRhc2V0UmVzcG9uc2USUAoNRGVsZXRlRGF0YXNldBIeLm1pbWlyLnYxLkRlbGV0ZURhdGFzZXRSZXF1ZXN0Gh8ubWltaXIudjEuRGVsZXRlRGF0YXNldFJlc3BvbnNlEkQKCVRlc3RRdWVyeRIaLm1pbWlyLnYxLlRlc3RRdWVyeVJlcXVlc3QaGy5taW1pci52MS5UZXN0UXVlcnlSZXNwb25zZRJTCg5SZWZyZXNoRGF0YXNldBIfLm1pbWlyLnYxLlJlZnJlc2hEYXRhc2V0UmVxdWVzdBogLm1pbWlyLnYxLlJlZnJlc2hEYXRhc2V0UmVzcG9uc2Uy+QMKD1RyYWluaW5nU2VydmljZRJGCghMaXN0Sm9icxIZLm1pbWlyLnYxLkxpc3RKb2JzUmVxdWVzdBoaLm1pbWlyLnYxLkxpc3RKb2JzUmVzcG9uc2UiA5ACARJACgZHZXRKb2ISFy5taW1pci52MS5HZXRKb2JSZXF1ZXN0GhgubWltaXIudjEuR2V0Sm9iUmVzcG9uc2UiA5ACARJECglDcmVhdGVKb2ISGi5taW1pci52MS5DcmVhdGVKb2JSZXF1ZXN0GhsubWltaXIudjEuQ3JlYXRlSm9iUmVzcG9uc2USRAoJQ2FuY2VsSm9iEhoubWltaXIudjEuQ2FuY2VsSm9iUmVxdWVzdBobLm1pbWlyLnYxLkNhbmNlbEpvYlJlc3BvbnNlEkQKCVJlc3VtZUpvYhIaLm1pbWlyLnYxLlJlc3VtZUpvYlJlcXVlc3QaGy5taW1pci52MS5SZXN1bWVKb2JSZXNwb25zZRJECglEZWxldGVKb2ISGi5taW1pci52MS5EZWxldGVKb2JSZXF1ZXN0GhsubWltaXIudjEuRGVsZXRlSm9iUmVzcG9uc2USRAoJU2V0UmVwZWF0EhoubWltaXIudjEuU2V0UmVwZWF0UmVxdWVzdBobLm1pbWlyLnYxLlNldFJlcGVhdFJlc3BvbnNlQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+
+/**
+ * @generated from message mimir.v1.SetRepeatRequest
+ */
+export type SetRepeatRequest = Message<"mimir.v1.SetRepeatRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: int64 repeat_seconds = 2;
+   */
+  repeatSeconds: bigint;
+};
+
+/**
+ * Describes the message mimir.v1.SetRepeatRequest.
+ * Use `create(SetRepeatRequestSchema)` to create a new message.
+ */
+export const SetRepeatRequestSchema: GenMessage<SetRepeatRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_training, 0);
+
+/**
+ * @generated from message mimir.v1.SetRepeatResponse
+ */
+export type SetRepeatResponse = Message<"mimir.v1.SetRepeatResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Job job = 1;
+   */
+  job?: Job | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.SetRepeatResponse.
+ * Use `create(SetRepeatResponseSchema)` to create a new message.
+ */
+export const SetRepeatResponseSchema: GenMessage<SetRepeatResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_training, 1);
 
 /**
  * @generated from message mimir.v1.Dataset
@@ -79,6 +118,24 @@ export type Dataset = Message<"mimir.v1.Dataset"> & {
   createTime?: Timestamp | undefined;
 
   /**
+   * Driver and query are set when the rows come from a database; the
+   * connection itself is never returned.
+   *
+   * @generated from field: string driver = 12;
+   */
+  driver: string;
+
+  /**
+   * @generated from field: string query = 13;
+   */
+  query: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp refresh_time = 14;
+   */
+  refreshTime?: Timestamp | undefined;
+
+  /**
    * Architectures lists the model types that can learn from this dataset.
    *
    * @generated from field: repeated string architectures = 11;
@@ -91,7 +148,7 @@ export type Dataset = Message<"mimir.v1.Dataset"> & {
  * Use `create(DatasetSchema)` to create a new message.
  */
 export const DatasetSchema: GenMessage<Dataset> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 0);
+  messageDesc(file_mimir_v1_training, 2);
 
 /**
  * @generated from message mimir.v1.ListDatasetsRequest
@@ -104,7 +161,7 @@ export type ListDatasetsRequest = Message<"mimir.v1.ListDatasetsRequest"> & {
  * Use `create(ListDatasetsRequestSchema)` to create a new message.
  */
 export const ListDatasetsRequestSchema: GenMessage<ListDatasetsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 1);
+  messageDesc(file_mimir_v1_training, 3);
 
 /**
  * @generated from message mimir.v1.ListDatasetsResponse
@@ -121,7 +178,7 @@ export type ListDatasetsResponse = Message<"mimir.v1.ListDatasetsResponse"> & {
  * Use `create(ListDatasetsResponseSchema)` to create a new message.
  */
 export const ListDatasetsResponseSchema: GenMessage<ListDatasetsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 2);
+  messageDesc(file_mimir_v1_training, 4);
 
 /**
  * @generated from message mimir.v1.GetDatasetRequest
@@ -138,7 +195,7 @@ export type GetDatasetRequest = Message<"mimir.v1.GetDatasetRequest"> & {
  * Use `create(GetDatasetRequestSchema)` to create a new message.
  */
 export const GetDatasetRequestSchema: GenMessage<GetDatasetRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 3);
+  messageDesc(file_mimir_v1_training, 5);
 
 /**
  * @generated from message mimir.v1.GetDatasetResponse
@@ -162,7 +219,7 @@ export type GetDatasetResponse = Message<"mimir.v1.GetDatasetResponse"> & {
  * Use `create(GetDatasetResponseSchema)` to create a new message.
  */
 export const GetDatasetResponseSchema: GenMessage<GetDatasetResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 4);
+  messageDesc(file_mimir_v1_training, 6);
 
 /**
  * @generated from message mimir.v1.Row
@@ -179,7 +236,7 @@ export type Row = Message<"mimir.v1.Row"> & {
  * Use `create(RowSchema)` to create a new message.
  */
 export const RowSchema: GenMessage<Row> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 5);
+  messageDesc(file_mimir_v1_training, 7);
 
 /**
  * @generated from message mimir.v1.CreateDatasetRequest
@@ -209,6 +266,18 @@ export type CreateDatasetRequest = Message<"mimir.v1.CreateDatasetRequest"> & {
    * @generated from field: string target = 4;
    */
   target: string;
+
+  /**
+   * Connection and query fetch the table from a database instead of csv.
+   *
+   * @generated from field: mimir.v1.Connection connection = 5;
+   */
+  connection?: Connection | undefined;
+
+  /**
+   * @generated from field: string query = 6;
+   */
+  query: string;
 };
 
 /**
@@ -216,7 +285,118 @@ export type CreateDatasetRequest = Message<"mimir.v1.CreateDatasetRequest"> & {
  * Use `create(CreateDatasetRequestSchema)` to create a new message.
  */
 export const CreateDatasetRequestSchema: GenMessage<CreateDatasetRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 6);
+  messageDesc(file_mimir_v1_training, 8);
+
+/**
+ * Connection is how to reach a database.
+ *
+ * @generated from message mimir.v1.Connection
+ */
+export type Connection = Message<"mimir.v1.Connection"> & {
+  /**
+   * driver is "postgres", "mysql" or "sqlite".
+   *
+   * @generated from field: string driver = 1;
+   */
+  driver: string;
+
+  /**
+   * dsn is the connection string, or the file path for sqlite.
+   *
+   * @generated from field: string dsn = 2;
+   */
+  dsn: string;
+};
+
+/**
+ * Describes the message mimir.v1.Connection.
+ * Use `create(ConnectionSchema)` to create a new message.
+ */
+export const ConnectionSchema: GenMessage<Connection> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_training, 9);
+
+/**
+ * @generated from message mimir.v1.TestQueryRequest
+ */
+export type TestQueryRequest = Message<"mimir.v1.TestQueryRequest"> & {
+  /**
+   * @generated from field: mimir.v1.Connection connection = 1;
+   */
+  connection?: Connection | undefined;
+
+  /**
+   * @generated from field: string query = 2;
+   */
+  query: string;
+};
+
+/**
+ * Describes the message mimir.v1.TestQueryRequest.
+ * Use `create(TestQueryRequestSchema)` to create a new message.
+ */
+export const TestQueryRequestSchema: GenMessage<TestQueryRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_training, 10);
+
+/**
+ * @generated from message mimir.v1.TestQueryResponse
+ */
+export type TestQueryResponse = Message<"mimir.v1.TestQueryResponse"> & {
+  /**
+   * @generated from field: repeated string columns = 1;
+   */
+  columns: string[];
+
+  /**
+   * @generated from field: repeated mimir.v1.Row sample = 2;
+   */
+  sample: Row[];
+
+  /**
+   * @generated from field: int64 rows = 3;
+   */
+  rows: bigint;
+};
+
+/**
+ * Describes the message mimir.v1.TestQueryResponse.
+ * Use `create(TestQueryResponseSchema)` to create a new message.
+ */
+export const TestQueryResponseSchema: GenMessage<TestQueryResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_training, 11);
+
+/**
+ * @generated from message mimir.v1.RefreshDatasetRequest
+ */
+export type RefreshDatasetRequest = Message<"mimir.v1.RefreshDatasetRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message mimir.v1.RefreshDatasetRequest.
+ * Use `create(RefreshDatasetRequestSchema)` to create a new message.
+ */
+export const RefreshDatasetRequestSchema: GenMessage<RefreshDatasetRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_training, 12);
+
+/**
+ * @generated from message mimir.v1.RefreshDatasetResponse
+ */
+export type RefreshDatasetResponse = Message<"mimir.v1.RefreshDatasetResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Dataset dataset = 1;
+   */
+  dataset?: Dataset | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.RefreshDatasetResponse.
+ * Use `create(RefreshDatasetResponseSchema)` to create a new message.
+ */
+export const RefreshDatasetResponseSchema: GenMessage<RefreshDatasetResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_training, 13);
 
 /**
  * @generated from message mimir.v1.CreateDatasetResponse
@@ -233,7 +413,7 @@ export type CreateDatasetResponse = Message<"mimir.v1.CreateDatasetResponse"> & 
  * Use `create(CreateDatasetResponseSchema)` to create a new message.
  */
 export const CreateDatasetResponseSchema: GenMessage<CreateDatasetResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 7);
+  messageDesc(file_mimir_v1_training, 14);
 
 /**
  * @generated from message mimir.v1.DeleteDatasetRequest
@@ -250,7 +430,7 @@ export type DeleteDatasetRequest = Message<"mimir.v1.DeleteDatasetRequest"> & {
  * Use `create(DeleteDatasetRequestSchema)` to create a new message.
  */
 export const DeleteDatasetRequestSchema: GenMessage<DeleteDatasetRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 8);
+  messageDesc(file_mimir_v1_training, 15);
 
 /**
  * @generated from message mimir.v1.DeleteDatasetResponse
@@ -263,7 +443,7 @@ export type DeleteDatasetResponse = Message<"mimir.v1.DeleteDatasetResponse"> & 
  * Use `create(DeleteDatasetResponseSchema)` to create a new message.
  */
 export const DeleteDatasetResponseSchema: GenMessage<DeleteDatasetResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 9);
+  messageDesc(file_mimir_v1_training, 16);
 
 /**
  * TrainingSettings are the knobs most people leave alone.
@@ -300,7 +480,7 @@ export type TrainingSettings = Message<"mimir.v1.TrainingSettings"> & {
  * Use `create(TrainingSettingsSchema)` to create a new message.
  */
 export const TrainingSettingsSchema: GenMessage<TrainingSettings> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 10);
+  messageDesc(file_mimir_v1_training, 17);
 
 /**
  * EpochResult is how one pass over the examples went.
@@ -341,7 +521,7 @@ export type EpochResult = Message<"mimir.v1.EpochResult"> & {
  * Use `create(EpochResultSchema)` to create a new message.
  */
 export const EpochResultSchema: GenMessage<EpochResult> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 11);
+  messageDesc(file_mimir_v1_training, 18);
 
 /**
  * @generated from message mimir.v1.Job
@@ -460,6 +640,40 @@ export type Job = Message<"mimir.v1.Job"> & {
    * @generated from field: string worker = 20;
    */
   worker: string;
+
+  /**
+   * repeat_seconds > 0 means the job keeps learning: every so often the
+   * examples are fetched again and a new pass continues from the model.
+   *
+   * @generated from field: int64 repeat_seconds = 21;
+   */
+  repeatSeconds: bigint;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp next_run_time = 22;
+   */
+  nextRunTime?: Timestamp | undefined;
+
+  /**
+   * parent_id is the first job of a keep-learning chain, for later passes.
+   *
+   * @generated from field: string parent_id = 23;
+   */
+  parentId: string;
+
+  /**
+   * base_model_id is the model a pass continued from.
+   *
+   * @generated from field: string base_model_id = 24;
+   */
+  baseModelId: string;
+
+  /**
+   * note says what a pass did with its result, in words.
+   *
+   * @generated from field: string note = 25;
+   */
+  note: string;
 };
 
 /**
@@ -467,7 +681,7 @@ export type Job = Message<"mimir.v1.Job"> & {
  * Use `create(JobSchema)` to create a new message.
  */
 export const JobSchema: GenMessage<Job> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 12);
+  messageDesc(file_mimir_v1_training, 19);
 
 /**
  * @generated from message mimir.v1.ListJobsRequest
@@ -480,7 +694,7 @@ export type ListJobsRequest = Message<"mimir.v1.ListJobsRequest"> & {
  * Use `create(ListJobsRequestSchema)` to create a new message.
  */
 export const ListJobsRequestSchema: GenMessage<ListJobsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 13);
+  messageDesc(file_mimir_v1_training, 20);
 
 /**
  * @generated from message mimir.v1.ListJobsResponse
@@ -497,7 +711,7 @@ export type ListJobsResponse = Message<"mimir.v1.ListJobsResponse"> & {
  * Use `create(ListJobsResponseSchema)` to create a new message.
  */
 export const ListJobsResponseSchema: GenMessage<ListJobsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 14);
+  messageDesc(file_mimir_v1_training, 21);
 
 /**
  * @generated from message mimir.v1.GetJobRequest
@@ -514,7 +728,7 @@ export type GetJobRequest = Message<"mimir.v1.GetJobRequest"> & {
  * Use `create(GetJobRequestSchema)` to create a new message.
  */
 export const GetJobRequestSchema: GenMessage<GetJobRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 15);
+  messageDesc(file_mimir_v1_training, 22);
 
 /**
  * @generated from message mimir.v1.GetJobResponse
@@ -531,7 +745,7 @@ export type GetJobResponse = Message<"mimir.v1.GetJobResponse"> & {
  * Use `create(GetJobResponseSchema)` to create a new message.
  */
 export const GetJobResponseSchema: GenMessage<GetJobResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 16);
+  messageDesc(file_mimir_v1_training, 23);
 
 /**
  * @generated from message mimir.v1.CreateJobRequest
@@ -563,6 +777,13 @@ export type CreateJobRequest = Message<"mimir.v1.CreateJobRequest"> & {
    * @generated from field: mimir.v1.TrainingSettings settings = 5;
    */
   settings?: TrainingSettings | undefined;
+
+  /**
+   * repeat_seconds asks for the job to keep learning on that interval.
+   *
+   * @generated from field: int64 repeat_seconds = 6;
+   */
+  repeatSeconds: bigint;
 };
 
 /**
@@ -570,7 +791,7 @@ export type CreateJobRequest = Message<"mimir.v1.CreateJobRequest"> & {
  * Use `create(CreateJobRequestSchema)` to create a new message.
  */
 export const CreateJobRequestSchema: GenMessage<CreateJobRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 17);
+  messageDesc(file_mimir_v1_training, 24);
 
 /**
  * @generated from message mimir.v1.CreateJobResponse
@@ -587,7 +808,7 @@ export type CreateJobResponse = Message<"mimir.v1.CreateJobResponse"> & {
  * Use `create(CreateJobResponseSchema)` to create a new message.
  */
 export const CreateJobResponseSchema: GenMessage<CreateJobResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 18);
+  messageDesc(file_mimir_v1_training, 25);
 
 /**
  * @generated from message mimir.v1.CancelJobRequest
@@ -604,7 +825,7 @@ export type CancelJobRequest = Message<"mimir.v1.CancelJobRequest"> & {
  * Use `create(CancelJobRequestSchema)` to create a new message.
  */
 export const CancelJobRequestSchema: GenMessage<CancelJobRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 19);
+  messageDesc(file_mimir_v1_training, 26);
 
 /**
  * @generated from message mimir.v1.CancelJobResponse
@@ -621,7 +842,7 @@ export type CancelJobResponse = Message<"mimir.v1.CancelJobResponse"> & {
  * Use `create(CancelJobResponseSchema)` to create a new message.
  */
 export const CancelJobResponseSchema: GenMessage<CancelJobResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 20);
+  messageDesc(file_mimir_v1_training, 27);
 
 /**
  * @generated from message mimir.v1.ResumeJobRequest
@@ -638,7 +859,7 @@ export type ResumeJobRequest = Message<"mimir.v1.ResumeJobRequest"> & {
  * Use `create(ResumeJobRequestSchema)` to create a new message.
  */
 export const ResumeJobRequestSchema: GenMessage<ResumeJobRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 21);
+  messageDesc(file_mimir_v1_training, 28);
 
 /**
  * @generated from message mimir.v1.ResumeJobResponse
@@ -655,7 +876,7 @@ export type ResumeJobResponse = Message<"mimir.v1.ResumeJobResponse"> & {
  * Use `create(ResumeJobResponseSchema)` to create a new message.
  */
 export const ResumeJobResponseSchema: GenMessage<ResumeJobResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 22);
+  messageDesc(file_mimir_v1_training, 29);
 
 /**
  * @generated from message mimir.v1.DeleteJobRequest
@@ -672,7 +893,7 @@ export type DeleteJobRequest = Message<"mimir.v1.DeleteJobRequest"> & {
  * Use `create(DeleteJobRequestSchema)` to create a new message.
  */
 export const DeleteJobRequestSchema: GenMessage<DeleteJobRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 23);
+  messageDesc(file_mimir_v1_training, 30);
 
 /**
  * @generated from message mimir.v1.DeleteJobResponse
@@ -685,7 +906,7 @@ export type DeleteJobResponse = Message<"mimir.v1.DeleteJobResponse"> & {
  * Use `create(DeleteJobResponseSchema)` to create a new message.
  */
 export const DeleteJobResponseSchema: GenMessage<DeleteJobResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_training, 24);
+  messageDesc(file_mimir_v1_training, 31);
 
 /**
  * DatasetKind says where a dataset's examples come from.
@@ -801,6 +1022,27 @@ export const DatasetService: GenService<{
     input: typeof DeleteDatasetRequestSchema;
     output: typeof DeleteDatasetResponseSchema;
   },
+  /**
+   * TestQuery runs a database query and returns its columns and a few
+   * rows, so the answer column can be picked before anything is saved.
+   *
+   * @generated from rpc mimir.v1.DatasetService.TestQuery
+   */
+  testQuery: {
+    methodKind: "unary";
+    input: typeof TestQueryRequestSchema;
+    output: typeof TestQueryResponseSchema;
+  },
+  /**
+   * RefreshDataset runs a dataset's query again and replaces its rows.
+   *
+   * @generated from rpc mimir.v1.DatasetService.RefreshDataset
+   */
+  refreshDataset: {
+    methodKind: "unary";
+    input: typeof RefreshDatasetRequestSchema;
+    output: typeof RefreshDatasetResponseSchema;
+  },
 }> = /*@__PURE__*/
   serviceDesc(file_mimir_v1_training, 0);
 
@@ -865,6 +1107,16 @@ export const TrainingService: GenService<{
     methodKind: "unary";
     input: typeof DeleteJobRequestSchema;
     output: typeof DeleteJobResponseSchema;
+  },
+  /**
+   * SetRepeat changes how often a job keeps learning; 0 stops it.
+   *
+   * @generated from rpc mimir.v1.TrainingService.SetRepeat
+   */
+  setRepeat: {
+    methodKind: "unary";
+    input: typeof SetRepeatRequestSchema;
+    output: typeof SetRepeatResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_mimir_v1_training, 1);

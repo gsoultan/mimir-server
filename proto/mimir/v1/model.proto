@@ -83,6 +83,9 @@ message Model {
   repeated string features = 12;
   // JobId is the training job that made this model, if any.
   string job_id = 13;
+  // accuracy is the share of held-out examples a taught model got right,
+  // 0 when unknown.
+  double accuracy = 14;
 }
 
 // Tensor is a dense float32 array.

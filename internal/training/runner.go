@@ -48,6 +48,8 @@ type Runner struct {
 	Local bool
 	// Remote hands jobs to connected workers; nil means there are none.
 	Remote Remote
+	// Now tells the time, for keep-learning schedules; tests move it.
+	Now func() time.Time
 }
 
 // Remote is a pool of workers that can train jobs.
@@ -64,7 +66,7 @@ var errNoWorker = errors.New("no worker is connected that can train this kind of
 
 // New returns a Runner over st that trains locally.
 func New(st *store.Store, log *slog.Logger) *Runner {
-	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1), Local: true}
+	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1), Local: true, Now: time.Now}
 }
 
 // Kick asks the runner to look at the queue now.
@@ -95,6 +97,7 @@ func (r *Runner) Run(ctx context.Context) {
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
 	for {
+		r.schedule(ctx)
 		r.drain(ctx)
 		select {
 		case <-ctx.Done():
@@ -105,8 +108,12 @@ func (r *Runner) Run(ctx context.Context) {
 	}
 }
 
-// Tick runs every queued job once, for tests.
-func (r *Runner) Tick(ctx context.Context) { r.drain(ctx) }
+// Tick queues due keep-learning passes and runs every queued job once,
+// for tests.
+func (r *Runner) Tick(ctx context.Context) {
+	r.schedule(ctx)
+	r.drain(ctx)
+}
 
 func (r *Runner) drain(ctx context.Context) {
 	for ctx.Err() == nil {
@@ -183,6 +190,19 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		return "", err
 	}
 	task := Task{Arch: a, Source: src, Settings: j.Settings, History: j.History, CheckpointDir: r.st.JobDir(j.ID)}
+	var base store.Model
+	if j.BaseModelID != "" {
+		// A keep-learning pass continues from the model the chain made.
+		if base, err = r.st.Get(ctx, j.BaseModelID); err == nil {
+			if task.BaseWeights, err = r.st.Weights(base.ID); err != nil {
+				return "", fmt.Errorf("couldn't read the model to continue from: %w", err)
+			}
+			bs := arch.Resolve(a, arch.Spec{InputShape: base.InputShape, Labels: base.Labels})
+			task.BaseLabels, task.BaseFeatures = bs.Labels, base.Features
+		} else {
+			base = store.Model{} // deleted since; start fresh
+		}
+	}
 	progress := func(epoch, step, steps int, history []store.Epoch) {
 		r.st.JobProgress(ctx, j.ID, epoch, step, steps, history)
 	}
@@ -206,8 +226,38 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		return "", err
 	}
 	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID}
+	if n := len(res.History); n > 0 {
+		m.Accuracy = res.History[n-1].Accuracy
+	}
 	if !a.Fixed() {
 		m.InputShape, m.Labels, m.Features = res.Spec.InputShape, res.Spec.Labels, res.Features
+	}
+	setNote := func(note string) {
+		if j.Note != "" {
+			note = j.Note + " " + note
+		}
+		r.st.SetJobNote(ctx, j.ID, note)
+	}
+	if base.ID != "" {
+		// Replace the model in place only when the pass did at least as
+		// well, so apps never get a worse answer without someone choosing it.
+		switch {
+		case m.Accuracy+1e-9 < base.Accuracy:
+			setNote(fmt.Sprintf("Kept the previous version: it got %.0f%% right, this pass %.0f%%.", base.Accuracy*100, m.Accuracy*100))
+			return base.ID, nil
+		default:
+			m.Name, m.Description = base.Name, base.Description
+			if err := r.st.Replace(ctx, base.ID, m, res.Weights); err == nil {
+				note := "Updated the model with what it learned from the latest examples."
+				if res.Fresh {
+					note = "The columns or answers changed, so it learned from scratch and replaced the model."
+				}
+				setNote(note)
+				return base.ID, nil
+			} else if !errors.Is(err, store.ErrNotFound) {
+				return "", fmt.Errorf("couldn't update the model: %w", err)
+			}
+		}
 	}
 	created, err := r.st.Create(ctx, m, res.Weights)
 	if err != nil {

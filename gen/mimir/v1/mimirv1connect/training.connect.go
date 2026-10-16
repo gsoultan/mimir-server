@@ -47,6 +47,12 @@ const (
 	// DatasetServiceDeleteDatasetProcedure is the fully-qualified name of the DatasetService's
 	// DeleteDataset RPC.
 	DatasetServiceDeleteDatasetProcedure = "/mimir.v1.DatasetService/DeleteDataset"
+	// DatasetServiceTestQueryProcedure is the fully-qualified name of the DatasetService's TestQuery
+	// RPC.
+	DatasetServiceTestQueryProcedure = "/mimir.v1.DatasetService/TestQuery"
+	// DatasetServiceRefreshDatasetProcedure is the fully-qualified name of the DatasetService's
+	// RefreshDataset RPC.
+	DatasetServiceRefreshDatasetProcedure = "/mimir.v1.DatasetService/RefreshDataset"
 	// TrainingServiceListJobsProcedure is the fully-qualified name of the TrainingService's ListJobs
 	// RPC.
 	TrainingServiceListJobsProcedure = "/mimir.v1.TrainingService/ListJobs"
@@ -64,6 +70,9 @@ const (
 	// TrainingServiceDeleteJobProcedure is the fully-qualified name of the TrainingService's DeleteJob
 	// RPC.
 	TrainingServiceDeleteJobProcedure = "/mimir.v1.TrainingService/DeleteJob"
+	// TrainingServiceSetRepeatProcedure is the fully-qualified name of the TrainingService's SetRepeat
+	// RPC.
+	TrainingServiceSetRepeatProcedure = "/mimir.v1.TrainingService/SetRepeat"
 )
 
 // DatasetServiceClient is a client for the mimir.v1.DatasetService service.
@@ -74,6 +83,11 @@ type DatasetServiceClient interface {
 	// registers a built-in dataset.
 	CreateDataset(context.Context, *connect.Request[v1.CreateDatasetRequest]) (*connect.Response[v1.CreateDatasetResponse], error)
 	DeleteDataset(context.Context, *connect.Request[v1.DeleteDatasetRequest]) (*connect.Response[v1.DeleteDatasetResponse], error)
+	// TestQuery runs a database query and returns its columns and a few
+	// rows, so the answer column can be picked before anything is saved.
+	TestQuery(context.Context, *connect.Request[v1.TestQueryRequest]) (*connect.Response[v1.TestQueryResponse], error)
+	// RefreshDataset runs a dataset's query again and replaces its rows.
+	RefreshDataset(context.Context, *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error)
 }
 
 // NewDatasetServiceClient constructs a client for the mimir.v1.DatasetService service. By default,
@@ -113,15 +127,29 @@ func NewDatasetServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(datasetServiceMethods.ByName("DeleteDataset")),
 			connect.WithClientOptions(opts...),
 		),
+		testQuery: connect.NewClient[v1.TestQueryRequest, v1.TestQueryResponse](
+			httpClient,
+			baseURL+DatasetServiceTestQueryProcedure,
+			connect.WithSchema(datasetServiceMethods.ByName("TestQuery")),
+			connect.WithClientOptions(opts...),
+		),
+		refreshDataset: connect.NewClient[v1.RefreshDatasetRequest, v1.RefreshDatasetResponse](
+			httpClient,
+			baseURL+DatasetServiceRefreshDatasetProcedure,
+			connect.WithSchema(datasetServiceMethods.ByName("RefreshDataset")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // datasetServiceClient implements DatasetServiceClient.
 type datasetServiceClient struct {
-	listDatasets  *connect.Client[v1.ListDatasetsRequest, v1.ListDatasetsResponse]
-	getDataset    *connect.Client[v1.GetDatasetRequest, v1.GetDatasetResponse]
-	createDataset *connect.Client[v1.CreateDatasetRequest, v1.CreateDatasetResponse]
-	deleteDataset *connect.Client[v1.DeleteDatasetRequest, v1.DeleteDatasetResponse]
+	listDatasets   *connect.Client[v1.ListDatasetsRequest, v1.ListDatasetsResponse]
+	getDataset     *connect.Client[v1.GetDatasetRequest, v1.GetDatasetResponse]
+	createDataset  *connect.Client[v1.CreateDatasetRequest, v1.CreateDatasetResponse]
+	deleteDataset  *connect.Client[v1.DeleteDatasetRequest, v1.DeleteDatasetResponse]
+	testQuery      *connect.Client[v1.TestQueryRequest, v1.TestQueryResponse]
+	refreshDataset *connect.Client[v1.RefreshDatasetRequest, v1.RefreshDatasetResponse]
 }
 
 // ListDatasets calls mimir.v1.DatasetService.ListDatasets.
@@ -144,6 +172,16 @@ func (c *datasetServiceClient) DeleteDataset(ctx context.Context, req *connect.R
 	return c.deleteDataset.CallUnary(ctx, req)
 }
 
+// TestQuery calls mimir.v1.DatasetService.TestQuery.
+func (c *datasetServiceClient) TestQuery(ctx context.Context, req *connect.Request[v1.TestQueryRequest]) (*connect.Response[v1.TestQueryResponse], error) {
+	return c.testQuery.CallUnary(ctx, req)
+}
+
+// RefreshDataset calls mimir.v1.DatasetService.RefreshDataset.
+func (c *datasetServiceClient) RefreshDataset(ctx context.Context, req *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error) {
+	return c.refreshDataset.CallUnary(ctx, req)
+}
+
 // DatasetServiceHandler is an implementation of the mimir.v1.DatasetService service.
 type DatasetServiceHandler interface {
 	ListDatasets(context.Context, *connect.Request[v1.ListDatasetsRequest]) (*connect.Response[v1.ListDatasetsResponse], error)
@@ -152,6 +190,11 @@ type DatasetServiceHandler interface {
 	// registers a built-in dataset.
 	CreateDataset(context.Context, *connect.Request[v1.CreateDatasetRequest]) (*connect.Response[v1.CreateDatasetResponse], error)
 	DeleteDataset(context.Context, *connect.Request[v1.DeleteDatasetRequest]) (*connect.Response[v1.DeleteDatasetResponse], error)
+	// TestQuery runs a database query and returns its columns and a few
+	// rows, so the answer column can be picked before anything is saved.
+	TestQuery(context.Context, *connect.Request[v1.TestQueryRequest]) (*connect.Response[v1.TestQueryResponse], error)
+	// RefreshDataset runs a dataset's query again and replaces its rows.
+	RefreshDataset(context.Context, *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error)
 }
 
 // NewDatasetServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -187,6 +230,18 @@ func NewDatasetServiceHandler(svc DatasetServiceHandler, opts ...connect.Handler
 		connect.WithSchema(datasetServiceMethods.ByName("DeleteDataset")),
 		connect.WithHandlerOptions(opts...),
 	)
+	datasetServiceTestQueryHandler := connect.NewUnaryHandler(
+		DatasetServiceTestQueryProcedure,
+		svc.TestQuery,
+		connect.WithSchema(datasetServiceMethods.ByName("TestQuery")),
+		connect.WithHandlerOptions(opts...),
+	)
+	datasetServiceRefreshDatasetHandler := connect.NewUnaryHandler(
+		DatasetServiceRefreshDatasetProcedure,
+		svc.RefreshDataset,
+		connect.WithSchema(datasetServiceMethods.ByName("RefreshDataset")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.DatasetService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DatasetServiceListDatasetsProcedure:
@@ -197,6 +252,10 @@ func NewDatasetServiceHandler(svc DatasetServiceHandler, opts ...connect.Handler
 			datasetServiceCreateDatasetHandler.ServeHTTP(w, r)
 		case DatasetServiceDeleteDatasetProcedure:
 			datasetServiceDeleteDatasetHandler.ServeHTTP(w, r)
+		case DatasetServiceTestQueryProcedure:
+			datasetServiceTestQueryHandler.ServeHTTP(w, r)
+		case DatasetServiceRefreshDatasetProcedure:
+			datasetServiceRefreshDatasetHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -222,6 +281,14 @@ func (UnimplementedDatasetServiceHandler) DeleteDataset(context.Context, *connec
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.DatasetService.DeleteDataset is not implemented"))
 }
 
+func (UnimplementedDatasetServiceHandler) TestQuery(context.Context, *connect.Request[v1.TestQueryRequest]) (*connect.Response[v1.TestQueryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.DatasetService.TestQuery is not implemented"))
+}
+
+func (UnimplementedDatasetServiceHandler) RefreshDataset(context.Context, *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.DatasetService.RefreshDataset is not implemented"))
+}
+
 // TrainingServiceClient is a client for the mimir.v1.TrainingService service.
 type TrainingServiceClient interface {
 	ListJobs(context.Context, *connect.Request[v1.ListJobsRequest]) (*connect.Response[v1.ListJobsResponse], error)
@@ -235,6 +302,8 @@ type TrainingServiceClient interface {
 	// last finished epoch.
 	ResumeJob(context.Context, *connect.Request[v1.ResumeJobRequest]) (*connect.Response[v1.ResumeJobResponse], error)
 	DeleteJob(context.Context, *connect.Request[v1.DeleteJobRequest]) (*connect.Response[v1.DeleteJobResponse], error)
+	// SetRepeat changes how often a job keeps learning; 0 stops it.
+	SetRepeat(context.Context, *connect.Request[v1.SetRepeatRequest]) (*connect.Response[v1.SetRepeatResponse], error)
 }
 
 // NewTrainingServiceClient constructs a client for the mimir.v1.TrainingService service. By
@@ -286,6 +355,12 @@ func NewTrainingServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(trainingServiceMethods.ByName("DeleteJob")),
 			connect.WithClientOptions(opts...),
 		),
+		setRepeat: connect.NewClient[v1.SetRepeatRequest, v1.SetRepeatResponse](
+			httpClient,
+			baseURL+TrainingServiceSetRepeatProcedure,
+			connect.WithSchema(trainingServiceMethods.ByName("SetRepeat")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -297,6 +372,7 @@ type trainingServiceClient struct {
 	cancelJob *connect.Client[v1.CancelJobRequest, v1.CancelJobResponse]
 	resumeJob *connect.Client[v1.ResumeJobRequest, v1.ResumeJobResponse]
 	deleteJob *connect.Client[v1.DeleteJobRequest, v1.DeleteJobResponse]
+	setRepeat *connect.Client[v1.SetRepeatRequest, v1.SetRepeatResponse]
 }
 
 // ListJobs calls mimir.v1.TrainingService.ListJobs.
@@ -329,6 +405,11 @@ func (c *trainingServiceClient) DeleteJob(ctx context.Context, req *connect.Requ
 	return c.deleteJob.CallUnary(ctx, req)
 }
 
+// SetRepeat calls mimir.v1.TrainingService.SetRepeat.
+func (c *trainingServiceClient) SetRepeat(ctx context.Context, req *connect.Request[v1.SetRepeatRequest]) (*connect.Response[v1.SetRepeatResponse], error) {
+	return c.setRepeat.CallUnary(ctx, req)
+}
+
 // TrainingServiceHandler is an implementation of the mimir.v1.TrainingService service.
 type TrainingServiceHandler interface {
 	ListJobs(context.Context, *connect.Request[v1.ListJobsRequest]) (*connect.Response[v1.ListJobsResponse], error)
@@ -342,6 +423,8 @@ type TrainingServiceHandler interface {
 	// last finished epoch.
 	ResumeJob(context.Context, *connect.Request[v1.ResumeJobRequest]) (*connect.Response[v1.ResumeJobResponse], error)
 	DeleteJob(context.Context, *connect.Request[v1.DeleteJobRequest]) (*connect.Response[v1.DeleteJobResponse], error)
+	// SetRepeat changes how often a job keeps learning; 0 stops it.
+	SetRepeat(context.Context, *connect.Request[v1.SetRepeatRequest]) (*connect.Response[v1.SetRepeatResponse], error)
 }
 
 // NewTrainingServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -389,6 +472,12 @@ func NewTrainingServiceHandler(svc TrainingServiceHandler, opts ...connect.Handl
 		connect.WithSchema(trainingServiceMethods.ByName("DeleteJob")),
 		connect.WithHandlerOptions(opts...),
 	)
+	trainingServiceSetRepeatHandler := connect.NewUnaryHandler(
+		TrainingServiceSetRepeatProcedure,
+		svc.SetRepeat,
+		connect.WithSchema(trainingServiceMethods.ByName("SetRepeat")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.TrainingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case TrainingServiceListJobsProcedure:
@@ -403,6 +492,8 @@ func NewTrainingServiceHandler(svc TrainingServiceHandler, opts ...connect.Handl
 			trainingServiceResumeJobHandler.ServeHTTP(w, r)
 		case TrainingServiceDeleteJobProcedure:
 			trainingServiceDeleteJobHandler.ServeHTTP(w, r)
+		case TrainingServiceSetRepeatProcedure:
+			trainingServiceSetRepeatHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -434,4 +525,8 @@ func (UnimplementedTrainingServiceHandler) ResumeJob(context.Context, *connect.R
 
 func (UnimplementedTrainingServiceHandler) DeleteJob(context.Context, *connect.Request[v1.DeleteJobRequest]) (*connect.Response[v1.DeleteJobResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.TrainingService.DeleteJob is not implemented"))
+}
+
+func (UnimplementedTrainingServiceHandler) SetRepeat(context.Context, *connect.Request[v1.SetRepeatRequest]) (*connect.Response[v1.SetRepeatResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.TrainingService.SetRepeat is not implemented"))
 }

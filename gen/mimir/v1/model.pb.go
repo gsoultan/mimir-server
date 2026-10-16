@@ -195,7 +195,10 @@ type Model struct {
 	// Features names each input value for a model that reads a row of numbers.
 	Features []string `protobuf:"bytes,12,rep,name=features,proto3" json:"features,omitempty"`
 	// JobId is the training job that made this model, if any.
-	JobId         string `protobuf:"bytes,13,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	JobId string `protobuf:"bytes,13,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	// accuracy is the share of held-out examples a taught model got right,
+	// 0 when unknown.
+	Accuracy      float64 `protobuf:"fixed64,14,opt,name=accuracy,proto3" json:"accuracy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -319,6 +322,13 @@ func (x *Model) GetJobId() string {
 		return x.JobId
 	}
 	return ""
+}
+
+func (x *Model) GetAccuracy() float64 {
+	if x != nil {
+		return x.Accuracy
+	}
+	return 0
 }
 
 // Tensor is a dense float32 array.
@@ -1120,7 +1130,7 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"inputShape\x12\x16\n" +
 	"\x06labels\x18\x05 \x03(\tR\x06labels\x12\x1c\n" +
 	"\ttrainable\x18\x06 \x01(\bR\ttrainable\x12\x14\n" +
-	"\x05input\x18\a \x01(\tR\x05input\"\xca\x03\n" +
+	"\x05input\x18\a \x01(\tR\x05input\"\xe6\x03\n" +
 	"\x05Model\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -1139,7 +1149,8 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"inputShape\x12\x16\n" +
 	"\x06labels\x18\v \x03(\tR\x06labels\x12\x1a\n" +
 	"\bfeatures\x18\f \x03(\tR\bfeatures\x12\x15\n" +
-	"\x06job_id\x18\r \x01(\tR\x05jobId\"6\n" +
+	"\x06job_id\x18\r \x01(\tR\x05jobId\x12\x1a\n" +
+	"\baccuracy\x18\x0e \x01(\x01R\baccuracy\"6\n" +
 	"\x06Tensor\x12\x14\n" +
 	"\x05shape\x18\x01 \x03(\x03R\x05shape\x12\x16\n" +
 	"\x06values\x18\x02 \x03(\x02R\x06values\"?\n" +

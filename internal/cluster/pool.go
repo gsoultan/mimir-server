@@ -360,6 +360,7 @@ func (p *Pool) Train(ctx context.Context, jobID string, t training.Task, progres
 				History:  EpochsFromProto(r.History),
 				Spec:     arch.Spec{InputShape: ints(sp.GetInputShape()), Labels: sp.GetLabels()},
 				Features: sp.GetFeatures(),
+				Fresh:    r.Fresh,
 			}, l.worker.Name, true, nil
 		}
 	}

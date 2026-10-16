@@ -1,18 +1,19 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Button, Card, Collapse, Group, NumberInput, Radio, Select, SimpleGrid, Stack, Stepper, Table, Text, Textarea, TextInput, UnstyledButton } from "@mantine/core";
+import { Alert, Button, Card, Collapse, Group, NumberInput, PasswordInput, Radio, SegmentedControl, Select, SimpleGrid, Stack, Stepper, Table, Text, Textarea, TextInput, UnstyledButton } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconCheck, IconFileSpreadsheet, IconNumbers, IconTable } from "@tabler/icons-react";
+import { IconAlertCircle, IconCheck, IconDatabase, IconFileSpreadsheet, IconNumbers, IconTable } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { message } from "../../../api/client";
 import { DatasetKind, DatasetService, TrainingService, type Dataset } from "../../../api/gen/mimir/v1/training_pb";
-import { allDatasetQueries, allTrainingQueries, listArchitectures, listDatasets } from "../../../api/queries";
+import { allDatasetQueries, allTrainingQueries, listArchitectures, listDatasets, whoAmI } from "../../../api/queries";
 import { Page } from "../../../components/Page";
 import { bytes } from "../../../lib/format";
+import { repeatChoices } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/models/teach")({
   loader: ({ context }) => Promise.all([
@@ -31,7 +32,13 @@ const presets = [
   { value: "thorough", label: "Thorough", epochs: 30, hint: "Takes longer; squeezes out the last few points." },
 ];
 
-type Source = "existing" | "upload" | "digits";
+type Source = "existing" | "upload" | "database" | "digits";
+
+const drivers = [
+  { value: "postgres", label: "PostgreSQL", example: "postgres://user:password@db.example.com:5432/shop" },
+  { value: "mysql", label: "MySQL", example: "user:password@tcp(db.example.com:3306)/shop" },
+  { value: "sqlite", label: "SQLite", example: "/srv/data/shop.db" },
+];
 type Upload = { file: File; bytes: Uint8Array; columns: string[]; rows: string[][]; count: number };
 
 // Reads the header and first rows of a CSV without a parser; enough to pick a
@@ -45,6 +52,8 @@ function peek(text: string) {
 function Teach() {
   const { data: sets } = useSuspenseQuery(listDatasets);
   const { data: archs } = useSuspenseQuery(listArchitectures);
+  const { data: me } = useSuspenseQuery(whoAmI);
+  const canConnect = me.permissions.includes("settings.manage");
   const navigate = useNavigate();
   const { queryClient } = Route.useRouteContext();
   const [step, setStep] = useState(0);
@@ -63,6 +72,14 @@ function Teach() {
   const [batch, setBatch] = useState<number | string>(32);
   const [rate, setRate] = useState<number | string>(0.005);
   const [holdOut, setHoldOut] = useState<number | string>(20);
+  const [driver, setDriver] = useState("postgres");
+  const [dsn, setDsn] = useState("");
+  const [query, setQuery] = useState("");
+  const [examplesName, setExamplesName] = useState("");
+  const [repeat, setRepeat] = useState("0");
+  const tested = useMutation(DatasetService.method.testQuery, {
+    onSuccess: (res) => setTarget(res.columns[res.columns.length - 1] ?? ""),
+  });
 
   const createDataset = useMutation(DatasetService.method.createDataset, {
     onSuccess: async (res) => {
@@ -103,6 +120,8 @@ function Teach() {
     if (source === "existing") {
       const d = sets.datasets.find((d) => d.id === existing);
       if (d) chose(d);
+    } else if (source === "database" && tested.data) {
+      createDataset.mutate({ name: examplesName.trim() || "Examples from a query", kind: DatasetKind.TABLE, connection: { driver, dsn }, query, target });
     } else if (source === "upload" && upload) {
       createDataset.mutate({ name: upload.file.name, kind: DatasetKind.TABLE, csv: upload.bytes, target });
     } else if (source === "digits") {
@@ -113,10 +132,11 @@ function Teach() {
   }
 
   const allowed = archs.architectures.filter((a) => dataset?.architectures.includes(a.name));
-  const ready0 = source === "digits" || (source === "existing" && !!existing) || (source === "upload" && !!upload && !!target);
+  const ready0 = source === "digits" || (source === "existing" && !!existing) || (source === "upload" && !!upload && !!target) || (source === "database" && !!tested.data && !!target);
+  const fromQuery = !!dataset?.query;
   const chosenEpochs = expert ? Number(epochs) : presets.find((p) => p.value === preset)!.epochs;
   const start = () => dataset && createJob.mutate({
-    name, description, architecture: arch, datasetId: dataset.id,
+    name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n,
     // Outside the expert settings, zero lets the server pick what suits the examples.
     settings: { epochs: chosenEpochs, batchSize: expert ? Number(batch) : 0, learningRate: expert ? Number(rate) : 0, holdOut: expert ? Number(holdOut) / 100 : 0.2 },
   });
@@ -131,7 +151,7 @@ function Teach() {
                 {sets.datasets.length > 0 && (
                   <Choice value="existing" icon={<IconTable size={22} />} title="Examples already here" hint="Reuse a table you uploaded before.">
                     {source === "existing" && (
-                      <Select mt="sm" data={sets.datasets.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} rows · ${d.labels.length} answers` }))} value={existing} onChange={(v) => v && setExisting(v)} allowDeselect={false} aria-label="Examples" />
+                      <Select mt="sm" data={sets.datasets.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} rows · ${d.labels.length} answers${d.query ? " · from a database" : ""}` }))} value={existing} onChange={(v) => v && setExisting(v)} allowDeselect={false} aria-label="Examples" />
                     )}
                   </Choice>
                 )}
@@ -159,6 +179,34 @@ function Teach() {
                     </Stack>
                   )}
                 </Choice>
+                {canConnect && (
+                  <Choice value="database" icon={<IconDatabase size={22} />} title="From a database" hint="Run a query on PostgreSQL, MySQL or SQLite. The rows become the examples, and the model can keep learning as they change.">
+                    {source === "database" && (
+                      <Stack mt="sm" gap="sm">
+                        <SegmentedControl value={driver} onChange={(v) => { setDriver(v); tested.reset(); }} data={drivers.map((d) => ({ value: d.value, label: d.label }))} />
+                        {driver === "sqlite" ? (
+                          <TextInput label="Database file" description="The path to the file on the server, for example /srv/data/shop.db." value={dsn} onChange={(e) => { setDsn(e.currentTarget.value); tested.reset(); }} />
+                        ) : <PasswordInput label="Connection" description={`For example ${drivers.find((d) => d.value === driver)!.example}. Kept on the server; never shown again.`} value={dsn} onChange={(e) => { setDsn(e.currentTarget.value); tested.reset(); }} />}
+                        <Textarea label="Query" description="One row per example. Number columns to learn from, plus the answer column." placeholder="SELECT weight_grams, height_cm, sweetness, fruit FROM harvest" autosize minRows={3} value={query} onChange={(e) => { setQuery(e.currentTarget.value); tested.reset(); }} classNames={{ input: "font-mono" }} />
+                        <Group><Button variant="default" loading={tested.isPending} disabled={!dsn.trim() || !query.trim()} onClick={() => tested.mutate({ connection: { driver, dsn }, query })}>Try the query</Button></Group>
+                        {tested.error && <Alert color="red" icon={<IconAlertCircle />}>{message(tested.error)}</Alert>}
+                        {tested.data && (
+                          <>
+                            <Alert color="teal" icon={<IconCheck />}>{tested.data.rows.toLocaleString()} rows, {tested.data.columns.length} columns.</Alert>
+                            <Select label="Which column is the answer?" description="The model learns to predict this from the other columns." data={tested.data.columns} value={target} onChange={(v) => v && setTarget(v)} allowDeselect={false} />
+                            <Table.ScrollContainer minWidth={300}>
+                              <Table fz="xs" withTableBorder>
+                                <Table.Thead><Table.Tr>{tested.data.columns.map((c) => <Table.Th key={c} c={c === target ? "teal" : undefined}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
+                                <Table.Tbody>{tested.data.sample.map((r, i) => <Table.Tr key={i}>{r.values.map((v, k) => <Table.Td key={k}>{v}</Table.Td>)}</Table.Tr>)}</Table.Tbody>
+                              </Table>
+                            </Table.ScrollContainer>
+                            <TextInput label="Name these examples" placeholder="Harvest from the shop database" maxLength={100} value={examplesName} onChange={(e) => setExamplesName(e.currentTarget.value)} />
+                          </>
+                        )}
+                      </Stack>
+                    )}
+                  </Choice>
+                )}
                 <Choice value="digits" icon={<IconNumbers size={22} />} title="Handwritten digits" hint="70,000 pictures of the numbers 0 to 9, built in. Downloaded once on first use.">{null}</Choice>
               </Stack>
             </Radio.Group>
@@ -212,8 +260,15 @@ function Teach() {
                 <NumberInput label="Kept aside for scoring" description="Percent of examples the model never learns from, used to measure it honestly" min={0} max={50} suffix="%" value={holdOut} onChange={setHoldOut} />
               </SimpleGrid>
             </Collapse>
+            {fromQuery && (
+              <Stack gap={4} mt="lg">
+                <Text fw={500} size="sm">Keep learning</Text>
+                <Text size="xs" c="dimmed">Run the query again on a schedule and continue teaching the same model with the new rows. The model is only replaced when the new pass scores at least as well.</Text>
+                <SegmentedControl value={repeat} onChange={setRepeat} data={repeatChoices} className="self-start" />
+              </Stack>
+            )}
             <Text size="sm" c="dimmed" mt="md">
-              {name || "The model"} will learn from {dataset?.rows.toLocaleString()} examples over {chosenEpochs} passes. You can stop it any time and pick up later.
+              {name || "The model"} will learn from {dataset?.rows.toLocaleString()} examples over {chosenEpochs} passes{fromQuery && repeat !== "0" && `, then keep learning ${repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase()}`}. You can stop it any time and pick up later.
             </Text>
             {createJob.error && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{message(createJob.error)}</Alert>}
           </Stepper.Step>

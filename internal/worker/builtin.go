@@ -50,6 +50,7 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 		Settings:      store.Settings{Epochs: t.Settings.Epochs, BatchSize: t.Settings.BatchSize, LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut},
 		History:       fromSDK(t.History),
 		CheckpointDir: filepath.Join(h.data, "training", t.JobID),
+		BaseWeights:   t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
 	}
 	res, err := training.Fit(ctx, task, func(epoch, step, steps int, history []store.Epoch) {
 		progress(worker.Progress{Epoch: epoch, Step: step, Steps: steps, History: toSDK(history)})
@@ -57,7 +58,7 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 	if err != nil {
 		return worker.Trained{}, err
 	}
-	return worker.Trained{Weights: res.Weights, History: toSDK(res.History), InputShape: res.Spec.InputShape, Labels: res.Spec.Labels, Features: res.Features}, nil
+	return worker.Trained{Weights: res.Weights, History: toSDK(res.History), InputShape: res.Spec.InputShape, Labels: res.Spec.Labels, Features: res.Features, Fresh: res.Fresh}, nil
 }
 
 func toSDK(h []store.Epoch) []worker.Epoch {

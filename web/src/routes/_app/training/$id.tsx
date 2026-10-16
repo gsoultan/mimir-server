@@ -1,7 +1,7 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Group, Progress, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Group, Progress, SegmentedControl, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconPlayerPlay } from "@tabler/icons-react";
+import { IconAlertCircle, IconPlayerPlay, IconRefresh } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -13,7 +13,7 @@ import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { TrainingChart } from "../../../components/TrainingChart";
 import { ago } from "../../../lib/format";
-import { active, progress, score, statusColor, statusWord } from "../../../lib/training";
+import { active, progress, repeatChoices, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/training/$id")({
   loader: ({ context, params }) => Promise.all([
@@ -42,6 +42,9 @@ function Run() {
   };
   const cancel = useMutation(TrainingService.method.cancelJob, { onSuccess: refresh });
   const resume = useMutation(TrainingService.method.resumeJob, { onSuccess: refresh });
+  const setRepeat = useMutation(TrainingService.method.setRepeat, {
+    onSuccess: async (res) => { await refresh(); notifications.show({ message: res.job && res.job.repeatSeconds > 0n ? `It will keep learning ${repeatWord(res.job.repeatSeconds)}.` : "It won't learn again on its own." }); },
+  });
   const remove = useMutation(TrainingService.method.deleteJob, {
     onSuccess: async () => { await navigate({ to: "/training" }); await refresh(); notifications.show({ message: "Run deleted." }); },
   });
@@ -51,7 +54,8 @@ function Run() {
   useEffect(() => {
     if (j.status === JobStatus.SUCCEEDED) void queryClient.invalidateQueries({ queryKey: allModelQueries });
   }, [j.status, queryClient]);
-  const error = cancel.error ?? resume.error ?? remove.error;
+  const error = cancel.error ?? resume.error ?? remove.error ?? setRepeat.error;
+  const chain = j.parentId !== "" || j.repeatSeconds > 0n;
 
   return (
     <Page
@@ -67,6 +71,27 @@ function Run() {
       }
     >
       {error && <Alert color="red" icon={<IconAlertCircle />}>{message(error)}</Alert>}
+      {chain && (
+        <Card withBorder radius="lg" padding="lg">
+          <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
+            <Group gap="sm" wrap="nowrap" align="flex-start">
+              <IconRefresh size={22} className="mt-0.5 shrink-0" />
+              <div>
+                <Text fw={600}>{j.repeatSeconds > 0n ? `Keeps learning ${repeatWord(j.repeatSeconds)}` : "Keep learning is off for this run"}</Text>
+                <Text size="sm" c="dimmed">
+                  {j.repeatSeconds > 0n
+                    ? <>Next pass {ago(j.nextRunTime)}: it fetches the examples again and continues from the model, replacing it only if it scores at least as well.</>
+                    : j.parentId ? <>This was one pass of a model that keeps learning. <Link to="/training/$id" params={{ id: j.parentId }}>See the first run</Link>.</> : null}
+                </Text>
+                {j.note && <Text size="sm" mt={4}>{j.note}</Text>}
+              </div>
+            </Group>
+            {(
+              <SegmentedControl size="xs" value={String(j.repeatSeconds)} onChange={(v) => setRepeat.mutate({ id, repeatSeconds: BigInt(v) })} data={repeatChoices.some((c) => c.value === String(j.repeatSeconds)) ? repeatChoices : [...repeatChoices, { value: String(j.repeatSeconds), label: repeatWord(j.repeatSeconds) }]} disabled={setRepeat.isPending} />
+            )}
+          </Group>
+        </Card>
+      )}
       <Card withBorder radius="lg" padding="lg" aria-live="polite">
         <Group justify="space-between" mb="xs">
           <Group gap="xs">

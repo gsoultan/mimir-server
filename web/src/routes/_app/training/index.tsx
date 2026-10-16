@@ -10,7 +10,7 @@ import { allTrainingQueries, listJobs } from "../../../api/queries";
 import { AnchorLink, ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { ago } from "../../../lib/format";
-import { active, progress, score, statusColor, statusWord } from "../../../lib/training";
+import { active, progress, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/training/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(listJobs),
@@ -46,6 +46,7 @@ function Training() {
                   <Group gap="xs" wrap="nowrap">
                     <AnchorLink fw={700} truncate to="/training/$id" params={{ id: j.id }} c="inherit">{j.name}</AnchorLink>
                     <Badge color={statusColor[j.status]} variant="light">{statusWord[j.status]}</Badge>
+                    {j.repeatSeconds > 0n && <Badge color="grape" variant="light">Keeps learning {repeatWord(j.repeatSeconds)}</Badge>}
                   </Group>
                   <Text size="sm" c="dimmed">
                     From {j.datasetName || "deleted examples"} · {j.settings?.epochs} passes · started {ago(j.createTime)}
@@ -53,6 +54,7 @@ function Training() {
                   </Text>
                   {active(j) && <Progress value={progress(j)} mt="xs" size="sm" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label="Progress" />}
                   {j.status === JobStatus.FAILED && <Text size="sm" c="red" mt={4}>{j.error}</Text>}
+                  {j.note && <Text size="sm" mt={4}>{j.note}</Text>}
                 </div>
                 <Group gap="xs" wrap="nowrap">
                   {active(j) && <Button size="xs" variant="default" onClick={() => cancel.mutate({ id: j.id })}>Stop</Button>}

@@ -18,6 +18,11 @@ service DatasetService {
   // registers a built-in dataset.
   rpc CreateDataset(CreateDatasetRequest) returns (CreateDatasetResponse);
   rpc DeleteDataset(DeleteDatasetRequest) returns (DeleteDatasetResponse);
+  // TestQuery runs a database query and returns its columns and a few
+  // rows, so the answer column can be picked before anything is saved.
+  rpc TestQuery(TestQueryRequest) returns (TestQueryResponse);
+  // RefreshDataset runs a dataset's query again and replaces its rows.
+  rpc RefreshDataset(RefreshDatasetRequest) returns (RefreshDatasetResponse);
 }
 
 // TrainingService teaches new models and follows their progress.
@@ -37,6 +42,17 @@ service TrainingService {
   // last finished epoch.
   rpc ResumeJob(ResumeJobRequest) returns (ResumeJobResponse);
   rpc DeleteJob(DeleteJobRequest) returns (DeleteJobResponse);
+  // SetRepeat changes how often a job keeps learning; 0 stops it.
+  rpc SetRepeat(SetRepeatRequest) returns (SetRepeatResponse);
+}
+
+message SetRepeatRequest {
+  string id = 1;
+  int64 repeat_seconds = 2;
+}
+
+message SetRepeatResponse {
+  Job job = 1;
 }
 
 // DatasetKind says where a dataset's examples come from.
@@ -64,6 +80,11 @@ message Dataset {
   string target = 8;
   int64 size_bytes = 9;
   google.protobuf.Timestamp create_time = 10;
+  // Driver and query are set when the rows come from a database; the
+  // connection itself is never returned.
+  string driver = 12;
+  string query = 13;
+  google.protobuf.Timestamp refresh_time = 14;
   // Architectures lists the model types that can learn from this dataset.
   repeated string architectures = 11;
 }
@@ -96,6 +117,36 @@ message CreateDatasetRequest {
   // Target is the column that holds what to predict. Empty means the last
   // column.
   string target = 4;
+  // Connection and query fetch the table from a database instead of csv.
+  Connection connection = 5;
+  string query = 6;
+}
+
+// Connection is how to reach a database.
+message Connection {
+  // driver is "postgres", "mysql" or "sqlite".
+  string driver = 1;
+  // dsn is the connection string, or the file path for sqlite.
+  string dsn = 2;
+}
+
+message TestQueryRequest {
+  Connection connection = 1;
+  string query = 2;
+}
+
+message TestQueryResponse {
+  repeated string columns = 1;
+  repeated Row sample = 2;
+  int64 rows = 3;
+}
+
+message RefreshDatasetRequest {
+  string id = 1;
+}
+
+message RefreshDatasetResponse {
+  Dataset dataset = 1;
 }
 
 message CreateDatasetResponse {
@@ -165,6 +216,16 @@ message Job {
   int32 step = 19;
   // worker names the worker that ran it, or is empty for this server.
   string worker = 20;
+  // repeat_seconds > 0 means the job keeps learning: every so often the
+  // examples are fetched again and a new pass continues from the model.
+  int64 repeat_seconds = 21;
+  google.protobuf.Timestamp next_run_time = 22;
+  // parent_id is the first job of a keep-learning chain, for later passes.
+  string parent_id = 23;
+  // base_model_id is the model a pass continued from.
+  string base_model_id = 24;
+  // note says what a pass did with its result, in words.
+  string note = 25;
 }
 
 message ListJobsRequest {}
@@ -188,6 +249,8 @@ message CreateJobRequest {
   string dataset_id = 4;
   // Settings may be left empty for sensible defaults.
   TrainingSettings settings = 5;
+  // repeat_seconds asks for the job to keep learning on that interval.
+  int64 repeat_seconds = 6;
 }
 
 message CreateJobResponse {

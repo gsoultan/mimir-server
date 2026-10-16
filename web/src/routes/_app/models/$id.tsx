@@ -68,7 +68,7 @@ function ModelDetails() {
   return (
     <Page
       title={m.name}
-      intro={`${arch?.title ?? m.architecture} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}`}
+      intro={`${arch?.title ?? m.architecture} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}${m.accuracy > 0 ? ` · gets ${Math.round(m.accuracy * 100)} of 100 right` : ""}${m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? ` · last learned ${ago(m.updateTime)}` : ""}`}
       actions={<ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>Try it</ButtonLink>}
     >
       <SimpleGrid cols={{ base: 1, md: 2 }}>
