@@ -18,6 +18,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir-server/internal/training"
 	"github.com/gsoultan/mimir-server/internal/webhook"
 	"github.com/gsoultan/mimir-server/web"
 )
@@ -79,6 +80,14 @@ func run() error {
 		}
 	})
 	bg.Go(func() { janitor(bgCtx, st, log) })
+
+	// Training runs one job at a time in this process. A job cut short by
+	// shutdown goes back in the queue and resumes from its checkpoint.
+	runner := training.New(st, log)
+	runner.OnDone = svc.TrainingDone
+	svc.KickTraining = runner.Kick
+	svc.CancelTraining = runner.Cancel
+	bg.Go(func() { runner.Run(bgCtx) })
 
 	srv := &http.Server{
 		Addr:              *addr,

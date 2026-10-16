@@ -46,6 +46,10 @@ type Service struct {
 	AllowPrivateWebhooks bool
 	// Limiter holds back password and code guessing.
 	Limiter *auth.Limiter
+	// KickTraining asks the training runner to look at the queue now, and
+	// CancelTraining stops a running job; either may be nil.
+	KickTraining   func()
+	CancelTraining func(id string) bool
 }
 
 var (
@@ -65,8 +69,10 @@ func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.Li
 			Name:        a.Name,
 			Title:       a.Title,
 			Description: a.Description,
-			InputShape:  int64s(a.InputShape),
-			Labels:      a.Labels,
+			InputShape:  int64s(a.Spec.InputShape),
+			Labels:      a.Spec.Labels,
+			Trainable:   a.Trainable(),
+			Input:       string(a.Input),
 		})
 	}
 	return connect.NewResponse(res), nil
@@ -105,12 +111,15 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if !ok {
 		return nil, invalid("Unknown model type %q. Pick one from the list of model types.", msg.GetArchitecture())
 	}
+	if !a.Fixed() {
+		return nil, invalid("%s models are taught from a dataset here rather than uploaded. Choose Teach a new model.", a.Title)
+	}
 	if len(msg.GetWeights()) == 0 {
 		return nil, invalid("The model file is empty.")
 	}
 	// Load the weights once before storing them, so a file that doesn't fit
 	// is rejected now rather than on the first question.
-	if _, err := runtime.Build(a, msg.GetWeights()); err != nil {
+	if _, err := runtime.Build(a, a.Spec, msg.GetWeights()); err != nil {
 		s.log.InfoContext(ctx, "weights rejected", "architecture", a.Name, "error", err)
 		return nil, invalid("This file doesn't fit the %q model type. Check that you picked the kind of model the file was saved from.", a.Title)
 	}
@@ -186,8 +195,9 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	case topK < 0 || topK > maxTopK:
 		return nil, invalid("top_k must be between 1 and %d.", maxTopK)
 	}
+	spec := arch.Resolve(a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
 	start := time.Now()
-	r, err := s.cache.Predict(ctx, m.ID, a, func() ([]byte, error) { return s.store.Weights(m.ID) }, msg.GetInput().GetValues())
+	r, err := s.cache.Predict(ctx, m.ID, a, spec, func() ([]byte, error) { return s.store.Weights(m.ID) }, msg.GetInput().GetValues())
 	switch {
 	case errors.Is(err, runtime.ErrBadInput):
 		return nil, invalid("%v", err)
@@ -199,7 +209,7 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		Probabilities:  &mimirv1.Tensor{Shape: []int64{int64(len(r.Probability))}, Values: r.Probability},
 		DurationMicros: time.Since(start).Microseconds(),
 	}
-	for _, g := range r.Top(a.Labels, topK) {
+	for _, g := range r.Top(spec.Labels, topK) {
 		res.Guesses = append(res.Guesses, &mimirv1.Guess{Label: g.Label, Probability: g.Probability})
 	}
 	return connect.NewResponse(res), nil
@@ -255,7 +265,7 @@ func cleanText(name, desc string) (string, string, error) {
 }
 
 func toProto(m store.Model) *mimirv1.Model {
-	return &mimirv1.Model{
+	out := &mimirv1.Model{
 		Id:           m.ID,
 		Name:         m.Name,
 		Description:  m.Description,
@@ -264,7 +274,15 @@ func toProto(m store.Model) *mimirv1.Model {
 		SizeBytes:    m.SizeBytes,
 		CreateTime:   timestamppb.New(m.Created),
 		UpdateTime:   timestamppb.New(m.Updated),
+		Features:     m.Features,
+		JobId:        m.JobID,
 	}
+	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
+	if a, ok := arch.Lookup(m.Architecture); ok {
+		spec = arch.Resolve(a, spec)
+	}
+	out.InputShape, out.Labels = int64s(spec.InputShape), spec.Labels
+	return out
 }
 
 func int64s(xs []int) []int64 {

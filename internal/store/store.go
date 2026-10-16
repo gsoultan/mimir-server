@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -37,6 +38,12 @@ type Model struct {
 	SHA256       string
 	Created      time.Time
 	Updated      time.Time
+	// InputShape, Labels and Features are set for models taught from a
+	// dataset; uploaded models of a fixed architecture leave them empty.
+	InputShape []int
+	Labels     []string
+	Features   []string
+	JobID      string
 }
 
 // Store is safe for concurrent use.
@@ -127,16 +134,20 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time"
+const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id"
 
 type scanner interface{ Scan(dest ...any) error }
 
 func scan(row scanner) (Model, error) {
 	var m Model
 	var created, updated int64
-	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated)
+	var shape, labels, features string
+	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID)
 	m.Created = time.UnixMilli(created).UTC()
 	m.Updated = time.UnixMilli(updated).UTC()
+	m.InputShape = fromJSON[[]int](shape)
+	m.Labels = fromJSON[[]string](labels)
+	m.Features = fromJSON[[]string](features)
 	return m, err
 }
 
@@ -189,8 +200,9 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	if err := writeFileAtomic(path, weights); err != nil {
 		return Model{}, fmt.Errorf("store: write weights: %w", err)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		m.ID, m.Name, m.Description, m.Architecture, m.SizeBytes, m.SHA256, now.UnixMilli(), now.UnixMilli())
+	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		m.ID, m.Name, m.Description, m.Architecture, m.SizeBytes, m.SHA256, now.UnixMilli(), now.UnixMilli(),
+		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID)
 	if err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)
@@ -246,6 +258,24 @@ func (s *Store) path(id string) string {
 func ValidID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil && !strings.ContainsAny(id, `/\`)
+}
+
+// toJSON and fromJSON keep small lists in text columns. An empty list is
+// stored as "" so uploaded models read back with nil slices.
+func toJSON[T any](v T) string {
+	b, err := json.Marshal(v)
+	if err != nil || string(b) == "null" || string(b) == "[]" {
+		return ""
+	}
+	return string(b)
+}
+
+func fromJSON[T any](s string) T {
+	var v T
+	if s != "" {
+		json.Unmarshal([]byte(s), &v)
+	}
+	return v
 }
 
 func writeFileAtomic(path string, b []byte) error {

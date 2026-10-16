@@ -1,6 +1,7 @@
 import "@fontsource-variable/bricolage-grotesque";
 import "@fontsource-variable/figtree";
 import "./styles.css";
+import "./zod-config";
 
 import { TransportProvider } from "@connectrpc/connect-query";
 import { MantineProvider } from "@mantine/core";
@@ -9,7 +10,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { z } from "zod";
 
 import { transport } from "./api/client";
 import { routeTree } from "./routeTree.gen";
@@ -32,9 +32,6 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
-
-// The page's Content-Security-Policy forbids eval, so tell zod not to try.
-z.config({ jitless: true });
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
