@@ -854,6 +854,8 @@ type Job struct {
 	// StepsPerEpoch and step give progress within the running epoch.
 	StepsPerEpoch int32 `protobuf:"varint,18,opt,name=steps_per_epoch,json=stepsPerEpoch,proto3" json:"steps_per_epoch,omitempty"`
 	Step          int32 `protobuf:"varint,19,opt,name=step,proto3" json:"step,omitempty"`
+	// worker names the worker that ran it, or is empty for this server.
+	Worker        string `protobuf:"bytes,20,opt,name=worker,proto3" json:"worker,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1019,6 +1021,13 @@ func (x *Job) GetStep() int32 {
 		return x.Step
 	}
 	return 0
+}
+
+func (x *Job) GetWorker() string {
+	if x != nil {
+		return x.Worker
+	}
+	return ""
 }
 
 type ListJobsRequest struct {
@@ -1618,7 +1627,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x04loss\x18\x02 \x01(\x01R\x04loss\x12\x1a\n" +
 	"\baccuracy\x18\x03 \x01(\x01R\baccuracy\x12\x19\n" +
 	"\bval_loss\x18\x04 \x01(\x01R\avalLoss\x12'\n" +
-	"\x0fduration_millis\x18\x05 \x01(\x03R\x0edurationMillis\"\xb4\x05\n" +
+	"\x0fduration_millis\x18\x05 \x01(\x03R\x0edurationMillis\"\xcc\x05\n" +
 	"\x03Job\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -1643,7 +1652,8 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\bend_time\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12\x1a\n" +
 	"\baccuracy\x18\x11 \x01(\x01R\baccuracy\x12&\n" +
 	"\x0fsteps_per_epoch\x18\x12 \x01(\x05R\rstepsPerEpoch\x12\x12\n" +
-	"\x04step\x18\x13 \x01(\x05R\x04step\"\x11\n" +
+	"\x04step\x18\x13 \x01(\x05R\x04step\x12\x16\n" +
+	"\x06worker\x18\x14 \x01(\tR\x06worker\"\x11\n" +
 	"\x0fListJobsRequest\"5\n" +
 	"\x10ListJobsResponse\x12!\n" +
 	"\x04jobs\x18\x01 \x03(\v2\r.mimir.v1.JobR\x04jobs\"\x1f\n" +

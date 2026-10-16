@@ -13,10 +13,11 @@ import { SettingsService, TwoFactorPolicy } from "../../api/gen/mimir/v1/setting
 import { allSettingsQueries, auditLog, databaseInfo, settings, whoAmI } from "../../api/queries";
 import { AnchorLink } from "../../components/links";
 import { Page } from "../../components/Page";
+import { Workers } from "../../components/Workers";
 import { ago, bytes } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/settings")({
-  validateSearch: z.object({ tab: z.enum(["audit", "database", "alerts", "retention", "security"]).optional() }),
+  validateSearch: z.object({ tab: z.enum(["audit", "database", "alerts", "retention", "security", "workers"]).optional() }),
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureInfiniteQueryData(auditLog),
     context.queryClient.ensureQueryData(settings),
@@ -37,12 +38,14 @@ function Settings() {
           <Tabs.Tab value="alerts">Alerts</Tabs.Tab>
           <Tabs.Tab value="retention">Log retention</Tabs.Tab>
           <Tabs.Tab value="security">Security</Tabs.Tab>
+          <Tabs.Tab value="workers">Workers</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="audit" pt="md"><AuditLog /></Tabs.Panel>
         <Tabs.Panel value="database" pt="md"><Database /></Tabs.Panel>
         <Tabs.Panel value="alerts" pt="md"><Alerts /></Tabs.Panel>
         <Tabs.Panel value="retention" pt="md"><Retention /></Tabs.Panel>
         <Tabs.Panel value="security" pt="md"><SecurityPolicy /></Tabs.Panel>
+        <Tabs.Panel value="workers" pt="md"><Workers /></Tabs.Panel>
       </Tabs>
     </Page>
   );
@@ -227,6 +230,8 @@ const actions: Record<string, string> = {
   "training.delete": "deleted the training run",
   "training.succeeded": "finished teaching",
   "training.failed": "failed to teach",
+  "worker.create": "added the worker",
+  "worker.delete": "removed the worker",
   "user.code_failed": "entered a wrong code for",
   "user.two_factor_on": "turned on two-step verification",
   "user.two_factor_off": "turned off two-step verification",

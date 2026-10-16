@@ -1,0 +1,172 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+import "google/protobuf/timestamp.proto";
+import "mimir/v1/model.proto";
+import "mimir/v1/training.proto";
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// WorkerService manages the workers that run models for this server, and
+// carries the link each worker holds open.
+service WorkerService {
+  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // CreateWorker registers a worker and returns its token, shown once.
+  rpc CreateWorker(CreateWorkerRequest) returns (CreateWorkerResponse);
+  rpc DeleteWorker(DeleteWorkerRequest) returns (DeleteWorkerResponse);
+  // Link is the stream a worker keeps open while it is available. The
+  // worker authenticates with "Authorization: Bearer <worker token>", says
+  // hello, then answers the tasks the server sends.
+  rpc Link(stream LinkRequest) returns (stream LinkResponse);
+}
+
+// Worker is a process that runs models for this server, here or elsewhere.
+message Worker {
+  string id = 1;
+  string name = 2;
+  bool online = 3;
+  google.protobuf.Timestamp last_seen = 4;
+  google.protobuf.Timestamp create_time = 5;
+  // What the worker reported when it connected.
+  string device = 6;
+  int32 cpus = 7;
+  int64 memory_bytes = 8;
+  repeated string architectures = 9;
+  bool trains = 10;
+  int32 capacity = 11;
+  int32 busy = 12;
+  string version = 13;
+  string address = 14;
+  string created_by = 15;
+}
+
+message ListWorkersRequest {}
+
+message ListWorkersResponse {
+  repeated Worker workers = 1;
+}
+
+message CreateWorkerRequest {
+  string name = 1;
+}
+
+message CreateWorkerResponse {
+  Worker worker = 1;
+  // token is the secret the worker connects with. It is not stored and
+  // cannot be shown again.
+  string token = 2;
+}
+
+message DeleteWorkerRequest {
+  string id = 1;
+}
+
+message DeleteWorkerResponse {}
+
+// LinkRequest is what a worker sends on its link.
+message LinkRequest {
+  oneof body {
+    Hello hello = 1;
+    PredictResult predict_result = 2;
+    TrainProgress train_progress = 3;
+    TrainResult train_result = 4;
+    Heartbeat heartbeat = 5;
+  }
+}
+
+// LinkResponse is what the server sends down a link.
+message LinkResponse {
+  oneof body {
+    Welcome welcome = 1;
+    PredictTask predict = 2;
+    TrainTask train = 3;
+    CancelTask cancel = 4;
+  }
+}
+
+// Hello is the first message on a link: what the worker can do.
+message Hello {
+  string device = 1;
+  int32 cpus = 2;
+  int64 memory_bytes = 3;
+  // architectures the worker can run predictions for.
+  repeated string architectures = 4;
+  // trains says the worker can also train those architectures.
+  bool trains = 5;
+  // capacity is how many tasks the worker takes at once.
+  int32 capacity = 6;
+  string version = 7;
+}
+
+message Heartbeat {}
+
+message Welcome {
+  string worker_id = 1;
+  string name = 2;
+}
+
+// ModelSpec is what a model reads and answers.
+message ModelSpec {
+  repeated int64 input_shape = 1;
+  repeated string labels = 2;
+  repeated string features = 3;
+}
+
+// PredictTask asks for one prediction. weights travel only the first time
+// a link sees a model; the worker keeps them.
+message PredictTask {
+  string task_id = 1;
+  string model_id = 2;
+  string architecture = 3;
+  ModelSpec spec = 4;
+  bytes weights = 5;
+  Tensor input = 6;
+}
+
+message PredictResult {
+  string task_id = 1;
+  Tensor output = 2;
+  Tensor probabilities = 3;
+  string error = 4;
+  // need_weights asks the server to send the task again with the weights.
+  bool need_weights = 5;
+}
+
+// TrainTask asks the worker to train a model from the examples it carries.
+message TrainTask {
+  string task_id = 1;
+  string job_id = 2;
+  string architecture = 3;
+  TrainingSettings settings = 4;
+  DatasetKind dataset_kind = 5;
+  // csv holds the table for DATASET_KIND_TABLE, with target naming the
+  // answer column.
+  bytes csv = 6;
+  string target = 7;
+  // history is what earlier attempts already finished, for a resumed job.
+  repeated EpochResult history = 8;
+}
+
+message TrainProgress {
+  string task_id = 1;
+  int32 epoch = 2;
+  int32 step = 3;
+  int32 steps_per_epoch = 4;
+  repeated EpochResult history = 5;
+}
+
+message TrainResult {
+  string task_id = 1;
+  bytes weights = 2;
+  repeated EpochResult history = 3;
+  ModelSpec spec = 4;
+  string error = 5;
+  bool cancelled = 6;
+}
+
+message CancelTask {
+  string task_id = 1;
+}

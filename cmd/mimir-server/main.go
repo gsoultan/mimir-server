@@ -16,12 +16,18 @@ import (
 	"time"
 
 	"github.com/gsoultan/mimir-server/internal/api"
+	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
 	"github.com/gsoultan/mimir-server/internal/webhook"
+	builtin "github.com/gsoultan/mimir-server/internal/worker"
 	"github.com/gsoultan/mimir-server/web"
+	"github.com/gsoultan/mimir-server/worker"
 )
+
+// version is reported by workers; set with -ldflags "-X main.version=...".
+var version = "dev"
 
 func main() {
 	if err := run(); err != nil {
@@ -34,11 +40,33 @@ func run() error {
 	addr := flag.String("addr", ":8080", "address to listen on")
 	data := flag.String("data", "./data", "directory for the database and model files")
 	allowPrivate := flag.Bool("allow-private-webhooks", false, "let webhooks point at local and private addresses (for development)")
+	role := flag.String("role", "standalone", "standalone (serve and run models here), server (only coordinate workers) or worker (run models for a server)")
+	serverURL := flag.String("server", "", "worker: the server to join, such as https://mimir.example.com")
+	token := flag.String("token", os.Getenv("MIMIR_WORKER_TOKEN"), "worker: the token made under Settings → Workers ($MIMIR_WORKER_TOKEN)")
+	name := flag.String("name", "", "worker: a name for the logs")
+	capacity := flag.Int("capacity", 0, "worker: how many tasks to run at once (default: the CPU count)")
 	flag.Parse()
 
 	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	switch *role {
+	case "worker":
+		if *serverURL == "" || *token == "" {
+			return errors.New("a worker needs -server and -token (or $MIMIR_WORKER_TOKEN)")
+		}
+		log.Info("worker: starting", "server", *serverURL, "data", *data)
+		err := worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Capacity: *capacity, Version: version, Log: log}, builtin.Builtin(*data))
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
+	case "standalone", "server":
+	default:
+		return fmt.Errorf("unknown -role %q: use standalone, server or worker", *role)
+	}
+	local := *role == "standalone"
 
 	st, err := store.Open(ctx, *data)
 	if err != nil {
@@ -48,6 +76,8 @@ func run() error {
 
 	svc := api.New(st, log)
 	svc.AllowPrivateWebhooks = *allowPrivate
+	svc.Pool = cluster.New(log)
+	svc.Local = local
 
 	// Webhook deliveries and housekeeping run in the background until the
 	// server stops.
@@ -84,6 +114,8 @@ func run() error {
 	// Training runs one job at a time in this process. A job cut short by
 	// shutdown goes back in the queue and resumes from its checkpoint.
 	runner := training.New(st, log)
+	runner.Local = local
+	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
 	svc.KickTraining = runner.Kick
 	svc.CancelTraining = runner.Cancel
@@ -99,7 +131,7 @@ func run() error {
 
 	errc := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", *addr, "data", *data)
+		log.Info("listening", "addr", *addr, "data", *data, "role", *role)
 		errc <- srv.ListenAndServe()
 	}()
 

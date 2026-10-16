@@ -56,7 +56,7 @@ function Run() {
   return (
     <Page
       title={j.name}
-      intro={<>{arch?.title ?? j.architecture} learning from {j.datasetName || "deleted examples"} · started by {j.createdBy} {ago(j.createTime)}</>}
+      intro={<>{arch?.title ?? j.architecture} learning from {j.datasetName || "deleted examples"}{j.worker && ` on worker ${j.worker}`} · started by {j.createdBy} {ago(j.createTime)}</>}
       actions={
         <Group gap="xs">
           {active(j) && <Button variant="default" loading={cancel.isPending} onClick={() => cancel.mutate({ id })}>Stop</Button>}

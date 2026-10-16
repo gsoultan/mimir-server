@@ -1,0 +1,448 @@
+// Package worker is the SDK for a mimir-server worker: a process that
+// connects to a server with a worker token and runs models for it.
+//
+// The server's own binary is a worker when started with -role=worker. A
+// custom worker, for models a weights file can't describe, is a few lines:
+//
+//	handlers := map[string]worker.Handler{"my-arch": myHandler}
+//	err := worker.Run(ctx, worker.Config{Server: "https://mimir.example.com", Token: token, Name: "gpu-1"}, handlers)
+//
+// Run keeps the link open, reconnecting with backoff, until ctx ends. A
+// Handler that also implements Trainer is offered training tasks.
+package worker
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"os"
+	"runtime"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"connectrpc.com/connect"
+
+	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
+	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
+)
+
+// Model is a stored model the server asks a worker to run. Weights are the
+// safetensors file the server holds for it.
+type Model struct {
+	ID           string
+	Architecture string
+	InputShape   []int
+	Labels       []string
+	Features     []string
+	Weights      []byte
+}
+
+// Prediction is a model's answer: one raw output and one probability per
+// label.
+type Prediction struct {
+	Output        []float32
+	Probabilities []float32
+}
+
+// Handler runs predictions for one architecture.
+type Handler interface {
+	Predict(ctx context.Context, m *Model, input []float32) (Prediction, error)
+}
+
+// Settings are a training task's knobs.
+type Settings struct {
+	Epochs       int
+	BatchSize    int
+	LearningRate float64
+	HoldOut      float64
+}
+
+// Epoch is how one pass over the examples went.
+type Epoch struct {
+	Epoch    int
+	Loss     float64
+	Accuracy float64
+	ValLoss  float64
+	Millis   int64
+}
+
+// Dataset is the examples a training task learns from: a CSV table with a
+// header row and a target column, or the built-in handwritten digits.
+type Dataset struct {
+	Kind   string // "table" or "mnist"
+	CSV    []byte
+	Target string
+}
+
+// TrainTask asks for a model to be trained.
+type TrainTask struct {
+	JobID        string
+	Architecture string
+	Settings     Settings
+	Dataset      Dataset
+	// History is what earlier attempts of this job finished.
+	History []Epoch
+}
+
+// Progress is where a training task is.
+type Progress struct {
+	Epoch   int // finished epochs
+	Step    int // step within the next one
+	Steps   int // steps in an epoch
+	History []Epoch
+}
+
+// Trained is a finished training task.
+type Trained struct {
+	Weights    []byte
+	History    []Epoch
+	InputShape []int
+	Labels     []string
+	Features   []string
+}
+
+// Trainer is a Handler that can also train its architecture.
+type Trainer interface {
+	Train(ctx context.Context, t TrainTask, progress func(Progress)) (Trained, error)
+}
+
+// Config says which server to join and as whom.
+type Config struct {
+	// Server is the server's address, such as https://mimir.example.com.
+	Server string
+	// Token is the worker token made under Settings → Workers.
+	Token string
+	// Name is only used in logs; the server shows the name the token was
+	// made with.
+	Name string
+	// Device describes the hardware, such as "cpu" or "metal". Defaults to
+	// the OS and architecture.
+	Device string
+	// Capacity is how many tasks to run at once. Defaults to the CPU count.
+	Capacity int
+	// Version is reported to the server for display.
+	Version string
+	// Log receives connection events; nil means the default logger.
+	Log *slog.Logger
+	// HTTPClient is used for the link; nil picks one that speaks HTTP/2
+	// to the server, unencrypted for http:// addresses.
+	HTTPClient *http.Client
+}
+
+// Run joins the server and serves tasks until ctx ends. It returns ctx's
+// error, or a configuration error found before connecting.
+func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
+	if cfg.Server == "" || cfg.Token == "" {
+		return errors.New("worker: Server and Token are required")
+	}
+	if len(handlers) == 0 {
+		return errors.New("worker: no handlers")
+	}
+	u, err := url.Parse(cfg.Server)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("worker: Server must be an http(s) address, got %q", cfg.Server)
+	}
+	if cfg.Log == nil {
+		cfg.Log = slog.Default()
+	}
+	if cfg.Device == "" {
+		cfg.Device = runtime.GOOS + "/" + runtime.GOARCH
+	}
+	if cfg.Capacity <= 0 {
+		cfg.Capacity = runtime.NumCPU()
+	}
+	client := cfg.HTTPClient
+	if client == nil {
+		client = httpClient(u.Scheme == "http")
+	}
+	w := &worker{cfg: cfg, handlers: handlers, client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
+
+	delay := time.Second
+	for {
+		started := time.Now()
+		err := w.serve(ctx)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if time.Since(started) > time.Minute {
+			delay = time.Second // it was up for a while; try again soon
+		}
+		if connect.CodeOf(err) == connect.CodeUnauthenticated {
+			cfg.Log.Error("worker: the server rejected the token; check it under Settings → Workers", "error", err)
+			delay = 30 * time.Second
+		} else {
+			cfg.Log.Warn("worker: link ended, reconnecting", "error", err, "in", delay)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+		delay = min(delay*2, 30*time.Second)
+	}
+}
+
+// maxBytes bounds one message on the link: a weights file or a table.
+const maxBytes = 1 << 30
+
+type worker struct {
+	cfg      Config
+	handlers map[string]Handler
+	client   mimirv1connect.WorkerServiceClient
+
+	sendMu sync.Mutex
+	stream *connect.BidiStreamForClient[mimirv1.LinkRequest, mimirv1.LinkResponse]
+
+	mu      sync.Mutex
+	models  map[string]*Model
+	running map[string]context.CancelFunc
+}
+
+func (w *worker) serve(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stream := w.client.Link(ctx)
+	stream.RequestHeader().Set("Authorization", "Bearer "+w.cfg.Token)
+	w.stream = stream
+	go func() { // a blocked Receive only wakes when the stream closes
+		<-ctx.Done()
+		stream.CloseRequest()
+		stream.CloseResponse()
+	}()
+	w.models = map[string]*Model{}
+	w.running = map[string]context.CancelFunc{}
+
+	archs := make([]string, 0, len(w.handlers))
+	trains := true
+	for name, h := range w.handlers {
+		archs = append(archs, name)
+		if _, ok := h.(Trainer); !ok {
+			trains = false
+		}
+	}
+	slices.Sort(archs)
+	hello := &mimirv1.Hello{Device: w.cfg.Device, Cpus: int32(runtime.NumCPU()), MemoryBytes: memory(), Architectures: archs, Trains: trains, Capacity: int32(w.cfg.Capacity), Version: w.cfg.Version}
+	if err := w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Hello{Hello: hello}}); err != nil {
+		return err
+	}
+	first, err := stream.Receive()
+	if err != nil {
+		return err
+	}
+	welcome := first.GetWelcome()
+	if welcome == nil {
+		return errors.New("worker: the server didn't say welcome")
+	}
+	w.cfg.Log.Info("worker: linked", "server", w.cfg.Server, "as", welcome.Name)
+
+	beat := time.NewTicker(20 * time.Second)
+	defer beat.Stop()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-beat.C:
+				if w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Heartbeat{Heartbeat: &mimirv1.Heartbeat{}}}) != nil {
+					return
+				}
+			}
+		}
+	}()
+
+	var tasks sync.WaitGroup
+	defer tasks.Wait()
+	slots := make(chan struct{}, w.cfg.Capacity)
+	for {
+		msg, err := stream.Receive()
+		if errors.Is(err, io.EOF) {
+			return errors.New("worker: the server closed the link")
+		}
+		if err != nil {
+			return err
+		}
+		switch b := msg.Body.(type) {
+		case *mimirv1.LinkResponse_Predict:
+			tasks.Go(func() {
+				w.slot(ctx, slots, b.Predict.TaskId, func(tctx context.Context) { w.predict(tctx, b.Predict) })
+			})
+		case *mimirv1.LinkResponse_Train:
+			tasks.Go(func() { w.slot(ctx, slots, b.Train.TaskId, func(tctx context.Context) { w.train(tctx, b.Train) }) })
+		case *mimirv1.LinkResponse_Cancel:
+			w.mu.Lock()
+			if cancel := w.running[b.Cancel.TaskId]; cancel != nil {
+				cancel()
+			}
+			w.mu.Unlock()
+		}
+	}
+}
+
+// slot runs f when a slot is free, cancellable by task id.
+func (w *worker) slot(ctx context.Context, slots chan struct{}, id string, f func(context.Context)) {
+	select {
+	case slots <- struct{}{}:
+	case <-ctx.Done():
+		return
+	}
+	defer func() { <-slots }()
+	tctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	w.mu.Lock()
+	w.running[id] = cancel
+	w.mu.Unlock()
+	defer func() {
+		w.mu.Lock()
+		delete(w.running, id)
+		w.mu.Unlock()
+	}()
+	f(tctx)
+}
+
+func (w *worker) send(msg *mimirv1.LinkRequest) error {
+	w.sendMu.Lock()
+	defer w.sendMu.Unlock()
+	return w.stream.Send(msg)
+}
+
+func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
+	reply := func(r *mimirv1.PredictResult) {
+		r.TaskId = t.TaskId
+		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_PredictResult{PredictResult: r}})
+	}
+	w.mu.Lock()
+	m := w.models[t.ModelId]
+	if len(t.Weights) > 0 {
+		m = &Model{ID: t.ModelId, Architecture: t.Architecture, InputShape: ints(t.GetSpec().GetInputShape()), Labels: t.GetSpec().GetLabels(), Features: t.GetSpec().GetFeatures(), Weights: t.Weights}
+		w.models[t.ModelId] = m
+	}
+	w.mu.Unlock()
+	if m == nil {
+		reply(&mimirv1.PredictResult{NeedWeights: true})
+		return
+	}
+	h := w.handlers[t.Architecture]
+	if h == nil {
+		reply(&mimirv1.PredictResult{Error: "this worker doesn't run " + t.Architecture})
+		return
+	}
+	p, err := h.Predict(ctx, m, t.GetInput().GetValues())
+	if err != nil {
+		reply(&mimirv1.PredictResult{Error: err.Error()})
+		return
+	}
+	reply(&mimirv1.PredictResult{
+		Output:        &mimirv1.Tensor{Shape: []int64{int64(len(p.Output))}, Values: p.Output},
+		Probabilities: &mimirv1.Tensor{Shape: []int64{int64(len(p.Probabilities))}, Values: p.Probabilities},
+	})
+}
+
+func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
+	reply := func(r *mimirv1.TrainResult) {
+		r.TaskId = t.TaskId
+		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_TrainResult{TrainResult: r}})
+	}
+	tr, _ := w.handlers[t.Architecture].(Trainer)
+	if tr == nil {
+		reply(&mimirv1.TrainResult{Error: "this worker doesn't train " + t.Architecture})
+		return
+	}
+	kind := "table"
+	if t.DatasetKind == mimirv1.DatasetKind_DATASET_KIND_MNIST {
+		kind = "mnist"
+	}
+	task := TrainTask{
+		JobID: t.JobId, Architecture: t.Architecture,
+		Settings: Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut()},
+		Dataset:  Dataset{Kind: kind, CSV: t.Csv, Target: t.Target},
+		History:  epochsFromProto(t.History),
+	}
+	var last time.Time
+	res, err := tr.Train(ctx, task, func(p Progress) {
+		if p.Step != 0 && time.Since(last) < time.Second {
+			return // a step is worth sending once a second; an epoch always
+		}
+		last = time.Now()
+		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_TrainProgress{TrainProgress: &mimirv1.TrainProgress{
+			TaskId: t.TaskId, Epoch: int32(p.Epoch), Step: int32(p.Step), StepsPerEpoch: int32(p.Steps), History: epochsToProto(p.History),
+		}}})
+	})
+	switch {
+	case ctx.Err() != nil:
+		reply(&mimirv1.TrainResult{Cancelled: true})
+	case err != nil:
+		reply(&mimirv1.TrainResult{Error: err.Error()})
+	default:
+		reply(&mimirv1.TrainResult{
+			Weights: res.Weights, History: epochsToProto(res.History),
+			Spec: &mimirv1.ModelSpec{InputShape: int64s(res.InputShape), Labels: res.Labels, Features: res.Features},
+		})
+	}
+}
+
+// httpClient speaks HTTP/2, which a bidirectional stream needs, and does
+// so without TLS for http:// servers.
+func httpClient(plain bool) *http.Client {
+	var p http.Protocols
+	if plain {
+		p.SetUnencryptedHTTP2(true)
+	} else {
+		p.SetHTTP1(true)
+		p.SetHTTP2(true)
+	}
+	return &http.Client{Transport: &http.Transport{Protocols: &p, ForceAttemptHTTP2: true}}
+}
+
+// memory returns the machine's memory in bytes where it is easy to know.
+func memory() int64 {
+	b, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for line := range strings.SplitSeq(string(b), "\n") {
+		if rest, ok := strings.CutPrefix(line, "MemTotal:"); ok {
+			var kb int64
+			fmt.Sscan(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), "kB")), &kb)
+			return kb * 1024
+		}
+	}
+	return 0
+}
+
+func epochsToProto(h []Epoch) []*mimirv1.EpochResult {
+	out := make([]*mimirv1.EpochResult, len(h))
+	for i, e := range h {
+		out[i] = &mimirv1.EpochResult{Epoch: int32(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, DurationMillis: e.Millis}
+	}
+	return out
+}
+
+func epochsFromProto(h []*mimirv1.EpochResult) []Epoch {
+	out := make([]Epoch, len(h))
+	for i, e := range h {
+		out[i] = Epoch{Epoch: int(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.DurationMillis}
+	}
+	return out
+}
+
+func int64s(v []int) []int64 {
+	out := make([]int64, len(v))
+	for i, x := range v {
+		out[i] = int64(x)
+	}
+	return out
+}
+
+func ints(v []int64) []int {
+	out := make([]int, len(v))
+	for i, x := range v {
+		out[i] = int(x)
+	}
+	return out
+}

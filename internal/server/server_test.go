@@ -19,6 +19,7 @@ import (
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
@@ -51,7 +52,9 @@ func newServer(t *testing.T) *httptest.Server {
 	svc = api.New(st, log)
 	svc.Notifier.TelegramAPI = "http://127.0.0.1:1" // nothing listens there
 	dispatcher = webhook.New(st, log, true)
+	svc.Pool = cluster.New(log)
 	runner = training.New(st, log)
+	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
 	svc.CancelTraining = runner.Cancel
 	srv := httptest.NewUnstartedServer(server.Handler(svc, st, ui, log))
@@ -98,6 +101,7 @@ type clients struct {
 	settings mimirv1connect.SettingsServiceClient
 	datasets mimirv1connect.DatasetServiceClient
 	training mimirv1connect.TrainingServiceClient
+	workers  mimirv1connect.WorkerServiceClient
 }
 
 func newClients(srv *httptest.Server, opts ...connect.ClientOption) clients {
@@ -115,6 +119,7 @@ func newClients(srv *httptest.Server, opts ...connect.ClientOption) clients {
 		settings: mimirv1connect.NewSettingsServiceClient(srv.Client(), srv.URL, opts...),
 		datasets: mimirv1connect.NewDatasetServiceClient(srv.Client(), srv.URL, opts...),
 		training: mimirv1connect.NewTrainingServiceClient(srv.Client(), srv.URL, opts...),
+		workers:  mimirv1connect.NewWorkerServiceClient(srv.Client(), srv.URL, opts...),
 	}
 }
 
