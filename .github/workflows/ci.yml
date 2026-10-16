@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build web UI
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+      - name: Web unit tests
+        working-directory: web
+        run: bun run test
+      - name: Check generated code is current
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.21.1
+          web/node_modules/.bin/buf lint
+          web/node_modules/.bin/buf generate
+          git diff --exit-code -- gen web/src/api/gen web/src/routeTree.gen.ts
+      - name: Go vet and test
+        run: |
+          go vet ./...
+          go test -race ./...
+      - name: Build binary
+        run: go build -o bin/mimir-server ./cmd/mimir-server
