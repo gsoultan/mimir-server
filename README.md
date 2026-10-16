@@ -4,10 +4,10 @@ A server for [mimir](https://github.com/gsoultan/mimir) models. Upload a
 model's weights, then ask it questions from the web UI, over HTTP/JSON, or
 over gRPC, all on one port.
 
-One binary, a SQLite database, a model store, prediction, accounts with
-roles and per-model access, API keys, an audit log, webhooks, alerts,
-log retention, database backup and the web UI. Training and workers come
-in later phases.
+One binary, a SQLite database, a model store, prediction, training from
+your own examples, accounts with roles and per-model access, API keys, an
+audit log, webhooks, alerts, log retention, database backup and the web
+UI. Workers come in a later phase.
 
 ## Run it
 
@@ -65,9 +65,38 @@ your apps**; a key can never do more than its owner.
 
 A mimir model is Go code plus weights, so the server keeps a registry of
 known model types in `internal/arch` (today: two handwritten-digit models,
-`mnist-mlp` and `mnist-cnn`). An upload names its type, and the server
-checks the weights fit that type before storing them. To serve your own
-architecture, add it to the registry.
+`mnist-mlp` and `mnist-cnn`, and `table-mlp` for rows of numbers). An
+upload names its type, and the server checks the weights fit that type
+before storing them. To serve your own architecture, add it to the
+registry.
+
+## Teach a new model
+
+Under **Models → Teach a new model** (or **Training**), anyone who can add
+models can train one in three steps:
+
+1. **The examples.** Upload a `.csv` with a header row and pick the column
+   that holds the answer; every other column must be a number. Or use the
+   built-in handwritten digits (MNIST, downloaded once into the data
+   folder). Up to 64 MB, a million rows, a thousand columns and a thousand
+   different answers.
+2. **What kind.** The model types that fit the examples, plus a name.
+3. **How long.** Quick look (3 passes), Normal (10) or Thorough (30), with
+   batch size, learning rate and the share kept aside for scoring under
+   *Expert settings*.
+
+Runs queue up and train one at a time in the server process. The run page
+shows the pass and step, a chart of right answers and loss per pass, and
+the score on examples the model never saw while learning. A run can be
+stopped and resumed: a checkpoint is written after every pass. When a run
+finishes, the model appears under **Models** with its columns and answers,
+so **Try a model** shows one box per column and `Predict` takes the
+numbers in that order. Table models standardize their columns inside the
+model, so apps send the raw numbers.
+
+Datasets and runs are also in the API (`DatasetService`, `TrainingService`
+in `proto/mimir/v1/training.proto`), and webhooks can listen for
+`training.queued`, `training.finished` and `training.failed`.
 
 ## Use it from your app
 
@@ -91,8 +120,9 @@ anything public. Health checks are at `grpc.health.v1.Health`.
 ### Webhooks
 
 Under **Connect your apps** you can add a webhook: an address of yours
-that mimir calls when a model is created, updated or deleted, or when a
-person is added or removed. Each call is a JSON POST signed with the
+that mimir calls when a model is created, updated or deleted, when a
+person is added or removed, or when a training run is queued, finishes or
+fails. Each call is a JSON POST signed with the
 webhook's secret:
 
 ```

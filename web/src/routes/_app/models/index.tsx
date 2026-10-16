@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Group, SimpleGrid, Text, TextInput } from "@mantine/core";
+import { Badge, Card, Group, SimpleGrid, Text, TextInput } from "@mantine/core";
 import { IconPlayerPlay, IconSchool, IconSearch, IconUpload } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -33,7 +33,7 @@ function Models() {
       intro="Everything this server can answer with."
       actions={canWrite &&
         <Group gap="sm">
-          <Button variant="default" leftSection={<IconSchool size={18} />} disabled title="Coming soon">Teach a new model</Button>
+          <ButtonLink variant="default" leftSection={<IconSchool size={18} />} to="/models/teach">Teach a new model</ButtonLink>
           <ButtonLink to="/models/new" leftSection={<IconUpload size={18} />}>Add a model</ButtonLink>
         </Group>
       }

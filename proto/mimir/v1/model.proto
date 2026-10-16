@@ -45,8 +45,14 @@ message Architecture {
   string description = 3;
   // InputShape is the shape of one input, without the batch dimension.
   repeated int64 input_shape = 4;
-  // Labels names each output class, in order.
+  // Labels names each output class, in order. Empty when the labels come
+  // from the dataset a model is taught with.
   repeated string labels = 5;
+  // Trainable says the server can teach models of this shape.
+  bool trainable = 6;
+  // Input says what the model reads: "image" for pictures, "table" for a
+  // row of numbers.
+  string input = 7;
 }
 
 // ModelStatus says whether a model can answer.
@@ -69,6 +75,14 @@ message Model {
   int64 size_bytes = 7;
   google.protobuf.Timestamp create_time = 8;
   google.protobuf.Timestamp update_time = 9;
+  // InputShape and labels are what this model actually reads and answers;
+  // they come from the architecture or from the dataset it was taught with.
+  repeated int64 input_shape = 10;
+  repeated string labels = 11;
+  // Features names each input value for a model that reads a row of numbers.
+  repeated string features = 12;
+  // JobId is the training job that made this model, if any.
+  string job_id = 13;
 }
 
 // Tensor is a dense float32 array.

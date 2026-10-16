@@ -26,7 +26,7 @@ import (
 )
 
 // EventTypes lists every event a webhook can subscribe to.
-var EventTypes = []string{"model.created", "model.updated", "model.deleted", "user.created", "user.deleted", "test"}
+var EventTypes = []string{"model.created", "model.updated", "model.deleted", "training.queued", "training.finished", "training.failed", "user.created", "user.deleted", "test"}
 
 // Retry schedule: the gaps between attempts. They add up to about a day.
 var backoff = []time.Duration{

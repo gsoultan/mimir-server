@@ -43,6 +43,8 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	mux.Handle(mimirv1connect.NewAuditServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewWebhookServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewSettingsServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewDatasetServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
+	mux.Handle(mimirv1connect.NewTrainingServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle("GET /api/backup", backupHandler(st, log))
 	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(
 		mimirv1connect.ModelServiceName,
@@ -53,6 +55,8 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 		mimirv1connect.AuditServiceName,
 		mimirv1connect.WebhookServiceName,
 		mimirv1connect.SettingsServiceName,
+		mimirv1connect.DatasetServiceName,
+		mimirv1connect.TrainingServiceName,
 	)))
 	mux.Handle("/", uiHandler(ui))
 

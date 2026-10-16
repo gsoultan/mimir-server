@@ -3,6 +3,7 @@ import { createConnectQueryKey, createInfiniteQueryOptions, createQueryOptions }
 import { ApiKeyService, AuditService, AuthService, UserService } from "./gen/mimir/v1/access_pb";
 import { ModelService } from "./gen/mimir/v1/model_pb";
 import { SettingsService } from "./gen/mimir/v1/settings_pb";
+import { DatasetService, TrainingService } from "./gen/mimir/v1/training_pb";
 import { WebhookService } from "./gen/mimir/v1/webhook_pb";
 import { transport } from "./client";
 
@@ -31,6 +32,11 @@ export const deliveries = (webhookId: string) =>
 export const settings = createQueryOptions(SettingsService.method.getSettings, {}, { transport });
 export const databaseInfo = createQueryOptions(SettingsService.method.getDatabaseInfo, {}, { transport });
 
+export const listDatasets = createQueryOptions(DatasetService.method.listDatasets, {}, { transport });
+export const getDataset = (id: string) => createQueryOptions(DatasetService.method.getDataset, { id }, { transport });
+export const listJobs = createQueryOptions(TrainingService.method.listJobs, {}, { transport });
+export const getJob = (id: string) => createQueryOptions(TrainingService.method.getJob, { id }, { transport });
+
 // Keys for refreshing after a change.
 export const allModelQueries = createConnectQueryKey({ schema: ModelService, cardinality: undefined });
 export const allUserQueries = createConnectQueryKey({ schema: UserService, cardinality: undefined });
@@ -38,3 +44,5 @@ export const allKeyQueries = createConnectQueryKey({ schema: ApiKeyService, card
 export const allAuthQueries = createConnectQueryKey({ schema: AuthService, cardinality: undefined });
 export const allWebhookQueries = createConnectQueryKey({ schema: WebhookService, cardinality: undefined });
 export const allSettingsQueries = createConnectQueryKey({ schema: SettingsService, cardinality: undefined });
+export const allDatasetQueries = createConnectQueryKey({ schema: DatasetService, cardinality: undefined });
+export const allTrainingQueries = createConnectQueryKey({ schema: TrainingService, cardinality: undefined });

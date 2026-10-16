@@ -54,7 +54,9 @@ function ModelDetails() {
     },
   });
 
-  const input = arch ? arch.inputShape.reduce((a, b) => a * b, 1n) : 0n;
+  const shape = m.inputShape.length > 0 ? m.inputShape : arch?.inputShape ?? [];
+  const input = shape.reduce((a, b) => a * b, 1n);
+  const table = m.features.length > 0;
   const curl = `curl ${location.origin}/mimir.v1.PredictService/Predict \\
   -H 'Authorization: Bearer mimir_...' \\
   -H 'Content-Type: application/json' \\
@@ -75,6 +77,7 @@ function ModelDetails() {
             <TextInput label="Name" maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} readOnly={!canWrite} />
             <Textarea label="Description" maxLength={500} autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} readOnly={!canWrite} />
             {update.error && <Alert color="red" icon={<IconAlertCircle />}>{message(update.error)}</Alert>}
+            {m.jobId && <Text size="sm" c="dimmed">Taught here. <Link to="/training/$id" params={{ id: m.jobId }}>See how it learned</Link>.</Text>}
             {canWrite && <Group justify="space-between">
               <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={confirm.open}>Delete model</Button>
               <Button
@@ -89,7 +92,11 @@ function ModelDetails() {
         </Card>
         <Card withBorder radius="lg" padding="lg">
           <Text fw={700} mb={4}>Use it from your app</Text>
-          <Text size="sm" c="dimmed" mb="sm">Send {input.toString()} numbers between 0 and 1; get back the likeliest answers. Make a key under Connect your apps.</Text>
+          <Text size="sm" c="dimmed" mb="sm">
+            {table
+              ? `Send ${input.toString()} numbers, in this order: ${m.features.join(", ")}. You get back the likeliest of: ${m.labels.join(", ")}.`
+              : `Send ${input.toString()} numbers between 0 and 1; get back the likeliest answers.`} Make a key under Connect your apps.
+          </Text>
           <Tabs defaultValue="http">
             <Tabs.List>
               <Tabs.Tab value="http">HTTP</Tabs.Tab>

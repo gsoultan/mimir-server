@@ -1,4 +1,4 @@
-import { Button, Card, Group, SimpleGrid, Text, ThemeIcon, Title } from "@mantine/core";
+import { Card, Group, SimpleGrid, Text, ThemeIcon, Title } from "@mantine/core";
 import { IconPlayerPlay, IconSchool, IconUpload } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -39,8 +39,8 @@ function Home() {
           <Card withBorder radius="lg" padding="xl">
             <ThemeIcon size={44} radius="md" variant="light" color="gray"><IconSchool /></ThemeIcon>
             <Title order={3} mt="md">Teach a new model</Title>
-            <Text c="dimmed" mt={4} mb="lg">Train one here from your own examples. Coming soon.</Text>
-            <Button variant="default" disabled>Coming soon</Button>
+            <Text c="dimmed" mt={4} mb="lg">Upload a table of examples, or use the built-in handwritten digits, and watch it learn.</Text>
+            <ButtonLink variant="default" to="/models/teach">Teach a new model</ButtonLink>
           </Card>
         </SimpleGrid>
       </Page>

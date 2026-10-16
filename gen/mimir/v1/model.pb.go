@@ -83,8 +83,14 @@ type Architecture struct {
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	// InputShape is the shape of one input, without the batch dimension.
 	InputShape []int64 `protobuf:"varint,4,rep,packed,name=input_shape,json=inputShape,proto3" json:"input_shape,omitempty"`
-	// Labels names each output class, in order.
-	Labels        []string `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
+	// Labels names each output class, in order. Empty when the labels come
+	// from the dataset a model is taught with.
+	Labels []string `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
+	// Trainable says the server can teach models of this shape.
+	Trainable bool `protobuf:"varint,6,opt,name=trainable,proto3" json:"trainable,omitempty"`
+	// Input says what the model reads: "image" for pictures, "table" for a
+	// row of numbers.
+	Input         string `protobuf:"bytes,7,opt,name=input,proto3" json:"input,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -154,6 +160,20 @@ func (x *Architecture) GetLabels() []string {
 	return nil
 }
 
+func (x *Architecture) GetTrainable() bool {
+	if x != nil {
+		return x.Trainable
+	}
+	return false
+}
+
+func (x *Architecture) GetInput() string {
+	if x != nil {
+		return x.Input
+	}
+	return ""
+}
+
 // Model is a trained model stored on the server.
 type Model struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
@@ -164,10 +184,18 @@ type Model struct {
 	Architecture string      `protobuf:"bytes,4,opt,name=architecture,proto3" json:"architecture,omitempty"`
 	Status       ModelStatus `protobuf:"varint,5,opt,name=status,proto3,enum=mimir.v1.ModelStatus" json:"status,omitempty"`
 	// StatusDetail explains a failed status in plain words.
-	StatusDetail  string                 `protobuf:"bytes,6,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
-	SizeBytes     int64                  `protobuf:"varint,7,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	StatusDetail string                 `protobuf:"bytes,6,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
+	SizeBytes    int64                  `protobuf:"varint,7,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	CreateTime   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	UpdateTime   *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	// InputShape and labels are what this model actually reads and answers;
+	// they come from the architecture or from the dataset it was taught with.
+	InputShape []int64  `protobuf:"varint,10,rep,packed,name=input_shape,json=inputShape,proto3" json:"input_shape,omitempty"`
+	Labels     []string `protobuf:"bytes,11,rep,name=labels,proto3" json:"labels,omitempty"`
+	// Features names each input value for a model that reads a row of numbers.
+	Features []string `protobuf:"bytes,12,rep,name=features,proto3" json:"features,omitempty"`
+	// JobId is the training job that made this model, if any.
+	JobId         string `protobuf:"bytes,13,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -263,6 +291,34 @@ func (x *Model) GetUpdateTime() *timestamppb.Timestamp {
 		return x.UpdateTime
 	}
 	return nil
+}
+
+func (x *Model) GetInputShape() []int64 {
+	if x != nil {
+		return x.InputShape
+	}
+	return nil
+}
+
+func (x *Model) GetLabels() []string {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
+func (x *Model) GetFeatures() []string {
+	if x != nil {
+		return x.Features
+	}
+	return nil
+}
+
+func (x *Model) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
 }
 
 // Tensor is a dense float32 array.
@@ -1055,14 +1111,16 @@ var File_mimir_v1_model_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_model_proto_rawDesc = "" +
 	"\n" +
-	"\x14mimir/v1/model.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x93\x01\n" +
+	"\x14mimir/v1/model.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc7\x01\n" +
 	"\fArchitecture\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1f\n" +
 	"\vinput_shape\x18\x04 \x03(\x03R\n" +
 	"inputShape\x12\x16\n" +
-	"\x06labels\x18\x05 \x03(\tR\x06labels\"\xde\x02\n" +
+	"\x06labels\x18\x05 \x03(\tR\x06labels\x12\x1c\n" +
+	"\ttrainable\x18\x06 \x01(\bR\ttrainable\x12\x14\n" +
+	"\x05input\x18\a \x01(\tR\x05input\"\xca\x03\n" +
 	"\x05Model\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -1075,7 +1133,13 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\vcreate_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"createTime\x12;\n" +
 	"\vupdate_time\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"updateTime\"6\n" +
+	"updateTime\x12\x1f\n" +
+	"\vinput_shape\x18\n" +
+	" \x03(\x03R\n" +
+	"inputShape\x12\x16\n" +
+	"\x06labels\x18\v \x03(\tR\x06labels\x12\x1a\n" +
+	"\bfeatures\x18\f \x03(\tR\bfeatures\x12\x15\n" +
+	"\x06job_id\x18\r \x01(\tR\x05jobId\"6\n" +
 	"\x06Tensor\x12\x14\n" +
 	"\x05shape\x18\x01 \x03(\x03R\x05shape\x12\x16\n" +
 	"\x06values\x18\x02 \x03(\x02R\x06values\"?\n" +
