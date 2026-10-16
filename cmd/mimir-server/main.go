@@ -110,6 +110,24 @@ func run() error {
 		}
 	})
 	bg.Go(func() { janitor(bgCtx, st, log) })
+	// Prediction counts are written in batches, and once more on the way out.
+	bg.Go(func() {
+		t := time.NewTicker(5 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-bgCtx.Done():
+				if err := svc.FlushUsage(context.Background()); err != nil {
+					log.Error("usage: flush", "error", err)
+				}
+				return
+			case <-t.C:
+				if err := svc.FlushUsage(bgCtx); err != nil {
+					log.Error("usage: flush", "error", err)
+				}
+			}
+		}
+	})
 
 	// Training runs one job at a time in this process. A job cut short by
 	// shutdown goes back in the queue and resumes from its checkpoint.

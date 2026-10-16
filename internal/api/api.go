@@ -35,6 +35,7 @@ const (
 type Service struct {
 	store   *store.Store
 	cache   *runtime.Cache
+	meter   *meter
 	log     *slog.Logger
 	setupMu sync.Mutex // serialises Setup so only one first owner is made
 
@@ -65,7 +66,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	return &Service{store: s, cache: runtime.NewCache(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Local: true}
+	return &Service{store: s, cache: runtime.NewCache(), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Local: true}
 }
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {
@@ -206,6 +207,11 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	input := msg.GetInput().GetValues()
 	if want := size(spec.InputShape); len(input) != want {
 		return nil, invalid("Send %d numbers (shape %v); got %d.", want, spec.InputShape, len(input))
+	}
+	if p, ok := auth.From(ctx); ok {
+		if err := s.admit(ctx, p); err != nil {
+			return nil, err
+		}
 	}
 	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
 	var r runtime.Result

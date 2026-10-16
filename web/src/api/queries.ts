@@ -46,6 +46,7 @@ export const allAuthQueries = createConnectQueryKey({ schema: AuthService, cardi
 export const allWebhookQueries = createConnectQueryKey({ schema: WebhookService, cardinality: undefined });
 export const allSettingsQueries = createConnectQueryKey({ schema: SettingsService, cardinality: undefined });
 export const allDatasetQueries = createConnectQueryKey({ schema: DatasetService, cardinality: undefined });
+export const usage = (month: string) => createQueryOptions(SettingsService.method.getUsage, { month }, { transport });
 export const listWorkers = createQueryOptions(WorkerService.method.listWorkers, {}, { transport });
 export const allWorkerQueries = createConnectQueryKey({ schema: WorkerService, cardinality: undefined });
 export const allTrainingQueries = createConnectQueryKey({ schema: TrainingService, cardinality: undefined });

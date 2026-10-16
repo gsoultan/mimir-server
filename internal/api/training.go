@@ -271,6 +271,12 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 	case set.HoldOut < 0 || set.HoldOut > 0.5:
 		return nil, invalid("Keep between 0%% and 50%% of the examples aside for scoring.")
 	}
+	if err := s.checkTrainingLimit(ctx, p); err != nil {
+		if connect.CodeOf(err) == connect.CodeResourceExhausted {
+			return nil, err
+		}
+		return nil, s.internal(ctx, err)
+	}
 	repeat := req.Msg.GetRepeatSeconds()
 	if err := checkRepeat(repeat); err != nil {
 		return nil, err
