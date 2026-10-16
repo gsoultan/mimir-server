@@ -1,4 +1,4 @@
-import { Text } from "@mantine/core";
+import { Group, Text } from "@mantine/core";
 
 import type { EpochResult } from "../api/gen/mimir/v1/training_pb";
 
@@ -15,6 +15,7 @@ export function TrainingChart({ history, epochs }: { history: EpochResult[]; epo
   const lossLine = history.map((e, i) => `${i === 0 ? "M" : "L"}${x(e.epoch).toFixed(1)},${y(e.loss / maxLoss).toFixed(1)}`).join(" ");
   if (history.length === 0) return <Text c="dimmed" size="sm">The chart fills in after the first pass.</Text>;
   return (
+    <div>
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label="Accuracy and loss per pass">
       {[0, 0.25, 0.5, 0.75, 1].map((v) => (
         <g key={v}>
@@ -28,12 +29,11 @@ export function TrainingChart({ history, epochs }: { history: EpochResult[]; epo
       <path d={lossLine} fill="none" stroke="var(--mantine-color-gray-5)" strokeWidth="1.5" strokeDasharray="4 3" />
       {acc.length > 0 && <path d={line} fill="none" stroke="var(--mantine-color-teal-7)" strokeWidth="2.5" strokeLinejoin="round" />}
       {acc.map((e) => <circle key={e.epoch} cx={x(e.epoch)} cy={y(e.accuracy)} r="3.5" fill="var(--mantine-color-teal-7)" />)}
-      <g fontSize="11" fill="var(--mantine-color-dimmed)">
-        <line x1={w - pr - 150} x2={w - pr - 130} y1={pt + 4} y2={pt + 4} stroke="var(--mantine-color-teal-7)" strokeWidth="2.5" />
-        <text x={w - pr - 124} y={pt + 8}>Right answers</text>
-        <line x1={w - pr - 54} x2={w - pr - 34} y1={pt + 4} y2={pt + 4} stroke="var(--mantine-color-gray-5)" strokeWidth="1.5" strokeDasharray="4 3" />
-        <text x={w - pr - 28} y={pt + 8}>Loss</text>
-      </g>
     </svg>
+    <Group gap="lg" justify="flex-end" mt={4}>
+      <Group gap={6}><span className="inline-block h-[3px] w-5 bg-[var(--mantine-color-teal-7)]" /><Text size="xs" c="dimmed">Right answers, on examples kept aside</Text></Group>
+      <Group gap={6}><span className="inline-block w-5 border-t-2 border-dashed border-[var(--mantine-color-gray-5)]" /><Text size="xs" c="dimmed">Loss, relative to the first pass</Text></Group>
+    </Group>
+    </div>
   );
 }

@@ -101,6 +101,9 @@ var Required = map[string]Permission{
 	"/mimir.v1.SettingsService/UpdateRetention": SettingsManage,
 	"/mimir.v1.SettingsService/UpdateSecurity":  SettingsManage,
 	"/mimir.v1.SettingsService/GetDatabaseInfo": SettingsManage,
+	"/mimir.v1.WorkerService/ListWorkers":       WorkersManage,
+	"/mimir.v1.WorkerService/CreateWorker":      WorkersManage,
+	"/mimir.v1.WorkerService/DeleteWorker":      WorkersManage,
 }
 
 // ErrSignedOut is returned to callers with no valid credentials.

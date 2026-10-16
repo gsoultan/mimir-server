@@ -45,6 +45,9 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	mux.Handle(mimirv1connect.NewSettingsServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewDatasetServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
 	mux.Handle(mimirv1connect.NewTrainingServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	// Workers authenticate inside Link with their token; the interceptor
+	// guards the unary calls as usual.
+	mux.Handle(mimirv1connect.NewWorkerServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes), connect.WithSendMaxBytes(maxModelBytes)))
 	mux.Handle("GET /api/backup", backupHandler(st, log))
 	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(
 		mimirv1connect.ModelServiceName,
@@ -57,6 +60,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 		mimirv1connect.SettingsServiceName,
 		mimirv1connect.DatasetServiceName,
 		mimirv1connect.TrainingServiceName,
+		mimirv1connect.WorkerServiceName,
 	)))
 	mux.Handle("/", uiHandler(ui))
 
@@ -188,7 +192,18 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-// Unwrap lets http.ResponseController reach Flush for streaming.
+// Flush passes through so gRPC and Connect streams, which connect-go
+// checks for http.Flusher directly, can send as they go.
+func (w *statusWriter) Flush() {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap lets http.ResponseController reach the rest.
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func logRequests(next http.Handler, log *slog.Logger) http.Handler {

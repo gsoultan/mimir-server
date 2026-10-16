@@ -79,6 +79,7 @@ type Job struct {
 	StepsPerEpoch int
 	History       []Epoch
 	ModelID       string
+	Worker        string // the worker that ran it, or "" for this server
 	CreatedBy     string
 	Created       time.Time
 	Started       time.Time // zero until it runs
@@ -197,7 +198,7 @@ func (s *Store) DeleteDataset(ctx context.Context, id string) error {
 	return nil
 }
 
-const jobColumns = "id, name, description, architecture, dataset_id, epochs, batch_size, learning_rate, hold_out, status, error, epoch, step, steps_per_epoch, history, model_id, created_by, create_time, start_time, end_time"
+const jobColumns = "id, name, description, architecture, dataset_id, epochs, batch_size, learning_rate, hold_out, status, error, epoch, step, steps_per_epoch, history, model_id, worker, created_by, create_time, start_time, end_time"
 
 func scanJob(row scanner) (Job, error) {
 	var j Job
@@ -206,7 +207,7 @@ func scanJob(row scanner) (Job, error) {
 	var history string
 	err := row.Scan(&j.ID, &j.Name, &j.Description, &j.Architecture, &j.DatasetID,
 		&j.Settings.Epochs, &j.Settings.BatchSize, &j.Settings.LearningRate, &j.Settings.HoldOut,
-		&j.Status, &j.Error, &j.Epoch, &j.Step, &j.StepsPerEpoch, &history, &j.ModelID, &j.CreatedBy, &created, &started, &ended)
+		&j.Status, &j.Error, &j.Epoch, &j.Step, &j.StepsPerEpoch, &history, &j.ModelID, &j.Worker, &j.CreatedBy, &created, &started, &ended)
 	j.Created = time.UnixMilli(created).UTC()
 	j.Started, j.Ended = fromMillis(started), fromMillis(ended)
 	j.History = fromJSON[[]Epoch](history)
@@ -220,7 +221,7 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 		return Job{}, err
 	}
 	j.ID, j.Status, j.Created = id, JobQueued, time.Now().UTC().Truncate(time.Millisecond)
-	_, err = s.db.ExecContext(ctx, "INSERT INTO training_jobs ("+jobColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, 0, 0, '[]', '', ?, ?, NULL, NULL)",
+	_, err = s.db.ExecContext(ctx, "INSERT INTO training_jobs ("+jobColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, 0, 0, '[]', '', '', ?, ?, NULL, NULL)",
 		j.ID, j.Name, j.Description, j.Architecture, j.DatasetID,
 		j.Settings.Epochs, j.Settings.BatchSize, j.Settings.LearningRate, j.Settings.HoldOut, j.Status, j.CreatedBy, millis(j.Created))
 	if err != nil {
@@ -287,6 +288,12 @@ func (s *Store) SetJobStatus(ctx context.Context, id string, status JobStatus, e
 	}
 	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET status = ?, error = ?, model_id = CASE WHEN ? <> '' THEN ? ELSE model_id END, end_time = ? WHERE id = ?",
 		status, errText, modelID, modelID, end, id)
+	return err
+}
+
+// SetJobWorker records who is running a job.
+func (s *Store) SetJobWorker(ctx context.Context, id, worker string) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET worker = ? WHERE id = ?", worker, id)
 	return err
 }
 

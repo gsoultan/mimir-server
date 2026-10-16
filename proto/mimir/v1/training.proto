@@ -163,6 +163,8 @@ message Job {
   // StepsPerEpoch and step give progress within the running epoch.
   int32 steps_per_epoch = 18;
   int32 step = 19;
+  // worker names the worker that ran it, or is empty for this server.
+  string worker = 20;
 }
 
 message ListJobsRequest {}

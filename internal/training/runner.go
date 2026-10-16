@@ -1,7 +1,6 @@
 package training
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,12 +8,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/gsoultan/mimir/metrics"
-	"github.com/gsoultan/mimir/nn"
-	"github.com/gsoultan/mimir/nn/loss"
-	"github.com/gsoultan/mimir/optim"
-	"github.com/gsoultan/mimir/train"
 
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/store"
@@ -50,11 +43,28 @@ type Runner struct {
 	// OnDone is called after a job succeeds or fails, for webhooks and
 	// alerts. It may be nil.
 	OnDone func(ctx context.Context, j store.Job)
+	// Local says this process trains jobs itself when no worker takes
+	// them. It is off for a server that only coordinates workers.
+	Local bool
+	// Remote hands jobs to connected workers; nil means there are none.
+	Remote Remote
 }
 
-// New returns a Runner over st.
+// Remote is a pool of workers that can train jobs.
+type Remote interface {
+	// Train runs the task on a worker, reporting progress along the way.
+	// ran is false when no worker could take it, and the job is untouched.
+	Train(ctx context.Context, jobID string, t Task, progress Progress) (res Result, worker string, ran bool, err error)
+	// CanTrain reports whether some connected worker trains architecture a.
+	CanTrain(a string) bool
+}
+
+// errNoWorker is the failure when nobody can run a job.
+var errNoWorker = errors.New("no worker is connected that can train this kind of model")
+
+// New returns a Runner over st that trains locally.
 func New(st *store.Store, log *slog.Logger) *Runner {
-	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1)}
+	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1), Local: true}
 }
 
 // Kick asks the runner to look at the queue now.
@@ -108,6 +118,12 @@ func (r *Runner) drain(ctx context.Context) {
 			r.log.ErrorContext(ctx, "training: claim job", "error", err)
 			return
 		}
+		if !r.Local && (r.Remote == nil || !r.Remote.CanTrain(j.Architecture)) {
+			// Nobody can run it right now; leave it queued for when a
+			// worker connects.
+			r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
+			return
+		}
 		r.run(ctx, j)
 	}
 }
@@ -151,7 +167,8 @@ func (r *Runner) run(ctx context.Context, j store.Job) {
 	}
 }
 
-// train runs the job and returns the id of the model it made.
+// train runs the job, here or on a worker, and returns the id of the
+// model it made.
 func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	a, ok := arch.Lookup(j.Architecture)
 	if !ok {
@@ -161,66 +178,38 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("the dataset is gone: %w", err)
 	}
-	s := j.Settings
-	trainSet, testSet, spec, err := Load(ctx, r.st, d, s, 42)
+	src, err := SourceOf(r.st, d)
 	if err != nil {
 		return "", err
 	}
-	spec = arch.Resolve(a, spec)
-	model := a.New(spec)
-	opt := optim.AdamW(nn.Parameters(model), optim.LR(s.LearningRate), optim.WeightDecay(0.01))
+	task := Task{Arch: a, Source: src, Settings: j.Settings, History: j.History, CheckpointDir: r.st.JobDir(j.ID)}
+	progress := func(epoch, step, steps int, history []store.Epoch) {
+		r.st.JobProgress(ctx, j.ID, epoch, step, steps, history)
+	}
 
-	history := j.History
-	steps := trainSet.Batches()
-	var lastWrite time.Time
-	opts := []train.Option{
-		train.Loss(loss.CrossEntropy),
-		train.Epochs(s.Epochs),
-		train.Schedule(optim.Cosine(s.LearningRate, s.LearningRate/20, s.Epochs)),
-		train.Checkpoint(r.st.JobDir(j.ID)),
-		train.OnBatch(func(b train.Batch) error {
-			if time.Since(lastWrite) > time.Second {
-				lastWrite = time.Now()
-				r.st.JobProgress(ctx, j.ID, b.Epoch-1, b.Index+1, steps, history)
-			}
-			return nil
-		}),
-		train.OnEpoch(func(e train.Epoch) error {
-			ep := store.Epoch{Epoch: e.Epoch, Loss: e.Loss, Millis: e.Duration.Milliseconds()}
-			ep.Accuracy, ep.ValLoss = e.Metrics["accuracy"], e.Metrics["val_loss"]
-			if n := len(history); n > 0 && history[n-1].Epoch >= e.Epoch {
-				history = history[:e.Epoch-1] // resumed: replace what the checkpoint replays
-			}
-			history = append(history, ep)
-			return r.st.JobProgress(ctx, j.ID, e.Epoch, 0, steps, history)
-		}),
-	}
-	if testSet != nil {
-		opts = append(opts, train.Eval(testSet, metrics.Accuracy))
-	}
-	r.st.JobProgress(ctx, j.ID, j.Epoch, 0, steps, history)
-	if err := train.Fit(ctx, model, opt, trainSet, opts...); err != nil {
-		return "", err
-	}
-	if testSet == nil {
-		// Nothing was held out, so score on what it learned from; better
-		// than no number at all, and the UI says so.
-		if m, err := train.Evaluate(ctx, model, trainSet, loss.CrossEntropy, metrics.Accuracy); err == nil && len(history) > 0 {
-			history[len(history)-1].Accuracy = m["accuracy"]
-			r.st.JobProgress(ctx, j.ID, s.Epochs, 0, steps, history)
+	var res Result
+	ran := false
+	if r.Remote != nil {
+		var name string
+		res, name, ran, err = r.Remote.Train(ctx, j.ID, task, progress)
+		if ran {
+			r.st.SetJobWorker(ctx, j.ID, name)
 		}
 	}
-
-	nn.Eval(model)
-	var buf bytes.Buffer
-	if err := nn.Save(ctx, &buf, model); err != nil {
-		return "", fmt.Errorf("couldn't save the model: %w", err)
+	if !ran {
+		if !r.Local {
+			return "", errNoWorker
+		}
+		res, err = Fit(ctx, task, progress)
+	}
+	if err != nil {
+		return "", err
 	}
 	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID}
 	if !a.Fixed() {
-		m.InputShape, m.Labels, m.Features = spec.InputShape, spec.Labels, d.Features
+		m.InputShape, m.Labels, m.Features = res.Spec.InputShape, res.Spec.Labels, res.Features
 	}
-	created, err := r.st.Create(ctx, m, buf.Bytes())
+	created, err := r.st.Create(ctx, m, res.Weights)
 	if err != nil {
 		return "", fmt.Errorf("couldn't store the model: %w", err)
 	}

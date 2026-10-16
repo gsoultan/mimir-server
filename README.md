@@ -7,7 +7,7 @@ over gRPC, all on one port.
 One binary, a SQLite database, a model store, prediction, training from
 your own examples, accounts with roles and per-model access, API keys, an
 audit log, webhooks, alerts, log retention, database backup and the web
-UI. Workers come in a later phase.
+UI, and workers on other machines that run and teach models for it.
 
 ## Run it
 
@@ -136,6 +136,28 @@ Failed calls are retried with backoff for about a day, and every attempt
 shows in the webhook's history with a **Redeliver** button. Addresses on
 private networks are refused unless the server runs with
 `-allow-private-webhooks`.
+
+## Workers
+
+One server can hand predictions and training to workers on other
+machines: a bigger box, a GPU, or several. Under **Settings → Workers**,
+**Add a worker** gives a token and the command to run there:
+
+```sh
+mimir-server -role=worker -server https://mimir.example.com -token mimirw_...
+```
+
+The worker connects out to the server (no ports to open on its side),
+says what it can run, and shows as online. Training runs go to a free
+worker that trains the model's type; predictions go to workers when the
+server runs with `-role=server`, which makes it coordinate only, and stay
+local in the default `-role=standalone`. Weights travel to a worker once
+per connection. A stopped worker's runs go back to the queue.
+
+For models a weights file can't describe, write a worker of your own with
+the `worker` package: implement `Predict` (and `Train`) for an
+architecture name and call `worker.Run`. Workers authenticate with their
+token only; they never see people's credentials.
 
 ## Settings
 

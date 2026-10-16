@@ -10,7 +10,6 @@ import (
 	"io"
 	"math"
 	"math/rand/v2"
-	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -205,41 +204,58 @@ func (t *Table) Split(holdOut float64, seed uint64, batch int) (train, test *dat
 	return train, test, nil
 }
 
-// Load returns a dataset's training and scoring batches and the spec a
-// model learns for it. test is nil when nothing is held out.
-func Load(ctx context.Context, st *store.Store, d store.Dataset, s store.Settings, seed uint64) (train, test *data.Tensors, spec arch.Spec, err error) {
+// Source is where a job's examples come from: a CSV table held in memory
+// or the built-in handwritten digits in a folder.
+type Source struct {
+	Kind     store.DatasetKind
+	CSV      []byte // the table, for DatasetTable
+	Target   string // the answer column, or "" for the last
+	MNISTDir string // where the digits are (or get downloaded), for DatasetMNIST
+}
+
+// SourceOf returns the Source for a stored dataset.
+func SourceOf(st *store.Store, d store.Dataset) (Source, error) {
 	switch d.Kind {
 	case store.DatasetTable:
-		b, err := os.ReadFile(st.DatasetPath(d.ID))
+		b, err := st.ReadDataset(d.ID)
 		if err != nil {
-			return nil, nil, spec, err
+			return Source{}, err
 		}
-		t, err := ParseTable(bytes.NewReader(b), d.Target)
+		return Source{Kind: d.Kind, CSV: b, Target: d.Target}, nil
+	case store.DatasetMNIST:
+		return Source{Kind: d.Kind, MNISTDir: filepath.Join(st.DatasetDir(), "mnist")}, nil
+	}
+	return Source{}, fmt.Errorf("training: unknown dataset kind %d", d.Kind)
+}
+
+// Load returns a source's training and scoring batches and the spec a
+// model learns for it: shape, labels, and for tables the column names and
+// statistics. test is nil when nothing is held out.
+func Load(ctx context.Context, src Source, s store.Settings, seed uint64) (train, test *data.Tensors, spec arch.Spec, features []string, err error) {
+	switch src.Kind {
+	case store.DatasetTable:
+		t, err := ParseTable(bytes.NewReader(src.CSV), src.Target)
 		if err != nil {
-			return nil, nil, spec, err
+			return nil, nil, spec, nil, err
 		}
 		tr, te, err := t.Split(s.HoldOut, seed, s.BatchSize)
 		if err != nil {
-			return nil, nil, spec, err
+			return nil, nil, spec, nil, err
 		}
 		mean, std := t.Stats()
 		spec = arch.Spec{InputShape: []int{len(t.Features)}, Labels: t.Classes, Mean: mean, Std: std}
-		if te == nil {
-			return tr, nil, spec, nil
-		}
-		return tr, te, spec, nil
+		return tr, te, spec, t.Features, nil
 	case store.DatasetMNIST:
-		dir := filepath.Join(st.DatasetDir(), "mnist")
-		if err := datasets.DownloadMNIST(ctx, dir); err != nil {
-			return nil, nil, spec, fmt.Errorf("couldn't download the handwritten digits: %w", err)
+		if err := datasets.DownloadMNIST(ctx, src.MNISTDir); err != nil {
+			return nil, nil, spec, nil, fmt.Errorf("couldn't download the handwritten digits: %w", err)
 		}
-		tr, te, err := datasets.MNIST(dir, data.BatchSize(s.BatchSize), data.Shuffle(seed))
+		tr, te, err := datasets.MNIST(src.MNISTDir, data.BatchSize(s.BatchSize), data.Shuffle(seed))
 		if err != nil {
-			return nil, nil, spec, err
+			return nil, nil, spec, nil, err
 		}
-		return tr, te, arch.Spec{InputShape: []int{1, 28, 28}, Labels: []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}}, nil
+		return tr, te, arch.Spec{InputShape: []int{1, 28, 28}, Labels: []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}}, nil, nil
 	}
-	return nil, nil, spec, fmt.Errorf("training: unknown dataset kind %d", d.Kind)
+	return nil, nil, spec, nil, fmt.Errorf("training: unknown dataset kind %d", src.Kind)
 }
 
 // Architectures lists the model types that can learn from a dataset.

@@ -21,6 +21,7 @@ const (
 	KeysManage     Permission = "keys.manage" // the caller's own API keys
 	WebhooksManage Permission = "webhooks.manage"
 	SettingsManage Permission = "settings.manage"
+	WorkersManage  Permission = "workers.manage" // register and remove workers
 )
 
 // Permissions returns what a role may do.
@@ -33,7 +34,7 @@ func Permissions(r store.Role) []Permission {
 		ps = append(ps, ModelsWrite)
 	}
 	if r >= store.Admin {
-		ps = append(ps, UsersRead, UsersWrite, AuditRead, WebhooksManage, SettingsManage)
+		ps = append(ps, UsersRead, UsersWrite, AuditRead, WebhooksManage, SettingsManage, WorkersManage)
 	}
 	if r >= store.Owner {
 		ps = append(ps, UsersAdmin)

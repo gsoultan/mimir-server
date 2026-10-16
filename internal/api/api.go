@@ -19,6 +19,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/alert"
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/auth"
+	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
@@ -50,6 +51,11 @@ type Service struct {
 	// CancelTraining stops a running job; either may be nil.
 	KickTraining   func()
 	CancelTraining func(id string) bool
+	// Pool holds connected workers; nil means this server takes none.
+	Pool *cluster.Pool
+	// Local says predictions run in this process when no worker is
+	// preferred. Off for a server that only coordinates workers.
+	Local bool
 }
 
 var (
@@ -59,7 +65,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	return &Service{store: s, cache: runtime.NewCache(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute)}
+	return &Service{store: s, cache: runtime.NewCache(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Local: true}
 }
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {
@@ -197,12 +203,36 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	}
 	spec := arch.Resolve(a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
 	start := time.Now()
-	r, err := s.cache.Predict(ctx, m.ID, a, spec, func() ([]byte, error) { return s.store.Weights(m.ID) }, msg.GetInput().GetValues())
+	input := msg.GetInput().GetValues()
+	if want := size(spec.InputShape); len(input) != want {
+		return nil, invalid("Send %d numbers (shape %v); got %d.", want, spec.InputShape, len(input))
+	}
+	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
+	var r runtime.Result
+	var err2 error
+	ran := false
+	// A worker takes the prediction when this server doesn't run models
+	// itself; otherwise local is faster for the small models here.
+	if s.Pool != nil && !s.Local {
+		var worker string
+		r, worker, ran, err2 = s.Pool.Predict(ctx, m.ID, a, spec, load, input)
+		if ran && err2 != nil {
+			s.log.WarnContext(ctx, "predict: worker failed", "worker", worker, "model_id", m.ID, "error", err2)
+		}
+	}
+	if !ran {
+		if !s.Local {
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
+		}
+		r, err2 = s.cache.Predict(ctx, m.ID, a, spec, load, input)
+	}
 	switch {
-	case errors.Is(err, runtime.ErrBadInput):
-		return nil, invalid("%v", err)
-	case err != nil:
-		return nil, s.internal(ctx, err)
+	case errors.Is(err2, runtime.ErrBadInput):
+		return nil, invalid("%v", err2)
+	case errors.Is(err2, cluster.ErrWorkerFailed), errors.Is(err2, cluster.ErrLinkLost):
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("The worker couldn't answer: %v", err2))
+	case err2 != nil:
+		return nil, s.internal(ctx, err2)
 	}
 	res := &mimirv1.PredictResponse{
 		Output:         &mimirv1.Tensor{Shape: []int64{int64(len(r.Output))}, Values: r.Output},
@@ -213,6 +243,15 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		res.Guesses = append(res.Guesses, &mimirv1.Guess{Label: g.Label, Probability: g.Probability})
 	}
 	return connect.NewResponse(res), nil
+}
+
+// size is how many numbers a shape holds.
+func size(shape []int) int {
+	n := 1
+	for _, d := range shape {
+		n *= d
+	}
+	return n
 }
 
 func (s *Service) get(ctx context.Context, id string) (store.Model, error) {

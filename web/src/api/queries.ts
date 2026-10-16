@@ -5,6 +5,7 @@ import { ModelService } from "./gen/mimir/v1/model_pb";
 import { SettingsService } from "./gen/mimir/v1/settings_pb";
 import { DatasetService, TrainingService } from "./gen/mimir/v1/training_pb";
 import { WebhookService } from "./gen/mimir/v1/webhook_pb";
+import { WorkerService } from "./gen/mimir/v1/worker_pb";
 import { transport } from "./client";
 
 export const listModels = createQueryOptions(ModelService.method.listModels, {}, { transport });
@@ -45,4 +46,6 @@ export const allAuthQueries = createConnectQueryKey({ schema: AuthService, cardi
 export const allWebhookQueries = createConnectQueryKey({ schema: WebhookService, cardinality: undefined });
 export const allSettingsQueries = createConnectQueryKey({ schema: SettingsService, cardinality: undefined });
 export const allDatasetQueries = createConnectQueryKey({ schema: DatasetService, cardinality: undefined });
+export const listWorkers = createQueryOptions(WorkerService.method.listWorkers, {}, { transport });
+export const allWorkerQueries = createConnectQueryKey({ schema: WorkerService, cardinality: undefined });
 export const allTrainingQueries = createConnectQueryKey({ schema: TrainingService, cardinality: undefined });
