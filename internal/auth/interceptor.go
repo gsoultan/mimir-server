@@ -29,23 +29,35 @@ var Public = map[string]bool{
 // Required maps each procedure to the permission it needs. Model-level
 // checks happen in the handlers, which know which model a call touches.
 var Required = map[string]Permission{
-	"/mimir.v1.ModelService/ListArchitectures": ModelsRead,
-	"/mimir.v1.ModelService/ListModels":        ModelsRead,
-	"/mimir.v1.ModelService/GetModel":          ModelsRead,
-	"/mimir.v1.ModelService/CreateModel":       ModelsWrite,
-	"/mimir.v1.ModelService/UpdateModel":       ModelsWrite,
-	"/mimir.v1.ModelService/DeleteModel":       ModelsWrite,
-	"/mimir.v1.PredictService/Predict":         ModelsPredict,
-	"/mimir.v1.AuthService/WhoAmI":             "",
-	"/mimir.v1.AuthService/ChangePassword":     "",
-	"/mimir.v1.UserService/ListUsers":          UsersRead,
-	"/mimir.v1.UserService/CreateUser":         UsersWrite,
-	"/mimir.v1.UserService/UpdateUser":         UsersWrite,
-	"/mimir.v1.UserService/DeleteUser":         UsersWrite,
-	"/mimir.v1.ApiKeyService/ListApiKeys":      KeysManage,
-	"/mimir.v1.ApiKeyService/CreateApiKey":     KeysManage,
-	"/mimir.v1.ApiKeyService/RevokeApiKey":     KeysManage,
-	"/mimir.v1.AuditService/ListAuditEvents":   AuditRead,
+	"/mimir.v1.ModelService/ListArchitectures":  ModelsRead,
+	"/mimir.v1.ModelService/ListModels":         ModelsRead,
+	"/mimir.v1.ModelService/GetModel":           ModelsRead,
+	"/mimir.v1.ModelService/CreateModel":        ModelsWrite,
+	"/mimir.v1.ModelService/UpdateModel":        ModelsWrite,
+	"/mimir.v1.ModelService/DeleteModel":        ModelsWrite,
+	"/mimir.v1.PredictService/Predict":          ModelsPredict,
+	"/mimir.v1.AuthService/WhoAmI":              "",
+	"/mimir.v1.AuthService/ChangePassword":      "",
+	"/mimir.v1.UserService/ListUsers":           UsersRead,
+	"/mimir.v1.UserService/CreateUser":          UsersWrite,
+	"/mimir.v1.UserService/UpdateUser":          UsersWrite,
+	"/mimir.v1.UserService/DeleteUser":          UsersWrite,
+	"/mimir.v1.ApiKeyService/ListApiKeys":       KeysManage,
+	"/mimir.v1.ApiKeyService/CreateApiKey":      KeysManage,
+	"/mimir.v1.ApiKeyService/RevokeApiKey":      KeysManage,
+	"/mimir.v1.AuditService/ListAuditEvents":    AuditRead,
+	"/mimir.v1.WebhookService/ListWebhooks":     WebhooksManage,
+	"/mimir.v1.WebhookService/CreateWebhook":    WebhooksManage,
+	"/mimir.v1.WebhookService/UpdateWebhook":    WebhooksManage,
+	"/mimir.v1.WebhookService/DeleteWebhook":    WebhooksManage,
+	"/mimir.v1.WebhookService/SendTestEvent":    WebhooksManage,
+	"/mimir.v1.WebhookService/ListDeliveries":   WebhooksManage,
+	"/mimir.v1.WebhookService/Redeliver":        WebhooksManage,
+	"/mimir.v1.SettingsService/GetSettings":     SettingsManage,
+	"/mimir.v1.SettingsService/UpdateAlerts":    SettingsManage,
+	"/mimir.v1.SettingsService/SendTestAlert":   SettingsManage,
+	"/mimir.v1.SettingsService/UpdateRetention": SettingsManage,
+	"/mimir.v1.SettingsService/GetDatabaseInfo": SettingsManage,
 }
 
 // ErrSignedOut is returned to callers with no valid credentials.
@@ -61,7 +73,7 @@ func Interceptor(st *store.Store) connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			proc := req.Spec().Procedure
-			p, err := authenticate(ctx, st, req.Header())
+			p, err := Authenticate(ctx, st, req.Header())
 			if err != nil {
 				return nil, err
 			}
@@ -86,9 +98,9 @@ func Interceptor(st *store.Store) connect.UnaryInterceptorFunc {
 	}
 }
 
-// authenticate returns the caller, nil when anonymous, or an error when
+// Authenticate returns the caller, nil when anonymous, or an error when
 // credentials were offered but are wrong.
-func authenticate(ctx context.Context, st *store.Store, h http.Header) (*Principal, error) {
+func Authenticate(ctx context.Context, st *store.Store, h http.Header) (*Principal, error) {
 	if a := h.Get("Authorization"); a != "" {
 		secret, ok := strings.CutPrefix(a, "Bearer ")
 		if !ok || !strings.HasPrefix(secret, KeyPrefix) {

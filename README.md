@@ -5,8 +5,9 @@ model's weights, then ask it questions from the web UI, over HTTP/JSON, or
 over gRPC, all on one port.
 
 One binary, a SQLite database, a model store, prediction, accounts with
-roles and per-model access, API keys, an audit log, and the web UI.
-Webhooks, alerts, training and workers come in later phases.
+roles and per-model access, API keys, an audit log, webhooks, alerts,
+log retention, database backup and the web UI. Training and workers come
+in later phases.
 
 ## Run it
 
@@ -63,6 +64,37 @@ grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public. Health checks are at `grpc.health.v1.Health`.
 
+### Webhooks
+
+Under **Connect your apps** you can add a webhook: an address of yours
+that mimir calls when a model is created, updated or deleted, or when a
+person is added or removed. Each call is a JSON POST signed with the
+webhook's secret:
+
+```
+Mimir-Event: model.created
+Mimir-Event-Id: <id>
+Mimir-Delivery-Id: <id>
+Mimir-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">
+```
+
+Failed calls are retried with backoff for about a day, and every attempt
+shows in the webhook's history with a **Redeliver** button. Addresses on
+private networks are refused unless the server runs with
+`-allow-private-webhooks`.
+
+## Settings
+
+Admins find these under **Settings**:
+
+- **Alerts**: an email (SMTP) and/or Telegram message when a webhook keeps
+  failing. Each has a test button.
+- **Log retention**: how long audit events and webhook deliveries are kept.
+  A cleanup runs every hour.
+- **Database**: engine, file, size and counts, plus **Download a backup**
+  (`GET /api/backup`, admin only), a consistent copy of the SQLite file.
+  Model weights live next to it in the data folder.
+
 ## Develop
 
 ```sh
@@ -77,8 +109,10 @@ cd web && bun run dev   # UI on :5173, API calls proxied to :8080
 | `cmd/mimir-server` | The binary |
 | `internal/api` | Connect handlers |
 | `internal/arch` | Known model types |
+| `internal/alert` | Email and Telegram alerts |
 | `internal/auth` | Passwords, sessions, API keys, permissions |
 | `internal/runtime` | Loads weights into mimir and runs them |
 | `internal/store` | SQLite metadata and weight files |
+| `internal/webhook` | Signing, delivery and retries |
 | `internal/server` | HTTP wiring, health, web UI serving |
 | `web` | React 19, Mantine 9, TanStack Router and Query, Connect, PWA |

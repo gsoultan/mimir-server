@@ -2,6 +2,8 @@ import { createConnectQueryKey, createInfiniteQueryOptions, createQueryOptions }
 
 import { ApiKeyService, AuditService, AuthService, UserService } from "./gen/mimir/v1/access_pb";
 import { ModelService } from "./gen/mimir/v1/model_pb";
+import { SettingsService } from "./gen/mimir/v1/settings_pb";
+import { WebhookService } from "./gen/mimir/v1/webhook_pb";
 import { transport } from "./client";
 
 export const listModels = createQueryOptions(ModelService.method.listModels, {}, { transport });
@@ -18,8 +20,20 @@ export const auditLog = createInfiniteQueryOptions(AuditService.method.listAudit
   getNextPageParam: (last) => last.nextPageToken || undefined,
 });
 
+export const listWebhooks = createQueryOptions(WebhookService.method.listWebhooks, {}, { transport });
+export const deliveries = (webhookId: string) =>
+  createInfiniteQueryOptions(WebhookService.method.listDeliveries, { webhookId, pageSize: 25, pageToken: "" }, {
+    transport,
+    pageParamKey: "pageToken",
+    getNextPageParam: (last) => last.nextPageToken || undefined,
+  });
+export const settings = createQueryOptions(SettingsService.method.getSettings, {}, { transport });
+export const databaseInfo = createQueryOptions(SettingsService.method.getDatabaseInfo, {}, { transport });
+
 // Keys for refreshing after a change.
 export const allModelQueries = createConnectQueryKey({ schema: ModelService, cardinality: undefined });
 export const allUserQueries = createConnectQueryKey({ schema: UserService, cardinality: undefined });
 export const allKeyQueries = createConnectQueryKey({ schema: ApiKeyService, cardinality: undefined });
 export const allAuthQueries = createConnectQueryKey({ schema: AuthService, cardinality: undefined });
+export const allWebhookQueries = createConnectQueryKey({ schema: WebhookService, cardinality: undefined });
+export const allSettingsQueries = createConnectQueryKey({ schema: SettingsService, cardinality: undefined });

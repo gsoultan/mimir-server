@@ -21,10 +21,18 @@ import (
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir-server/internal/webhook"
 	"github.com/gsoultan/mimir/nn"
 )
 
 const password = "correct horse battery"
+
+// svc and dispatcher belong to the most recent newServer, so tests can
+// flip server-side switches and run deliveries by hand.
+var (
+	svc        *api.Service
+	dispatcher *webhook.Dispatcher
+)
 
 func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -38,7 +46,10 @@ func newServer(t *testing.T) *httptest.Server {
 		"index.html":    {Data: []byte("<!doctype html><title>mimir</title>")},
 		"assets/app.js": {Data: []byte("console.log(1)")},
 	}
-	srv := httptest.NewUnstartedServer(server.Handler(api.New(st, log), st, ui, log))
+	svc = api.New(st, log)
+	svc.Notifier.TelegramAPI = "http://127.0.0.1:1" // nothing listens there
+	dispatcher = webhook.New(st, log, true)
+	srv := httptest.NewUnstartedServer(server.Handler(svc, st, ui, log))
 	srv.Config.Protocols = server.Protocols()
 	srv.Start()
 	t.Cleanup(srv.Close)
@@ -71,26 +82,30 @@ func (j *cookieJar) WrapStreamingHandler(n connect.StreamingHandlerFunc) connect
 }
 
 type clients struct {
-	jar     *cookieJar
-	auth    mimirv1connect.AuthServiceClient
-	models  mimirv1connect.ModelServiceClient
-	predict mimirv1connect.PredictServiceClient
-	users   mimirv1connect.UserServiceClient
-	keys    mimirv1connect.ApiKeyServiceClient
-	audit   mimirv1connect.AuditServiceClient
+	jar      *cookieJar
+	auth     mimirv1connect.AuthServiceClient
+	models   mimirv1connect.ModelServiceClient
+	predict  mimirv1connect.PredictServiceClient
+	users    mimirv1connect.UserServiceClient
+	keys     mimirv1connect.ApiKeyServiceClient
+	audit    mimirv1connect.AuditServiceClient
+	hooks    mimirv1connect.WebhookServiceClient
+	settings mimirv1connect.SettingsServiceClient
 }
 
 func newClients(srv *httptest.Server, opts ...connect.ClientOption) clients {
 	jar := &cookieJar{}
 	opts = append(opts, connect.WithInterceptors(jar))
 	return clients{
-		jar:     jar,
-		auth:    mimirv1connect.NewAuthServiceClient(srv.Client(), srv.URL, opts...),
-		models:  mimirv1connect.NewModelServiceClient(srv.Client(), srv.URL, opts...),
-		predict: mimirv1connect.NewPredictServiceClient(srv.Client(), srv.URL, opts...),
-		users:   mimirv1connect.NewUserServiceClient(srv.Client(), srv.URL, opts...),
-		keys:    mimirv1connect.NewApiKeyServiceClient(srv.Client(), srv.URL, opts...),
-		audit:   mimirv1connect.NewAuditServiceClient(srv.Client(), srv.URL, opts...),
+		jar:      jar,
+		auth:     mimirv1connect.NewAuthServiceClient(srv.Client(), srv.URL, opts...),
+		models:   mimirv1connect.NewModelServiceClient(srv.Client(), srv.URL, opts...),
+		predict:  mimirv1connect.NewPredictServiceClient(srv.Client(), srv.URL, opts...),
+		users:    mimirv1connect.NewUserServiceClient(srv.Client(), srv.URL, opts...),
+		keys:     mimirv1connect.NewApiKeyServiceClient(srv.Client(), srv.URL, opts...),
+		audit:    mimirv1connect.NewAuditServiceClient(srv.Client(), srv.URL, opts...),
+		hooks:    mimirv1connect.NewWebhookServiceClient(srv.Client(), srv.URL, opts...),
+		settings: mimirv1connect.NewSettingsServiceClient(srv.Client(), srv.URL, opts...),
 	}
 }
 
