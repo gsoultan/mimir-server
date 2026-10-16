@@ -3,20 +3,29 @@ import { IconPlayerPlay, IconSchool, IconUpload } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { listModels } from "../api/queries";
-import { ButtonLink } from "../components/links";
-import { Page } from "../components/Page";
-import { ago } from "../lib/format";
+import { listModels, whoAmI } from "../../api/queries";
+import { ButtonLink } from "../../components/links";
+import { Page } from "../../components/Page";
+import { ago } from "../../lib/format";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_app/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(listModels),
   component: Home,
 });
 
 function Home() {
   const { data } = useSuspenseQuery(listModels);
+  const { data: me } = useSuspenseQuery(whoAmI);
+  const canWrite = me.permissions.includes("models.write");
   const models = data.models;
 
+  if (models.length === 0 && !canWrite) {
+    return (
+      <Page title="Welcome to mimir" intro="No models have been shared with you yet. Ask an editor or admin to give you access.">
+        <></>
+      </Page>
+    );
+  }
   if (models.length === 0) {
     return (
       <Page title="Welcome to mimir" intro="mimir runs your models and lets your apps ask them questions.">
@@ -42,7 +51,7 @@ function Home() {
     <Page
       title="Home"
       intro={`You have ${models.length} ${models.length === 1 ? "model" : "models"} ready to answer.`}
-      actions={<ButtonLink to="/models/new" leftSection={<IconUpload size={18} />}>Add a model</ButtonLink>}
+      actions={canWrite && <ButtonLink to="/models/new" leftSection={<IconUpload size={18} />}>Add a model</ButtonLink>}
     >
       <Title order={2} fz="lg">Recently added</Title>
       <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>

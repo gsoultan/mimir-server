@@ -4,9 +4,10 @@ A server for [mimir](https://github.com/gsoultan/mimir) models. Upload a
 model's weights, then ask it questions from the web UI, over HTTP/JSON, or
 over gRPC, all on one port.
 
-This is phase 1: one binary, a SQLite database, a model store, prediction,
-and the web UI's first screens. Users and roles, API keys, webhooks,
-settings, training and workers come in later phases.
+One binary, a SQLite database, a model store, prediction, accounts with
+roles and per-model access, API keys, an audit log, webhooks, alerts,
+log retention, database backup and the web UI. Training and workers come
+in later phases.
 
 ## Run it
 
@@ -17,8 +18,48 @@ make            # builds the web UI, then bin/mimir-server with it embedded
 ./bin/mimir-server -addr :8080 -data ./data
 ```
 
-Open http://localhost:8080, choose **Add a model**, pick the model type and
-upload a `.safetensors` file saved with `nn.Save` from mimir.
+Open http://localhost:8080. The first visit asks you to make the owner
+account. Then choose **Add a model**, pick the model type and upload a
+`.safetensors` file saved with `nn.Save` from mimir.
+
+## Who can do what
+
+| Role | Can |
+| --- | --- |
+| Viewer | See models and ask them questions |
+| Editor | Also add, rename and delete models |
+| Admin | Also manage people and read the audit log |
+| Owner | Also manage admins and owners |
+
+Viewers and editors can be limited to chosen models. Admins and owners
+reach every model. Each person makes their own API keys under **Connect
+your apps**; a key can never do more than its owner.
+
+### Keeping accounts safe
+
+- **Two-step verification.** Under **Security** in the account menu,
+  anyone can add an authenticator app (Google Authenticator, Authy,
+  1Password and the like) to their sign-in, and gets eight one-time
+  recovery codes for a lost phone. Under **Settings → Security** an admin
+  can require it for admins and owners, or for everyone; people without it
+  can only set it up until it's on. An admin can reset it for someone who
+  lost their phone.
+- **Sessions.** Each browser gets its own session, listed under
+  **Security** with a sign-out button and a "sign out everywhere else"
+  button. A session ends after 30 days, or 7 days without use, and is tied
+  to the browser that started it: a cookie replayed from a different
+  browser ends the session instead of opening it. A new token is minted at
+  every sign-in, after the second factor and after a password change;
+  a password change, a smaller role or a disabled account signs the person
+  out everywhere.
+- **Guessing and forgery.** Ten wrong passwords or codes lock an account
+  (and the address they came from) for 15 minutes. Cross-site requests
+  that carry the session cookie are refused, and the UI ships with a
+  Content-Security-Policy, `X-Frame-Options: DENY` and friends.
+- **Storage.** Passwords are hashed with argon2id; session tokens, API
+  keys and recovery codes are stored only as hashes. The cookie is
+  HttpOnly and SameSite=Lax, and becomes `__Host-` prefixed and Secure
+  behind an HTTPS proxy that sets `X-Forwarded-Proto`.
 
 ## How models load
 
@@ -35,15 +76,48 @@ in `proto/mimir/v1/model.proto`.
 
 ```sh
 curl localhost:8080/mimir.v1.PredictService/Predict \
+  -H 'Authorization: Bearer mimir_...' \
   -H 'Content-Type: application/json' \
   -d '{"modelId": "<id>", "input": {"values": [/* 784 numbers from 0 to 1 */]}}'
 
-grpcurl -plaintext -d '{"model_id": "<id>", "input": {"values": [...]}}' \
+grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \
+  -d '{"model_id": "<id>", "input": {"values": [...]}}' \
   localhost:8080 mimir.v1.PredictService/Predict
 ```
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public. Health checks are at `grpc.health.v1.Health`.
+
+### Webhooks
+
+Under **Connect your apps** you can add a webhook: an address of yours
+that mimir calls when a model is created, updated or deleted, or when a
+person is added or removed. Each call is a JSON POST signed with the
+webhook's secret:
+
+```
+Mimir-Event: model.created
+Mimir-Event-Id: <id>
+Mimir-Delivery-Id: <id>
+Mimir-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">
+```
+
+Failed calls are retried with backoff for about a day, and every attempt
+shows in the webhook's history with a **Redeliver** button. Addresses on
+private networks are refused unless the server runs with
+`-allow-private-webhooks`.
+
+## Settings
+
+Admins find these under **Settings**:
+
+- **Alerts**: an email (SMTP) and/or Telegram message when a webhook keeps
+  failing. Each has a test button.
+- **Log retention**: how long audit events and webhook deliveries are kept.
+  A cleanup runs every hour.
+- **Database**: engine, file, size and counts, plus **Download a backup**
+  (`GET /api/backup`, admin only), a consistent copy of the SQLite file.
+  Model weights live next to it in the data folder.
 
 ## Develop
 
@@ -59,7 +133,10 @@ cd web && bun run dev   # UI on :5173, API calls proxied to :8080
 | `cmd/mimir-server` | The binary |
 | `internal/api` | Connect handlers |
 | `internal/arch` | Known model types |
+| `internal/alert` | Email and Telegram alerts |
+| `internal/auth` | Passwords, sessions, API keys, permissions |
 | `internal/runtime` | Loads weights into mimir and runs them |
 | `internal/store` | SQLite metadata and weight files |
+| `internal/webhook` | Signing, delivery and retries |
 | `internal/server` | HTTP wiring, health, web UI serving |
 | `web` | React 19, Mantine 9, TanStack Router and Query, Connect, PWA |
