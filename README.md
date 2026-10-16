@@ -4,9 +4,9 @@ A server for [mimir](https://github.com/gsoultan/mimir) models. Upload a
 model's weights, then ask it questions from the web UI, over HTTP/JSON, or
 over gRPC, all on one port.
 
-This is phase 1: one binary, a SQLite database, a model store, prediction,
-and the web UI's first screens. Users and roles, API keys, webhooks,
-settings, training and workers come in later phases.
+One binary, a SQLite database, a model store, prediction, accounts with
+roles and per-model access, API keys, an audit log, and the web UI.
+Webhooks, alerts, training and workers come in later phases.
 
 ## Run it
 
@@ -17,8 +17,24 @@ make            # builds the web UI, then bin/mimir-server with it embedded
 ./bin/mimir-server -addr :8080 -data ./data
 ```
 
-Open http://localhost:8080, choose **Add a model**, pick the model type and
-upload a `.safetensors` file saved with `nn.Save` from mimir.
+Open http://localhost:8080. The first visit asks you to make the owner
+account. Then choose **Add a model**, pick the model type and upload a
+`.safetensors` file saved with `nn.Save` from mimir.
+
+## Who can do what
+
+| Role | Can |
+| --- | --- |
+| Viewer | See models and ask them questions |
+| Editor | Also add, rename and delete models |
+| Admin | Also manage people and read the audit log |
+| Owner | Also manage admins and owners |
+
+Viewers and editors can be limited to chosen models. Admins and owners
+reach every model. Each person makes their own API keys under **Connect
+your apps**; a key can never do more than its owner. Passwords are hashed
+with argon2id, sessions live in an HttpOnly cookie for 30 days, and only
+hashes of keys and session tokens are stored.
 
 ## How models load
 
@@ -35,10 +51,12 @@ in `proto/mimir/v1/model.proto`.
 
 ```sh
 curl localhost:8080/mimir.v1.PredictService/Predict \
+  -H 'Authorization: Bearer mimir_...' \
   -H 'Content-Type: application/json' \
   -d '{"modelId": "<id>", "input": {"values": [/* 784 numbers from 0 to 1 */]}}'
 
-grpcurl -plaintext -d '{"model_id": "<id>", "input": {"values": [...]}}' \
+grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \
+  -d '{"model_id": "<id>", "input": {"values": [...]}}' \
   localhost:8080 mimir.v1.PredictService/Predict
 ```
 
@@ -59,6 +77,7 @@ cd web && bun run dev   # UI on :5173, API calls proxied to :8080
 | `cmd/mimir-server` | The binary |
 | `internal/api` | Connect handlers |
 | `internal/arch` | Known model types |
+| `internal/auth` | Passwords, sessions, API keys, permissions |
 | `internal/runtime` | Loads weights into mimir and runs them |
 | `internal/store` | SQLite metadata and weight files |
 | `internal/server` | HTTP wiring, health, web UI serving |

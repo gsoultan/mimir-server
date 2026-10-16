@@ -16,6 +16,8 @@ import (
 
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/api"
+	"github.com/gsoultan/mimir-server/internal/auth"
+	"github.com/gsoultan/mimir-server/internal/store"
 )
 
 // Request size limits. Models can be large; predictions are small.
@@ -25,14 +27,25 @@ const (
 )
 
 // Handler returns the server's root handler.
-func Handler(svc *api.Service, ui fs.FS, log *slog.Logger) http.Handler {
+func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, connect.WithReadMaxBytes(maxModelBytes)))
-	mux.Handle(mimirv1connect.NewPredictServiceHandler(svc, connect.WithReadMaxBytes(maxPredictBytes)))
+	// Every RPC goes through the auth interceptor, which signs callers in
+	// from their cookie or API key and checks the procedure's permission.
+	guard := connect.WithInterceptors(auth.Interceptor(st))
+	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
+	mux.Handle(mimirv1connect.NewPredictServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewAuthServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewUserServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewApiKeyServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewAuditServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(
 		mimirv1connect.ModelServiceName,
 		mimirv1connect.PredictServiceName,
+		mimirv1connect.AuthServiceName,
+		mimirv1connect.UserServiceName,
+		mimirv1connect.ApiKeyServiceName,
+		mimirv1connect.AuditServiceName,
 	)))
 	mux.Handle("/", uiHandler(ui))
 
