@@ -43,7 +43,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              *addr,
-		Handler:           server.Handler(api.New(st, log), web.Dist(), log),
+		Handler:           server.Handler(api.New(st, log), st, web.Dist(), log),
 		Protocols:         server.Protocols(),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,

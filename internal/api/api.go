@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -16,6 +17,7 @@ import (
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
@@ -29,9 +31,10 @@ const (
 
 // Service implements ModelService and PredictService.
 type Service struct {
-	store *store.Store
-	cache *runtime.Cache
-	log   *slog.Logger
+	store   *store.Store
+	cache   *runtime.Cache
+	log     *slog.Logger
+	setupMu sync.Mutex // serialises Setup so only one first owner is made
 }
 
 var (
@@ -63,9 +66,12 @@ func (s *Service) ListModels(ctx context.Context, _ *connect.Request[mimirv1.Lis
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
+	p, _ := auth.From(ctx)
 	res := &mimirv1.ListModelsResponse{}
 	for _, m := range ms {
-		res.Models = append(res.Models, toProto(m))
+		if p.Access.Allows(m.ID) {
+			res.Models = append(res.Models, toProto(m))
+		}
 	}
 	return connect.NewResponse(res), nil
 }
@@ -101,14 +107,16 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
+	p, _ := auth.From(ctx)
+	s.audit(ctx, p.Actor(), "model.create", m.Name, a.Title)
 	s.log.InfoContext(ctx, "model created", "model_id", m.ID, "architecture", m.Architecture, "size_bytes", m.SizeBytes)
 	return connect.NewResponse(&mimirv1.CreateModelResponse{Model: toProto(m)}), nil
 }
 
 func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.UpdateModelRequest]) (*connect.Response[mimirv1.UpdateModelResponse], error) {
 	id := req.Msg.GetId()
-	if !store.ValidID(id) {
-		return nil, notFound(id)
+	if _, err := s.get(ctx, id); err != nil {
+		return nil, err
 	}
 	name, desc, err := cleanText(req.Msg.GetName(), req.Msg.GetDescription())
 	if err != nil {
@@ -121,15 +129,18 @@ func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
+	p, _ := auth.From(ctx)
+	s.audit(ctx, p.Actor(), "model.update", m.Name, "")
 	return connect.NewResponse(&mimirv1.UpdateModelResponse{Model: toProto(m)}), nil
 }
 
 func (s *Service) DeleteModel(ctx context.Context, req *connect.Request[mimirv1.DeleteModelRequest]) (*connect.Response[mimirv1.DeleteModelResponse], error) {
 	id := req.Msg.GetId()
-	if !store.ValidID(id) {
-		return nil, notFound(id)
+	m, err := s.get(ctx, id)
+	if err != nil {
+		return nil, err
 	}
-	err := s.store.Delete(ctx, id)
+	err = s.store.Delete(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, notFound(id)
 	}
@@ -137,6 +148,8 @@ func (s *Service) DeleteModel(ctx context.Context, req *connect.Request[mimirv1.
 		return nil, s.internal(ctx, err)
 	}
 	s.cache.Forget(id)
+	p, _ := auth.From(ctx)
+	s.audit(ctx, p.Actor(), "model.delete", m.Name, "")
 	s.log.InfoContext(ctx, "model deleted", "model_id", id)
 	return connect.NewResponse(&mimirv1.DeleteModelResponse{}), nil
 }
@@ -188,6 +201,11 @@ func (s *Service) get(ctx context.Context, id string) (store.Model, error) {
 	}
 	if err != nil {
 		return store.Model{}, s.internal(ctx, err)
+	}
+	// A model outside the caller's access reads as missing, so the id
+	// space doesn't leak.
+	if p, _ := auth.From(ctx); !p.Access.Allows(m.ID) {
+		return store.Model{}, notFound(id)
 	}
 	return m, nil
 }

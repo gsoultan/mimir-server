@@ -7,14 +7,14 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { message } from "../../api/client";
-import { ModelService } from "../../api/gen/mimir/v1/model_pb";
-import { allModelQueries, listArchitectures } from "../../api/queries";
-import { Page } from "../../components/Page";
-import { bytes } from "../../lib/format";
-import { readFile } from "../../lib/read-file";
+import { message } from "../../../api/client";
+import { ModelService } from "../../../api/gen/mimir/v1/model_pb";
+import { allModelQueries, listArchitectures } from "../../../api/queries";
+import { Page } from "../../../components/Page";
+import { bytes } from "../../../lib/format";
+import { readFile } from "../../../lib/read-file";
 
-export const Route = createFileRoute("/models/new")({
+export const Route = createFileRoute("/_app/models/new")({
   loader: ({ context }) => context.queryClient.ensureQueryData(listArchitectures),
   component: AddModel,
 });

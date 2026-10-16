@@ -9,91 +9,117 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppsRouteImport } from './routes/apps'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as TryRouteImport } from './routes/try'
-import { Route as UsersRouteImport } from './routes/users'
-import { Route as ModelsIndexRouteImport } from './routes/models/index'
-import { Route as ModelsIdRouteImport } from './routes/models/$id'
-import { Route as ModelsNewRouteImport } from './routes/models/new'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as SetupRouteImport } from './routes/setup'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAppsRouteImport } from './routes/_app/apps'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppTryRouteImport } from './routes/_app/try'
+import { Route as AppUsersRouteImport } from './routes/_app/users'
+import { Route as AppModelsIndexRouteImport } from './routes/_app/models/index'
+import { Route as AppModelsIdRouteImport } from './routes/_app/models/$id'
+import { Route as AppModelsNewRouteImport } from './routes/_app/models/new'
 
-const IndexRoute = IndexRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const AppsRoute = AppsRouteImport.update({
+const AppAppsRoute = AppAppsRouteImport.update({
   id: '/apps',
   path: '/apps',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
+const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const TryRoute = TryRouteImport.update({
+const AppTryRoute = AppTryRouteImport.update({
   id: '/try',
   path: '/try',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const UsersRoute = UsersRouteImport.update({
+const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const ModelsIndexRoute = ModelsIndexRouteImport.update({
+const AppModelsIndexRoute = AppModelsIndexRouteImport.update({
   id: '/models/',
   path: '/models/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const ModelsIdRoute = ModelsIdRouteImport.update({
+const AppModelsIdRoute = AppModelsIdRouteImport.update({
   id: '/models/$id',
   path: '/models/$id',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const ModelsNewRoute = ModelsNewRouteImport.update({
+const AppModelsNewRoute = AppModelsNewRouteImport.update({
   id: '/models/new',
   path: '/models/new',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/apps': typeof AppsRoute
-  '/settings': typeof SettingsRoute
-  '/try': typeof TryRoute
-  '/users': typeof UsersRoute
-  '/models/$id': typeof ModelsIdRoute
-  '/models/new': typeof ModelsNewRoute
-  '/models/': typeof ModelsIndexRoute
+  '/': typeof AppIndexRoute
+  '/setup': typeof SetupRoute
+  '/sign-in': typeof SignInRoute
+  '/apps': typeof AppAppsRoute
+  '/settings': typeof AppSettingsRoute
+  '/try': typeof AppTryRoute
+  '/users': typeof AppUsersRoute
+  '/models/$id': typeof AppModelsIdRoute
+  '/models/new': typeof AppModelsNewRoute
+  '/models/': typeof AppModelsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/apps': typeof AppsRoute
-  '/settings': typeof SettingsRoute
-  '/try': typeof TryRoute
-  '/users': typeof UsersRoute
-  '/models/$id': typeof ModelsIdRoute
-  '/models/new': typeof ModelsNewRoute
-  '/models': typeof ModelsIndexRoute
+  '/setup': typeof SetupRoute
+  '/sign-in': typeof SignInRoute
+  '/apps': typeof AppAppsRoute
+  '/settings': typeof AppSettingsRoute
+  '/try': typeof AppTryRoute
+  '/users': typeof AppUsersRoute
+  '/': typeof AppIndexRoute
+  '/models/$id': typeof AppModelsIdRoute
+  '/models/new': typeof AppModelsNewRoute
+  '/models': typeof AppModelsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/apps': typeof AppsRoute
-  '/settings': typeof SettingsRoute
-  '/try': typeof TryRoute
-  '/users': typeof UsersRoute
-  '/models/$id': typeof ModelsIdRoute
-  '/models/new': typeof ModelsNewRoute
-  '/models/': typeof ModelsIndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/setup': typeof SetupRoute
+  '/sign-in': typeof SignInRoute
+  '/_app/apps': typeof AppAppsRoute
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/try': typeof AppTryRoute
+  '/_app/users': typeof AppUsersRoute
+  '/_app/': typeof AppIndexRoute
+  '/_app/models/$id': typeof AppModelsIdRoute
+  '/_app/models/new': typeof AppModelsNewRoute
+  '/_app/models/': typeof AppModelsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/setup'
+    | '/sign-in'
     | '/apps'
     | '/settings'
     | '/try'
@@ -103,107 +129,147 @@ export interface FileRouteTypes {
     | '/models/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
+    | '/setup'
+    | '/sign-in'
     | '/apps'
     | '/settings'
     | '/try'
     | '/users'
+    | '/'
     | '/models/$id'
     | '/models/new'
     | '/models'
   id:
     | '__root__'
-    | '/'
-    | '/apps'
-    | '/settings'
-    | '/try'
-    | '/users'
-    | '/models/$id'
-    | '/models/new'
-    | '/models/'
+    | '/_app'
+    | '/setup'
+    | '/sign-in'
+    | '/_app/apps'
+    | '/_app/settings'
+    | '/_app/try'
+    | '/_app/users'
+    | '/_app/'
+    | '/_app/models/$id'
+    | '/_app/models/new'
+    | '/_app/models/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AppsRoute: typeof AppsRoute
-  SettingsRoute: typeof SettingsRoute
-  TryRoute: typeof TryRoute
-  UsersRoute: typeof UsersRoute
-  ModelsIdRoute: typeof ModelsIdRoute
-  ModelsNewRoute: typeof ModelsNewRoute
-  ModelsIndexRoute: typeof ModelsIndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  SetupRoute: typeof SetupRoute
+  SignInRoute: typeof SignInRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/apps': {
-      id: '/apps'
+    '/_app/apps': {
+      id: '/_app/apps'
       path: '/apps'
       fullPath: '/apps'
-      preLoaderRoute: typeof AppsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppAppsRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/settings': {
-      id: '/settings'
+    '/_app/settings': {
+      id: '/_app/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/try': {
-      id: '/try'
+    '/_app/try': {
+      id: '/_app/try'
       path: '/try'
       fullPath: '/try'
-      preLoaderRoute: typeof TryRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppTryRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/users': {
-      id: '/users'
+    '/_app/users': {
+      id: '/_app/users'
       path: '/users'
       fullPath: '/users'
-      preLoaderRoute: typeof UsersRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/models/': {
-      id: '/models/'
+    '/_app/models/': {
+      id: '/_app/models/'
       path: '/models'
       fullPath: '/models/'
-      preLoaderRoute: typeof ModelsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppModelsIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/models/$id': {
-      id: '/models/$id'
+    '/_app/models/$id': {
+      id: '/_app/models/$id'
       path: '/models/$id'
       fullPath: '/models/$id'
-      preLoaderRoute: typeof ModelsIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppModelsIdRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/models/new': {
-      id: '/models/new'
+    '/_app/models/new': {
+      id: '/_app/models/new'
       path: '/models/new'
       fullPath: '/models/new'
-      preLoaderRoute: typeof ModelsNewRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppModelsNewRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppAppsRoute: typeof AppAppsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppTryRoute: typeof AppTryRoute
+  AppUsersRoute: typeof AppUsersRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppModelsIdRoute: typeof AppModelsIdRoute
+  AppModelsNewRoute: typeof AppModelsNewRoute
+  AppModelsIndexRoute: typeof AppModelsIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAppsRoute: AppAppsRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppTryRoute: AppTryRoute,
+  AppUsersRoute: AppUsersRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppModelsIdRoute: AppModelsIdRoute,
+  AppModelsNewRoute: AppModelsNewRoute,
+  AppModelsIndexRoute: AppModelsIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AppsRoute: AppsRoute,
-  SettingsRoute: SettingsRoute,
-  TryRoute: TryRoute,
-  UsersRoute: UsersRoute,
-  ModelsIdRoute: ModelsIdRoute,
-  ModelsNewRoute: ModelsNewRoute,
-  ModelsIndexRoute: ModelsIndexRoute,
+  AppRoute: AppRouteWithChildren,
+  SetupRoute: SetupRoute,
+  SignInRoute: SignInRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

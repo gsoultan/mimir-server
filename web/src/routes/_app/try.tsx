@@ -6,15 +6,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRef } from "react";
 import { z } from "zod";
 
-import { message } from "../api/client";
-import { PredictService } from "../api/gen/mimir/v1/model_pb";
-import { listArchitectures, listModels } from "../api/queries";
-import { DrawPad, type DrawPadHandle } from "../components/DrawPad";
-import { ButtonLink } from "../components/links";
-import { Page } from "../components/Page";
-import { percent } from "../lib/format";
+import { message } from "../../api/client";
+import { PredictService } from "../../api/gen/mimir/v1/model_pb";
+import { listArchitectures, listModels } from "../../api/queries";
+import { DrawPad, type DrawPadHandle } from "../../components/DrawPad";
+import { ButtonLink } from "../../components/links";
+import { Page } from "../../components/Page";
+import { percent } from "../../lib/format";
 
-export const Route = createFileRoute("/try")({
+export const Route = createFileRoute("/_app/try")({
   validateSearch: z.object({ model: z.string().optional() }),
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureQueryData(listModels),

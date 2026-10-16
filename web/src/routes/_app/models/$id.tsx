@@ -7,14 +7,14 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { message } from "../../api/client";
-import { ModelService } from "../../api/gen/mimir/v1/model_pb";
-import { allModelQueries, getModel, listArchitectures } from "../../api/queries";
-import { ButtonLink } from "../../components/links";
-import { Page } from "../../components/Page";
-import { ago, bytes } from "../../lib/format";
+import { message } from "../../../api/client";
+import { ModelService } from "../../../api/gen/mimir/v1/model_pb";
+import { allModelQueries, getModel, listArchitectures, whoAmI } from "../../../api/queries";
+import { ButtonLink } from "../../../components/links";
+import { Page } from "../../../components/Page";
+import { ago, bytes } from "../../../lib/format";
 
-export const Route = createFileRoute("/models/$id")({
+export const Route = createFileRoute("/_app/models/$id")({
   loader: ({ context, params }) => Promise.all([
     context.queryClient.ensureQueryData(getModel(params.id)),
     context.queryClient.ensureQueryData(listArchitectures),
@@ -33,6 +33,8 @@ function ModelDetails() {
   const navigate = useNavigate();
   const { data } = useSuspenseQuery(getModel(id));
   const { data: archs } = useSuspenseQuery(listArchitectures);
+  const { data: me } = useSuspenseQuery(whoAmI);
+  const canWrite = me.permissions.includes("models.write");
   const m = data.model!;
   const arch = archs.architectures.find((a) => a.name === m.architecture);
   const [name, setName] = useState(m.name);
@@ -54,9 +56,11 @@ function ModelDetails() {
 
   const input = arch ? arch.inputShape.reduce((a, b) => a * b, 1n) : 0n;
   const curl = `curl ${location.origin}/mimir.v1.PredictService/Predict \\
+  -H 'Authorization: Bearer mimir_...' \\
   -H 'Content-Type: application/json' \\
   -d '{"modelId": "${m.id}", "input": {"values": [ /* ${input} numbers */ ]}}'`;
-  const grpc = `grpcurl -plaintext -d '{"model_id": "${m.id}", "input": {"values": [...]}}' \\
+  const grpc = `grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \\
+  -d '{"model_id": "${m.id}", "input": {"values": [...]}}' \\
   ${location.host} mimir.v1.PredictService/Predict`;
 
   return (
@@ -68,10 +72,10 @@ function ModelDetails() {
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Card withBorder radius="lg" padding="lg">
           <Stack>
-            <TextInput label="Name" maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} />
-            <Textarea label="Description" maxLength={500} autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
+            <TextInput label="Name" maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} readOnly={!canWrite} />
+            <Textarea label="Description" maxLength={500} autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} readOnly={!canWrite} />
             {update.error && <Alert color="red" icon={<IconAlertCircle />}>{message(update.error)}</Alert>}
-            <Group justify="space-between">
+            {canWrite && <Group justify="space-between">
               <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={confirm.open}>Delete model</Button>
               <Button
                 loading={update.isPending}
@@ -80,12 +84,12 @@ function ModelDetails() {
               >
                 Save
               </Button>
-            </Group>
+            </Group>}
           </Stack>
         </Card>
         <Card withBorder radius="lg" padding="lg">
           <Text fw={700} mb={4}>Use it from your app</Text>
-          <Text size="sm" c="dimmed" mb="sm">Send {input.toString()} numbers between 0 and 1; get back the likeliest answers.</Text>
+          <Text size="sm" c="dimmed" mb="sm">Send {input.toString()} numbers between 0 and 1; get back the likeliest answers. Make a key under Connect your apps.</Text>
           <Tabs defaultValue="http">
             <Tabs.List>
               <Tabs.Tab value="http">HTTP</Tabs.Tab>
