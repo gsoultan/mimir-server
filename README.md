@@ -94,6 +94,24 @@ so **Try a model** shows one box per column and `Predict` takes the
 numbers in that order. Table models standardize their columns inside the
 model, so apps send the raw numbers.
 
+### From a database, and keeping it learning
+
+Admins can also pick **From a database** in the first step: choose
+PostgreSQL, MySQL or SQLite, give the connection and a `SELECT`, and **Try
+the query** to see the columns and pick the answer. The query runs in a
+read-only transaction (SQLite files open read-only), returns up to a
+million rows, and can't point at the server's own data folder. The
+connection string stays on the server and is never sent back.
+
+Examples from a query can **keep learning** every hour, day or week. When
+a pass is due the server runs the query again, then teaches the same
+model further from where it left off. The model keeps its id, so apps
+keep working, and it is only replaced when the new pass scores at least as
+well on held-out rows; otherwise the run says it kept the previous
+version. If the columns or answers changed, the pass learns from scratch.
+The run page shows the schedule, the next pass and what each pass did,
+and the schedule can be changed or turned off there.
+
 Datasets and runs are also in the API (`DatasetService`, `TrainingService`
 in `proto/mimir/v1/training.proto`), and webhooks can listen for
 `training.queued`, `training.finished` and `training.failed`.

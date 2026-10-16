@@ -43,7 +43,10 @@ type Model struct {
 	InputShape []int
 	Labels     []string
 	Features   []string
-	JobID      string
+	// Accuracy is the share of held-out examples a taught model got right,
+	// 0 when unknown.
+	Accuracy float64
+	JobID    string
 }
 
 // Store is safe for concurrent use.
@@ -134,7 +137,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id"
+const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id, accuracy"
 
 type scanner interface{ Scan(dest ...any) error }
 
@@ -142,7 +145,7 @@ func scan(row scanner) (Model, error) {
 	var m Model
 	var created, updated int64
 	var shape, labels, features string
-	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID)
+	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID, &m.Accuracy)
 	m.Created = time.UnixMilli(created).UTC()
 	m.Updated = time.UnixMilli(updated).UTC()
 	m.InputShape = fromJSON[[]int](shape)
@@ -200,14 +203,33 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	if err := writeFileAtomic(path, weights); err != nil {
 		return Model{}, fmt.Errorf("store: write weights: %w", err)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		m.ID, m.Name, m.Description, m.Architecture, m.SizeBytes, m.SHA256, now.UnixMilli(), now.UnixMilli(),
-		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID)
+		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy)
 	if err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)
 	}
 	return m, nil
+}
+
+// Replace swaps a model's weights, shape, labels, columns and score for
+// those of a newer pass, keeping its id so apps keep working.
+func (s *Store) Replace(ctx context.Context, id string, m Model, weights []byte) error {
+	sum := sha256.Sum256(weights)
+	path := s.path(id)
+	if err := writeFileAtomic(path, weights); err != nil {
+		return fmt.Errorf("store: write weights: %w", err)
+	}
+	res, err := s.db.ExecContext(ctx, "UPDATE models SET size_bytes = ?, sha256 = ?, update_time = ?, input_shape = ?, labels = ?, features = ?, job_id = ?, accuracy = ? WHERE id = ?",
+		len(weights), hex.EncodeToString(sum[:]), time.Now().UTC().UnixMilli(), toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, id)
+	if err != nil {
+		return fmt.Errorf("store: replace model: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Update changes a model's name and description and returns the result.

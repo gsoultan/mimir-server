@@ -88,6 +88,11 @@ type TrainTask struct {
 	Dataset      Dataset
 	// History is what earlier attempts of this job finished.
 	History []Epoch
+	// BaseWeights, when set, are a model to continue learning from, while
+	// the examples still have BaseLabels and BaseFeatures.
+	BaseWeights  []byte
+	BaseLabels   []string
+	BaseFeatures []string
 }
 
 // Progress is where a training task is.
@@ -105,6 +110,8 @@ type Trained struct {
 	InputShape []int
 	Labels     []string
 	Features   []string
+	// Fresh says BaseWeights didn't fit and it learned from scratch.
+	Fresh bool
 }
 
 // Trainer is a Handler that can also train its architecture.
@@ -359,9 +366,10 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 	}
 	task := TrainTask{
 		JobID: t.JobId, Architecture: t.Architecture,
-		Settings: Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut()},
-		Dataset:  Dataset{Kind: kind, CSV: t.Csv, Target: t.Target},
-		History:  epochsFromProto(t.History),
+		Settings:    Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut()},
+		Dataset:     Dataset{Kind: kind, CSV: t.Csv, Target: t.Target},
+		History:     epochsFromProto(t.History),
+		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
 	}
 	var last time.Time
 	res, err := tr.Train(ctx, task, func(p Progress) {
@@ -380,7 +388,7 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		reply(&mimirv1.TrainResult{Error: err.Error()})
 	default:
 		reply(&mimirv1.TrainResult{
-			Weights: res.Weights, History: epochsToProto(res.History),
+			Weights: res.Weights, History: epochsToProto(res.History), Fresh: res.Fresh,
 			Spec: &mimirv1.ModelSpec{InputShape: int64s(res.InputShape), Labels: res.Labels, Features: res.Features},
 		})
 	}

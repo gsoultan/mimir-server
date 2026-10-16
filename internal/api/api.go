@@ -245,6 +245,9 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	return connect.NewResponse(res), nil
 }
 
+// DataDir is the server's data folder.
+func (s *Service) DataDir() string { return s.store.Dir() }
+
 // size is how many numbers a shape holds.
 func size(shape []int) int {
 	n := 1
@@ -315,6 +318,7 @@ func toProto(m store.Model) *mimirv1.Model {
 		UpdateTime:   timestamppb.New(m.Updated),
 		Features:     m.Features,
 		JobId:        m.JobID,
+		Accuracy:     m.Accuracy,
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {

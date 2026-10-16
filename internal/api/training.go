@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -14,6 +16,7 @@ import (
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/auth"
+	"github.com/gsoultan/mimir-server/internal/dbsource"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
 )
@@ -64,9 +67,25 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 	}
 	var d store.Dataset
 	var csvBytes []byte
+	conn, query := req.Msg.GetConnection(), strings.TrimSpace(req.Msg.GetQuery())
+	if conn != nil || query != "" {
+		if !p.Can(auth.SettingsManage) {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("Only admins can connect a database."))
+		}
+		if req.Msg.GetKind() != mimirv1.DatasetKind_DATASET_KIND_TABLE {
+			return nil, invalid("A query gives a table; choose the table kind.")
+		}
+		r, err := s.fetch(ctx, conn, query)
+		if err != nil {
+			return nil, err
+		}
+		csvBytes = r.CSV()
+	}
 	switch req.Msg.GetKind() {
 	case mimirv1.DatasetKind_DATASET_KIND_TABLE:
-		csvBytes = req.Msg.GetCsv()
+		if csvBytes == nil {
+			csvBytes = req.Msg.GetCsv()
+		}
 		if len(csvBytes) == 0 {
 			return nil, invalid("The file is empty. Upload a CSV with a header row.")
 		}
@@ -85,6 +104,9 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 			target = lastColumn(csvBytes)
 		}
 		d = store.Dataset{Name: name, Kind: store.DatasetTable, Rows: int64(t.Rows), Features: t.Features, Labels: t.Classes, InputShape: []int{len(t.Features)}, Target: target}
+		if query != "" {
+			d.Driver, d.DSN, d.Query = conn.GetDriver(), conn.GetDsn(), query
+		}
 	case mimirv1.DatasetKind_DATASET_KIND_MNIST:
 		d = store.Dataset{Name: name, Kind: store.DatasetMNIST, Rows: 60000, InputShape: []int{1, 28, 28},
 			Labels: []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}}
@@ -97,6 +119,71 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 	}
 	s.audit(ctx, p.Actor(), "dataset.create", d.Name, fmt.Sprintf("%d rows", d.Rows))
 	return connect.NewResponse(&mimirv1.CreateDatasetResponse{Dataset: datasetProto(d)}), nil
+}
+
+// fetch runs a query for a dataset, refusing the server's own files.
+func (s *Service) fetch(ctx context.Context, conn *mimirv1.Connection, query string) (dbsource.Result, error) {
+	driver, dsn := conn.GetDriver(), strings.TrimSpace(conn.GetDsn())
+	if driver == "sqlite" {
+		// The server's own database and files are off limits: they hold
+		// password hashes and sessions.
+		path := strings.TrimPrefix(dsn, "file:")
+		path, _, _ = strings.Cut(path, "?")
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return dbsource.Result{}, invalid("That file path isn't valid.")
+		}
+		if real, err := filepath.EvalSymlinks(abs); err == nil {
+			abs = real
+		}
+		data, _ := filepath.Abs(s.store.Dir())
+		if real, err := filepath.EvalSymlinks(data); err == nil {
+			data = real
+		}
+		if abs == data || strings.HasPrefix(abs, data+string(filepath.Separator)) {
+			return dbsource.Result{}, invalid("That file is part of this server's own data. Point at another database.")
+		}
+	}
+	r, err := dbsource.Fetch(ctx, driver, dsn, query, training.MaxRows)
+	if errors.Is(err, dbsource.ErrBadQuery) {
+		return dbsource.Result{}, invalid("%s", strings.TrimPrefix(err.Error(), "dbsource: bad query: "))
+	}
+	if err != nil {
+		return dbsource.Result{}, s.internal(ctx, err)
+	}
+	return r, nil
+}
+
+func (s *Service) TestQuery(ctx context.Context, req *connect.Request[mimirv1.TestQueryRequest]) (*connect.Response[mimirv1.TestQueryResponse], error) {
+	r, err := s.fetch(ctx, req.Msg.GetConnection(), strings.TrimSpace(req.Msg.GetQuery()))
+	if err != nil {
+		return nil, err
+	}
+	res := &mimirv1.TestQueryResponse{Columns: r.Columns, Rows: int64(len(r.Rows))}
+	for _, row := range r.Rows[:min(5, len(r.Rows))] {
+		res.Sample = append(res.Sample, &mimirv1.Row{Values: row})
+	}
+	return connect.NewResponse(res), nil
+}
+
+func (s *Service) RefreshDataset(ctx context.Context, req *connect.Request[mimirv1.RefreshDatasetRequest]) (*connect.Response[mimirv1.RefreshDatasetResponse], error) {
+	p, _ := auth.From(ctx)
+	d, err := s.getDataset(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, err
+	}
+	if !d.FromQuery() {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("These examples were uploaded, so there's nothing to fetch again."))
+	}
+	d, err = training.Refresh(ctx, s.store, d)
+	if errors.Is(err, dbsource.ErrBadQuery) || errors.Is(err, training.ErrBadTable) {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("The query didn't give usable rows: %v", err))
+	}
+	if err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	s.audit(ctx, p.Actor(), "dataset.refresh", d.Name, fmt.Sprintf("%d rows", d.Rows))
+	return connect.NewResponse(&mimirv1.RefreshDatasetResponse{Dataset: datasetProto(d)}), nil
 }
 
 func (s *Service) DeleteDataset(ctx context.Context, req *connect.Request[mimirv1.DeleteDatasetRequest]) (*connect.Response[mimirv1.DeleteDatasetResponse], error) {
@@ -184,7 +271,11 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 	case set.HoldOut < 0 || set.HoldOut > 0.5:
 		return nil, invalid("Keep between 0%% and 50%% of the examples aside for scoring.")
 	}
-	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor()})
+	repeat := req.Msg.GetRepeatSeconds()
+	if err := checkRepeat(repeat); err != nil {
+		return nil, err
+	}
+	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat})
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -194,6 +285,40 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 		s.KickTraining()
 	}
 	return connect.NewResponse(&mimirv1.CreateJobResponse{Job: jobProto(j, d.Name)}), nil
+}
+
+// checkRepeat bounds a keep-learning interval: off, or between an hour
+// and 90 days.
+func checkRepeat(seconds int64) error {
+	if seconds != 0 && (seconds < 3600 || seconds > 90*24*3600) {
+		return invalid("Keep learning every hour at most often, and at least every 90 days.")
+	}
+	return nil
+}
+
+func (s *Service) SetRepeat(ctx context.Context, req *connect.Request[mimirv1.SetRepeatRequest]) (*connect.Response[mimirv1.SetRepeatResponse], error) {
+	p, _ := auth.From(ctx)
+	j, err := s.getJob(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, err
+	}
+	seconds := req.Msg.GetRepeatSeconds()
+	if err := checkRepeat(seconds); err != nil {
+		return nil, err
+	}
+	if err := s.store.SetRepeat(ctx, j.ID, seconds); err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	detail := "stopped"
+	if seconds > 0 {
+		detail = fmt.Sprintf("every %s", time.Duration(seconds)*time.Second)
+	}
+	s.audit(ctx, p.Actor(), "training.repeat", j.Name, detail)
+	if j, err = s.store.GetJob(ctx, j.ID); err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	names, _ := s.datasetNames(ctx)
+	return connect.NewResponse(&mimirv1.SetRepeatResponse{Job: jobProto(j, names[j.DatasetID])}), nil
 }
 
 func (s *Service) CancelJob(ctx context.Context, req *connect.Request[mimirv1.CancelJobRequest]) (*connect.Response[mimirv1.CancelJobResponse], error) {
@@ -354,11 +479,16 @@ func accuracy(j store.Job) float64 {
 }
 
 func datasetProto(d store.Dataset) *mimirv1.Dataset {
-	return &mimirv1.Dataset{
+	out := &mimirv1.Dataset{
 		Id: d.ID, Name: d.Name, Kind: mimirv1.DatasetKind(d.Kind), Rows: d.Rows, Features: d.Features, Labels: d.Labels,
 		InputShape: int64s(d.InputShape), Target: d.Target, SizeBytes: d.SizeBytes, CreateTime: timestamppb.New(d.Created),
 		Architectures: training.Architectures(d),
+		Driver:        d.Driver, Query: d.Query, // never the connection string
 	}
+	if !d.Refreshed.IsZero() {
+		out.RefreshTime = timestamppb.New(d.Refreshed)
+	}
+	return out
 }
 
 func jobProto(j store.Job, datasetName string) *mimirv1.Job {
@@ -366,6 +496,7 @@ func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 		Id: j.ID, Name: j.Name, Description: j.Description, Architecture: j.Architecture, DatasetId: j.DatasetID, DatasetName: datasetName,
 		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut},
 		Status:   mimirv1.JobStatus(j.Status), Error: j.Error, Epoch: int32(j.Epoch), ModelId: j.ModelID, Worker: j.Worker, CreatedBy: j.CreatedBy,
+		RepeatSeconds: j.RepeatSeconds, ParentId: j.ParentID, BaseModelId: j.BaseModelID, Note: j.Note,
 		CreateTime: timestamppb.New(j.Created), Accuracy: accuracy(j), StepsPerEpoch: int32(j.StepsPerEpoch), Step: int32(j.Step),
 	}
 	if !j.Started.IsZero() {
@@ -373,6 +504,9 @@ func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 	}
 	if !j.Ended.IsZero() {
 		out.EndTime = timestamppb.New(j.Ended)
+	}
+	if !j.NextRun.IsZero() && j.RepeatSeconds > 0 {
+		out.NextRunTime = timestamppb.New(j.NextRun)
 	}
 	for _, e := range j.History {
 		out.History = append(out.History, &mimirv1.EpochResult{Epoch: int32(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, DurationMillis: e.Millis})

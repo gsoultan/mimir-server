@@ -31,7 +31,16 @@ type Dataset struct {
 	Target     string
 	SizeBytes  int64
 	Created    time.Time
+	// Driver, DSN and Query are set when the rows come from a database.
+	// DSN is a secret and never leaves the server.
+	Driver    string
+	DSN       string
+	Query     string
+	Refreshed time.Time // when the query last ran; zero for uploads
 }
+
+// FromQuery reports whether the dataset's rows come from a database.
+func (d Dataset) FromQuery() bool { return d.Query != "" }
 
 // JobStatus is where a training job is in its life.
 type JobStatus int
@@ -80,6 +89,13 @@ type Job struct {
 	History       []Epoch
 	ModelID       string
 	Worker        string // the worker that ran it, or "" for this server
+	// RepeatSeconds > 0 means the job keeps learning: when NextRun comes,
+	// a new pass fetches the examples again and continues from the model.
+	RepeatSeconds int64
+	NextRun       time.Time
+	ParentID      string // the first job of the chain, for later passes
+	BaseModelID   string // the model a pass continued from
+	Note          string // what a pass did with its result
 	CreatedBy     string
 	Created       time.Time
 	Started       time.Time // zero until it runs
@@ -88,6 +104,9 @@ type Job struct {
 
 // ErrDatasetInUse means a dataset still has training jobs.
 var ErrDatasetInUse = errors.New("store: dataset has training jobs")
+
+// Dir is the server's data folder.
+func (s *Store) Dir() string { return filepath.Dir(s.weights) }
 
 // DatasetDir is where dataset files live.
 func (s *Store) DatasetDir() string { return filepath.Join(filepath.Dir(s.weights), "datasets") }
@@ -109,14 +128,16 @@ func (s *Store) JobDir(id string) string {
 	return filepath.Join(filepath.Dir(s.weights), "training", id)
 }
 
-const datasetColumns = "id, name, kind, rows, features, labels, input_shape, target, size_bytes, create_time"
+const datasetColumns = "id, name, kind, rows, features, labels, input_shape, target, size_bytes, create_time, driver, dsn, query, refresh_time"
 
 func scanDataset(row scanner) (Dataset, error) {
 	var d Dataset
 	var created int64
 	var features, labels, shape string
-	err := row.Scan(&d.ID, &d.Name, &d.Kind, &d.Rows, &features, &labels, &shape, &d.Target, &d.SizeBytes, &created)
+	var refreshed sql.NullInt64
+	err := row.Scan(&d.ID, &d.Name, &d.Kind, &d.Rows, &features, &labels, &shape, &d.Target, &d.SizeBytes, &created, &d.Driver, &d.DSN, &d.Query, &refreshed)
 	d.Created = time.UnixMilli(created).UTC()
+	d.Refreshed = fromMillis(refreshed)
 	d.Features = fromJSON[[]string](features)
 	d.Labels = fromJSON[[]string](labels)
 	d.InputShape = fromJSON[[]int](shape)
@@ -139,11 +160,30 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 		}
 		d.SizeBytes = int64(len(csv))
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO datasets ("+datasetColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		d.ID, d.Name, d.Kind, d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.Target, d.SizeBytes, millis(d.Created))
+	var refreshed any
+	if d.FromQuery() {
+		d.Refreshed = d.Created
+		refreshed = millis(d.Created)
+	}
+	_, err = s.db.ExecContext(ctx, "INSERT INTO datasets ("+datasetColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		d.ID, d.Name, d.Kind, d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.Target, d.SizeBytes, millis(d.Created), d.Driver, d.DSN, d.Query, refreshed)
 	if err != nil {
 		os.Remove(s.DatasetPath(id))
 		return Dataset{}, fmt.Errorf("store: insert dataset: %w", err)
+	}
+	return d, nil
+}
+
+// RefreshDataset replaces a query dataset's rows with a fresh fetch.
+func (s *Store) RefreshDataset(ctx context.Context, d Dataset, csv []byte) (Dataset, error) {
+	if err := writeFileAtomic(s.DatasetPath(d.ID), csv); err != nil {
+		return Dataset{}, fmt.Errorf("store: write dataset: %w", err)
+	}
+	d.SizeBytes, d.Refreshed = int64(len(csv)), time.Now().UTC().Truncate(time.Millisecond)
+	_, err := s.db.ExecContext(ctx, "UPDATE datasets SET rows = ?, features = ?, labels = ?, input_shape = ?, size_bytes = ?, refresh_time = ? WHERE id = ?",
+		d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.SizeBytes, millis(d.Refreshed), d.ID)
+	if err != nil {
+		return Dataset{}, fmt.Errorf("store: refresh dataset: %w", err)
 	}
 	return d, nil
 }
@@ -198,18 +238,19 @@ func (s *Store) DeleteDataset(ctx context.Context, id string) error {
 	return nil
 }
 
-const jobColumns = "id, name, description, architecture, dataset_id, epochs, batch_size, learning_rate, hold_out, status, error, epoch, step, steps_per_epoch, history, model_id, worker, created_by, create_time, start_time, end_time"
+const jobColumns = "id, name, description, architecture, dataset_id, epochs, batch_size, learning_rate, hold_out, status, error, epoch, step, steps_per_epoch, history, model_id, worker, created_by, create_time, start_time, end_time, repeat_seconds, next_run, parent_id, base_model_id, note"
 
 func scanJob(row scanner) (Job, error) {
 	var j Job
 	var created int64
-	var started, ended sql.NullInt64
+	var started, ended, next sql.NullInt64
 	var history string
 	err := row.Scan(&j.ID, &j.Name, &j.Description, &j.Architecture, &j.DatasetID,
 		&j.Settings.Epochs, &j.Settings.BatchSize, &j.Settings.LearningRate, &j.Settings.HoldOut,
-		&j.Status, &j.Error, &j.Epoch, &j.Step, &j.StepsPerEpoch, &history, &j.ModelID, &j.Worker, &j.CreatedBy, &created, &started, &ended)
+		&j.Status, &j.Error, &j.Epoch, &j.Step, &j.StepsPerEpoch, &history, &j.ModelID, &j.Worker, &j.CreatedBy, &created, &started, &ended,
+		&j.RepeatSeconds, &next, &j.ParentID, &j.BaseModelID, &j.Note)
 	j.Created = time.UnixMilli(created).UTC()
-	j.Started, j.Ended = fromMillis(started), fromMillis(ended)
+	j.Started, j.Ended, j.NextRun = fromMillis(started), fromMillis(ended), fromMillis(next)
 	j.History = fromJSON[[]Epoch](history)
 	return j, err
 }
@@ -221,9 +262,15 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 		return Job{}, err
 	}
 	j.ID, j.Status, j.Created = id, JobQueued, time.Now().UTC().Truncate(time.Millisecond)
-	_, err = s.db.ExecContext(ctx, "INSERT INTO training_jobs ("+jobColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, 0, 0, '[]', '', '', ?, ?, NULL, NULL)",
+	var next any
+	if j.RepeatSeconds > 0 {
+		j.NextRun = j.Created.Add(time.Duration(j.RepeatSeconds) * time.Second)
+		next = millis(j.NextRun)
+	}
+	_, err = s.db.ExecContext(ctx, "INSERT INTO training_jobs ("+jobColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, 0, 0, '[]', '', '', ?, ?, NULL, NULL, ?, ?, ?, ?, '')",
 		j.ID, j.Name, j.Description, j.Architecture, j.DatasetID,
-		j.Settings.Epochs, j.Settings.BatchSize, j.Settings.LearningRate, j.Settings.HoldOut, j.Status, j.CreatedBy, millis(j.Created))
+		j.Settings.Epochs, j.Settings.BatchSize, j.Settings.LearningRate, j.Settings.HoldOut, j.Status, j.CreatedBy, millis(j.Created),
+		j.RepeatSeconds, next, j.ParentID, j.BaseModelID)
 	if err != nil {
 		return Job{}, fmt.Errorf("store: insert job: %w", err)
 	}
@@ -289,6 +336,53 @@ func (s *Store) SetJobStatus(ctx context.Context, id string, status JobStatus, e
 	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET status = ?, error = ?, model_id = CASE WHEN ? <> '' THEN ? ELSE model_id END, end_time = ? WHERE id = ?",
 		status, errText, modelID, modelID, end, id)
 	return err
+}
+
+// SetJobNote records what a pass did with its result.
+func (s *Store) SetJobNote(ctx context.Context, id, note string) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET note = ? WHERE id = ?", note, id)
+	return err
+}
+
+// SetRepeat changes how often a job keeps learning; 0 stops it. The next
+// pass is one interval from now.
+func (s *Store) SetRepeat(ctx context.Context, id string, seconds int64) error {
+	var next any
+	if seconds > 0 {
+		next = millis(time.Now().Add(time.Duration(seconds) * time.Second))
+	}
+	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET repeat_seconds = ?, next_run = ? WHERE id = ?", seconds, next, id)
+	return err
+}
+
+// DueJobs returns finished jobs whose next keep-learning pass is due.
+func (s *Store) DueJobs(ctx context.Context, now time.Time) ([]Job, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT "+jobColumns+" FROM training_jobs WHERE repeat_seconds > 0 AND next_run IS NOT NULL AND next_run <= ? AND status >= ? ORDER BY next_run", millis(now), JobSucceeded)
+	if err != nil {
+		return nil, fmt.Errorf("store: due jobs: %w", err)
+	}
+	defer rows.Close()
+	var out []Job
+	for rows.Next() {
+		j, err := scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, j)
+	}
+	return out, rows.Err()
+}
+
+// HandOver moves a job's schedule to its next pass: the old job stops
+// repeating and the new one is queued with the interval. It returns the
+// new job.
+func (s *Store) HandOver(ctx context.Context, old Job, next Job) (Job, error) {
+	j, err := s.CreateJob(ctx, next)
+	if err != nil {
+		return Job{}, err
+	}
+	_, err = s.db.ExecContext(ctx, "UPDATE training_jobs SET repeat_seconds = 0, next_run = NULL WHERE id = ?", old.ID)
+	return j, err
 }
 
 // SetJobWorker records who is running a job.

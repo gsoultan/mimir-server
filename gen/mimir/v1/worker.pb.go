@@ -1105,7 +1105,13 @@ type TrainTask struct {
 	Csv    []byte `protobuf:"bytes,6,opt,name=csv,proto3" json:"csv,omitempty"`
 	Target string `protobuf:"bytes,7,opt,name=target,proto3" json:"target,omitempty"`
 	// history is what earlier attempts already finished, for a resumed job.
-	History       []*EpochResult `protobuf:"bytes,8,rep,name=history,proto3" json:"history,omitempty"`
+	History []*EpochResult `protobuf:"bytes,8,rep,name=history,proto3" json:"history,omitempty"`
+	// base_weights, when set, are a model to continue training from.
+	BaseWeights []byte `protobuf:"bytes,9,opt,name=base_weights,json=baseWeights,proto3" json:"base_weights,omitempty"`
+	// base_labels and base_features are what the base model answers and
+	// reads; its weights carry over only while they still match.
+	BaseLabels    []string `protobuf:"bytes,10,rep,name=base_labels,json=baseLabels,proto3" json:"base_labels,omitempty"`
+	BaseFeatures  []string `protobuf:"bytes,11,rep,name=base_features,json=baseFeatures,proto3" json:"base_features,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1196,6 +1202,27 @@ func (x *TrainTask) GetHistory() []*EpochResult {
 	return nil
 }
 
+func (x *TrainTask) GetBaseWeights() []byte {
+	if x != nil {
+		return x.BaseWeights
+	}
+	return nil
+}
+
+func (x *TrainTask) GetBaseLabels() []string {
+	if x != nil {
+		return x.BaseLabels
+	}
+	return nil
+}
+
+func (x *TrainTask) GetBaseFeatures() []string {
+	if x != nil {
+		return x.BaseFeatures
+	}
+	return nil
+}
+
 type TrainProgress struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
@@ -1273,13 +1300,15 @@ func (x *TrainProgress) GetHistory() []*EpochResult {
 }
 
 type TrainResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	Weights       []byte                 `protobuf:"bytes,2,opt,name=weights,proto3" json:"weights,omitempty"`
-	History       []*EpochResult         `protobuf:"bytes,3,rep,name=history,proto3" json:"history,omitempty"`
-	Spec          *ModelSpec             `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
-	Error         string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
-	Cancelled     bool                   `protobuf:"varint,6,opt,name=cancelled,proto3" json:"cancelled,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TaskId    string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Weights   []byte                 `protobuf:"bytes,2,opt,name=weights,proto3" json:"weights,omitempty"`
+	History   []*EpochResult         `protobuf:"bytes,3,rep,name=history,proto3" json:"history,omitempty"`
+	Spec      *ModelSpec             `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	Error     string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	Cancelled bool                   `protobuf:"varint,6,opt,name=cancelled,proto3" json:"cancelled,omitempty"`
+	// fresh says the base weights didn't fit and it learned from scratch.
+	Fresh         bool `protobuf:"varint,7,opt,name=fresh,proto3" json:"fresh,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1352,6 +1381,13 @@ func (x *TrainResult) GetError() string {
 func (x *TrainResult) GetCancelled() bool {
 	if x != nil {
 		return x.Cancelled
+	}
+	return false
+}
+
+func (x *TrainResult) GetFresh() bool {
+	if x != nil {
+		return x.Fresh
 	}
 	return false
 }
@@ -1477,7 +1513,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x06output\x18\x02 \x01(\v2\x10.mimir.v1.TensorR\x06output\x126\n" +
 	"\rprobabilities\x18\x03 \x01(\v2\x10.mimir.v1.TensorR\rprobabilities\x12\x14\n" +
 	"\x05error\x18\x04 \x01(\tR\x05error\x12!\n" +
-	"\fneed_weights\x18\x05 \x01(\bR\vneedWeights\"\xac\x02\n" +
+	"\fneed_weights\x18\x05 \x01(\bR\vneedWeights\"\x95\x03\n" +
 	"\tTrainTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\"\n" +
@@ -1486,20 +1522,26 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\fdataset_kind\x18\x05 \x01(\x0e2\x15.mimir.v1.DatasetKindR\vdatasetKind\x12\x10\n" +
 	"\x03csv\x18\x06 \x01(\fR\x03csv\x12\x16\n" +
 	"\x06target\x18\a \x01(\tR\x06target\x12/\n" +
-	"\ahistory\x18\b \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\"\xab\x01\n" +
+	"\ahistory\x18\b \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\x12!\n" +
+	"\fbase_weights\x18\t \x01(\fR\vbaseWeights\x12\x1f\n" +
+	"\vbase_labels\x18\n" +
+	" \x03(\tR\n" +
+	"baseLabels\x12#\n" +
+	"\rbase_features\x18\v \x03(\tR\fbaseFeatures\"\xab\x01\n" +
 	"\rTrainProgress\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
 	"\x05epoch\x18\x02 \x01(\x05R\x05epoch\x12\x12\n" +
 	"\x04step\x18\x03 \x01(\x05R\x04step\x12&\n" +
 	"\x0fsteps_per_epoch\x18\x04 \x01(\x05R\rstepsPerEpoch\x12/\n" +
-	"\ahistory\x18\x05 \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\"\xce\x01\n" +
+	"\ahistory\x18\x05 \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\"\xe4\x01\n" +
 	"\vTrainResult\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
 	"\aweights\x18\x02 \x01(\fR\aweights\x12/\n" +
 	"\ahistory\x18\x03 \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\x12'\n" +
 	"\x04spec\x18\x04 \x01(\v2\x13.mimir.v1.ModelSpecR\x04spec\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x12\x1c\n" +
-	"\tcancelled\x18\x06 \x01(\bR\tcancelled\"%\n" +
+	"\tcancelled\x18\x06 \x01(\bR\tcancelled\x12\x14\n" +
+	"\x05fresh\x18\a \x01(\bR\x05fresh\"%\n" +
 	"\n" +
 	"CancelTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId2\xb9\x02\n" +

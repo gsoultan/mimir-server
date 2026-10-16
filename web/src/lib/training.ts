@@ -33,3 +33,20 @@ export function progress(j: Job) {
 export function score(accuracy: number) {
   return `gets ${Math.round(accuracy * 100)} of 100 right`;
 }
+
+// How often a model keeps learning, as a choice and in words.
+export const repeatChoices = [
+  { value: "0", label: "Off" },
+  { value: "3600", label: "Every hour" },
+  { value: "86400", label: "Every day" },
+  { value: "604800", label: "Every week" },
+];
+
+export function repeatWord(seconds: bigint) {
+  const s = Number(seconds);
+  if (s <= 0) return "";
+  const known = repeatChoices.find((c) => Number(c.value) === s);
+  if (known) return known.label.toLowerCase();
+  if (s % 86400 === 0) return `every ${s / 86400} days`;
+  return `every ${Math.round(s / 3600)} hours`;
+}
