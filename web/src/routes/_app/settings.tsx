@@ -13,11 +13,12 @@ import { SettingsService, TwoFactorPolicy } from "../../api/gen/mimir/v1/setting
 import { allSettingsQueries, auditLog, databaseInfo, settings, whoAmI } from "../../api/queries";
 import { AnchorLink } from "../../components/links";
 import { Page } from "../../components/Page";
+import { Limits, Usage } from "../../components/Usage";
 import { Workers } from "../../components/Workers";
 import { ago, bytes } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/settings")({
-  validateSearch: z.object({ tab: z.enum(["audit", "database", "alerts", "retention", "security", "workers"]).optional() }),
+  validateSearch: z.object({ tab: z.enum(["audit", "database", "alerts", "retention", "security", "workers", "limits", "usage"]).optional() }),
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureInfiniteQueryData(auditLog),
     context.queryClient.ensureQueryData(settings),
@@ -39,6 +40,8 @@ function Settings() {
           <Tabs.Tab value="retention">Log retention</Tabs.Tab>
           <Tabs.Tab value="security">Security</Tabs.Tab>
           <Tabs.Tab value="workers">Workers</Tabs.Tab>
+          <Tabs.Tab value="limits">Limits</Tabs.Tab>
+          <Tabs.Tab value="usage">Usage</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="audit" pt="md"><AuditLog /></Tabs.Panel>
         <Tabs.Panel value="database" pt="md"><Database /></Tabs.Panel>
@@ -46,6 +49,8 @@ function Settings() {
         <Tabs.Panel value="retention" pt="md"><Retention /></Tabs.Panel>
         <Tabs.Panel value="security" pt="md"><SecurityPolicy /></Tabs.Panel>
         <Tabs.Panel value="workers" pt="md"><Workers /></Tabs.Panel>
+        <Tabs.Panel value="limits" pt="md"><Limits /></Tabs.Panel>
+        <Tabs.Panel value="usage" pt="md"><Usage /></Tabs.Panel>
       </Tabs>
     </Page>
   );
@@ -225,6 +230,7 @@ const actions: Record<string, string> = {
   "dataset.create": "added the examples",
   "dataset.delete": "removed the examples",
   "dataset.refresh": "fetched the examples again",
+  "settings.limits": "changed the limits",
   "training.repeat": "changed how often it keeps learning",
   "training.create": "started teaching",
   "training.cancel": "stopped teaching",

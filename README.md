@@ -188,6 +188,13 @@ Admins find these under **Settings**:
 - **Database**: engine, file, size and counts, plus **Download a backup**
   (`GET /api/backup`, admin only), a consistent copy of the SQLite file.
   Model weights live next to it in the data folder.
+- **Limits**: how many predictions each API key or person may make a minute,
+  how many each person may make a month (all their keys together), and how
+  many training runs each person may have waiting or learning at once. 0
+  means no limit. Over a limit, calls fail with `resource_exhausted` (HTTP
+  429) and a `Retry-After` header, and the message says when to try again.
+- **Usage**: predictions per person and per key, month by month. Everyone
+  sees their own use under **Connect your apps**.
 
 ## Develop
 

@@ -12,6 +12,7 @@ import { ApiKeyService, type ApiKey } from "../../api/gen/mimir/v1/access_pb";
 import { allKeyQueries, listApiKeys, listModels, listWebhooks, whoAmI } from "../../api/queries";
 import { AccessPicker, describe, type AccessValue } from "../../components/AccessPicker";
 import { Page } from "../../components/Page";
+import { Usage } from "../../components/Usage";
 import { Webhooks } from "../../components/Webhooks";
 import { ago } from "../../lib/format";
 
@@ -82,6 +83,8 @@ function Apps() {
           <Tabs.Panel value="grpc" pt="sm"><Code block>{grpc}</Code></Tabs.Panel>
         </Tabs>
       </Card>
+
+      <Usage userId={me.user?.id ?? ""} />
 
       {me.permissions.includes("webhooks.manage") && <Webhooks />}
 

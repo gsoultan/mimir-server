@@ -15,7 +15,11 @@ export function message(err: unknown): string {
         ? "Can't reach the server. Check that mimir-server is running."
         : "You're offline. Reconnect and try again.";
     case Code.ResourceExhausted:
-      return "That file is too big for this server.";
+      // The server's own limits explain themselves; a bare size refusal
+      // from the transport does not.
+      return /message|larger than|max/i.test(e.rawMessage) || e.rawMessage === ""
+        ? "That file is too big for this server."
+        : e.rawMessage;
     default:
       return e.rawMessage;
   }

@@ -48,6 +48,12 @@ const (
 	// SettingsServiceUpdateSecurityProcedure is the fully-qualified name of the SettingsService's
 	// UpdateSecurity RPC.
 	SettingsServiceUpdateSecurityProcedure = "/mimir.v1.SettingsService/UpdateSecurity"
+	// SettingsServiceUpdateLimitsProcedure is the fully-qualified name of the SettingsService's
+	// UpdateLimits RPC.
+	SettingsServiceUpdateLimitsProcedure = "/mimir.v1.SettingsService/UpdateLimits"
+	// SettingsServiceGetUsageProcedure is the fully-qualified name of the SettingsService's GetUsage
+	// RPC.
+	SettingsServiceGetUsageProcedure = "/mimir.v1.SettingsService/GetUsage"
 	// SettingsServiceGetDatabaseInfoProcedure is the fully-qualified name of the SettingsService's
 	// GetDatabaseInfo RPC.
 	SettingsServiceGetDatabaseInfoProcedure = "/mimir.v1.SettingsService/GetDatabaseInfo"
@@ -61,6 +67,10 @@ type SettingsServiceClient interface {
 	SendTestAlert(context.Context, *connect.Request[v1.SendTestAlertRequest]) (*connect.Response[v1.SendTestAlertResponse], error)
 	UpdateRetention(context.Context, *connect.Request[v1.UpdateRetentionRequest]) (*connect.Response[v1.UpdateRetentionResponse], error)
 	UpdateSecurity(context.Context, *connect.Request[v1.UpdateSecurityRequest]) (*connect.Response[v1.UpdateSecurityResponse], error)
+	UpdateLimits(context.Context, *connect.Request[v1.UpdateLimitsRequest]) (*connect.Response[v1.UpdateLimitsResponse], error)
+	// GetUsage counts predictions in a month: everyone's for admins, the
+	// caller's own for everyone else.
+	GetUsage(context.Context, *connect.Request[v1.GetUsageRequest]) (*connect.Response[v1.GetUsageResponse], error)
 	GetDatabaseInfo(context.Context, *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error)
 }
 
@@ -106,6 +116,19 @@ func NewSettingsServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(settingsServiceMethods.ByName("UpdateSecurity")),
 			connect.WithClientOptions(opts...),
 		),
+		updateLimits: connect.NewClient[v1.UpdateLimitsRequest, v1.UpdateLimitsResponse](
+			httpClient,
+			baseURL+SettingsServiceUpdateLimitsProcedure,
+			connect.WithSchema(settingsServiceMethods.ByName("UpdateLimits")),
+			connect.WithClientOptions(opts...),
+		),
+		getUsage: connect.NewClient[v1.GetUsageRequest, v1.GetUsageResponse](
+			httpClient,
+			baseURL+SettingsServiceGetUsageProcedure,
+			connect.WithSchema(settingsServiceMethods.ByName("GetUsage")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		getDatabaseInfo: connect.NewClient[v1.GetDatabaseInfoRequest, v1.GetDatabaseInfoResponse](
 			httpClient,
 			baseURL+SettingsServiceGetDatabaseInfoProcedure,
@@ -123,6 +146,8 @@ type settingsServiceClient struct {
 	sendTestAlert   *connect.Client[v1.SendTestAlertRequest, v1.SendTestAlertResponse]
 	updateRetention *connect.Client[v1.UpdateRetentionRequest, v1.UpdateRetentionResponse]
 	updateSecurity  *connect.Client[v1.UpdateSecurityRequest, v1.UpdateSecurityResponse]
+	updateLimits    *connect.Client[v1.UpdateLimitsRequest, v1.UpdateLimitsResponse]
+	getUsage        *connect.Client[v1.GetUsageRequest, v1.GetUsageResponse]
 	getDatabaseInfo *connect.Client[v1.GetDatabaseInfoRequest, v1.GetDatabaseInfoResponse]
 }
 
@@ -151,6 +176,16 @@ func (c *settingsServiceClient) UpdateSecurity(ctx context.Context, req *connect
 	return c.updateSecurity.CallUnary(ctx, req)
 }
 
+// UpdateLimits calls mimir.v1.SettingsService.UpdateLimits.
+func (c *settingsServiceClient) UpdateLimits(ctx context.Context, req *connect.Request[v1.UpdateLimitsRequest]) (*connect.Response[v1.UpdateLimitsResponse], error) {
+	return c.updateLimits.CallUnary(ctx, req)
+}
+
+// GetUsage calls mimir.v1.SettingsService.GetUsage.
+func (c *settingsServiceClient) GetUsage(ctx context.Context, req *connect.Request[v1.GetUsageRequest]) (*connect.Response[v1.GetUsageResponse], error) {
+	return c.getUsage.CallUnary(ctx, req)
+}
+
 // GetDatabaseInfo calls mimir.v1.SettingsService.GetDatabaseInfo.
 func (c *settingsServiceClient) GetDatabaseInfo(ctx context.Context, req *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error) {
 	return c.getDatabaseInfo.CallUnary(ctx, req)
@@ -164,6 +199,10 @@ type SettingsServiceHandler interface {
 	SendTestAlert(context.Context, *connect.Request[v1.SendTestAlertRequest]) (*connect.Response[v1.SendTestAlertResponse], error)
 	UpdateRetention(context.Context, *connect.Request[v1.UpdateRetentionRequest]) (*connect.Response[v1.UpdateRetentionResponse], error)
 	UpdateSecurity(context.Context, *connect.Request[v1.UpdateSecurityRequest]) (*connect.Response[v1.UpdateSecurityResponse], error)
+	UpdateLimits(context.Context, *connect.Request[v1.UpdateLimitsRequest]) (*connect.Response[v1.UpdateLimitsResponse], error)
+	// GetUsage counts predictions in a month: everyone's for admins, the
+	// caller's own for everyone else.
+	GetUsage(context.Context, *connect.Request[v1.GetUsageRequest]) (*connect.Response[v1.GetUsageResponse], error)
 	GetDatabaseInfo(context.Context, *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error)
 }
 
@@ -205,6 +244,19 @@ func NewSettingsServiceHandler(svc SettingsServiceHandler, opts ...connect.Handl
 		connect.WithSchema(settingsServiceMethods.ByName("UpdateSecurity")),
 		connect.WithHandlerOptions(opts...),
 	)
+	settingsServiceUpdateLimitsHandler := connect.NewUnaryHandler(
+		SettingsServiceUpdateLimitsProcedure,
+		svc.UpdateLimits,
+		connect.WithSchema(settingsServiceMethods.ByName("UpdateLimits")),
+		connect.WithHandlerOptions(opts...),
+	)
+	settingsServiceGetUsageHandler := connect.NewUnaryHandler(
+		SettingsServiceGetUsageProcedure,
+		svc.GetUsage,
+		connect.WithSchema(settingsServiceMethods.ByName("GetUsage")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	settingsServiceGetDatabaseInfoHandler := connect.NewUnaryHandler(
 		SettingsServiceGetDatabaseInfoProcedure,
 		svc.GetDatabaseInfo,
@@ -224,6 +276,10 @@ func NewSettingsServiceHandler(svc SettingsServiceHandler, opts ...connect.Handl
 			settingsServiceUpdateRetentionHandler.ServeHTTP(w, r)
 		case SettingsServiceUpdateSecurityProcedure:
 			settingsServiceUpdateSecurityHandler.ServeHTTP(w, r)
+		case SettingsServiceUpdateLimitsProcedure:
+			settingsServiceUpdateLimitsHandler.ServeHTTP(w, r)
+		case SettingsServiceGetUsageProcedure:
+			settingsServiceGetUsageHandler.ServeHTTP(w, r)
 		case SettingsServiceGetDatabaseInfoProcedure:
 			settingsServiceGetDatabaseInfoHandler.ServeHTTP(w, r)
 		default:
@@ -253,6 +309,14 @@ func (UnimplementedSettingsServiceHandler) UpdateRetention(context.Context, *con
 
 func (UnimplementedSettingsServiceHandler) UpdateSecurity(context.Context, *connect.Request[v1.UpdateSecurityRequest]) (*connect.Response[v1.UpdateSecurityResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.UpdateSecurity is not implemented"))
+}
+
+func (UnimplementedSettingsServiceHandler) UpdateLimits(context.Context, *connect.Request[v1.UpdateLimitsRequest]) (*connect.Response[v1.UpdateLimitsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.UpdateLimits is not implemented"))
+}
+
+func (UnimplementedSettingsServiceHandler) GetUsage(context.Context, *connect.Request[v1.GetUsageRequest]) (*connect.Response[v1.GetUsageResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.GetUsage is not implemented"))
 }
 
 func (UnimplementedSettingsServiceHandler) GetDatabaseInfo(context.Context, *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error) {
