@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -52,6 +54,26 @@ type User struct {
 	Disabled     bool
 	Created      time.Time
 	LastSignIn   time.Time // zero if never
+	// TOTPSecret is set once an authenticator app is confirmed. TOTPPending
+	// is a secret shown to the user that no code has confirmed yet.
+	TOTPSecret   string
+	TOTPPending  string
+	TOTPLastStep int64
+}
+
+// TwoFactor reports whether sign-in needs a code from an authenticator.
+func (u User) TwoFactor() bool { return u.TOTPSecret != "" }
+
+// Session is one signed-in browser.
+type Session struct {
+	ID       string
+	UserID   string
+	Device   string
+	IP       string
+	Pending  bool // waiting for the second factor
+	Created  time.Time
+	LastSeen time.Time
+	Expires  time.Time
 }
 
 // APIKey is a credential for apps, owned by a user.
@@ -103,13 +125,13 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	return n, err
 }
 
-const userColumns = "id, email, name, password_hash, role, all_models, disabled, create_time, last_sign_in"
+const userColumns = "id, email, name, password_hash, role, all_models, disabled, create_time, last_sign_in, totp_secret, totp_pending, totp_last_step"
 
 func scanUser(row scanner) (User, error) {
 	var u User
 	var created int64
 	var signIn sql.NullInt64
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Access.Role, &u.Access.AllModels, &u.Disabled, &created, &signIn)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Access.Role, &u.Access.AllModels, &u.Disabled, &created, &signIn, &u.TOTPSecret, &u.TOTPPending, &u.TOTPLastStep)
 	u.Created = time.UnixMilli(created).UTC()
 	u.LastSignIn = fromMillis(signIn)
 	return u, err
@@ -128,7 +150,7 @@ func (s *Store) CreateUser(ctx context.Context, u User) (User, error) {
 		return User{}, err
 	}
 	defer tx.Rollback()
-	_, err = tx.ExecContext(ctx, "INSERT INTO users ("+userColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+	_, err = tx.ExecContext(ctx, "INSERT INTO users ("+userColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, '', '', 0)",
 		u.ID, u.Email, u.Name, u.PasswordHash, u.Access.Role, u.Access.AllModels, u.Disabled, millis(u.Created))
 	if isUnique(err) {
 		return User{}, ErrEmailTaken
@@ -263,42 +285,212 @@ func (s *Store) CountOwners(ctx context.Context) (int, error) {
 
 // Session tokens are stored hashed; a leaked database can't sign anyone in.
 
-// CreateSession records a session for user until expire.
-func (s *Store) CreateSession(ctx context.Context, tokenHash, userID string, expire time.Time) error {
-	now := time.Now()
-	_, err := s.db.ExecContext(ctx, "INSERT INTO sessions (token_hash, user_id, create_time, expire_time) VALUES (?, ?, ?, ?)",
-		tokenHash, userID, millis(now), millis(expire))
+// CreateSession records a session and returns its id. A pending session
+// is a sign-in that still needs its second factor.
+func (s *Store) CreateSession(ctx context.Context, tokenHash string, in Session) (Session, error) {
+	id, err := newID()
 	if err != nil {
-		return fmt.Errorf("store: create session: %w", err)
+		return Session{}, err
 	}
-	_, err = s.db.ExecContext(ctx, "UPDATE users SET last_sign_in = ? WHERE id = ?", millis(now), userID)
-	return err
+	now := time.Now().UTC()
+	in.ID, in.Created, in.LastSeen = id, now, now
+	_, err = s.db.ExecContext(ctx, `INSERT INTO sessions (id, token_hash, user_id, agent_hash, device, ip, pending, create_time, last_seen, expire_time)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, tokenHash, in.UserID, agentHash(in.Device), in.Device, in.IP, in.Pending, millis(now), millis(now), millis(in.Expires))
+	if err != nil {
+		return Session{}, fmt.Errorf("store: create session: %w", err)
+	}
+	if !in.Pending {
+		_, err = s.db.ExecContext(ctx, "UPDATE users SET last_sign_in = ? WHERE id = ?", millis(now), in.UserID)
+	}
+	return in, err
 }
 
-// SessionUser returns the user a live session token belongs to.
-func (s *Store) SessionUser(ctx context.Context, tokenHash string) (User, error) {
-	var userID string
-	err := s.db.QueryRowContext(ctx, "SELECT user_id FROM sessions WHERE token_hash = ? AND expire_time > ?",
-		tokenHash, millis(time.Now())).Scan(&userID)
+// agentHash is what binds a session to one browser. The description is
+// what the browser sends in User-Agent, reduced by the caller.
+func agentHash(device string) string {
+	sum := sha256.Sum256([]byte(device))
+	return hex.EncodeToString(sum[:8])
+}
+
+// ErrWrongDevice means a session token arrived from a browser other than
+// the one that signed in: either a stolen cookie or a changed browser.
+var ErrWrongDevice = errors.New("store: session used from another browser")
+
+// SessionIdleTTL ends a session nobody has used for a while, even before
+// its absolute expiry.
+const SessionIdleTTL = 7 * 24 * time.Hour
+
+// LookupSession returns the session a live token belongs to and its user,
+// bumping last_seen. device must match the one that created it.
+func (s *Store) LookupSession(ctx context.Context, tokenHash, device string) (Session, User, error) {
+	var se Session
+	var hash string
+	var created, seen, expire int64
+	err := s.db.QueryRowContext(ctx, "SELECT id, user_id, agent_hash, device, ip, pending, create_time, last_seen, expire_time FROM sessions WHERE token_hash = ?", tokenHash).
+		Scan(&se.ID, &se.UserID, &hash, &se.Device, &se.IP, &se.Pending, &created, &seen, &expire)
 	if errors.Is(err, sql.ErrNoRows) {
-		return User{}, ErrNotFound
+		return Session{}, User{}, ErrNotFound
 	}
 	if err != nil {
-		return User{}, fmt.Errorf("store: session: %w", err)
+		return Session{}, User{}, fmt.Errorf("store: session: %w", err)
 	}
-	return s.GetUser(ctx, userID)
+	now := time.Now()
+	se.Created, se.LastSeen, se.Expires = time.UnixMilli(created).UTC(), time.UnixMilli(seen).UTC(), time.UnixMilli(expire).UTC()
+	if !now.Before(se.Expires) || (!se.Pending && now.Sub(se.LastSeen) > SessionIdleTTL) {
+		s.db.ExecContext(ctx, "DELETE FROM sessions WHERE id = ?", se.ID)
+		return Session{}, User{}, ErrNotFound
+	}
+	if hash != agentHash(device) {
+		return Session{}, User{}, ErrWrongDevice
+	}
+	// Write last_seen at most once a minute; it's a hint, not a ledger.
+	if now.Sub(se.LastSeen) > time.Minute {
+		se.LastSeen = now.UTC()
+		s.db.ExecContext(ctx, "UPDATE sessions SET last_seen = ? WHERE id = ?", millis(now), se.ID)
+	}
+	u, err := s.GetUser(ctx, se.UserID)
+	return se, u, err
 }
 
-// DeleteSession ends one session.
+// ListSessions returns a user's live sessions, newest first.
+func (s *Store) ListSessions(ctx context.Context, userID string) ([]Session, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, user_id, device, ip, create_time, last_seen, expire_time FROM sessions
+		WHERE user_id = ? AND pending = 0 AND expire_time > ? AND last_seen > ? ORDER BY last_seen DESC`,
+		userID, millis(time.Now()), millis(time.Now().Add(-SessionIdleTTL)))
+	if err != nil {
+		return nil, fmt.Errorf("store: list sessions: %w", err)
+	}
+	defer rows.Close()
+	var out []Session
+	for rows.Next() {
+		var se Session
+		var created, seen, expire int64
+		if err := rows.Scan(&se.ID, &se.UserID, &se.Device, &se.IP, &created, &seen, &expire); err != nil {
+			return nil, err
+		}
+		se.Created, se.LastSeen, se.Expires = time.UnixMilli(created).UTC(), time.UnixMilli(seen).UTC(), time.UnixMilli(expire).UTC()
+		out = append(out, se)
+	}
+	return out, rows.Err()
+}
+
+// DeleteSession ends one session by its token.
 func (s *Store) DeleteSession(ctx context.Context, tokenHash string) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE token_hash = ?", tokenHash)
 	return err
 }
 
-// ExpireSessions drops sessions past their end.
-func (s *Store) ExpireSessions(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE expire_time <= ?", millis(time.Now()))
+// RevokeSession ends one of a user's sessions by id.
+func (s *Store) RevokeSession(ctx context.Context, userID, id string) (bool, error) {
+	res, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ? AND id = ?", userID, id)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
+}
+
+// RevokeOtherSessions ends every session of a user except keep.
+func (s *Store) RevokeOtherSessions(ctx context.Context, userID, keep string) (int64, error) {
+	res, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ? AND id <> ?", userID, keep)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// EndSessions signs a user out everywhere.
+func (s *Store) EndSessions(ctx context.Context, userID string) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ?", userID)
 	return err
+}
+
+// ExpireSessions drops sessions past their end or idle for too long.
+func (s *Store) ExpireSessions(ctx context.Context) error {
+	now := time.Now()
+	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE expire_time <= ? OR (pending = 0 AND last_seen <= ?)",
+		millis(now), millis(now.Add(-SessionIdleTTL)))
+	return err
+}
+
+// Two-step verification
+
+// SetPendingTOTP stores a secret the user has been shown but not confirmed.
+func (s *Store) SetPendingTOTP(ctx context.Context, userID, secret string) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE users SET totp_pending = ? WHERE id = ?", secret, userID)
+	return err
+}
+
+// EnableTOTP promotes the pending secret, stores hashed recovery codes and
+// ends every other session, so a hijacked one can't ride along.
+func (s *Store) EnableTOTP(ctx context.Context, userID, keepSession string, codeHashes []string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "UPDATE users SET totp_secret = totp_pending, totp_pending = '', totp_last_step = 0 WHERE id = ? AND totp_pending <> ''", userID); err != nil {
+		return fmt.Errorf("store: enable totp: %w", err)
+	}
+	if err := replaceRecoveryCodes(ctx, tx, userID, codeHashes); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ? AND id <> ?", userID, keepSession); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// DisableTOTP turns two-step verification off and drops recovery codes.
+func (s *Store) DisableTOTP(ctx context.Context, userID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "UPDATE users SET totp_secret = '', totp_pending = '', totp_last_step = 0 WHERE id = ?", userID); err != nil {
+		return fmt.Errorf("store: disable totp: %w", err)
+	}
+	if err := replaceRecoveryCodes(ctx, tx, userID, nil); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func replaceRecoveryCodes(ctx context.Context, tx *sql.Tx, userID string, hashes []string) error {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM recovery_codes WHERE user_id = ?", userID); err != nil {
+		return err
+	}
+	for _, h := range hashes {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO recovery_codes (user_id, code_hash) VALUES (?, ?)", userID, h); err != nil {
+			return fmt.Errorf("store: recovery code: %w", err)
+		}
+	}
+	return nil
+}
+
+// UseTOTPStep records that a code for step was accepted, refusing a replay.
+// It reports whether the step was new.
+func (s *Store) UseTOTPStep(ctx context.Context, userID string, step int64) (bool, error) {
+	res, err := s.db.ExecContext(ctx, "UPDATE users SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?", step, userID, step)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
+}
+
+// UseRecoveryCode spends a recovery code and returns how many remain.
+func (s *Store) UseRecoveryCode(ctx context.Context, userID, codeHash string) (bool, int, error) {
+	res, err := s.db.ExecContext(ctx, "DELETE FROM recovery_codes WHERE user_id = ? AND code_hash = ?", userID, codeHash)
+	if err != nil {
+		return false, 0, err
+	}
+	n, _ := res.RowsAffected()
+	var left int
+	err = s.db.QueryRowContext(ctx, "SELECT count(*) FROM recovery_codes WHERE user_id = ?", userID).Scan(&left)
+	return n > 0, left, err
 }
 
 const keyColumns = "id, user_id, name, prefix, role, all_models, create_time, last_used"

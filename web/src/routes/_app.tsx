@@ -2,7 +2,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { useMutation } from "@connectrpc/connect-query";
 import { Alert, AppShell, Avatar, Burger, Button, Group, Menu, NavLink, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
-import { IconAlertCircle, IconChevronDown, IconDots, IconKey, IconLogout } from "@tabler/icons-react";
+import { IconAlertCircle, IconChevronDown, IconDots, IconKey, IconLogout, IconShieldLock } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 
@@ -18,6 +18,9 @@ export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context, location }) => {
     try {
       const me = await context.queryClient.fetchQuery({ ...whoAmI, staleTime: 30_000 });
+      // Someone who must set up two-step verification sees only that page
+      // until it's done.
+      if (me.mustSetUpTwoFactor && !location.pathname.startsWith("/security")) throw redirect({ to: "/security" });
       return { me };
     } catch (err) {
       if (ConnectError.from(err).code !== Code.Unauthenticated) throw err;
@@ -34,6 +37,10 @@ export const Route = createFileRoute("/_app")({
 // person may not open. Say so in plain words instead of a blank page.
 function ErrorPage({ error, reset }: { error: unknown; reset: () => void }) {
   const code = ConnectError.from(error).code;
+  if (code === Code.FailedPrecondition && message(error).includes("two-step")) {
+    location.assign("/security");
+    return null;
+  }
   if (code === Code.Unauthenticated) {
     location.assign("/sign-in?next=" + encodeURIComponent(location.pathname + location.search));
     return null;
@@ -95,6 +102,7 @@ function Layout() {
             <Menu.Dropdown>
               <Menu.Label>{me.user?.email}</Menu.Label>
               <Menu.Item leftSection={<IconKey size={16} />} onClick={change.open}>Change password</Menu.Item>
+              <Menu.Item component={Link} to="/security" leftSection={<IconShieldLock size={16} />}>Security</Menu.Item>
               <Menu.Item leftSection={<IconLogout size={16} />} onClick={() => signOut.mutate({})}>Sign out</Menu.Item>
             </Menu.Dropdown>
           </Menu>

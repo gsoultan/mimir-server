@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/access.proto.
  */
 export const file_mimir_v1_access: GenFile = /*@__PURE__*/
-  fileDesc("ChVtaW1pci92MS9hY2Nlc3MucHJvdG8SCG1pbWlyLnYxIk0KBkFjY2VzcxIcCgRyb2xlGAEgASgOMg4ubWltaXIudjEuUm9sZRISCgphbGxfbW9kZWxzGAIgASgIEhEKCW1vZGVsX2lkcxgDIAMoCSLLAQoEVXNlchIKCgJpZBgBIAEoCRINCgVlbWFpbBgCIAEoCRIMCgRuYW1lGAMgASgJEiAKBmFjY2VzcxgEIAEoCzIQLm1pbWlyLnYxLkFjY2VzcxIQCghkaXNhYmxlZBgFIAEoCBIvCgtjcmVhdGVfdGltZRgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASNQoRbGFzdF9zaWduX2luX3RpbWUYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIhYKFEdldFNldHVwU3RhdGVSZXF1ZXN0IiwKFUdldFNldHVwU3RhdGVSZXNwb25zZRITCgtuZWVkc19zZXR1cBgBIAEoCCI9CgxTZXR1cFJlcXVlc3QSDQoFZW1haWwYASABKAkSDAoEbmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCSItCg1TZXR1cFJlc3BvbnNlEhwKBHVzZXIYASABKAsyDi5taW1pci52MS5Vc2VyIjAKDVNpZ25JblJlcXVlc3QSDQoFZW1haWwYASABKAkSEAoIcGFzc3dvcmQYAiABKAkiLgoOU2lnbkluUmVzcG9uc2USHAoEdXNlchgBIAEoCzIOLm1pbWlyLnYxLlVzZXIiEAoOU2lnbk91dFJlcXVlc3QiEQoPU2lnbk91dFJlc3BvbnNlIg8KDVdob0FtSVJlcXVlc3QiQwoOV2hvQW1JUmVzcG9uc2USHAoEdXNlchgBIAEoCzIOLm1pbWlyLnYxLlVzZXISEwoLcGVybWlzc2lvbnMYAiADKAkiRwoVQ2hhbmdlUGFzc3dvcmRSZXF1ZXN0EhgKEGN1cnJlbnRfcGFzc3dvcmQYASABKAkSFAoMbmV3X3Bhc3N3b3JkGAIgASgJIhgKFkNoYW5nZVBhc3N3b3JkUmVzcG9uc2UiEgoQTGlzdFVzZXJzUmVxdWVzdCIyChFMaXN0VXNlcnNSZXNwb25zZRIdCgV1c2VycxgBIAMoCzIOLm1pbWlyLnYxLlVzZXIiZAoRQ3JlYXRlVXNlclJlcXVlc3QSDQoFZW1haWwYASABKAkSDAoEbmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCRIgCgZhY2Nlc3MYBCABKAsyEC5taW1pci52MS5BY2Nlc3MiMgoSQ3JlYXRlVXNlclJlc3BvbnNlEhwKBHVzZXIYASABKAsyDi5taW1pci52MS5Vc2VyIncKEVVwZGF0ZVVzZXJSZXF1ZXN0EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSIAoGYWNjZXNzGAMgASgLMhAubWltaXIudjEuQWNjZXNzEhAKCGRpc2FibGVkGAQgASgIEhQKDG5ld19wYXNzd29yZBgFIAEoCSIyChJVcGRhdGVVc2VyUmVzcG9uc2USHAoEdXNlchgBIAEoCzIOLm1pbWlyLnYxLlVzZXIiHwoRRGVsZXRlVXNlclJlcXVlc3QSCgoCaWQYASABKAkiFAoSRGVsZXRlVXNlclJlc3BvbnNlIrkBCgZBcGlLZXkSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZwcmVmaXgYAyABKAkSIAoGYWNjZXNzGAQgASgLMhAubWltaXIudjEuQWNjZXNzEi8KC2NyZWF0ZV90aW1lGAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3VzZWRfdGltZRgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiFAoSTGlzdEFwaUtleXNSZXF1ZXN0IjkKE0xpc3RBcGlLZXlzUmVzcG9uc2USIgoIYXBpX2tleXMYASADKAsyEC5taW1pci52MS5BcGlLZXkiRQoTQ3JlYXRlQXBpS2V5UmVxdWVzdBIMCgRuYW1lGAEgASgJEiAKBmFjY2VzcxgCIAEoCzIQLm1pbWlyLnYxLkFjY2VzcyJJChRDcmVhdGVBcGlLZXlSZXNwb25zZRIhCgdhcGlfa2V5GAEgASgLMhAubWltaXIudjEuQXBpS2V5Eg4KBnNlY3JldBgCIAEoCSIhChNSZXZva2VBcGlLZXlSZXF1ZXN0EgoKAmlkGAEgASgJIhYKFFJldm9rZUFwaUtleVJlc3BvbnNlIoEBCgpBdWRpdEV2ZW50EgoKAmlkGAEgASgJEigKBHRpbWUYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWFjdG9yGAMgASgJEg4KBmFjdGlvbhgEIAEoCRIOCgZ0YXJnZXQYBSABKAkSDgoGZGV0YWlsGAYgASgJIj8KFkxpc3RBdWRpdEV2ZW50c1JlcXVlc3QSEQoJcGFnZV9zaXplGAEgASgFEhIKCnBhZ2VfdG9rZW4YAiABKAkiWAoXTGlzdEF1ZGl0RXZlbnRzUmVzcG9uc2USJAoGZXZlbnRzGAEgAygLMhQubWltaXIudjEuQXVkaXRFdmVudBIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkqXgoEUm9sZRIUChBST0xFX1VOU1BFQ0lGSUVEEAASDwoLUk9MRV9WSUVXRVIQARIPCgtST0xFX0VESVRPUhACEg4KClJPTEVfQURNSU4QAxIOCgpST0xFX09XTkVSEAQysgMKC0F1dGhTZXJ2aWNlElUKDUdldFNldHVwU3RhdGUSHi5taW1pci52MS5HZXRTZXR1cFN0YXRlUmVxdWVzdBofLm1pbWlyLnYxLkdldFNldHVwU3RhdGVSZXNwb25zZSIDkAIBEjgKBVNldHVwEhYubWltaXIudjEuU2V0dXBSZXF1ZXN0GhcubWltaXIudjEuU2V0dXBSZXNwb25zZRI7CgZTaWduSW4SFy5taW1pci52MS5TaWduSW5SZXF1ZXN0GhgubWltaXIudjEuU2lnbkluUmVzcG9uc2USPgoHU2lnbk91dBIYLm1pbWlyLnYxLlNpZ25PdXRSZXF1ZXN0GhkubWltaXIudjEuU2lnbk91dFJlc3BvbnNlEkAKBldob0FtSRIXLm1pbWlyLnYxLldob0FtSVJlcXVlc3QaGC5taW1pci52MS5XaG9BbUlSZXNwb25zZSIDkAIBElMKDkNoYW5nZVBhc3N3b3JkEh8ubWltaXIudjEuQ2hhbmdlUGFzc3dvcmRSZXF1ZXN0GiAubWltaXIudjEuQ2hhbmdlUGFzc3dvcmRSZXNwb25zZTKzAgoLVXNlclNlcnZpY2USSQoJTGlzdFVzZXJzEhoubWltaXIudjEuTGlzdFVzZXJzUmVxdWVzdBobLm1pbWlyLnYxLkxpc3RVc2Vyc1Jlc3BvbnNlIgOQAgESRwoKQ3JlYXRlVXNlchIbLm1pbWlyLnYxLkNyZWF0ZVVzZXJSZXF1ZXN0GhwubWltaXIudjEuQ3JlYXRlVXNlclJlc3BvbnNlEkcKClVwZGF0ZVVzZXISGy5taW1pci52MS5VcGRhdGVVc2VyUmVxdWVzdBocLm1pbWlyLnYxLlVwZGF0ZVVzZXJSZXNwb25zZRJHCgpEZWxldGVVc2VyEhsubWltaXIudjEuRGVsZXRlVXNlclJlcXVlc3QaHC5taW1pci52MS5EZWxldGVVc2VyUmVzcG9uc2Uy/gEKDUFwaUtleVNlcnZpY2USTwoLTGlzdEFwaUtleXMSHC5taW1pci52MS5MaXN0QXBpS2V5c1JlcXVlc3QaHS5taW1pci52MS5MaXN0QXBpS2V5c1Jlc3BvbnNlIgOQAgESTQoMQ3JlYXRlQXBpS2V5Eh0ubWltaXIudjEuQ3JlYXRlQXBpS2V5UmVxdWVzdBoeLm1pbWlyLnYxLkNyZWF0ZUFwaUtleVJlc3BvbnNlEk0KDFJldm9rZUFwaUtleRIdLm1pbWlyLnYxLlJldm9rZUFwaUtleVJlcXVlc3QaHi5taW1pci52MS5SZXZva2VBcGlLZXlSZXNwb25zZTJrCgxBdWRpdFNlcnZpY2USWwoPTGlzdEF1ZGl0RXZlbnRzEiAubWltaXIudjEuTGlzdEF1ZGl0RXZlbnRzUmVxdWVzdBohLm1pbWlyLnYxLkxpc3RBdWRpdEV2ZW50c1Jlc3BvbnNlIgOQAgFCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChVtaW1pci92MS9hY2Nlc3MucHJvdG8SCG1pbWlyLnYxIk0KBkFjY2VzcxIcCgRyb2xlGAEgASgOMg4ubWltaXIudjEuUm9sZRISCgphbGxfbW9kZWxzGAIgASgIEhEKCW1vZGVsX2lkcxgDIAMoCSLfAQoEVXNlchIKCgJpZBgBIAEoCRINCgVlbWFpbBgCIAEoCRIMCgRuYW1lGAMgASgJEiAKBmFjY2VzcxgEIAEoCzIQLm1pbWlyLnYxLkFjY2VzcxIQCghkaXNhYmxlZBgFIAEoCBIvCgtjcmVhdGVfdGltZRgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASNQoRbGFzdF9zaWduX2luX3RpbWUYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCnR3b19mYWN0b3IYCCABKAgiFgoUR2V0U2V0dXBTdGF0ZVJlcXVlc3QiLAoVR2V0U2V0dXBTdGF0ZVJlc3BvbnNlEhMKC25lZWRzX3NldHVwGAEgASgIIj0KDFNldHVwUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCHBhc3N3b3JkGAMgASgJIi0KDVNldHVwUmVzcG9uc2USHAoEdXNlchgBIAEoCzIOLm1pbWlyLnYxLlVzZXIiMAoNU2lnbkluUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIQCghwYXNzd29yZBgCIAEoCSJOCg5TaWduSW5SZXNwb25zZRIcCgR1c2VyGAEgASgLMg4ubWltaXIudjEuVXNlchIeChZzZWNvbmRfZmFjdG9yX3JlcXVpcmVkGAIgASgIIhAKDlNpZ25PdXRSZXF1ZXN0IhEKD1NpZ25PdXRSZXNwb25zZSIPCg1XaG9BbUlSZXF1ZXN0IncKDldob0FtSVJlc3BvbnNlEhwKBHVzZXIYASABKAsyDi5taW1pci52MS5Vc2VyEhMKC3Blcm1pc3Npb25zGAIgAygJEhIKCnNlc3Npb25faWQYAyABKAkSHgoWbXVzdF9zZXRfdXBfdHdvX2ZhY3RvchgEIAEoCCJHChVDaGFuZ2VQYXNzd29yZFJlcXVlc3QSGAoQY3VycmVudF9wYXNzd29yZBgBIAEoCRIUCgxuZXdfcGFzc3dvcmQYAiABKAkiGAoWQ2hhbmdlUGFzc3dvcmRSZXNwb25zZSIpChlWZXJpZnlTZWNvbmRGYWN0b3JSZXF1ZXN0EgwKBGNvZGUYASABKAkicwoaVmVyaWZ5U2Vjb25kRmFjdG9yUmVzcG9uc2USHAoEdXNlchgBIAEoCzIOLm1pbWlyLnYxLlVzZXISGwoTcmVjb3ZlcnlfY29kZXNfbGVmdBgCIAEoBRIaChJ1c2VkX3JlY292ZXJ5X2NvZGUYAyABKAgiKQoVU3RhcnRUd29GYWN0b3JSZXF1ZXN0EhAKCHBhc3N3b3JkGAEgASgJIj0KFlN0YXJ0VHdvRmFjdG9yUmVzcG9uc2USDgoGc2VjcmV0GAEgASgJEhMKC290cGF1dGhfdXJsGAIgASgJIiYKFkVuYWJsZVR3b0ZhY3RvclJlcXVlc3QSDAoEY29kZRgBIAEoCSIxChdFbmFibGVUd29GYWN0b3JSZXNwb25zZRIWCg5yZWNvdmVyeV9jb2RlcxgBIAMoCSIrChdEaXNhYmxlVHdvRmFjdG9yUmVxdWVzdBIQCghwYXNzd29yZBgBIAEoCSIaChhEaXNhYmxlVHdvRmFjdG9yUmVzcG9uc2UipwEKB1Nlc3Npb24SCgoCaWQYASABKAkSDgoGZGV2aWNlGAIgASgJEgoKAmlwGAMgASgJEi8KC2NyZWF0ZV90aW1lGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3NlZW5fdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHY3VycmVudBgGIAEoCCIVChNMaXN0U2Vzc2lvbnNSZXF1ZXN0IjsKFExpc3RTZXNzaW9uc1Jlc3BvbnNlEiMKCHNlc3Npb25zGAEgAygLMhEubWltaXIudjEuU2Vzc2lvbiIjChVSZXZva2VTZXNzaW9uc1JlcXVlc3QSCgoCaWQYASABKAkiKQoWUmV2b2tlU2Vzc2lvbnNSZXNwb25zZRIPCgdyZXZva2VkGAEgASgFIhIKEExpc3RVc2Vyc1JlcXVlc3QiMgoRTGlzdFVzZXJzUmVzcG9uc2USHQoFdXNlcnMYASADKAsyDi5taW1pci52MS5Vc2VyImQKEUNyZWF0ZVVzZXJSZXF1ZXN0Eg0KBWVtYWlsGAEgASgJEgwKBG5hbWUYAiABKAkSEAoIcGFzc3dvcmQYAyABKAkSIAoGYWNjZXNzGAQgASgLMhAubWltaXIudjEuQWNjZXNzIjIKEkNyZWF0ZVVzZXJSZXNwb25zZRIcCgR1c2VyGAEgASgLMg4ubWltaXIudjEuVXNlciKRAQoRVXBkYXRlVXNlclJlcXVlc3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIgCgZhY2Nlc3MYAyABKAsyEC5taW1pci52MS5BY2Nlc3MSEAoIZGlzYWJsZWQYBCABKAgSFAoMbmV3X3Bhc3N3b3JkGAUgASgJEhgKEHJlc2V0X3R3b19mYWN0b3IYBiABKAgiMgoSVXBkYXRlVXNlclJlc3BvbnNlEhwKBHVzZXIYASABKAsyDi5taW1pci52MS5Vc2VyIh8KEURlbGV0ZVVzZXJSZXF1ZXN0EgoKAmlkGAEgASgJIhQKEkRlbGV0ZVVzZXJSZXNwb25zZSK5AQoGQXBpS2V5EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGcHJlZml4GAMgASgJEiAKBmFjY2VzcxgEIAEoCzIQLm1pbWlyLnYxLkFjY2VzcxIvCgtjcmVhdGVfdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMgoObGFzdF91c2VkX3RpbWUYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIhQKEkxpc3RBcGlLZXlzUmVxdWVzdCI5ChNMaXN0QXBpS2V5c1Jlc3BvbnNlEiIKCGFwaV9rZXlzGAEgAygLMhAubWltaXIudjEuQXBpS2V5IkUKE0NyZWF0ZUFwaUtleVJlcXVlc3QSDAoEbmFtZRgBIAEoCRIgCgZhY2Nlc3MYAiABKAsyEC5taW1pci52MS5BY2Nlc3MiSQoUQ3JlYXRlQXBpS2V5UmVzcG9uc2USIQoHYXBpX2tleRgBIAEoCzIQLm1pbWlyLnYxLkFwaUtleRIOCgZzZWNyZXQYAiABKAkiIQoTUmV2b2tlQXBpS2V5UmVxdWVzdBIKCgJpZBgBIAEoCSIWChRSZXZva2VBcGlLZXlSZXNwb25zZSKBAQoKQXVkaXRFdmVudBIKCgJpZBgBIAEoCRIoCgR0aW1lGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVhY3RvchgDIAEoCRIOCgZhY3Rpb24YBCABKAkSDgoGdGFyZ2V0GAUgASgJEg4KBmRldGFpbBgGIAEoCSI/ChZMaXN0QXVkaXRFdmVudHNSZXF1ZXN0EhEKCXBhZ2Vfc2l6ZRgBIAEoBRISCgpwYWdlX3Rva2VuGAIgASgJIlgKF0xpc3RBdWRpdEV2ZW50c1Jlc3BvbnNlEiQKBmV2ZW50cxgBIAMoCzIULm1pbWlyLnYxLkF1ZGl0RXZlbnQSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJKl4KBFJvbGUSFAoQUk9MRV9VTlNQRUNJRklFRBAAEg8KC1JPTEVfVklFV0VSEAESDwoLUk9MRV9FRElUT1IQAhIOCgpST0xFX0FETUlOEAMSDgoKUk9MRV9PV05FUhAEMsQHCgtBdXRoU2VydmljZRJVCg1HZXRTZXR1cFN0YXRlEh4ubWltaXIudjEuR2V0U2V0dXBTdGF0ZVJlcXVlc3QaHy5taW1pci52MS5HZXRTZXR1cFN0YXRlUmVzcG9uc2UiA5ACARI4CgVTZXR1cBIWLm1pbWlyLnYxLlNldHVwUmVxdWVzdBoXLm1pbWlyLnYxLlNldHVwUmVzcG9uc2USOwoGU2lnbkluEhcubWltaXIudjEuU2lnbkluUmVxdWVzdBoYLm1pbWlyLnYxLlNpZ25JblJlc3BvbnNlEj4KB1NpZ25PdXQSGC5taW1pci52MS5TaWduT3V0UmVxdWVzdBoZLm1pbWlyLnYxLlNpZ25PdXRSZXNwb25zZRJACgZXaG9BbUkSFy5taW1pci52MS5XaG9BbUlSZXF1ZXN0GhgubWltaXIudjEuV2hvQW1JUmVzcG9uc2UiA5ACARJTCg5DaGFuZ2VQYXNzd29yZBIfLm1pbWlyLnYxLkNoYW5nZVBhc3N3b3JkUmVxdWVzdBogLm1pbWlyLnYxLkNoYW5nZVBhc3N3b3JkUmVzcG9uc2USXwoSVmVyaWZ5U2Vjb25kRmFjdG9yEiMubWltaXIudjEuVmVyaWZ5U2Vjb25kRmFjdG9yUmVxdWVzdBokLm1pbWlyLnYxLlZlcmlmeVNlY29uZEZhY3RvclJlc3BvbnNlElMKDlN0YXJ0VHdvRmFjdG9yEh8ubWltaXIudjEuU3RhcnRUd29GYWN0b3JSZXF1ZXN0GiAubWltaXIudjEuU3RhcnRUd29GYWN0b3JSZXNwb25zZRJWCg9FbmFibGVUd29GYWN0b3ISIC5taW1pci52MS5FbmFibGVUd29GYWN0b3JSZXF1ZXN0GiEubWltaXIudjEuRW5hYmxlVHdvRmFjdG9yUmVzcG9uc2USWQoQRGlzYWJsZVR3b0ZhY3RvchIhLm1pbWlyLnYxLkRpc2FibGVUd29GYWN0b3JSZXF1ZXN0GiIubWltaXIudjEuRGlzYWJsZVR3b0ZhY3RvclJlc3BvbnNlElIKDExpc3RTZXNzaW9ucxIdLm1pbWlyLnYxLkxpc3RTZXNzaW9uc1JlcXVlc3QaHi5taW1pci52MS5MaXN0U2Vzc2lvbnNSZXNwb25zZSIDkAIBElMKDlJldm9rZVNlc3Npb25zEh8ubWltaXIudjEuUmV2b2tlU2Vzc2lvbnNSZXF1ZXN0GiAubWltaXIudjEuUmV2b2tlU2Vzc2lvbnNSZXNwb25zZTKzAgoLVXNlclNlcnZpY2USSQoJTGlzdFVzZXJzEhoubWltaXIudjEuTGlzdFVzZXJzUmVxdWVzdBobLm1pbWlyLnYxLkxpc3RVc2Vyc1Jlc3BvbnNlIgOQAgESRwoKQ3JlYXRlVXNlchIbLm1pbWlyLnYxLkNyZWF0ZVVzZXJSZXF1ZXN0GhwubWltaXIudjEuQ3JlYXRlVXNlclJlc3BvbnNlEkcKClVwZGF0ZVVzZXISGy5taW1pci52MS5VcGRhdGVVc2VyUmVxdWVzdBocLm1pbWlyLnYxLlVwZGF0ZVVzZXJSZXNwb25zZRJHCgpEZWxldGVVc2VyEhsubWltaXIudjEuRGVsZXRlVXNlclJlcXVlc3QaHC5taW1pci52MS5EZWxldGVVc2VyUmVzcG9uc2Uy/gEKDUFwaUtleVNlcnZpY2USTwoLTGlzdEFwaUtleXMSHC5taW1pci52MS5MaXN0QXBpS2V5c1JlcXVlc3QaHS5taW1pci52MS5MaXN0QXBpS2V5c1Jlc3BvbnNlIgOQAgESTQoMQ3JlYXRlQXBpS2V5Eh0ubWltaXIudjEuQ3JlYXRlQXBpS2V5UmVxdWVzdBoeLm1pbWlyLnYxLkNyZWF0ZUFwaUtleVJlc3BvbnNlEk0KDFJldm9rZUFwaUtleRIdLm1pbWlyLnYxLlJldm9rZUFwaUtleVJlcXVlc3QaHi5taW1pci52MS5SZXZva2VBcGlLZXlSZXNwb25zZTJrCgxBdWRpdFNlcnZpY2USWwoPTGlzdEF1ZGl0RXZlbnRzEiAubWltaXIudjEuTGlzdEF1ZGl0RXZlbnRzUmVxdWVzdBohLm1pbWlyLnYxLkxpc3RBdWRpdEV2ZW50c1Jlc3BvbnNlIgOQAgFCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * Access is a role and the models it applies to.
@@ -85,6 +85,13 @@ export type User = Message<"mimir.v1.User"> & {
    * @generated from field: google.protobuf.Timestamp last_sign_in_time = 7;
    */
   lastSignInTime?: Timestamp | undefined;
+
+  /**
+   * TwoFactor is true once the person confirmed an authenticator app.
+   *
+   * @generated from field: bool two_factor = 8;
+   */
+  twoFactor: boolean;
 };
 
 /**
@@ -195,9 +202,19 @@ export const SignInRequestSchema: GenMessage<SignInRequest> = /*@__PURE__*/
  */
 export type SignInResponse = Message<"mimir.v1.SignInResponse"> & {
   /**
+   * User is set once the sign-in is complete.
+   *
    * @generated from field: mimir.v1.User user = 1;
    */
   user?: User | undefined;
+
+  /**
+   * SecondFactorRequired means the password matched and the browser now
+   * holds a short-lived cookie that only VerifySecondFactor accepts.
+   *
+   * @generated from field: bool second_factor_required = 2;
+   */
+  secondFactorRequired: boolean;
 };
 
 /**
@@ -261,6 +278,22 @@ export type WhoAmIResponse = Message<"mimir.v1.WhoAmIResponse"> & {
    * @generated from field: repeated string permissions = 2;
    */
   permissions: string[];
+
+  /**
+   * SessionId is this browser's session, so it can be told apart in
+   * ListSessions. Empty for API keys.
+   *
+   * @generated from field: string session_id = 3;
+   */
+  sessionId: string;
+
+  /**
+   * MustSetUpTwoFactor means an admin requires two-step verification for
+   * this account and it isn't on yet; only setting it up is allowed.
+   *
+   * @generated from field: bool must_set_up_two_factor = 4;
+   */
+  mustSetUpTwoFactor: boolean;
 };
 
 /**
@@ -306,6 +339,273 @@ export const ChangePasswordResponseSchema: GenMessage<ChangePasswordResponse> = 
   messageDesc(file_mimir_v1_access, 13);
 
 /**
+ * @generated from message mimir.v1.VerifySecondFactorRequest
+ */
+export type VerifySecondFactorRequest = Message<"mimir.v1.VerifySecondFactorRequest"> & {
+  /**
+   * Code is six digits from the authenticator app, or a recovery code.
+   *
+   * @generated from field: string code = 1;
+   */
+  code: string;
+};
+
+/**
+ * Describes the message mimir.v1.VerifySecondFactorRequest.
+ * Use `create(VerifySecondFactorRequestSchema)` to create a new message.
+ */
+export const VerifySecondFactorRequestSchema: GenMessage<VerifySecondFactorRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 14);
+
+/**
+ * @generated from message mimir.v1.VerifySecondFactorResponse
+ */
+export type VerifySecondFactorResponse = Message<"mimir.v1.VerifySecondFactorResponse"> & {
+  /**
+   * @generated from field: mimir.v1.User user = 1;
+   */
+  user?: User | undefined;
+
+  /**
+   * RecoveryCodesLeft is set when a recovery code was used.
+   *
+   * @generated from field: int32 recovery_codes_left = 2;
+   */
+  recoveryCodesLeft: number;
+
+  /**
+   * @generated from field: bool used_recovery_code = 3;
+   */
+  usedRecoveryCode: boolean;
+};
+
+/**
+ * Describes the message mimir.v1.VerifySecondFactorResponse.
+ * Use `create(VerifySecondFactorResponseSchema)` to create a new message.
+ */
+export const VerifySecondFactorResponseSchema: GenMessage<VerifySecondFactorResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 15);
+
+/**
+ * @generated from message mimir.v1.StartTwoFactorRequest
+ */
+export type StartTwoFactorRequest = Message<"mimir.v1.StartTwoFactorRequest"> & {
+  /**
+   * Password proves the person at the keyboard, not just the cookie.
+   *
+   * @generated from field: string password = 1;
+   */
+  password: string;
+};
+
+/**
+ * Describes the message mimir.v1.StartTwoFactorRequest.
+ * Use `create(StartTwoFactorRequestSchema)` to create a new message.
+ */
+export const StartTwoFactorRequestSchema: GenMessage<StartTwoFactorRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 16);
+
+/**
+ * @generated from message mimir.v1.StartTwoFactorResponse
+ */
+export type StartTwoFactorResponse = Message<"mimir.v1.StartTwoFactorResponse"> & {
+  /**
+   * Secret is the base32 key to type by hand; otpauth_url goes in a QR code.
+   *
+   * @generated from field: string secret = 1;
+   */
+  secret: string;
+
+  /**
+   * @generated from field: string otpauth_url = 2;
+   */
+  otpauthUrl: string;
+};
+
+/**
+ * Describes the message mimir.v1.StartTwoFactorResponse.
+ * Use `create(StartTwoFactorResponseSchema)` to create a new message.
+ */
+export const StartTwoFactorResponseSchema: GenMessage<StartTwoFactorResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 17);
+
+/**
+ * @generated from message mimir.v1.EnableTwoFactorRequest
+ */
+export type EnableTwoFactorRequest = Message<"mimir.v1.EnableTwoFactorRequest"> & {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code: string;
+};
+
+/**
+ * Describes the message mimir.v1.EnableTwoFactorRequest.
+ * Use `create(EnableTwoFactorRequestSchema)` to create a new message.
+ */
+export const EnableTwoFactorRequestSchema: GenMessage<EnableTwoFactorRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 18);
+
+/**
+ * @generated from message mimir.v1.EnableTwoFactorResponse
+ */
+export type EnableTwoFactorResponse = Message<"mimir.v1.EnableTwoFactorResponse"> & {
+  /**
+   * RecoveryCodes are shown once; each works a single time.
+   *
+   * @generated from field: repeated string recovery_codes = 1;
+   */
+  recoveryCodes: string[];
+};
+
+/**
+ * Describes the message mimir.v1.EnableTwoFactorResponse.
+ * Use `create(EnableTwoFactorResponseSchema)` to create a new message.
+ */
+export const EnableTwoFactorResponseSchema: GenMessage<EnableTwoFactorResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 19);
+
+/**
+ * @generated from message mimir.v1.DisableTwoFactorRequest
+ */
+export type DisableTwoFactorRequest = Message<"mimir.v1.DisableTwoFactorRequest"> & {
+  /**
+   * @generated from field: string password = 1;
+   */
+  password: string;
+};
+
+/**
+ * Describes the message mimir.v1.DisableTwoFactorRequest.
+ * Use `create(DisableTwoFactorRequestSchema)` to create a new message.
+ */
+export const DisableTwoFactorRequestSchema: GenMessage<DisableTwoFactorRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 20);
+
+/**
+ * @generated from message mimir.v1.DisableTwoFactorResponse
+ */
+export type DisableTwoFactorResponse = Message<"mimir.v1.DisableTwoFactorResponse"> & {
+};
+
+/**
+ * Describes the message mimir.v1.DisableTwoFactorResponse.
+ * Use `create(DisableTwoFactorResponseSchema)` to create a new message.
+ */
+export const DisableTwoFactorResponseSchema: GenMessage<DisableTwoFactorResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 21);
+
+/**
+ * @generated from message mimir.v1.Session
+ */
+export type Session = Message<"mimir.v1.Session"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Device is a short description from the browser, like "Chrome on Mac".
+   *
+   * @generated from field: string device = 2;
+   */
+  device: string;
+
+  /**
+   * @generated from field: string ip = 3;
+   */
+  ip: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp create_time = 4;
+   */
+  createTime?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp last_seen_time = 5;
+   */
+  lastSeenTime?: Timestamp | undefined;
+
+  /**
+   * @generated from field: bool current = 6;
+   */
+  current: boolean;
+};
+
+/**
+ * Describes the message mimir.v1.Session.
+ * Use `create(SessionSchema)` to create a new message.
+ */
+export const SessionSchema: GenMessage<Session> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 22);
+
+/**
+ * @generated from message mimir.v1.ListSessionsRequest
+ */
+export type ListSessionsRequest = Message<"mimir.v1.ListSessionsRequest"> & {
+};
+
+/**
+ * Describes the message mimir.v1.ListSessionsRequest.
+ * Use `create(ListSessionsRequestSchema)` to create a new message.
+ */
+export const ListSessionsRequestSchema: GenMessage<ListSessionsRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 23);
+
+/**
+ * @generated from message mimir.v1.ListSessionsResponse
+ */
+export type ListSessionsResponse = Message<"mimir.v1.ListSessionsResponse"> & {
+  /**
+   * @generated from field: repeated mimir.v1.Session sessions = 1;
+   */
+  sessions: Session[];
+};
+
+/**
+ * Describes the message mimir.v1.ListSessionsResponse.
+ * Use `create(ListSessionsResponseSchema)` to create a new message.
+ */
+export const ListSessionsResponseSchema: GenMessage<ListSessionsResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 24);
+
+/**
+ * @generated from message mimir.v1.RevokeSessionsRequest
+ */
+export type RevokeSessionsRequest = Message<"mimir.v1.RevokeSessionsRequest"> & {
+  /**
+   * Id names one session; empty means every session except the current one.
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message mimir.v1.RevokeSessionsRequest.
+ * Use `create(RevokeSessionsRequestSchema)` to create a new message.
+ */
+export const RevokeSessionsRequestSchema: GenMessage<RevokeSessionsRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 25);
+
+/**
+ * @generated from message mimir.v1.RevokeSessionsResponse
+ */
+export type RevokeSessionsResponse = Message<"mimir.v1.RevokeSessionsResponse"> & {
+  /**
+   * @generated from field: int32 revoked = 1;
+   */
+  revoked: number;
+};
+
+/**
+ * Describes the message mimir.v1.RevokeSessionsResponse.
+ * Use `create(RevokeSessionsResponseSchema)` to create a new message.
+ */
+export const RevokeSessionsResponseSchema: GenMessage<RevokeSessionsResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 26);
+
+/**
  * @generated from message mimir.v1.ListUsersRequest
  */
 export type ListUsersRequest = Message<"mimir.v1.ListUsersRequest"> & {
@@ -316,7 +616,7 @@ export type ListUsersRequest = Message<"mimir.v1.ListUsersRequest"> & {
  * Use `create(ListUsersRequestSchema)` to create a new message.
  */
 export const ListUsersRequestSchema: GenMessage<ListUsersRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 14);
+  messageDesc(file_mimir_v1_access, 27);
 
 /**
  * @generated from message mimir.v1.ListUsersResponse
@@ -333,7 +633,7 @@ export type ListUsersResponse = Message<"mimir.v1.ListUsersResponse"> & {
  * Use `create(ListUsersResponseSchema)` to create a new message.
  */
 export const ListUsersResponseSchema: GenMessage<ListUsersResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 15);
+  messageDesc(file_mimir_v1_access, 28);
 
 /**
  * @generated from message mimir.v1.CreateUserRequest
@@ -368,7 +668,7 @@ export type CreateUserRequest = Message<"mimir.v1.CreateUserRequest"> & {
  * Use `create(CreateUserRequestSchema)` to create a new message.
  */
 export const CreateUserRequestSchema: GenMessage<CreateUserRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 16);
+  messageDesc(file_mimir_v1_access, 29);
 
 /**
  * @generated from message mimir.v1.CreateUserResponse
@@ -385,7 +685,7 @@ export type CreateUserResponse = Message<"mimir.v1.CreateUserResponse"> & {
  * Use `create(CreateUserResponseSchema)` to create a new message.
  */
 export const CreateUserResponseSchema: GenMessage<CreateUserResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 17);
+  messageDesc(file_mimir_v1_access, 30);
 
 /**
  * @generated from message mimir.v1.UpdateUserRequest
@@ -418,6 +718,14 @@ export type UpdateUserRequest = Message<"mimir.v1.UpdateUserRequest"> & {
    * @generated from field: string new_password = 5;
    */
   newPassword: string;
+
+  /**
+   * ResetTwoFactor turns off the user's authenticator so they can sign in
+   * with their password alone, for when they lost their phone.
+   *
+   * @generated from field: bool reset_two_factor = 6;
+   */
+  resetTwoFactor: boolean;
 };
 
 /**
@@ -425,7 +733,7 @@ export type UpdateUserRequest = Message<"mimir.v1.UpdateUserRequest"> & {
  * Use `create(UpdateUserRequestSchema)` to create a new message.
  */
 export const UpdateUserRequestSchema: GenMessage<UpdateUserRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 18);
+  messageDesc(file_mimir_v1_access, 31);
 
 /**
  * @generated from message mimir.v1.UpdateUserResponse
@@ -442,7 +750,7 @@ export type UpdateUserResponse = Message<"mimir.v1.UpdateUserResponse"> & {
  * Use `create(UpdateUserResponseSchema)` to create a new message.
  */
 export const UpdateUserResponseSchema: GenMessage<UpdateUserResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 19);
+  messageDesc(file_mimir_v1_access, 32);
 
 /**
  * @generated from message mimir.v1.DeleteUserRequest
@@ -459,7 +767,7 @@ export type DeleteUserRequest = Message<"mimir.v1.DeleteUserRequest"> & {
  * Use `create(DeleteUserRequestSchema)` to create a new message.
  */
 export const DeleteUserRequestSchema: GenMessage<DeleteUserRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 20);
+  messageDesc(file_mimir_v1_access, 33);
 
 /**
  * @generated from message mimir.v1.DeleteUserResponse
@@ -472,7 +780,7 @@ export type DeleteUserResponse = Message<"mimir.v1.DeleteUserResponse"> & {
  * Use `create(DeleteUserResponseSchema)` to create a new message.
  */
 export const DeleteUserResponseSchema: GenMessage<DeleteUserResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 21);
+  messageDesc(file_mimir_v1_access, 34);
 
 /**
  * @generated from message mimir.v1.ApiKey
@@ -519,7 +827,7 @@ export type ApiKey = Message<"mimir.v1.ApiKey"> & {
  * Use `create(ApiKeySchema)` to create a new message.
  */
 export const ApiKeySchema: GenMessage<ApiKey> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 22);
+  messageDesc(file_mimir_v1_access, 35);
 
 /**
  * @generated from message mimir.v1.ListApiKeysRequest
@@ -532,7 +840,7 @@ export type ListApiKeysRequest = Message<"mimir.v1.ListApiKeysRequest"> & {
  * Use `create(ListApiKeysRequestSchema)` to create a new message.
  */
 export const ListApiKeysRequestSchema: GenMessage<ListApiKeysRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 23);
+  messageDesc(file_mimir_v1_access, 36);
 
 /**
  * @generated from message mimir.v1.ListApiKeysResponse
@@ -549,7 +857,7 @@ export type ListApiKeysResponse = Message<"mimir.v1.ListApiKeysResponse"> & {
  * Use `create(ListApiKeysResponseSchema)` to create a new message.
  */
 export const ListApiKeysResponseSchema: GenMessage<ListApiKeysResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 24);
+  messageDesc(file_mimir_v1_access, 37);
 
 /**
  * @generated from message mimir.v1.CreateApiKeyRequest
@@ -571,7 +879,7 @@ export type CreateApiKeyRequest = Message<"mimir.v1.CreateApiKeyRequest"> & {
  * Use `create(CreateApiKeyRequestSchema)` to create a new message.
  */
 export const CreateApiKeyRequestSchema: GenMessage<CreateApiKeyRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 25);
+  messageDesc(file_mimir_v1_access, 38);
 
 /**
  * @generated from message mimir.v1.CreateApiKeyResponse
@@ -595,7 +903,7 @@ export type CreateApiKeyResponse = Message<"mimir.v1.CreateApiKeyResponse"> & {
  * Use `create(CreateApiKeyResponseSchema)` to create a new message.
  */
 export const CreateApiKeyResponseSchema: GenMessage<CreateApiKeyResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 26);
+  messageDesc(file_mimir_v1_access, 39);
 
 /**
  * @generated from message mimir.v1.RevokeApiKeyRequest
@@ -612,7 +920,7 @@ export type RevokeApiKeyRequest = Message<"mimir.v1.RevokeApiKeyRequest"> & {
  * Use `create(RevokeApiKeyRequestSchema)` to create a new message.
  */
 export const RevokeApiKeyRequestSchema: GenMessage<RevokeApiKeyRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 27);
+  messageDesc(file_mimir_v1_access, 40);
 
 /**
  * @generated from message mimir.v1.RevokeApiKeyResponse
@@ -625,7 +933,7 @@ export type RevokeApiKeyResponse = Message<"mimir.v1.RevokeApiKeyResponse"> & {
  * Use `create(RevokeApiKeyResponseSchema)` to create a new message.
  */
 export const RevokeApiKeyResponseSchema: GenMessage<RevokeApiKeyResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 28);
+  messageDesc(file_mimir_v1_access, 41);
 
 /**
  * @generated from message mimir.v1.AuditEvent
@@ -673,7 +981,7 @@ export type AuditEvent = Message<"mimir.v1.AuditEvent"> & {
  * Use `create(AuditEventSchema)` to create a new message.
  */
 export const AuditEventSchema: GenMessage<AuditEvent> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 29);
+  messageDesc(file_mimir_v1_access, 42);
 
 /**
  * @generated from message mimir.v1.ListAuditEventsRequest
@@ -695,7 +1003,7 @@ export type ListAuditEventsRequest = Message<"mimir.v1.ListAuditEventsRequest"> 
  * Use `create(ListAuditEventsRequestSchema)` to create a new message.
  */
 export const ListAuditEventsRequestSchema: GenMessage<ListAuditEventsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 30);
+  messageDesc(file_mimir_v1_access, 43);
 
 /**
  * @generated from message mimir.v1.ListAuditEventsResponse
@@ -717,7 +1025,7 @@ export type ListAuditEventsResponse = Message<"mimir.v1.ListAuditEventsResponse"
  * Use `create(ListAuditEventsResponseSchema)` to create a new message.
  */
 export const ListAuditEventsResponseSchema: GenMessage<ListAuditEventsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 31);
+  messageDesc(file_mimir_v1_access, 44);
 
 /**
  * Role is a fixed set of permissions. Each role includes the ones before it.
@@ -827,6 +1135,63 @@ export const AuthService: GenService<{
     methodKind: "unary";
     input: typeof ChangePasswordRequestSchema;
     output: typeof ChangePasswordResponseSchema;
+  },
+  /**
+   * VerifySecondFactor finishes a sign-in that SignIn said needs a code.
+   *
+   * @generated from rpc mimir.v1.AuthService.VerifySecondFactor
+   */
+  verifySecondFactor: {
+    methodKind: "unary";
+    input: typeof VerifySecondFactorRequestSchema;
+    output: typeof VerifySecondFactorResponseSchema;
+  },
+  /**
+   * StartTwoFactor makes a fresh authenticator secret for the caller. It
+   * takes effect only once EnableTwoFactor confirms a code from it.
+   *
+   * @generated from rpc mimir.v1.AuthService.StartTwoFactor
+   */
+  startTwoFactor: {
+    methodKind: "unary";
+    input: typeof StartTwoFactorRequestSchema;
+    output: typeof StartTwoFactorResponseSchema;
+  },
+  /**
+   * @generated from rpc mimir.v1.AuthService.EnableTwoFactor
+   */
+  enableTwoFactor: {
+    methodKind: "unary";
+    input: typeof EnableTwoFactorRequestSchema;
+    output: typeof EnableTwoFactorResponseSchema;
+  },
+  /**
+   * @generated from rpc mimir.v1.AuthService.DisableTwoFactor
+   */
+  disableTwoFactor: {
+    methodKind: "unary";
+    input: typeof DisableTwoFactorRequestSchema;
+    output: typeof DisableTwoFactorResponseSchema;
+  },
+  /**
+   * ListSessions shows where the caller is signed in.
+   *
+   * @generated from rpc mimir.v1.AuthService.ListSessions
+   */
+  listSessions: {
+    methodKind: "unary";
+    input: typeof ListSessionsRequestSchema;
+    output: typeof ListSessionsResponseSchema;
+  },
+  /**
+   * RevokeSessions signs out one session, or every session but this one.
+   *
+   * @generated from rpc mimir.v1.AuthService.RevokeSessions
+   */
+  revokeSessions: {
+    methodKind: "unary";
+    input: typeof RevokeSessionsRequestSchema;
+    output: typeof RevokeSessionsResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_mimir_v1_access, 0);

@@ -60,7 +60,11 @@ func (s *Service) GetSettings(ctx context.Context, _ *connect.Request[mimirv1.Ge
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	return connect.NewResponse(&mimirv1.GetSettingsResponse{Email: emailProto(e), Telegram: telegramProto(t), Retention: retentionProto(r)}), nil
+	sec, err := LoadSecurity(ctx, s.store)
+	if err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	return connect.NewResponse(&mimirv1.GetSettingsResponse{Email: emailProto(e), Telegram: telegramProto(t), Retention: retentionProto(r), Security: securityProto(sec)}), nil
 }
 
 func (s *Service) UpdateAlerts(ctx context.Context, req *connect.Request[mimirv1.UpdateAlertsRequest]) (*connect.Response[mimirv1.UpdateAlertsResponse], error) {

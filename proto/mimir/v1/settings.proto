@@ -16,6 +16,7 @@ service SettingsService {
   // SendTestAlert sends "This is a test" through the chosen channel now.
   rpc SendTestAlert(SendTestAlertRequest) returns (SendTestAlertResponse);
   rpc UpdateRetention(UpdateRetentionRequest) returns (UpdateRetentionResponse);
+  rpc UpdateSecurity(UpdateSecurityRequest) returns (UpdateSecurityResponse);
   rpc GetDatabaseInfo(GetDatabaseInfoRequest) returns (GetDatabaseInfoResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -58,6 +59,30 @@ message GetSettingsResponse {
   EmailAlerts email = 1;
   TelegramAlerts telegram = 2;
   Retention retention = 3;
+  Security security = 4;
+}
+
+// Security says who must use two-step verification.
+message Security {
+  TwoFactorPolicy two_factor = 1;
+}
+
+enum TwoFactorPolicy {
+  TWO_FACTOR_POLICY_UNSPECIFIED = 0;
+  // OPTIONAL lets each person decide.
+  TWO_FACTOR_POLICY_OPTIONAL = 1;
+  // ADMINS requires it for admins and owners.
+  TWO_FACTOR_POLICY_ADMINS = 2;
+  // EVERYONE requires it for every account.
+  TWO_FACTOR_POLICY_EVERYONE = 3;
+}
+
+message UpdateSecurityRequest {
+  Security security = 1;
+}
+
+message UpdateSecurityResponse {
+  Security security = 1;
 }
 
 message UpdateAlertsRequest {

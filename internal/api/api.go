@@ -44,6 +44,8 @@ type Service struct {
 	Kick func()
 	// AllowPrivateWebhooks lets webhooks point at local addresses.
 	AllowPrivateWebhooks bool
+	// Limiter holds back password and code guessing.
+	Limiter *auth.Limiter
 }
 
 var (
@@ -53,7 +55,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	return &Service{store: s, cache: runtime.NewCache(), log: log, Notifier: alert.New(s, log)}
+	return &Service{store: s, cache: runtime.NewCache(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute)}
 }
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {

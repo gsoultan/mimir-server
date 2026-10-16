@@ -12,6 +12,7 @@ export const getModel = (id: string) => createQueryOptions(ModelService.method.g
 
 export const setupState = createQueryOptions(AuthService.method.getSetupState, {}, { transport });
 export const whoAmI = createQueryOptions(AuthService.method.whoAmI, {}, { transport });
+export const listSessions = createQueryOptions(AuthService.method.listSessions, {}, { transport });
 export const listUsers = createQueryOptions(UserService.method.listUsers, {}, { transport });
 export const listApiKeys = createQueryOptions(ApiKeyService.method.listApiKeys, {}, { transport });
 export const auditLog = createInfiniteQueryOptions(AuditService.method.listAuditEvents, { pageSize: 50, pageToken: "" }, {

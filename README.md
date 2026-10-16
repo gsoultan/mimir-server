@@ -33,9 +33,33 @@ account. Then choose **Add a model**, pick the model type and upload a
 
 Viewers and editors can be limited to chosen models. Admins and owners
 reach every model. Each person makes their own API keys under **Connect
-your apps**; a key can never do more than its owner. Passwords are hashed
-with argon2id, sessions live in an HttpOnly cookie for 30 days, and only
-hashes of keys and session tokens are stored.
+your apps**; a key can never do more than its owner.
+
+### Keeping accounts safe
+
+- **Two-step verification.** Under **Security** in the account menu,
+  anyone can add an authenticator app (Google Authenticator, Authy,
+  1Password and the like) to their sign-in, and gets eight one-time
+  recovery codes for a lost phone. Under **Settings → Security** an admin
+  can require it for admins and owners, or for everyone; people without it
+  can only set it up until it's on. An admin can reset it for someone who
+  lost their phone.
+- **Sessions.** Each browser gets its own session, listed under
+  **Security** with a sign-out button and a "sign out everywhere else"
+  button. A session ends after 30 days, or 7 days without use, and is tied
+  to the browser that started it: a cookie replayed from a different
+  browser ends the session instead of opening it. A new token is minted at
+  every sign-in, after the second factor and after a password change;
+  a password change, a smaller role or a disabled account signs the person
+  out everywhere.
+- **Guessing and forgery.** Ten wrong passwords or codes lock an account
+  (and the address they came from) for 15 minutes. Cross-site requests
+  that carry the session cookie are refused, and the UI ships with a
+  Content-Security-Policy, `X-Frame-Options: DENY` and friends.
+- **Storage.** Passwords are hashed with argon2id; session tokens, API
+  keys and recovery codes are stored only as hashes. The cookie is
+  HttpOnly and SameSite=Lax, and becomes `__Host-` prefixed and Secure
+  behind an HTTPS proxy that sets `X-Forwarded-Proto`.
 
 ## How models load
 
