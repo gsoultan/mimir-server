@@ -4,8 +4,8 @@ import { Role } from "../api/gen/mimir/v1/access_pb";
 export const roles: { value: Role; label: string; blurb: string }[] = [
   { value: Role.VIEWER, label: "Viewer", blurb: "Can look at models and ask them questions." },
   { value: Role.EDITOR, label: "Editor", blurb: "Can also add, rename and delete models." },
-  { value: Role.ADMIN, label: "Admin", blurb: "Can also manage people and read the audit log." },
-  { value: Role.OWNER, label: "Owner", blurb: "Can do everything, including manage admins." },
+  { value: Role.ADMIN, label: "Admin", blurb: "Can also manage their team's people and webhooks, and read its audit log." },
+  { value: Role.OWNER, label: "Owner", blurb: "Can do everything: every team, admins, workers and server settings." },
 ];
 
 export function roleLabel(r: Role): string {

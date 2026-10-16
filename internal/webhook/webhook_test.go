@@ -66,7 +66,7 @@ func TestDeliverAndRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	payload, _ := Payload("evt1", "test", time.Now(), map[string]string{"hello": "world"})
-	if n, err := st.Enqueue(ctx, "evt1", "test", payload); err != nil || n != 1 {
+	if n, err := st.Enqueue(ctx, store.DefaultTeam, "evt1", "test", payload); err != nil || n != 1 {
 		t.Fatalf("Enqueue = %d, %v", n, err)
 	}
 

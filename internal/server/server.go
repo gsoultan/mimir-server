@@ -45,6 +45,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	mux.Handle(mimirv1connect.NewSettingsServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewDatasetServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
 	mux.Handle(mimirv1connect.NewTrainingServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewTeamServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	// Workers authenticate inside Link with their token; the interceptor
 	// guards the unary calls as usual.
 	mux.Handle(mimirv1connect.NewWorkerServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes), connect.WithSendMaxBytes(maxModelBytes)))
@@ -61,6 +62,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 		mimirv1connect.DatasetServiceName,
 		mimirv1connect.TrainingServiceName,
 		mimirv1connect.WorkerServiceName,
+		mimirv1connect.TeamServiceName,
 	)))
 	mux.Handle("/", uiHandler(ui))
 

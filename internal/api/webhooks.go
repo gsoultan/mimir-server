@@ -22,14 +22,24 @@ var _ mimirv1connect.WebhookServiceHandler = (*Service)(nil)
 
 // emit records an event for every webhook that wants it and nudges the
 // dispatcher. It never fails the caller: the change already happened.
+// emit announces an event to the caller's team's webhooks.
 func (s *Service) emit(ctx context.Context, eventType string, data any) {
+	p, _ := auth.From(ctx)
+	s.emitIn(ctx, p.Team(), eventType, data)
+}
+
+// emitIn announces an event to one team's webhooks.
+func (s *Service) emitIn(ctx context.Context, team, eventType string, data any) {
+	if team == "" {
+		return
+	}
 	id := webhook.NewEventID()
 	payload, err := webhook.Payload(id, eventType, time.Now(), data)
 	if err != nil {
 		s.log.ErrorContext(ctx, "webhook payload", "event", eventType, "error", err)
 		return
 	}
-	n, err := s.store.Enqueue(ctx, id, eventType, payload)
+	n, err := s.store.Enqueue(ctx, team, id, eventType, payload)
 	if err != nil {
 		s.log.ErrorContext(ctx, "webhook enqueue", "event", eventType, "error", err)
 		return
@@ -47,19 +57,20 @@ func (s *Service) kick() {
 }
 
 func (s *Service) ListWebhooks(ctx context.Context, _ *connect.Request[mimirv1.ListWebhooksRequest]) (*connect.Response[mimirv1.ListWebhooksResponse], error) {
-	hooks, err := s.store.ListWebhooks(ctx)
+	p, _ := auth.From(ctx)
+	hooks, err := s.store.ListWebhooks(ctx, p.Team())
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
 	res := &mimirv1.ListWebhooksResponse{EventTypes: webhook.EventTypes}
 	for _, w := range hooks {
-		p := webhookProto(w)
+		wp := webhookProto(w)
 		if last, err := s.store.LastDelivery(ctx, w.ID); err == nil {
-			p.LastDelivery = deliveryProto(last)
+			wp.LastDelivery = deliveryProto(last)
 		} else if !errors.Is(err, store.ErrNotFound) {
 			return nil, s.internal(ctx, err)
 		}
-		res.Webhooks = append(res.Webhooks, p)
+		res.Webhooks = append(res.Webhooks, wp)
 	}
 	return connect.NewResponse(res), nil
 }
@@ -74,7 +85,7 @@ func (s *Service) CreateWebhook(ctx context.Context, req *connect.Request[mimirv
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	w, err := s.store.CreateWebhook(ctx, store.Webhook{Name: name, URL: url, Secret: secret, Events: events, Enabled: true})
+	w, err := s.store.CreateWebhook(ctx, store.Webhook{Name: name, URL: url, Secret: secret, Events: events, Enabled: true, TeamID: p.Team()})
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -173,6 +184,12 @@ func (s *Service) Redeliver(ctx context.Context, req *connect.Request[mimirv1.Re
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
+	if _, err := s.getWebhook(ctx, old.WebhookID); err != nil {
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("No such delivery."))
+		}
+		return nil, err
+	}
 	d, err := s.store.EnqueueFor(ctx, old.WebhookID, old.EventID, old.EventType, old.Payload, time.Now())
 	if err != nil {
 		return nil, s.internal(ctx, err)
@@ -191,6 +208,9 @@ func (s *Service) getWebhook(ctx context.Context, id string) (store.Webhook, err
 	}
 	if err != nil {
 		return store.Webhook{}, s.internal(ctx, err)
+	}
+	if p, _ := auth.From(ctx); w.TeamID != p.Team() {
+		return store.Webhook{}, connect.NewError(connect.CodeNotFound, errors.New("No such webhook."))
 	}
 	return w, nil
 }

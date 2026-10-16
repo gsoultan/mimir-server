@@ -61,11 +61,11 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	res := connect.NewResponse(&mimirv1.SetupResponse{User: userProto(u)})
+	res := connect.NewResponse(&mimirv1.SetupResponse{User: s.userProto(ctx, u)})
 	if _, err := s.signIn(ctx, req, res.Header(), u, false); err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	s.audit(ctx, u.Email, "server.setup", u.Email, "")
+	s.auditIn(ctx, u.TeamID, u.Email, "server.setup", u.Email, "")
 	return res, nil
 }
 
@@ -87,7 +87,7 @@ func (s *Service) SignIn(ctx context.Context, req *connect.Request[mimirv1.SignI
 	}
 	if !auth.CheckPassword(u.PasswordHash, req.Msg.GetPassword()) {
 		s.Limiter.Fail(keys...)
-		s.audit(ctx, email, "user.signin_failed", email, s.whence(req))
+		s.auditIn(ctx, u.TeamID, email, "user.signin_failed", email, s.whence(req))
 		return nil, badSignIn()
 	}
 	if u.Disabled {
@@ -111,8 +111,8 @@ func (s *Service) SignIn(ctx context.Context, req *connect.Request[mimirv1.SignI
 	if _, err := s.signIn(ctx, req, res.Header(), u, false); err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	res.Msg.User = userProto(u)
-	s.audit(ctx, u.Email, "user.signin", u.Email, s.whence(req))
+	res.Msg.User = s.userProto(ctx, u)
+	s.auditIn(ctx, u.TeamID, u.Email, "user.signin", u.Email, s.whence(req))
 	return res, nil
 }
 
@@ -129,7 +129,7 @@ func (s *Service) SignOut(ctx context.Context, req *connect.Request[mimirv1.Sign
 
 func (s *Service) WhoAmI(ctx context.Context, _ *connect.Request[mimirv1.WhoAmIRequest]) (*connect.Response[mimirv1.WhoAmIResponse], error) {
 	p, _ := auth.From(ctx)
-	res := &mimirv1.WhoAmIResponse{User: userProto(p.User)}
+	res := &mimirv1.WhoAmIResponse{User: s.userProto(ctx, p.User)}
 	res.User.Access = accessProto(p.Access)
 	for _, perm := range auth.Permissions(p.Access.Role) {
 		res.Permissions = append(res.Permissions, string(perm))
@@ -174,13 +174,24 @@ func (s *Service) ChangePassword(ctx context.Context, req *connect.Request[mimir
 // Users
 
 func (s *Service) ListUsers(ctx context.Context, _ *connect.Request[mimirv1.ListUsersRequest]) (*connect.Response[mimirv1.ListUsersResponse], error) {
-	us, err := s.store.ListUsers(ctx)
+	p, _ := auth.From(ctx)
+	team := p.Team()
+	if p.Can(auth.TeamsManage) {
+		team = "" // owners see everyone
+	}
+	us, err := s.store.ListUsers(ctx, team)
+	if err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	names, err := s.teamNames(ctx)
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
 	res := &mimirv1.ListUsersResponse{}
 	for _, u := range us {
-		res.Users = append(res.Users, userProto(u))
+		up := userProto(u)
+		up.TeamName = names[u.TeamID]
+		res.Users = append(res.Users, up)
 	}
 	return connect.NewResponse(res), nil
 }
@@ -191,7 +202,11 @@ func (s *Service) CreateUser(ctx context.Context, req *connect.Request[mimirv1.C
 	if err != nil {
 		return nil, err
 	}
-	access, err := s.cleanAccess(ctx, p, req.Msg.GetAccess())
+	team, err := s.pickTeam(ctx, p, req.Msg.GetTeamId(), p.Team())
+	if err != nil {
+		return nil, err
+	}
+	access, err := s.cleanAccess(ctx, p, req.Msg.GetAccess(), team)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +217,7 @@ func (s *Service) CreateUser(ctx context.Context, req *connect.Request[mimirv1.C
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	u, err := s.store.CreateUser(ctx, store.User{Email: email, Name: name, PasswordHash: hash, Access: access})
+	u, err := s.store.CreateUser(ctx, store.User{Email: email, Name: name, PasswordHash: hash, Access: access, TeamID: team})
 	if errors.Is(err, store.ErrEmailTaken) {
 		return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("Someone already has that email address."))
 	}
@@ -210,18 +225,15 @@ func (s *Service) CreateUser(ctx context.Context, req *connect.Request[mimirv1.C
 		return nil, s.internal(ctx, err)
 	}
 	s.audit(ctx, p.Actor(), "user.create", u.Email, describeAccess(u.Access))
-	s.emit(ctx, "user.created", map[string]any{"user": map[string]any{"id": u.ID, "email": u.Email, "name": u.Name}, "actor": p.Actor()})
-	return connect.NewResponse(&mimirv1.CreateUserResponse{User: userProto(u)}), nil
+	s.emitIn(ctx, u.TeamID, "user.created", map[string]any{"user": map[string]any{"id": u.ID, "email": u.Email, "name": u.Name}, "actor": p.Actor()})
+	return connect.NewResponse(&mimirv1.CreateUserResponse{User: s.userProto(ctx, u)}), nil
 }
 
 func (s *Service) UpdateUser(ctx context.Context, req *connect.Request[mimirv1.UpdateUserRequest]) (*connect.Response[mimirv1.UpdateUserResponse], error) {
 	p, _ := auth.From(ctx)
-	target, err := s.store.GetUser(ctx, req.Msg.GetId())
-	if errors.Is(err, store.ErrNotFound) || !store.ValidID(req.Msg.GetId()) {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("No such user."))
-	}
+	target, err := s.getUser(ctx, p, req.Msg.GetId())
 	if err != nil {
-		return nil, s.internal(ctx, err)
+		return nil, err
 	}
 	// Admins can't touch admins or owners; only owners can.
 	if target.Access.Role >= store.Admin && !p.Can(auth.UsersAdmin) {
@@ -231,7 +243,11 @@ func (s *Service) UpdateUser(ctx context.Context, req *connect.Request[mimirv1.U
 	if err != nil {
 		return nil, err
 	}
-	access, err := s.cleanAccess(ctx, p, req.Msg.GetAccess())
+	team, err := s.pickTeam(ctx, p, req.Msg.GetTeamId(), target.TeamID)
+	if err != nil {
+		return nil, err
+	}
+	access, err := s.cleanAccess(ctx, p, req.Msg.GetAccess(), team)
 	if err != nil {
 		return nil, err
 	}
@@ -243,6 +259,19 @@ func (s *Service) UpdateUser(ctx context.Context, req *connect.Request[mimirv1.U
 		if err := s.requireAnotherOwner(ctx, target.ID); err != nil {
 			return nil, err
 		}
+	}
+	if team != target.TeamID {
+		// Their keys and sign-ins were for the old team; a person moving
+		// themselves keeps this browser signed in.
+		keep := ""
+		if target.ID == p.User.ID && p.Session != nil {
+			keep = p.Session.ID
+		}
+		if err := s.store.MoveUser(ctx, target.ID, team, keep); err != nil {
+			return nil, s.internal(ctx, err)
+		}
+		names, _ := s.teamNames(ctx)
+		s.audit(ctx, p.Actor(), "user.move", target.Email, names[target.TeamID]+" → "+names[team])
 	}
 	u, err := s.store.UpdateUser(ctx, target.ID, name, access, disabled)
 	if err != nil {
@@ -279,17 +308,14 @@ func (s *Service) UpdateUser(ctx context.Context, req *connect.Request[mimirv1.U
 		s.audit(ctx, p.Actor(), "user.password_reset", u.Email, "")
 	}
 	s.audit(ctx, p.Actor(), "user.update", u.Email, describeAccess(u.Access)+boolNote(" disabled", u.Disabled))
-	return connect.NewResponse(&mimirv1.UpdateUserResponse{User: userProto(u)}), nil
+	return connect.NewResponse(&mimirv1.UpdateUserResponse{User: s.userProto(ctx, u)}), nil
 }
 
 func (s *Service) DeleteUser(ctx context.Context, req *connect.Request[mimirv1.DeleteUserRequest]) (*connect.Response[mimirv1.DeleteUserResponse], error) {
 	p, _ := auth.From(ctx)
-	target, err := s.store.GetUser(ctx, req.Msg.GetId())
-	if errors.Is(err, store.ErrNotFound) || !store.ValidID(req.Msg.GetId()) {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("No such user."))
-	}
+	target, err := s.getUser(ctx, p, req.Msg.GetId())
 	if err != nil {
-		return nil, s.internal(ctx, err)
+		return nil, err
 	}
 	if target.Access.Role >= store.Admin && !p.Can(auth.UsersAdmin) {
 		return nil, auth.ErrForbidden
@@ -306,7 +332,7 @@ func (s *Service) DeleteUser(ctx context.Context, req *connect.Request[mimirv1.D
 		return nil, s.internal(ctx, err)
 	}
 	s.audit(ctx, p.Actor(), "user.delete", target.Email, "")
-	s.emit(ctx, "user.deleted", map[string]any{"user": map[string]any{"id": target.ID, "email": target.Email, "name": target.Name}, "actor": p.Actor()})
+	s.emitIn(ctx, target.TeamID, "user.deleted", map[string]any{"user": map[string]any{"id": target.ID, "email": target.Email, "name": target.Name}, "actor": p.Actor()})
 	return connect.NewResponse(&mimirv1.DeleteUserResponse{}), nil
 }
 
@@ -334,7 +360,7 @@ func (s *Service) CreateApiKey(ctx context.Context, req *connect.Request[mimirv1
 	if name == "" || utf8.RuneCountInString(name) > maxName {
 		return nil, invalid("Give the key a name of up to %d characters.", maxName)
 	}
-	access, err := s.cleanAccess(ctx, p, req.Msg.GetAccess())
+	access, err := s.cleanAccess(ctx, p, req.Msg.GetAccess(), p.Team())
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +400,12 @@ func (s *Service) ListAuditEvents(ctx context.Context, req *connect.Request[mimi
 	if before != "" && !store.ValidID(before) {
 		return nil, invalid("That page token isn't valid.")
 	}
-	es, err := s.store.ListAuditEvents(ctx, before, size+1)
+	p, _ := auth.From(ctx)
+	team := p.Team()
+	if p.Can(auth.TeamsManage) {
+		team = "" // owners see every team's events
+	}
+	es, err := s.store.ListAuditEvents(ctx, team, before, size+1)
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -385,7 +416,7 @@ func (s *Service) ListAuditEvents(ctx context.Context, req *connect.Request[mimi
 	}
 	for _, e := range es {
 		res.Events = append(res.Events, &mimirv1.AuditEvent{
-			Id: e.ID, Time: timestamppb.New(e.Time), Actor: e.Actor, Action: e.Action, Target: e.Target, Detail: e.Detail,
+			Id: e.ID, Time: timestamppb.New(e.Time), Actor: e.Actor, Action: e.Action, Target: e.Target, Detail: e.Detail, TeamName: e.TeamName,
 		})
 	}
 	return connect.NewResponse(res), nil
@@ -421,10 +452,80 @@ func (s *Service) signIn(ctx context.Context, req connect.AnyRequest, resHeader 
 
 // audit records an event, logging rather than failing on error: the action
 // already happened.
+// The event belongs to the caller's team.
 func (s *Service) audit(ctx context.Context, actor, action, target, detail string) {
-	if err := s.store.Audit(ctx, store.AuditEvent{Actor: actor, Action: action, Target: target, Detail: detail}); err != nil {
+	p, _ := auth.From(ctx)
+	s.auditIn(ctx, p.Team(), actor, action, target, detail)
+}
+
+// auditIn records an event in a given team, for when there's no caller
+// yet (signing in) or it's the server acting (training).
+func (s *Service) auditIn(ctx context.Context, team, actor, action, target, detail string) {
+	if err := s.store.Audit(ctx, store.AuditEvent{Actor: actor, Action: action, Target: target, Detail: detail, TeamID: team}); err != nil {
 		s.log.ErrorContext(ctx, "audit failed", "action", action, "error", err)
 	}
+}
+
+// getUser returns a user the caller may manage: anyone for owners, their
+// own team's people for admins. Others read as missing.
+func (s *Service) getUser(ctx context.Context, p auth.Principal, id string) (store.User, error) {
+	missing := connect.NewError(connect.CodeNotFound, errors.New("No such user."))
+	if !store.ValidID(id) {
+		return store.User{}, missing
+	}
+	u, err := s.store.GetUser(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return store.User{}, missing
+	}
+	if err != nil {
+		return store.User{}, s.internal(ctx, err)
+	}
+	if u.TeamID != p.Team() && !p.Can(auth.TeamsManage) {
+		return store.User{}, missing
+	}
+	return u, nil
+}
+
+// pickTeam resolves the team a person should be in: current when none is
+// asked for; any existing team for owners; otherwise only the current.
+func (s *Service) pickTeam(ctx context.Context, p auth.Principal, asked, current string) (string, error) {
+	if asked == "" || asked == current {
+		return current, nil
+	}
+	if !p.Can(auth.TeamsManage) {
+		return "", connect.NewError(connect.CodePermissionDenied, errors.New("Only owners can move people between teams."))
+	}
+	if !store.ValidID(asked) {
+		return "", invalid("Pick a team from the list.")
+	}
+	if _, err := s.store.GetTeam(ctx, asked); errors.Is(err, store.ErrNotFound) {
+		return "", invalid("That team no longer exists.")
+	} else if err != nil {
+		return "", s.internal(ctx, err)
+	}
+	return asked, nil
+}
+
+// teamNames maps team ids to names.
+func (s *Service) teamNames(ctx context.Context) (map[string]string, error) {
+	ts, err := s.store.ListTeams(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(ts))
+	for _, t := range ts {
+		out[t.ID] = t.Name
+	}
+	return out, nil
+}
+
+// userProto is userProto with the team's name filled in.
+func (s *Service) userProto(ctx context.Context, u store.User) *mimirv1.User {
+	out := userProto(u)
+	if t, err := s.store.GetTeam(ctx, u.TeamID); err == nil {
+		out.TeamName = t.Name
+	}
+	return out
 }
 
 func (s *Service) requireAnotherOwner(ctx context.Context, exceptID string) error {
@@ -439,7 +540,8 @@ func (s *Service) requireAnotherOwner(ctx context.Context, exceptID string) erro
 }
 
 // cleanAccess validates requested access and caps it at the caller's own.
-func (s *Service) cleanAccess(ctx context.Context, p auth.Principal, a *mimirv1.Access) (store.Access, error) {
+// Models must belong to team.
+func (s *Service) cleanAccess(ctx context.Context, p auth.Principal, a *mimirv1.Access, team string) (store.Access, error) {
 	role := store.Role(a.GetRole())
 	if role < store.Viewer || role > store.Owner {
 		return store.Access{}, invalid("Pick a role: viewer, editor, admin or owner.")
@@ -462,8 +564,9 @@ func (s *Service) cleanAccess(ctx context.Context, p auth.Principal, a *mimirv1.
 		if !store.ValidID(id) || seen[id] {
 			continue
 		}
-		if _, err := s.store.Get(ctx, id); errors.Is(err, store.ErrNotFound) {
-			return store.Access{}, invalid("One of the chosen models no longer exists.")
+		m, err := s.store.Get(ctx, id)
+		if errors.Is(err, store.ErrNotFound) || (err == nil && m.TeamID != team) {
+			return store.Access{}, invalid("One of the chosen models no longer exists in this team.")
 		} else if err != nil {
 			return store.Access{}, s.internal(ctx, err)
 		}
@@ -514,7 +617,7 @@ func boolNote(note string, b bool) string {
 func userProto(u store.User) *mimirv1.User {
 	out := &mimirv1.User{
 		Id: u.ID, Email: u.Email, Name: u.Name, Access: accessProto(u.Access), Disabled: u.Disabled,
-		CreateTime: timestamppb.New(u.Created), TwoFactor: u.TwoFactor(),
+		CreateTime: timestamppb.New(u.Created), TwoFactor: u.TwoFactor(), TeamId: u.TeamID,
 	}
 	if !u.LastSignIn.IsZero() {
 		out.LastSignInTime = timestamppb.New(u.LastSignIn)

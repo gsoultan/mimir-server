@@ -28,19 +28,34 @@ account. Then choose **Add a model**, pick the model type and upload a
 | --- | --- |
 | Viewer | See models and ask them questions |
 | Editor | Also add, rename and delete models |
-| Admin | Also manage people and read the audit log |
-| Owner | Also manage admins and owners |
+| Admin | Also manage their team's people and webhooks, read its audit log and teach from a database |
+| Owner | Also manage admins, owners, teams, workers and every server setting |
 
 Viewers and editors can be limited to chosen models. Admins and owners
-reach every model. Each person makes their own API keys under **Connect
-your apps**; a key can never do more than its owner.
+reach every model in their team. Each person makes their own API keys
+under **Connect your apps**; a key can never do more than its owner.
+
+### Teams
+
+One server can hold several teams that don't see each other's work. Each
+person belongs to one team and sees only its models, examples, training
+runs, webhooks, audit events and usage; asking for another team's model
+by id reads as "not found". A server starts with one team, "My team", and
+everything made before teams existed belongs to it.
+
+Owners manage teams under **Settings → Teams**: add, rename, remove an
+empty one, and **Move me here** to work inside another team. When adding
+or editing a person, owners pick their team. Moving someone signs them out
+and revokes their API keys, since those were for the old team. Owners see
+every team's people and audit events; workers, limits and the other
+server-wide settings are theirs alone.
 
 ### Keeping accounts safe
 
 - **Two-step verification.** Under **Security** in the account menu,
   anyone can add an authenticator app (Google Authenticator, Authy,
   1Password and the like) to their sign-in, and gets eight one-time
-  recovery codes for a lost phone. Under **Settings → Security** an admin
+  recovery codes for a lost phone. Under **Settings → Security** an owner
   can require it for admins and owners, or for everyone; people without it
   can only set it up until it's on. An admin can reset it for someone who
   lost their phone.
@@ -140,8 +155,8 @@ anything public. Health checks are at `grpc.health.v1.Health`.
 Under **Connect your apps** you can add a webhook: an address of yours
 that mimir calls when a model is created, updated or deleted, when a
 person is added or removed, or when a training run is queued, finishes or
-fails. Each call is a JSON POST signed with the
-webhook's secret:
+fails. A webhook hears only its own team's events. Each call is a JSON
+POST signed with the webhook's secret:
 
 ```
 Mimir-Event: model.created
@@ -179,14 +194,15 @@ token only; they never see people's credentials.
 
 ## Settings
 
-Admins find these under **Settings**:
+Owners find these under **Settings**; admins see their team's
+**Audit log** and **Usage** there:
 
 - **Alerts**: an email (SMTP) and/or Telegram message when a webhook keeps
   failing. Each has a test button.
 - **Log retention**: how long audit events and webhook deliveries are kept.
   A cleanup runs every hour.
 - **Database**: engine, file, size and counts, plus **Download a backup**
-  (`GET /api/backup`, admin only), a consistent copy of the SQLite file.
+  (`GET /api/backup`, owners only), a consistent copy of the SQLite file.
   Model weights live next to it in the data folder.
 - **Limits**: how many predictions each API key or person may make a minute,
   how many each person may make a month (all their keys together), and how

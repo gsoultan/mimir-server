@@ -53,7 +53,7 @@ function Teach() {
   const { data: sets } = useSuspenseQuery(listDatasets);
   const { data: archs } = useSuspenseQuery(listArchitectures);
   const { data: me } = useSuspenseQuery(whoAmI);
-  const canConnect = me.permissions.includes("settings.manage");
+  const canConnect = me.permissions.includes("databases.query");
   const navigate = useNavigate();
   const { queryClient } = Route.useRouteContext();
   const [step, setStep] = useState(0);

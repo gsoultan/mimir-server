@@ -86,11 +86,11 @@ func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.Li
 }
 
 func (s *Service) ListModels(ctx context.Context, _ *connect.Request[mimirv1.ListModelsRequest]) (*connect.Response[mimirv1.ListModelsResponse], error) {
-	ms, err := s.store.List(ctx)
+	p, _ := auth.From(ctx)
+	ms, err := s.store.List(ctx, p.Team())
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	p, _ := auth.From(ctx)
 	res := &mimirv1.ListModelsResponse{}
 	for _, m := range ms {
 		if p.Access.Allows(m.ID) {
@@ -130,11 +130,11 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 		s.log.InfoContext(ctx, "weights rejected", "architecture", a.Name, "error", err)
 		return nil, invalid("This file doesn't fit the %q model type. Check that you picked the kind of model the file was saved from.", a.Title)
 	}
-	m, err := s.store.Create(ctx, store.Model{Name: name, Description: desc, Architecture: a.Name}, msg.GetWeights())
+	p, _ := auth.From(ctx)
+	m, err := s.store.Create(ctx, store.Model{Name: name, Description: desc, Architecture: a.Name, TeamID: p.Team()}, msg.GetWeights())
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	p, _ := auth.From(ctx)
 	s.audit(ctx, p.Actor(), "model.create", m.Name, a.Title)
 	s.emit(ctx, "model.created", modelEvent(m, p))
 	s.log.InfoContext(ctx, "model created", "model_id", m.ID, "architecture", m.Architecture, "size_bytes", m.SizeBytes)
@@ -274,9 +274,9 @@ func (s *Service) get(ctx context.Context, id string) (store.Model, error) {
 	if err != nil {
 		return store.Model{}, s.internal(ctx, err)
 	}
-	// A model outside the caller's access reads as missing, so the id
-	// space doesn't leak.
-	if p, _ := auth.From(ctx); !p.Access.Allows(m.ID) {
+	// A model outside the caller's team or access reads as missing, so
+	// the id space doesn't leak.
+	if p, _ := auth.From(ctx); m.TeamID != p.Team() || !p.Access.Allows(m.ID) {
 		return store.Model{}, notFound(id)
 	}
 	return m, nil

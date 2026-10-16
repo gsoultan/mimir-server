@@ -103,12 +103,16 @@ var Required = map[string]Permission{
 	"/mimir.v1.SettingsService/GetDatabaseInfo": SettingsManage,
 	"/mimir.v1.SettingsService/UpdateLimits":    SettingsManage,
 	"/mimir.v1.SettingsService/GetUsage":        ModelsRead,
-	"/mimir.v1.DatasetService/TestQuery":        SettingsManage,
+	"/mimir.v1.DatasetService/TestQuery":        DatabaseQuery,
 	"/mimir.v1.DatasetService/RefreshDataset":   ModelsWrite,
 	"/mimir.v1.TrainingService/SetRepeat":       ModelsWrite,
 	"/mimir.v1.WorkerService/ListWorkers":       WorkersManage,
 	"/mimir.v1.WorkerService/CreateWorker":      WorkersManage,
 	"/mimir.v1.WorkerService/DeleteWorker":      WorkersManage,
+	"/mimir.v1.TeamService/ListTeams":           TeamsManage,
+	"/mimir.v1.TeamService/CreateTeam":          TeamsManage,
+	"/mimir.v1.TeamService/UpdateTeam":          TeamsManage,
+	"/mimir.v1.TeamService/DeleteTeam":          TeamsManage,
 }
 
 // ErrSignedOut is returned to callers with no valid credentials.

@@ -47,11 +47,15 @@ func (s *Store) UserUsage(ctx context.Context, month, userID string) (int64, err
 }
 
 // ListUsage returns a month's counters, busiest first; userID, when set,
-// keeps only that person's.
-func (s *Store) ListUsage(ctx context.Context, month, userID string) ([]Usage, error) {
+// keeps only that person's, and team only that team's people.
+func (s *Store) ListUsage(ctx context.Context, month, userID, team string) ([]Usage, error) {
 	q := `SELECT u.month, u.user_id, u.key_id, u.key_name, u.predictions, p.name, p.email
 		FROM usage u JOIN users p ON p.id = u.user_id WHERE u.month = ?`
 	args := []any{month}
+	if team != "" {
+		q += " AND p.team_id = ?"
+		args = append(args, team)
+	}
 	if userID != "" {
 		q += " AND u.user_id = ?"
 		args = append(args, userID)
