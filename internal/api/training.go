@@ -32,7 +32,8 @@ const maxCSVBytes = 64 << 20
 // Datasets
 
 func (s *Service) ListDatasets(ctx context.Context, _ *connect.Request[mimirv1.ListDatasetsRequest]) (*connect.Response[mimirv1.ListDatasetsResponse], error) {
-	ds, err := s.store.ListDatasets(ctx)
+	p, _ := auth.From(ctx)
+	ds, err := s.store.ListDatasets(ctx, p.Team())
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -69,7 +70,7 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 	var csvBytes []byte
 	conn, query := req.Msg.GetConnection(), strings.TrimSpace(req.Msg.GetQuery())
 	if conn != nil || query != "" {
-		if !p.Can(auth.SettingsManage) {
+		if !p.Can(auth.DatabaseQuery) {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("Only admins can connect a database."))
 		}
 		if req.Msg.GetKind() != mimirv1.DatasetKind_DATASET_KIND_TABLE {
@@ -113,6 +114,7 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 	default:
 		return nil, invalid("Choose a table (CSV) or the built-in handwritten digits.")
 	}
+	d.TeamID = p.Team()
 	d, err = s.store.CreateDataset(ctx, d, csvBytes)
 	if err != nil {
 		return nil, s.internal(ctx, err)
@@ -206,11 +208,12 @@ func (s *Service) DeleteDataset(ctx context.Context, req *connect.Request[mimirv
 // Jobs
 
 func (s *Service) ListJobs(ctx context.Context, _ *connect.Request[mimirv1.ListJobsRequest]) (*connect.Response[mimirv1.ListJobsResponse], error) {
-	js, err := s.store.ListJobs(ctx)
+	p, _ := auth.From(ctx)
+	js, err := s.store.ListJobs(ctx, p.Team())
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	names, err := s.datasetNames(ctx)
+	names, err := s.datasetNames(ctx, p.Team())
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -281,7 +284,7 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 	if err := checkRepeat(repeat); err != nil {
 		return nil, err
 	}
-	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat})
+	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat, TeamID: p.Team()})
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -323,7 +326,7 @@ func (s *Service) SetRepeat(ctx context.Context, req *connect.Request[mimirv1.Se
 	if j, err = s.store.GetJob(ctx, j.ID); err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	names, _ := s.datasetNames(ctx)
+	names, _ := s.datasetNames(ctx, p.Team())
 	return connect.NewResponse(&mimirv1.SetRepeatResponse{Job: jobProto(j, names[j.DatasetID])}), nil
 }
 
@@ -399,15 +402,15 @@ func (s *Service) TrainingDone(ctx context.Context, j store.Job) {
 	}
 	switch j.Status {
 	case store.JobSucceeded:
-		s.audit(ctx, "server", "training.succeeded", j.Name, fmt.Sprintf("%.1f%% right", accuracy(j)*100))
-		s.emit(ctx, "training.finished", jobEvent(j, name))
+		s.auditIn(ctx, j.TeamID, "server", "training.succeeded", j.Name, fmt.Sprintf("%.1f%% right", accuracy(j)*100))
+		s.emitIn(ctx, j.TeamID, "training.finished", jobEvent(j, name))
 		if m, err := s.store.Get(ctx, j.ModelID); err == nil {
-			s.emit(ctx, "model.created", modelEvent(m, auth.Principal{}))
+			s.emitIn(ctx, j.TeamID, "model.created", modelEvent(m, auth.Principal{}))
 		}
 		s.Notifier.Notify(ctx, "Training finished: "+j.Name, fmt.Sprintf("%s learned from %s and gets %.1f%% of held-out examples right. It's ready to try.", j.Name, name, accuracy(j)*100))
 	case store.JobFailed:
-		s.audit(ctx, "server", "training.failed", j.Name, j.Error)
-		s.emit(ctx, "training.failed", jobEvent(j, name))
+		s.auditIn(ctx, j.TeamID, "server", "training.failed", j.Name, j.Error)
+		s.emitIn(ctx, j.TeamID, "training.failed", jobEvent(j, name))
 		s.Notifier.Notify(ctx, "Training failed: "+j.Name, j.Error)
 	}
 }
@@ -425,6 +428,9 @@ func (s *Service) getDataset(ctx context.Context, id string) (store.Dataset, err
 	if err != nil {
 		return store.Dataset{}, s.internal(ctx, err)
 	}
+	if p, _ := auth.From(ctx); d.TeamID != p.Team() {
+		return store.Dataset{}, connect.NewError(connect.CodeNotFound, errors.New("No such dataset."))
+	}
 	return d, nil
 }
 
@@ -439,11 +445,14 @@ func (s *Service) getJob(ctx context.Context, id string) (store.Job, error) {
 	if err != nil {
 		return store.Job{}, s.internal(ctx, err)
 	}
+	if p, _ := auth.From(ctx); j.TeamID != p.Team() {
+		return store.Job{}, connect.NewError(connect.CodeNotFound, errors.New("No such training run."))
+	}
 	return j, nil
 }
 
-func (s *Service) datasetNames(ctx context.Context) (map[string]string, error) {
-	ds, err := s.store.ListDatasets(ctx)
+func (s *Service) datasetNames(ctx context.Context, team string) (map[string]string, error) {
+	ds, err := s.store.ListDatasets(ctx, team)
 	if err != nil {
 		return nil, err
 	}

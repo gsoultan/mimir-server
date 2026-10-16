@@ -47,6 +47,8 @@ type Model struct {
 	// 0 when unknown.
 	Accuracy float64
 	JobID    string
+	// TeamID is the team the model belongs to.
+	TeamID string
 }
 
 // Store is safe for concurrent use.
@@ -137,7 +139,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id, accuracy"
+const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id, accuracy, team_id"
 
 type scanner interface{ Scan(dest ...any) error }
 
@@ -145,7 +147,9 @@ func scan(row scanner) (Model, error) {
 	var m Model
 	var created, updated int64
 	var shape, labels, features string
-	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID, &m.Accuracy)
+	var team sql.NullString
+	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID, &m.Accuracy, &team)
+	m.TeamID = team.String
 	m.Created = time.UnixMilli(created).UTC()
 	m.Updated = time.UnixMilli(updated).UTC()
 	m.InputShape = fromJSON[[]int](shape)
@@ -154,9 +158,9 @@ func scan(row scanner) (Model, error) {
 	return m, err
 }
 
-// List returns every model, newest first.
-func (s *Store) List(ctx context.Context) ([]Model, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+columns+" FROM models ORDER BY create_time DESC, id DESC LIMIT 1000")
+// List returns a team's models, newest first.
+func (s *Store) List(ctx context.Context, team string) ([]Model, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT "+columns+" FROM models WHERE team_id = ? ORDER BY create_time DESC, id DESC LIMIT 1000", team)
 	if err != nil {
 		return nil, fmt.Errorf("store: list: %w", err)
 	}
@@ -195,6 +199,9 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	m.ID, m.SizeBytes, m.SHA256 = id.String(), int64(len(weights)), hex.EncodeToString(sum[:])
 	m.Created, m.Updated = now, now
+	if m.TeamID == "" {
+		m.TeamID = DefaultTeam
+	}
 
 	// The file goes first and the row second, so a row never points at a
 	// missing file. A crash between the two leaves an orphan file, which is
@@ -203,9 +210,9 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	if err := writeFileAtomic(path, weights); err != nil {
 		return Model{}, fmt.Errorf("store: write weights: %w", err)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		m.ID, m.Name, m.Description, m.Architecture, m.SizeBytes, m.SHA256, now.UnixMilli(), now.UnixMilli(),
-		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy)
+		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, m.TeamID)
 	if err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)

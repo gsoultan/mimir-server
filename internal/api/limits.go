@@ -128,7 +128,7 @@ func (s *Service) admit(ctx context.Context, p auth.Principal) error {
 	}
 	if l.PerMonth > 0 && m.totals[total] >= l.PerMonth {
 		next := time.Date(now.UTC().Year(), now.UTC().Month()+1, 1, 0, 0, 0, 0, time.UTC)
-		return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("This month's %d predictions are used up. They reset on %s; an admin can raise the limit under Settings → Limits.", l.PerMonth, next.Format("2 January")))
+		return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("This month's %d predictions are used up. They reset on %s; an owner can raise the limit under Settings → Limits.", l.PerMonth, next.Format("2 January")))
 	}
 	m.totals[total]++
 	m.pending[k]++
@@ -223,11 +223,15 @@ func (s *Service) GetUsage(ctx context.Context, req *connect.Request[mimirv1.Get
 	if err := s.FlushUsage(ctx); err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	only := p.User.ID
-	if p.Can(auth.AuditRead) {
-		only = "" // admins see everyone
+	// Owners see everyone, admins their team, others themselves.
+	only, team := p.User.ID, p.Team()
+	switch {
+	case p.Can(auth.TeamsManage):
+		only, team = "", ""
+	case p.Can(auth.UsersRead):
+		only = ""
 	}
-	rows, err := s.store.ListUsage(ctx, mon, only)
+	rows, err := s.store.ListUsage(ctx, mon, only, team)
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}

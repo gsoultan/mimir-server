@@ -225,7 +225,7 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID}
+	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID, TeamID: j.TeamID}
 	if n := len(res.History); n > 0 {
 		m.Accuracy = res.History[n-1].Accuracy
 	}

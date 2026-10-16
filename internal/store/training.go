@@ -37,6 +37,7 @@ type Dataset struct {
 	DSN       string
 	Query     string
 	Refreshed time.Time // when the query last ran; zero for uploads
+	TeamID    string
 }
 
 // FromQuery reports whether the dataset's rows come from a database.
@@ -100,6 +101,7 @@ type Job struct {
 	Created       time.Time
 	Started       time.Time // zero until it runs
 	Ended         time.Time // zero until it's done
+	TeamID        string
 }
 
 // ErrDatasetInUse means a dataset still has training jobs.
@@ -128,14 +130,16 @@ func (s *Store) JobDir(id string) string {
 	return filepath.Join(filepath.Dir(s.weights), "training", id)
 }
 
-const datasetColumns = "id, name, kind, rows, features, labels, input_shape, target, size_bytes, create_time, driver, dsn, query, refresh_time"
+const datasetColumns = "id, name, kind, rows, features, labels, input_shape, target, size_bytes, create_time, driver, dsn, query, refresh_time, team_id"
 
 func scanDataset(row scanner) (Dataset, error) {
 	var d Dataset
 	var created int64
 	var features, labels, shape string
 	var refreshed sql.NullInt64
-	err := row.Scan(&d.ID, &d.Name, &d.Kind, &d.Rows, &features, &labels, &shape, &d.Target, &d.SizeBytes, &created, &d.Driver, &d.DSN, &d.Query, &refreshed)
+	var team sql.NullString
+	err := row.Scan(&d.ID, &d.Name, &d.Kind, &d.Rows, &features, &labels, &shape, &d.Target, &d.SizeBytes, &created, &d.Driver, &d.DSN, &d.Query, &refreshed, &team)
+	d.TeamID = team.String
 	d.Created = time.UnixMilli(created).UTC()
 	d.Refreshed = fromMillis(refreshed)
 	d.Features = fromJSON[[]string](features)
@@ -151,6 +155,9 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 		return Dataset{}, err
 	}
 	d.ID, d.Created = id, time.Now().UTC().Truncate(time.Millisecond)
+	if d.TeamID == "" {
+		d.TeamID = DefaultTeam
+	}
 	if csv != nil {
 		if err := os.MkdirAll(s.DatasetDir(), 0o750); err != nil {
 			return Dataset{}, err
@@ -165,8 +172,8 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 		d.Refreshed = d.Created
 		refreshed = millis(d.Created)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO datasets ("+datasetColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		d.ID, d.Name, d.Kind, d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.Target, d.SizeBytes, millis(d.Created), d.Driver, d.DSN, d.Query, refreshed)
+	_, err = s.db.ExecContext(ctx, "INSERT INTO datasets ("+datasetColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		d.ID, d.Name, d.Kind, d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.Target, d.SizeBytes, millis(d.Created), d.Driver, d.DSN, d.Query, refreshed, d.TeamID)
 	if err != nil {
 		os.Remove(s.DatasetPath(id))
 		return Dataset{}, fmt.Errorf("store: insert dataset: %w", err)
@@ -197,9 +204,9 @@ func (s *Store) GetDataset(ctx context.Context, id string) (Dataset, error) {
 	return d, err
 }
 
-// ListDatasets returns every dataset, newest first.
-func (s *Store) ListDatasets(ctx context.Context) ([]Dataset, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+datasetColumns+" FROM datasets ORDER BY create_time DESC, id DESC LIMIT 1000")
+// ListDatasets returns a team's datasets, newest first.
+func (s *Store) ListDatasets(ctx context.Context, team string) ([]Dataset, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT "+datasetColumns+" FROM datasets WHERE team_id = ? ORDER BY create_time DESC, id DESC LIMIT 1000", team)
 	if err != nil {
 		return nil, fmt.Errorf("store: list datasets: %w", err)
 	}
@@ -238,17 +245,19 @@ func (s *Store) DeleteDataset(ctx context.Context, id string) error {
 	return nil
 }
 
-const jobColumns = "id, name, description, architecture, dataset_id, epochs, batch_size, learning_rate, hold_out, status, error, epoch, step, steps_per_epoch, history, model_id, worker, created_by, create_time, start_time, end_time, repeat_seconds, next_run, parent_id, base_model_id, note"
+const jobColumns = "id, name, description, architecture, dataset_id, epochs, batch_size, learning_rate, hold_out, status, error, epoch, step, steps_per_epoch, history, model_id, worker, created_by, create_time, start_time, end_time, repeat_seconds, next_run, parent_id, base_model_id, note, team_id"
 
 func scanJob(row scanner) (Job, error) {
 	var j Job
 	var created int64
 	var started, ended, next sql.NullInt64
 	var history string
+	var team sql.NullString
 	err := row.Scan(&j.ID, &j.Name, &j.Description, &j.Architecture, &j.DatasetID,
 		&j.Settings.Epochs, &j.Settings.BatchSize, &j.Settings.LearningRate, &j.Settings.HoldOut,
 		&j.Status, &j.Error, &j.Epoch, &j.Step, &j.StepsPerEpoch, &history, &j.ModelID, &j.Worker, &j.CreatedBy, &created, &started, &ended,
-		&j.RepeatSeconds, &next, &j.ParentID, &j.BaseModelID, &j.Note)
+		&j.RepeatSeconds, &next, &j.ParentID, &j.BaseModelID, &j.Note, &team)
+	j.TeamID = team.String
 	j.Created = time.UnixMilli(created).UTC()
 	j.Started, j.Ended, j.NextRun = fromMillis(started), fromMillis(ended), fromMillis(next)
 	j.History = fromJSON[[]Epoch](history)
@@ -262,15 +271,18 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 		return Job{}, err
 	}
 	j.ID, j.Status, j.Created = id, JobQueued, time.Now().UTC().Truncate(time.Millisecond)
+	if j.TeamID == "" {
+		j.TeamID = DefaultTeam
+	}
 	var next any
 	if j.RepeatSeconds > 0 {
 		j.NextRun = j.Created.Add(time.Duration(j.RepeatSeconds) * time.Second)
 		next = millis(j.NextRun)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO training_jobs ("+jobColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, 0, 0, '[]', '', '', ?, ?, NULL, NULL, ?, ?, ?, ?, '')",
+	_, err = s.db.ExecContext(ctx, "INSERT INTO training_jobs ("+jobColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, 0, 0, '[]', '', '', ?, ?, NULL, NULL, ?, ?, ?, ?, '', ?)",
 		j.ID, j.Name, j.Description, j.Architecture, j.DatasetID,
 		j.Settings.Epochs, j.Settings.BatchSize, j.Settings.LearningRate, j.Settings.HoldOut, j.Status, j.CreatedBy, millis(j.Created),
-		j.RepeatSeconds, next, j.ParentID, j.BaseModelID)
+		j.RepeatSeconds, next, j.ParentID, j.BaseModelID, j.TeamID)
 	if err != nil {
 		return Job{}, fmt.Errorf("store: insert job: %w", err)
 	}
@@ -286,9 +298,9 @@ func (s *Store) GetJob(ctx context.Context, id string) (Job, error) {
 	return j, err
 }
 
-// ListJobs returns every job, newest first.
-func (s *Store) ListJobs(ctx context.Context) ([]Job, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+jobColumns+" FROM training_jobs ORDER BY create_time DESC, id DESC LIMIT 1000")
+// ListJobs returns a team's jobs, newest first.
+func (s *Store) ListJobs(ctx context.Context, team string) ([]Job, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT "+jobColumns+" FROM training_jobs WHERE team_id = ? ORDER BY create_time DESC, id DESC LIMIT 1000", team)
 	if err != nil {
 		return nil, fmt.Errorf("store: list jobs: %w", err)
 	}
