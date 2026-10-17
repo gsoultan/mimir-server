@@ -1,0 +1,176 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// TemplateService lists ready-made starting points for common questions:
+// what data to gather, how to shape it, and made-up example data to try.
+service TemplateService {
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // GetTemplateExample returns a template's made-up example data: a CSV,
+  // or a ZIP for templates that read photos.
+  rpc GetTemplateExample(GetTemplateExampleRequest) returns (GetTemplateExampleResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// TemplateCategory groups templates by line of business.
+message TemplateCategory {
+  string id = 1;
+  string label = 2;
+  string blurb = 3;
+  // icon is an SVG path in a 24 by 24 box, drawn with a stroke.
+  string icon = 4;
+}
+
+// TemplateColumn is one column a template's data has. The last one holds
+// the answer.
+message TemplateColumn {
+  string name = 1;
+  // kind is "number", "category", "yesno", "text" or "photo".
+  string kind = 2;
+  // meaning says in plain words what goes in it.
+  string meaning = 3;
+  // examples are a few typical values.
+  repeated string examples = 4;
+}
+
+// TemplateFolder is one answer of a photo template: a folder of photos.
+message TemplateFolder {
+  string name = 1;
+  string meaning = 2;
+  // count is how many photos a good collection has, as a guide.
+  int64 count = 3;
+}
+
+message Template {
+  string id = 1;
+  // category is a TemplateCategory id.
+  string category = 2;
+  // kind is what is answered: "yes_no", "group" or "number".
+  string kind = 3;
+  // data is what the examples look like: "table", "text", "photos" or
+  // "photo_table".
+  string data = 4;
+  string name = 5;
+  // question is what the template answers, in a sentence.
+  string question = 6;
+  // predicts says what the model gives back.
+  string predicts = 7;
+  // row_means says what one row, or one photo, stands for.
+  string row_means = 8;
+  // source says where such data usually lives; source_short in a few words.
+  string source = 9;
+  string source_short = 10;
+  // rows_min, rows_good and rows_great are how many examples it needs.
+  int64 rows_min = 11;
+  int64 rows_good = 12;
+  int64 rows_great = 13;
+  // balance is advice on how often each answer should appear.
+  string balance = 14;
+  // table is a typical name for the database table, for the starting query.
+  string table = 15;
+  repeated string tips = 16;
+  repeated TemplateColumn columns = 17;
+  repeated TemplateFolder folders = 18;
+  // architecture is the model type it teaches.
+  string architecture = 19;
+  // query is a starting database query that gives the columns, when the
+  // data is a table.
+  string query = 20;
+}
+
+message ListTemplatesRequest {}
+
+message ListTemplatesResponse {
+  repeated TemplateCategory categories = 1;
+  repeated Template templates = 2;
+}
+
+message GetTemplateExampleRequest {
+  string template_id = 1;
+}
+
+message GetTemplateExampleResponse {
+  string file_name = 1;
+  string content_type = 2;
+  bytes data = 3;
+}
+
+// DataCheck says how well a dataset fits what a model needs, and what to
+// fix first.
+message DataCheck {
+  // rows is how many examples have an answer.
+  int64 rows = 1;
+  // skipped is how many rows were left out: no answer, or no photo.
+  int64 skipped = 2;
+  // answer_column is the column the model learns to answer.
+  string answer_column = 3;
+  // columns check each template column, in the template's order, or each
+  // input column when there is no template.
+  repeated ColumnCheck columns = 4;
+  // extra_columns are columns the template doesn't name. They are used
+  // too.
+  repeated string extra_columns = 5;
+  // answers counts each answer, most common first, at most 20.
+  repeated AnswerCount answers = 6;
+  // notes are what to fix or know, worst first.
+  repeated CheckNote notes = 7;
+  // missing_photos names rows whose photo isn't in the ZIP, at most 1000;
+  // missing_photo_count counts all of them.
+  repeated string missing_photos = 8;
+  int64 missing_photo_count = 9;
+  // folders check each answer folder of a photo dataset.
+  repeated FolderCheck folders = 10;
+  // verdict is "good", "warn" or "bad"; bad means it can't learn yet.
+  string verdict = 11;
+  // number_answer says every answer is a number.
+  bool number_answer = 12;
+  // rows_min, rows_good and rows_great are the template's targets.
+  int64 rows_min = 13;
+  int64 rows_good = 14;
+  int64 rows_great = 15;
+}
+
+message ColumnCheck {
+  // name is the template's name for the column, or the column's own.
+  string name = 1;
+  // kind is what the template expects, or what was found.
+  string kind = 2;
+  // found is the dataset column that holds it; empty when missing.
+  string found = 3;
+  // found_kind is how the server reads that column.
+  string found_kind = 4;
+  int64 empty = 5;
+  // unreadable counts cells of a number column that aren't numbers.
+  int64 unreadable = 6;
+  // words is how many words a text cell holds on average.
+  double words = 7;
+  // status is "ok", "renamed" (found under another name), "missing" or
+  // "kind" (found, but it reads differently than the template expects).
+  string status = 8;
+  // answer marks the answer column.
+  bool answer = 9;
+}
+
+message FolderCheck {
+  string name = 1;
+  int64 photos = 2;
+  // expected says the template names this folder.
+  bool expected = 3;
+}
+
+message AnswerCount {
+  string value = 1;
+  int64 count = 2;
+}
+
+message CheckNote {
+  // level is "bad", "warn" or "info".
+  string level = 1;
+  string title = 2;
+  string body = 3;
+}

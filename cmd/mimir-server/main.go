@@ -16,11 +16,18 @@ import (
 	"time"
 
 	"github.com/gsoultan/mimir-server/internal/api"
+	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir-server/internal/training"
 	"github.com/gsoultan/mimir-server/internal/webhook"
+	builtin "github.com/gsoultan/mimir-server/internal/worker"
 	"github.com/gsoultan/mimir-server/web"
+	"github.com/gsoultan/mimir-server/worker"
 )
+
+// version is reported by workers; set with -ldflags "-X main.version=...".
+var version = "dev"
 
 func main() {
 	if err := run(); err != nil {
@@ -33,11 +40,43 @@ func run() error {
 	addr := flag.String("addr", ":8080", "address to listen on")
 	data := flag.String("data", "./data", "directory for the database and model files")
 	allowPrivate := flag.Bool("allow-private-webhooks", false, "let webhooks point at local and private addresses (for development)")
+	role := flag.String("role", "standalone", "standalone (the console and a worker in one), console (the web app and API; workers run the models) or worker (runs models for a console)")
+	tlsCert := flag.String("tls-cert", "", "console: serve TLS with this certificate file")
+	tlsKey := flag.String("tls-key", "", "console: the key for -tls-cert")
+	tlsAuto := flag.Bool("tls-auto", false, "console: serve TLS with a certificate made in the data folder; workers check it by fingerprint")
+	plainWorkers := flag.Bool("allow-plain-workers", false, "console: let workers on other machines connect without encryption (a private network you trust)")
+	serverURL := flag.String("server", "", "worker: the console to join, such as https://mimir.example.com")
+	token := flag.String("token", os.Getenv("MIMIR_WORKER_TOKEN"), "worker: the token made under Settings → Workers ($MIMIR_WORKER_TOKEN)")
+	name := flag.String("name", "", "worker: a name for the logs")
+	capacity := flag.Int("capacity", 0, "worker: how many tasks to run at once (default: the CPU count)")
+	insecure := flag.Bool("insecure", false, "worker: allow an http:// console on another machine (a private network you trust)")
 	flag.Parse()
 
 	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	switch *role {
+	case "worker":
+		if *serverURL == "" || *token == "" {
+			return errors.New("a worker needs -server and -token (or $MIMIR_WORKER_TOKEN)")
+		}
+		log.Info("worker: starting", "server", *serverURL, "data", *data)
+		if err := os.MkdirAll(*data, 0o700); err != nil {
+			return err
+		}
+		err := worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Capacity: *capacity, Version: version, Log: log, DataDir: *data, Insecure: *insecure}, builtin.Builtin(*data))
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
+	case "server": // the old name
+		*role = "console"
+	case "standalone", "console":
+	default:
+		return fmt.Errorf("unknown -role %q: use standalone, console or worker", *role)
+	}
+	local := *role == "standalone"
 
 	st, err := store.Open(ctx, *data)
 	if err != nil {
@@ -47,6 +86,15 @@ func run() error {
 
 	svc := api.New(st, log)
 	svc.AllowPrivateWebhooks = *allowPrivate
+	svc.Pool = cluster.New(log)
+	svc.Pool.OnSample = svc.KeepSample
+	svc.Local = local
+	svc.AllowPlainWorkers = *plainWorkers
+	tlsConfig, pin, err := server.TLS(*tlsCert, *tlsKey, *tlsAuto, *data)
+	if err != nil {
+		return err
+	}
+	svc.ConsolePin = pin
 
 	// Webhook deliveries and housekeeping run in the background until the
 	// server stops.
@@ -79,18 +127,51 @@ func run() error {
 		}
 	})
 	bg.Go(func() { janitor(bgCtx, st, log) })
+	// Prediction counts are written in batches, and once more on the way out.
+	bg.Go(func() {
+		t := time.NewTicker(5 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-bgCtx.Done():
+				if err := svc.FlushUsage(context.Background()); err != nil {
+					log.Error("usage: flush", "error", err)
+				}
+				return
+			case <-t.C:
+				if err := svc.FlushUsage(bgCtx); err != nil {
+					log.Error("usage: flush", "error", err)
+				}
+			}
+		}
+	})
+
+	// Training runs one job at a time in this process. A job cut short by
+	// shutdown goes back in the queue and resumes from its checkpoint.
+	runner := training.New(st, log)
+	runner.Local = local
+	runner.Remote = svc.Pool
+	runner.OnDone = svc.TrainingDone
+	svc.KickTraining = runner.Kick
+	svc.CancelTraining = runner.Cancel
+	bg.Go(func() { runner.Run(bgCtx) })
 
 	srv := &http.Server{
 		Addr:              *addr,
 		Handler:           server.Handler(svc, st, web.Dist(), log),
 		Protocols:         server.Protocols(),
+		TLSConfig:         tlsConfig,
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 	}
 
 	errc := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", *addr, "data", *data)
+		log.Info("listening", "addr", *addr, "data", *data, "role", *role, "tls", tlsConfig != nil)
+		if tlsConfig != nil {
+			errc <- srv.ListenAndServeTLS("", "")
+			return
+		}
 		errc <- srv.ListenAndServe()
 	}()
 
