@@ -51,6 +51,9 @@ const (
 	// ModelServiceDeleteModelProcedure is the fully-qualified name of the ModelService's DeleteModel
 	// RPC.
 	ModelServiceDeleteModelProcedure = "/mimir.v1.ModelService/DeleteModel"
+	// ModelServiceSetModelWorkerProcedure is the fully-qualified name of the ModelService's
+	// SetModelWorker RPC.
+	ModelServiceSetModelWorkerProcedure = "/mimir.v1.ModelService/SetModelWorker"
 	// PredictServicePredictProcedure is the fully-qualified name of the PredictService's Predict RPC.
 	PredictServicePredictProcedure = "/mimir.v1.PredictService/Predict"
 )
@@ -70,6 +73,9 @@ type ModelServiceClient interface {
 	UpdateModel(context.Context, *connect.Request[v1.UpdateModelRequest]) (*connect.Response[v1.UpdateModelResponse], error)
 	// DeleteModel removes a model and its weights.
 	DeleteModel(context.Context, *connect.Request[v1.DeleteModelRequest]) (*connect.Response[v1.DeleteModelResponse], error)
+	// SetModelWorker picks the worker that answers a model's questions, or
+	// none to let the console choose.
+	SetModelWorker(context.Context, *connect.Request[v1.SetModelWorkerRequest]) (*connect.Response[v1.SetModelWorkerResponse], error)
 }
 
 // NewModelServiceClient constructs a client for the mimir.v1.ModelService service. By default, it
@@ -122,6 +128,12 @@ func NewModelServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(modelServiceMethods.ByName("DeleteModel")),
 			connect.WithClientOptions(opts...),
 		),
+		setModelWorker: connect.NewClient[v1.SetModelWorkerRequest, v1.SetModelWorkerResponse](
+			httpClient,
+			baseURL+ModelServiceSetModelWorkerProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("SetModelWorker")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -133,6 +145,7 @@ type modelServiceClient struct {
 	createModel       *connect.Client[v1.CreateModelRequest, v1.CreateModelResponse]
 	updateModel       *connect.Client[v1.UpdateModelRequest, v1.UpdateModelResponse]
 	deleteModel       *connect.Client[v1.DeleteModelRequest, v1.DeleteModelResponse]
+	setModelWorker    *connect.Client[v1.SetModelWorkerRequest, v1.SetModelWorkerResponse]
 }
 
 // ListArchitectures calls mimir.v1.ModelService.ListArchitectures.
@@ -165,6 +178,11 @@ func (c *modelServiceClient) DeleteModel(ctx context.Context, req *connect.Reque
 	return c.deleteModel.CallUnary(ctx, req)
 }
 
+// SetModelWorker calls mimir.v1.ModelService.SetModelWorker.
+func (c *modelServiceClient) SetModelWorker(ctx context.Context, req *connect.Request[v1.SetModelWorkerRequest]) (*connect.Response[v1.SetModelWorkerResponse], error) {
+	return c.setModelWorker.CallUnary(ctx, req)
+}
+
 // ModelServiceHandler is an implementation of the mimir.v1.ModelService service.
 type ModelServiceHandler interface {
 	// ListArchitectures returns the model architectures this server can build.
@@ -180,6 +198,9 @@ type ModelServiceHandler interface {
 	UpdateModel(context.Context, *connect.Request[v1.UpdateModelRequest]) (*connect.Response[v1.UpdateModelResponse], error)
 	// DeleteModel removes a model and its weights.
 	DeleteModel(context.Context, *connect.Request[v1.DeleteModelRequest]) (*connect.Response[v1.DeleteModelResponse], error)
+	// SetModelWorker picks the worker that answers a model's questions, or
+	// none to let the console choose.
+	SetModelWorker(context.Context, *connect.Request[v1.SetModelWorkerRequest]) (*connect.Response[v1.SetModelWorkerResponse], error)
 }
 
 // NewModelServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -228,6 +249,12 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(modelServiceMethods.ByName("DeleteModel")),
 		connect.WithHandlerOptions(opts...),
 	)
+	modelServiceSetModelWorkerHandler := connect.NewUnaryHandler(
+		ModelServiceSetModelWorkerProcedure,
+		svc.SetModelWorker,
+		connect.WithSchema(modelServiceMethods.ByName("SetModelWorker")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.ModelService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ModelServiceListArchitecturesProcedure:
@@ -242,6 +269,8 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 			modelServiceUpdateModelHandler.ServeHTTP(w, r)
 		case ModelServiceDeleteModelProcedure:
 			modelServiceDeleteModelHandler.ServeHTTP(w, r)
+		case ModelServiceSetModelWorkerProcedure:
+			modelServiceSetModelWorkerHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -273,6 +302,10 @@ func (UnimplementedModelServiceHandler) UpdateModel(context.Context, *connect.Re
 
 func (UnimplementedModelServiceHandler) DeleteModel(context.Context, *connect.Request[v1.DeleteModelRequest]) (*connect.Response[v1.DeleteModelResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.DeleteModel is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) SetModelWorker(context.Context, *connect.Request[v1.SetModelWorkerRequest]) (*connect.Response[v1.SetModelWorkerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.SetModelWorker is not implemented"))
 }
 
 // PredictServiceClient is a client for the mimir.v1.PredictService service.

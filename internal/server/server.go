@@ -66,7 +66,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	)))
 	mux.Handle("/", uiHandler(ui))
 
-	return logRequests(harden(mux), log)
+	return logRequests(harden(api.WithConn(mux)), log)
 }
 
 // harden refuses cross-site requests that carry a session cookie and adds
@@ -126,11 +126,13 @@ func backupHandler(st *store.Store, log *slog.Logger) http.Handler {
 	})
 }
 
-// Protocols enables HTTP/1.1 and unencrypted HTTP/2, so gRPC clients can
-// connect without TLS. Put a TLS-terminating proxy in front in production.
+// Protocols enables HTTP/1.1 and HTTP/2, with TLS or without, so gRPC
+// clients can connect either way. In production serve TLS (-tls-cert, or
+// -tls-auto) or put a TLS-terminating proxy in front.
 func Protocols() *http.Protocols {
 	p := new(http.Protocols)
 	p.SetHTTP1(true)
+	p.SetHTTP2(true)
 	p.SetUnencryptedHTTP2(true)
 	return p
 }

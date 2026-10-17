@@ -170,27 +170,78 @@ shows in the webhook's history with a **Redeliver** button. Addresses on
 private networks are refused unless the server runs with
 `-allow-private-webhooks`.
 
-## Workers
+## Console and workers
 
-One server can hand predictions and training to workers on other
-machines: a bigger box, a GPU, or several. Under **Settings → Workers**,
-**Add a worker** gives a token and the command to run there:
+mimir-server comes in two parts, both in the same binary:
+
+- **The console** (`-role=console`) is the web app and the API: people,
+  teams, models, examples and the training queue. It runs no models itself.
+- **Workers** (`-role=worker`) are the machines that run and teach the
+  models for it: a bigger box, a GPU, or several.
+
+The default, `-role=standalone`, is both in one process for a single
+machine; it can take workers too. (`-role=server` still works as the old
+name for `console`.)
+
+Under **Settings → Workers**, **Add a worker** gives a token and the
+command to run on that machine:
 
 ```sh
 mimir-server -role=worker -server https://mimir.example.com -token mimirw_...
 ```
 
-The worker connects out to the server (no ports to open on its side),
-says what it can run, and shows as online. Training runs go to a free
-worker that trains the model's type; predictions go to workers when the
-server runs with `-role=server`, which makes it coordinate only, and stay
-local in the default `-role=standalone`. Weights travel to a worker once
+The worker connects out to the console (no ports to open on its side),
+says what it can run, and shows as online. Weights travel to a worker once
 per connection. A stopped worker's runs go back to the queue.
+
+### Where work runs
+
+- **Each model has a "Runs on" choice** on its page: *Automatic* sends
+  questions to the least busy worker that can run it, or pick one worker,
+  such as the one with the GPU. A model on an offline worker answers with
+  a clear "offline" error rather than moving elsewhere.
+- **The teach wizard has a "Train on" choice.** A run placed on an offline
+  worker waits for it without holding up other runs, and the model it
+  makes runs on the same worker.
+- Removing a worker puts its models and waiting runs back on Automatic.
+
+### Dashboards
+
+**Settings → Workers** shows every worker as a card: a status light, CPU,
+memory and storage bars, and tasks running, plus totals across them all.
+A card turns amber when the machine is over 90% full, and a warning names
+models or runs stuck on an offline worker.
+
+Click a worker for its own page: live gauges, charts of CPU, memory,
+storage and tasks over the last hour, day or week (one reading a minute,
+kept for a week), what it is running now, what is placed on it, and how
+it is connected.
+
+### Keeping the link secure
+
+- **Encrypted.** A worker refuses a plain `http://` console on another
+  machine, and the console refuses unencrypted workers from other
+  machines. Serve the console with TLS (`-tls-cert` and `-tls-key`, or
+  `-tls-auto` to make a certificate in the data folder) or put it behind an
+  https proxy. For a private network you trust, `-insecure` on the worker
+  and `-allow-plain-workers` on the console turn this off.
+- **The worker checks the console.** When the console serves a
+  certificate nobody vouches for (such as `-tls-auto`), tokens carry its
+  key's fingerprint and the worker accepts only that key. Otherwise it
+  checks the certificate the usual way.
+- **The console checks the worker.** On its first connection a worker
+  makes an Ed25519 key (kept in its data folder) and the console records
+  it. Every connection after that must sign a fresh challenge with it, so
+  a copied token is useless on another machine.
+- **Tokens** are stored only as hashes and shown once. **New token** on a
+  worker's page cuts the old one off and forgets the key, for a leaked
+  token or a rebuilt machine. Joins, refusals, new addresses and new
+  tokens go in the audit log and on the worker's page.
 
 For models a weights file can't describe, write a worker of your own with
 the `worker` package: implement `Predict` (and `Train`) for an
 architecture name and call `worker.Run`. Workers authenticate with their
-token only; they never see people's credentials.
+token and key only; they never see people's credentials.
 
 ## Settings
 
@@ -230,7 +281,7 @@ Webhooks may point at local addresses. Stop everything with Ctrl+C.
 | --- | --- | --- |
 | `MIMIR_DEV_DATA` | `./data/dev` | Data folder |
 | `MIMIR_DEV_ADDR` | `localhost:8080` | Where the Go server listens |
-| `MIMIR_DEV_ARGS` | | Extra server flags, such as `-role server` |
+| `MIMIR_DEV_ARGS` | | Extra server flags, such as `-role console` |
 
 ```sh
 make test       # go vet, go test, web typecheck and unit tests

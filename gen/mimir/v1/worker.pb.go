@@ -41,6 +41,22 @@ type Worker struct {
 	Version       string   `protobuf:"bytes,13,opt,name=version,proto3" json:"version,omitempty"`
 	Address       string   `protobuf:"bytes,14,opt,name=address,proto3" json:"address,omitempty"`
 	CreatedBy     string   `protobuf:"bytes,15,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	// stats is the latest the worker reported, while online.
+	Stats *Stats `protobuf:"bytes,16,opt,name=stats,proto3" json:"stats,omitempty"`
+	// connect_time is when the current link opened.
+	ConnectTime *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=connect_time,json=connectTime,proto3" json:"connect_time,omitempty"`
+	// key_fingerprint identifies the key the worker joined with; empty
+	// until it first joins.
+	KeyFingerprint string `protobuf:"bytes,18,opt,name=key_fingerprint,json=keyFingerprint,proto3" json:"key_fingerprint,omitempty"`
+	// security says how the current link is protected: "tls" when the
+	// console serves TLS itself, "proxy" when a proxy in front says it does,
+	// "local" for a worker on the same machine, "plain" otherwise.
+	Security   string `protobuf:"bytes,19,opt,name=security,proto3" json:"security,omitempty"`
+	TlsVersion string `protobuf:"bytes,20,opt,name=tls_version,json=tlsVersion,proto3" json:"tls_version,omitempty"`
+	// models is how many models are set to run on it.
+	Models int32 `protobuf:"varint,21,opt,name=models,proto3" json:"models,omitempty"`
+	// waiting is how many runs are waiting for it.
+	Waiting       int32 `protobuf:"varint,22,opt,name=waiting,proto3" json:"waiting,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -180,6 +196,724 @@ func (x *Worker) GetCreatedBy() string {
 	return ""
 }
 
+func (x *Worker) GetStats() *Stats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
+}
+
+func (x *Worker) GetConnectTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ConnectTime
+	}
+	return nil
+}
+
+func (x *Worker) GetKeyFingerprint() string {
+	if x != nil {
+		return x.KeyFingerprint
+	}
+	return ""
+}
+
+func (x *Worker) GetSecurity() string {
+	if x != nil {
+		return x.Security
+	}
+	return ""
+}
+
+func (x *Worker) GetTlsVersion() string {
+	if x != nil {
+		return x.TlsVersion
+	}
+	return ""
+}
+
+func (x *Worker) GetModels() int32 {
+	if x != nil {
+		return x.Models
+	}
+	return 0
+}
+
+func (x *Worker) GetWaiting() int32 {
+	if x != nil {
+		return x.Waiting
+	}
+	return 0
+}
+
+// Stats is how a worker's machine is doing.
+type Stats struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// cpu_percent is how busy all its CPUs are together, 0 to 100.
+	CpuPercent       float64 `protobuf:"fixed64,1,opt,name=cpu_percent,json=cpuPercent,proto3" json:"cpu_percent,omitempty"`
+	MemoryUsedBytes  int64   `protobuf:"varint,2,opt,name=memory_used_bytes,json=memoryUsedBytes,proto3" json:"memory_used_bytes,omitempty"`
+	MemoryTotalBytes int64   `protobuf:"varint,3,opt,name=memory_total_bytes,json=memoryTotalBytes,proto3" json:"memory_total_bytes,omitempty"`
+	// disk is the storage holding the worker's data folder.
+	DiskUsedBytes  int64 `protobuf:"varint,4,opt,name=disk_used_bytes,json=diskUsedBytes,proto3" json:"disk_used_bytes,omitempty"`
+	DiskTotalBytes int64 `protobuf:"varint,5,opt,name=disk_total_bytes,json=diskTotalBytes,proto3" json:"disk_total_bytes,omitempty"`
+	// uptime_seconds is how long the worker process has been running.
+	UptimeSeconds int64   `protobuf:"varint,6,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`
+	LoadAverage   float64 `protobuf:"fixed64,7,opt,name=load_average,json=loadAverage,proto3" json:"load_average,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Stats) Reset() {
+	*x = Stats{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Stats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Stats) ProtoMessage() {}
+
+func (x *Stats) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Stats.ProtoReflect.Descriptor instead.
+func (*Stats) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Stats) GetCpuPercent() float64 {
+	if x != nil {
+		return x.CpuPercent
+	}
+	return 0
+}
+
+func (x *Stats) GetMemoryUsedBytes() int64 {
+	if x != nil {
+		return x.MemoryUsedBytes
+	}
+	return 0
+}
+
+func (x *Stats) GetMemoryTotalBytes() int64 {
+	if x != nil {
+		return x.MemoryTotalBytes
+	}
+	return 0
+}
+
+func (x *Stats) GetDiskUsedBytes() int64 {
+	if x != nil {
+		return x.DiskUsedBytes
+	}
+	return 0
+}
+
+func (x *Stats) GetDiskTotalBytes() int64 {
+	if x != nil {
+		return x.DiskTotalBytes
+	}
+	return 0
+}
+
+func (x *Stats) GetUptimeSeconds() int64 {
+	if x != nil {
+		return x.UptimeSeconds
+	}
+	return 0
+}
+
+func (x *Stats) GetLoadAverage() float64 {
+	if x != nil {
+		return x.LoadAverage
+	}
+	return 0
+}
+
+// WorkerSample is a worker's stats at one moment, for charts.
+type WorkerSample struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Time             *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
+	CpuPercent       float64                `protobuf:"fixed64,2,opt,name=cpu_percent,json=cpuPercent,proto3" json:"cpu_percent,omitempty"`
+	MemoryUsedBytes  int64                  `protobuf:"varint,3,opt,name=memory_used_bytes,json=memoryUsedBytes,proto3" json:"memory_used_bytes,omitempty"`
+	MemoryTotalBytes int64                  `protobuf:"varint,4,opt,name=memory_total_bytes,json=memoryTotalBytes,proto3" json:"memory_total_bytes,omitempty"`
+	DiskUsedBytes    int64                  `protobuf:"varint,5,opt,name=disk_used_bytes,json=diskUsedBytes,proto3" json:"disk_used_bytes,omitempty"`
+	DiskTotalBytes   int64                  `protobuf:"varint,6,opt,name=disk_total_bytes,json=diskTotalBytes,proto3" json:"disk_total_bytes,omitempty"`
+	Busy             int32                  `protobuf:"varint,7,opt,name=busy,proto3" json:"busy,omitempty"`
+	Capacity         int32                  `protobuf:"varint,8,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *WorkerSample) Reset() {
+	*x = WorkerSample{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkerSample) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkerSample) ProtoMessage() {}
+
+func (x *WorkerSample) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkerSample.ProtoReflect.Descriptor instead.
+func (*WorkerSample) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *WorkerSample) GetTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Time
+	}
+	return nil
+}
+
+func (x *WorkerSample) GetCpuPercent() float64 {
+	if x != nil {
+		return x.CpuPercent
+	}
+	return 0
+}
+
+func (x *WorkerSample) GetMemoryUsedBytes() int64 {
+	if x != nil {
+		return x.MemoryUsedBytes
+	}
+	return 0
+}
+
+func (x *WorkerSample) GetMemoryTotalBytes() int64 {
+	if x != nil {
+		return x.MemoryTotalBytes
+	}
+	return 0
+}
+
+func (x *WorkerSample) GetDiskUsedBytes() int64 {
+	if x != nil {
+		return x.DiskUsedBytes
+	}
+	return 0
+}
+
+func (x *WorkerSample) GetDiskTotalBytes() int64 {
+	if x != nil {
+		return x.DiskTotalBytes
+	}
+	return 0
+}
+
+func (x *WorkerSample) GetBusy() int32 {
+	if x != nil {
+		return x.Busy
+	}
+	return 0
+}
+
+func (x *WorkerSample) GetCapacity() int32 {
+	if x != nil {
+		return x.Capacity
+	}
+	return 0
+}
+
+// WorkerTask is something a worker is doing now.
+type WorkerTask struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// kind is "predict" or "train".
+	Kind      string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	ModelId   string                 `protobuf:"bytes,2,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
+	ModelName string                 `protobuf:"bytes,3,opt,name=model_name,json=modelName,proto3" json:"model_name,omitempty"`
+	JobId     string                 `protobuf:"bytes,4,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	JobName   string                 `protobuf:"bytes,5,opt,name=job_name,json=jobName,proto3" json:"job_name,omitempty"`
+	StartTime *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	// count is how many of the same are running, for predictions.
+	Count         int32 `protobuf:"varint,7,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkerTask) Reset() {
+	*x = WorkerTask{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkerTask) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkerTask) ProtoMessage() {}
+
+func (x *WorkerTask) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkerTask.ProtoReflect.Descriptor instead.
+func (*WorkerTask) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *WorkerTask) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *WorkerTask) GetModelId() string {
+	if x != nil {
+		return x.ModelId
+	}
+	return ""
+}
+
+func (x *WorkerTask) GetModelName() string {
+	if x != nil {
+		return x.ModelName
+	}
+	return ""
+}
+
+func (x *WorkerTask) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *WorkerTask) GetJobName() string {
+	if x != nil {
+		return x.JobName
+	}
+	return ""
+}
+
+func (x *WorkerTask) GetStartTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartTime
+	}
+	return nil
+}
+
+func (x *WorkerTask) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+// WorkerItem is a model, run or event that belongs to a worker.
+type WorkerItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	Time          *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=time,proto3" json:"time,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkerItem) Reset() {
+	*x = WorkerItem{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkerItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkerItem) ProtoMessage() {}
+
+func (x *WorkerItem) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkerItem.ProtoReflect.Descriptor instead.
+func (*WorkerItem) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *WorkerItem) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *WorkerItem) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *WorkerItem) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *WorkerItem) GetTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Time
+	}
+	return nil
+}
+
+type GetWorkerRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// hours of history to chart: 1, 24 or 168. Defaults to 1.
+	Hours         int32 `protobuf:"varint,2,opt,name=hours,proto3" json:"hours,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorkerRequest) Reset() {
+	*x = GetWorkerRequest{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorkerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorkerRequest) ProtoMessage() {}
+
+func (x *GetWorkerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorkerRequest.ProtoReflect.Descriptor instead.
+func (*GetWorkerRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetWorkerRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *GetWorkerRequest) GetHours() int32 {
+	if x != nil {
+		return x.Hours
+	}
+	return 0
+}
+
+type GetWorkerResponse struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Worker  *Worker                `protobuf:"bytes,1,opt,name=worker,proto3" json:"worker,omitempty"`
+	Samples []*WorkerSample        `protobuf:"bytes,2,rep,name=samples,proto3" json:"samples,omitempty"`
+	Tasks   []*WorkerTask          `protobuf:"bytes,3,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	// models are the models set to run on it.
+	Models []*WorkerItem `protobuf:"bytes,4,rep,name=models,proto3" json:"models,omitempty"`
+	// runs are recent and waiting training runs on it, newest first.
+	Runs []*WorkerItem `protobuf:"bytes,5,rep,name=runs,proto3" json:"runs,omitempty"`
+	// events are recent connection events from the audit log.
+	Events        []*WorkerItem `protobuf:"bytes,6,rep,name=events,proto3" json:"events,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorkerResponse) Reset() {
+	*x = GetWorkerResponse{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorkerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorkerResponse) ProtoMessage() {}
+
+func (x *GetWorkerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorkerResponse.ProtoReflect.Descriptor instead.
+func (*GetWorkerResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetWorkerResponse) GetWorker() *Worker {
+	if x != nil {
+		return x.Worker
+	}
+	return nil
+}
+
+func (x *GetWorkerResponse) GetSamples() []*WorkerSample {
+	if x != nil {
+		return x.Samples
+	}
+	return nil
+}
+
+func (x *GetWorkerResponse) GetTasks() []*WorkerTask {
+	if x != nil {
+		return x.Tasks
+	}
+	return nil
+}
+
+func (x *GetWorkerResponse) GetModels() []*WorkerItem {
+	if x != nil {
+		return x.Models
+	}
+	return nil
+}
+
+func (x *GetWorkerResponse) GetRuns() []*WorkerItem {
+	if x != nil {
+		return x.Runs
+	}
+	return nil
+}
+
+func (x *GetWorkerResponse) GetEvents() []*WorkerItem {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+type ReplaceWorkerTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceWorkerTokenRequest) Reset() {
+	*x = ReplaceWorkerTokenRequest{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceWorkerTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceWorkerTokenRequest) ProtoMessage() {}
+
+func (x *ReplaceWorkerTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceWorkerTokenRequest.ProtoReflect.Descriptor instead.
+func (*ReplaceWorkerTokenRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ReplaceWorkerTokenRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ReplaceWorkerTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceWorkerTokenResponse) Reset() {
+	*x = ReplaceWorkerTokenResponse{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceWorkerTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceWorkerTokenResponse) ProtoMessage() {}
+
+func (x *ReplaceWorkerTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceWorkerTokenResponse.ProtoReflect.Descriptor instead.
+func (*ReplaceWorkerTokenResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ReplaceWorkerTokenResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+type ListWorkerChoicesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkerChoicesRequest) Reset() {
+	*x = ListWorkerChoicesRequest{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkerChoicesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkerChoicesRequest) ProtoMessage() {}
+
+func (x *ListWorkerChoicesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkerChoicesRequest.ProtoReflect.Descriptor instead.
+func (*ListWorkerChoicesRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{9}
+}
+
+type ListWorkerChoicesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Workers       []*Worker              `protobuf:"bytes,1,rep,name=workers,proto3" json:"workers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkerChoicesResponse) Reset() {
+	*x = ListWorkerChoicesResponse{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkerChoicesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkerChoicesResponse) ProtoMessage() {}
+
+func (x *ListWorkerChoicesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkerChoicesResponse.ProtoReflect.Descriptor instead.
+func (*ListWorkerChoicesResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListWorkerChoicesResponse) GetWorkers() []*Worker {
+	if x != nil {
+		return x.Workers
+	}
+	return nil
+}
+
 type ListWorkersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -188,7 +922,7 @@ type ListWorkersRequest struct {
 
 func (x *ListWorkersRequest) Reset() {
 	*x = ListWorkersRequest{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[1]
+	mi := &file_mimir_v1_worker_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -200,7 +934,7 @@ func (x *ListWorkersRequest) String() string {
 func (*ListWorkersRequest) ProtoMessage() {}
 
 func (x *ListWorkersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[1]
+	mi := &file_mimir_v1_worker_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -213,19 +947,22 @@ func (x *ListWorkersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkersRequest.ProtoReflect.Descriptor instead.
 func (*ListWorkersRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{1}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{11}
 }
 
 type ListWorkersResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Workers       []*Worker              `protobuf:"bytes,1,rep,name=workers,proto3" json:"workers,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Workers []*Worker              `protobuf:"bytes,1,rep,name=workers,proto3" json:"workers,omitempty"`
+	// secure_join says new tokens carry the console's certificate
+	// fingerprint, so workers check they reach this console.
+	SecureJoin    bool `protobuf:"varint,2,opt,name=secure_join,json=secureJoin,proto3" json:"secure_join,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListWorkersResponse) Reset() {
 	*x = ListWorkersResponse{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[2]
+	mi := &file_mimir_v1_worker_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -237,7 +974,7 @@ func (x *ListWorkersResponse) String() string {
 func (*ListWorkersResponse) ProtoMessage() {}
 
 func (x *ListWorkersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[2]
+	mi := &file_mimir_v1_worker_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -250,7 +987,7 @@ func (x *ListWorkersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkersResponse.ProtoReflect.Descriptor instead.
 func (*ListWorkersResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{2}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListWorkersResponse) GetWorkers() []*Worker {
@@ -258,6 +995,13 @@ func (x *ListWorkersResponse) GetWorkers() []*Worker {
 		return x.Workers
 	}
 	return nil
+}
+
+func (x *ListWorkersResponse) GetSecureJoin() bool {
+	if x != nil {
+		return x.SecureJoin
+	}
+	return false
 }
 
 type CreateWorkerRequest struct {
@@ -269,7 +1013,7 @@ type CreateWorkerRequest struct {
 
 func (x *CreateWorkerRequest) Reset() {
 	*x = CreateWorkerRequest{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[3]
+	mi := &file_mimir_v1_worker_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -281,7 +1025,7 @@ func (x *CreateWorkerRequest) String() string {
 func (*CreateWorkerRequest) ProtoMessage() {}
 
 func (x *CreateWorkerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[3]
+	mi := &file_mimir_v1_worker_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -294,7 +1038,7 @@ func (x *CreateWorkerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWorkerRequest.ProtoReflect.Descriptor instead.
 func (*CreateWorkerRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{3}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CreateWorkerRequest) GetName() string {
@@ -316,7 +1060,7 @@ type CreateWorkerResponse struct {
 
 func (x *CreateWorkerResponse) Reset() {
 	*x = CreateWorkerResponse{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[4]
+	mi := &file_mimir_v1_worker_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -328,7 +1072,7 @@ func (x *CreateWorkerResponse) String() string {
 func (*CreateWorkerResponse) ProtoMessage() {}
 
 func (x *CreateWorkerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[4]
+	mi := &file_mimir_v1_worker_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -341,7 +1085,7 @@ func (x *CreateWorkerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWorkerResponse.ProtoReflect.Descriptor instead.
 func (*CreateWorkerResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{4}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CreateWorkerResponse) GetWorker() *Worker {
@@ -367,7 +1111,7 @@ type DeleteWorkerRequest struct {
 
 func (x *DeleteWorkerRequest) Reset() {
 	*x = DeleteWorkerRequest{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[5]
+	mi := &file_mimir_v1_worker_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -379,7 +1123,7 @@ func (x *DeleteWorkerRequest) String() string {
 func (*DeleteWorkerRequest) ProtoMessage() {}
 
 func (x *DeleteWorkerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[5]
+	mi := &file_mimir_v1_worker_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -392,7 +1136,7 @@ func (x *DeleteWorkerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteWorkerRequest.ProtoReflect.Descriptor instead.
 func (*DeleteWorkerRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{5}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DeleteWorkerRequest) GetId() string {
@@ -410,7 +1154,7 @@ type DeleteWorkerResponse struct {
 
 func (x *DeleteWorkerResponse) Reset() {
 	*x = DeleteWorkerResponse{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[6]
+	mi := &file_mimir_v1_worker_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -422,7 +1166,7 @@ func (x *DeleteWorkerResponse) String() string {
 func (*DeleteWorkerResponse) ProtoMessage() {}
 
 func (x *DeleteWorkerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[6]
+	mi := &file_mimir_v1_worker_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -435,7 +1179,7 @@ func (x *DeleteWorkerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteWorkerResponse.ProtoReflect.Descriptor instead.
 func (*DeleteWorkerResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{6}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{16}
 }
 
 // LinkRequest is what a worker sends on its link.
@@ -448,6 +1192,7 @@ type LinkRequest struct {
 	//	*LinkRequest_TrainProgress
 	//	*LinkRequest_TrainResult
 	//	*LinkRequest_Heartbeat
+	//	*LinkRequest_Proof
 	Body          isLinkRequest_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -455,7 +1200,7 @@ type LinkRequest struct {
 
 func (x *LinkRequest) Reset() {
 	*x = LinkRequest{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[7]
+	mi := &file_mimir_v1_worker_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -467,7 +1212,7 @@ func (x *LinkRequest) String() string {
 func (*LinkRequest) ProtoMessage() {}
 
 func (x *LinkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[7]
+	mi := &file_mimir_v1_worker_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -480,7 +1225,7 @@ func (x *LinkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkRequest.ProtoReflect.Descriptor instead.
 func (*LinkRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{7}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *LinkRequest) GetBody() isLinkRequest_Body {
@@ -535,6 +1280,15 @@ func (x *LinkRequest) GetHeartbeat() *Heartbeat {
 	return nil
 }
 
+func (x *LinkRequest) GetProof() *Proof {
+	if x != nil {
+		if x, ok := x.Body.(*LinkRequest_Proof); ok {
+			return x.Proof
+		}
+	}
+	return nil
+}
+
 type isLinkRequest_Body interface {
 	isLinkRequest_Body()
 }
@@ -559,6 +1313,10 @@ type LinkRequest_Heartbeat struct {
 	Heartbeat *Heartbeat `protobuf:"bytes,5,opt,name=heartbeat,proto3,oneof"`
 }
 
+type LinkRequest_Proof struct {
+	Proof *Proof `protobuf:"bytes,6,opt,name=proof,proto3,oneof"`
+}
+
 func (*LinkRequest_Hello) isLinkRequest_Body() {}
 
 func (*LinkRequest_PredictResult) isLinkRequest_Body() {}
@@ -569,6 +1327,8 @@ func (*LinkRequest_TrainResult) isLinkRequest_Body() {}
 
 func (*LinkRequest_Heartbeat) isLinkRequest_Body() {}
 
+func (*LinkRequest_Proof) isLinkRequest_Body() {}
+
 // LinkResponse is what the server sends down a link.
 type LinkResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -578,6 +1338,7 @@ type LinkResponse struct {
 	//	*LinkResponse_Predict
 	//	*LinkResponse_Train
 	//	*LinkResponse_Cancel
+	//	*LinkResponse_Challenge
 	Body          isLinkResponse_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -585,7 +1346,7 @@ type LinkResponse struct {
 
 func (x *LinkResponse) Reset() {
 	*x = LinkResponse{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[8]
+	mi := &file_mimir_v1_worker_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -597,7 +1358,7 @@ func (x *LinkResponse) String() string {
 func (*LinkResponse) ProtoMessage() {}
 
 func (x *LinkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[8]
+	mi := &file_mimir_v1_worker_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -610,7 +1371,7 @@ func (x *LinkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkResponse.ProtoReflect.Descriptor instead.
 func (*LinkResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{8}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *LinkResponse) GetBody() isLinkResponse_Body {
@@ -656,6 +1417,15 @@ func (x *LinkResponse) GetCancel() *CancelTask {
 	return nil
 }
 
+func (x *LinkResponse) GetChallenge() *Challenge {
+	if x != nil {
+		if x, ok := x.Body.(*LinkResponse_Challenge); ok {
+			return x.Challenge
+		}
+	}
+	return nil
+}
+
 type isLinkResponse_Body interface {
 	isLinkResponse_Body()
 }
@@ -676,6 +1446,10 @@ type LinkResponse_Cancel struct {
 	Cancel *CancelTask `protobuf:"bytes,4,opt,name=cancel,proto3,oneof"`
 }
 
+type LinkResponse_Challenge struct {
+	Challenge *Challenge `protobuf:"bytes,5,opt,name=challenge,proto3,oneof"`
+}
+
 func (*LinkResponse_Welcome) isLinkResponse_Body() {}
 
 func (*LinkResponse_Predict) isLinkResponse_Body() {}
@@ -683,6 +1457,99 @@ func (*LinkResponse_Predict) isLinkResponse_Body() {}
 func (*LinkResponse_Train) isLinkResponse_Body() {}
 
 func (*LinkResponse_Cancel) isLinkResponse_Body() {}
+
+func (*LinkResponse_Challenge) isLinkResponse_Body() {}
+
+// Challenge asks the worker to prove it holds its key.
+type Challenge struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Nonce         []byte                 `protobuf:"bytes,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Challenge) Reset() {
+	*x = Challenge{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Challenge) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Challenge) ProtoMessage() {}
+
+func (x *Challenge) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Challenge.ProtoReflect.Descriptor instead.
+func (*Challenge) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *Challenge) GetNonce() []byte {
+	if x != nil {
+		return x.Nonce
+	}
+	return nil
+}
+
+// Proof is the worker's Ed25519 signature of "mimir-worker-link-v1\n"
+// followed by the challenge's nonce.
+type Proof struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Signature     []byte                 `protobuf:"bytes,1,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Proof) Reset() {
+	*x = Proof{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Proof) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Proof) ProtoMessage() {}
+
+func (x *Proof) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Proof.ProtoReflect.Descriptor instead.
+func (*Proof) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *Proof) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
 
 // Hello is the first message on a link: what the worker can do.
 type Hello struct {
@@ -695,15 +1562,18 @@ type Hello struct {
 	// trains says the worker can also train those architectures.
 	Trains bool `protobuf:"varint,5,opt,name=trains,proto3" json:"trains,omitempty"`
 	// capacity is how many tasks the worker takes at once.
-	Capacity      int32  `protobuf:"varint,6,opt,name=capacity,proto3" json:"capacity,omitempty"`
-	Version       string `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`
+	Capacity int32  `protobuf:"varint,6,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	Version  string `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`
+	// public_key is the worker's Ed25519 public key.
+	PublicKey     []byte `protobuf:"bytes,8,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	Stats         *Stats `protobuf:"bytes,9,opt,name=stats,proto3" json:"stats,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Hello) Reset() {
 	*x = Hello{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[9]
+	mi := &file_mimir_v1_worker_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -715,7 +1585,7 @@ func (x *Hello) String() string {
 func (*Hello) ProtoMessage() {}
 
 func (x *Hello) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[9]
+	mi := &file_mimir_v1_worker_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -728,7 +1598,7 @@ func (x *Hello) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Hello.ProtoReflect.Descriptor instead.
 func (*Hello) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{9}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *Hello) GetDevice() string {
@@ -780,15 +1650,31 @@ func (x *Hello) GetVersion() string {
 	return ""
 }
 
+func (x *Hello) GetPublicKey() []byte {
+	if x != nil {
+		return x.PublicKey
+	}
+	return nil
+}
+
+func (x *Hello) GetStats() *Stats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
+}
+
+// Heartbeat keeps the link alive and carries fresh stats.
 type Heartbeat struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stats         *Stats                 `protobuf:"bytes,1,opt,name=stats,proto3" json:"stats,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[10]
+	mi := &file_mimir_v1_worker_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -800,7 +1686,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[10]
+	mi := &file_mimir_v1_worker_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -813,7 +1699,14 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{10}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *Heartbeat) GetStats() *Stats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
 }
 
 type Welcome struct {
@@ -826,7 +1719,7 @@ type Welcome struct {
 
 func (x *Welcome) Reset() {
 	*x = Welcome{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[11]
+	mi := &file_mimir_v1_worker_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -838,7 +1731,7 @@ func (x *Welcome) String() string {
 func (*Welcome) ProtoMessage() {}
 
 func (x *Welcome) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[11]
+	mi := &file_mimir_v1_worker_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -851,7 +1744,7 @@ func (x *Welcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Welcome.ProtoReflect.Descriptor instead.
 func (*Welcome) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{11}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Welcome) GetWorkerId() string {
@@ -880,7 +1773,7 @@ type ModelSpec struct {
 
 func (x *ModelSpec) Reset() {
 	*x = ModelSpec{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[12]
+	mi := &file_mimir_v1_worker_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -892,7 +1785,7 @@ func (x *ModelSpec) String() string {
 func (*ModelSpec) ProtoMessage() {}
 
 func (x *ModelSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[12]
+	mi := &file_mimir_v1_worker_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -905,7 +1798,7 @@ func (x *ModelSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelSpec.ProtoReflect.Descriptor instead.
 func (*ModelSpec) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{12}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ModelSpec) GetInputShape() []int64 {
@@ -945,7 +1838,7 @@ type PredictTask struct {
 
 func (x *PredictTask) Reset() {
 	*x = PredictTask{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[13]
+	mi := &file_mimir_v1_worker_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -957,7 +1850,7 @@ func (x *PredictTask) String() string {
 func (*PredictTask) ProtoMessage() {}
 
 func (x *PredictTask) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[13]
+	mi := &file_mimir_v1_worker_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -970,7 +1863,7 @@ func (x *PredictTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PredictTask.ProtoReflect.Descriptor instead.
 func (*PredictTask) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{13}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PredictTask) GetTaskId() string {
@@ -1029,7 +1922,7 @@ type PredictResult struct {
 
 func (x *PredictResult) Reset() {
 	*x = PredictResult{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[14]
+	mi := &file_mimir_v1_worker_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1041,7 +1934,7 @@ func (x *PredictResult) String() string {
 func (*PredictResult) ProtoMessage() {}
 
 func (x *PredictResult) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[14]
+	mi := &file_mimir_v1_worker_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1054,7 +1947,7 @@ func (x *PredictResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PredictResult.ProtoReflect.Descriptor instead.
 func (*PredictResult) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{14}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *PredictResult) GetTaskId() string {
@@ -1118,7 +2011,7 @@ type TrainTask struct {
 
 func (x *TrainTask) Reset() {
 	*x = TrainTask{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[15]
+	mi := &file_mimir_v1_worker_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1130,7 +2023,7 @@ func (x *TrainTask) String() string {
 func (*TrainTask) ProtoMessage() {}
 
 func (x *TrainTask) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[15]
+	mi := &file_mimir_v1_worker_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1143,7 +2036,7 @@ func (x *TrainTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrainTask.ProtoReflect.Descriptor instead.
 func (*TrainTask) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{15}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *TrainTask) GetTaskId() string {
@@ -1236,7 +2129,7 @@ type TrainProgress struct {
 
 func (x *TrainProgress) Reset() {
 	*x = TrainProgress{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[16]
+	mi := &file_mimir_v1_worker_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1248,7 +2141,7 @@ func (x *TrainProgress) String() string {
 func (*TrainProgress) ProtoMessage() {}
 
 func (x *TrainProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[16]
+	mi := &file_mimir_v1_worker_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1261,7 +2154,7 @@ func (x *TrainProgress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrainProgress.ProtoReflect.Descriptor instead.
 func (*TrainProgress) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{16}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *TrainProgress) GetTaskId() string {
@@ -1315,7 +2208,7 @@ type TrainResult struct {
 
 func (x *TrainResult) Reset() {
 	*x = TrainResult{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[17]
+	mi := &file_mimir_v1_worker_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1327,7 +2220,7 @@ func (x *TrainResult) String() string {
 func (*TrainResult) ProtoMessage() {}
 
 func (x *TrainResult) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[17]
+	mi := &file_mimir_v1_worker_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1340,7 +2233,7 @@ func (x *TrainResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrainResult.ProtoReflect.Descriptor instead.
 func (*TrainResult) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{17}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *TrainResult) GetTaskId() string {
@@ -1401,7 +2294,7 @@ type CancelTask struct {
 
 func (x *CancelTask) Reset() {
 	*x = CancelTask{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[18]
+	mi := &file_mimir_v1_worker_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1413,7 +2306,7 @@ func (x *CancelTask) String() string {
 func (*CancelTask) ProtoMessage() {}
 
 func (x *CancelTask) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[18]
+	mi := &file_mimir_v1_worker_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1426,7 +2319,7 @@ func (x *CancelTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelTask.ProtoReflect.Descriptor instead.
 func (*CancelTask) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{18}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *CancelTask) GetTaskId() string {
@@ -1440,7 +2333,7 @@ var File_mimir_v1_worker_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\n" +
-	"\x15mimir/v1/worker.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mimir/v1/model.proto\x1a\x17mimir/v1/training.proto\"\xca\x03\n" +
+	"\x15mimir/v1/worker.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mimir/v1/model.proto\x1a\x17mimir/v1/training.proto\"\xc8\x05\n" +
 	"\x06Worker\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
@@ -1459,10 +2352,73 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\aversion\x18\r \x01(\tR\aversion\x12\x18\n" +
 	"\aaddress\x18\x0e \x01(\tR\aaddress\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\x0f \x01(\tR\tcreatedBy\"\x14\n" +
-	"\x12ListWorkersRequest\"A\n" +
+	"created_by\x18\x0f \x01(\tR\tcreatedBy\x12%\n" +
+	"\x05stats\x18\x10 \x01(\v2\x0f.mimir.v1.StatsR\x05stats\x12=\n" +
+	"\fconnect_time\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\vconnectTime\x12'\n" +
+	"\x0fkey_fingerprint\x18\x12 \x01(\tR\x0ekeyFingerprint\x12\x1a\n" +
+	"\bsecurity\x18\x13 \x01(\tR\bsecurity\x12\x1f\n" +
+	"\vtls_version\x18\x14 \x01(\tR\n" +
+	"tlsVersion\x12\x16\n" +
+	"\x06models\x18\x15 \x01(\x05R\x06models\x12\x18\n" +
+	"\awaiting\x18\x16 \x01(\x05R\awaiting\"\x9e\x02\n" +
+	"\x05Stats\x12\x1f\n" +
+	"\vcpu_percent\x18\x01 \x01(\x01R\n" +
+	"cpuPercent\x12*\n" +
+	"\x11memory_used_bytes\x18\x02 \x01(\x03R\x0fmemoryUsedBytes\x12,\n" +
+	"\x12memory_total_bytes\x18\x03 \x01(\x03R\x10memoryTotalBytes\x12&\n" +
+	"\x0fdisk_used_bytes\x18\x04 \x01(\x03R\rdiskUsedBytes\x12(\n" +
+	"\x10disk_total_bytes\x18\x05 \x01(\x03R\x0ediskTotalBytes\x12%\n" +
+	"\x0euptime_seconds\x18\x06 \x01(\x03R\ruptimeSeconds\x12!\n" +
+	"\fload_average\x18\a \x01(\x01R\vloadAverage\"\xbb\x02\n" +
+	"\fWorkerSample\x12.\n" +
+	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x1f\n" +
+	"\vcpu_percent\x18\x02 \x01(\x01R\n" +
+	"cpuPercent\x12*\n" +
+	"\x11memory_used_bytes\x18\x03 \x01(\x03R\x0fmemoryUsedBytes\x12,\n" +
+	"\x12memory_total_bytes\x18\x04 \x01(\x03R\x10memoryTotalBytes\x12&\n" +
+	"\x0fdisk_used_bytes\x18\x05 \x01(\x03R\rdiskUsedBytes\x12(\n" +
+	"\x10disk_total_bytes\x18\x06 \x01(\x03R\x0ediskTotalBytes\x12\x12\n" +
+	"\x04busy\x18\a \x01(\x05R\x04busy\x12\x1a\n" +
+	"\bcapacity\x18\b \x01(\x05R\bcapacity\"\xdd\x01\n" +
+	"\n" +
+	"WorkerTask\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x19\n" +
+	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12\x1d\n" +
+	"\n" +
+	"model_name\x18\x03 \x01(\tR\tmodelName\x12\x15\n" +
+	"\x06job_id\x18\x04 \x01(\tR\x05jobId\x12\x19\n" +
+	"\bjob_name\x18\x05 \x01(\tR\ajobName\x129\n" +
+	"\n" +
+	"start_time\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x12\x14\n" +
+	"\x05count\x18\a \x01(\x05R\x05count\"x\n" +
+	"\n" +
+	"WorkerItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12.\n" +
+	"\x04time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\"8\n" +
+	"\x10GetWorkerRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05hours\x18\x02 \x01(\x05R\x05hours\"\xa1\x02\n" +
+	"\x11GetWorkerResponse\x12(\n" +
+	"\x06worker\x18\x01 \x01(\v2\x10.mimir.v1.WorkerR\x06worker\x120\n" +
+	"\asamples\x18\x02 \x03(\v2\x16.mimir.v1.WorkerSampleR\asamples\x12*\n" +
+	"\x05tasks\x18\x03 \x03(\v2\x14.mimir.v1.WorkerTaskR\x05tasks\x12,\n" +
+	"\x06models\x18\x04 \x03(\v2\x14.mimir.v1.WorkerItemR\x06models\x12(\n" +
+	"\x04runs\x18\x05 \x03(\v2\x14.mimir.v1.WorkerItemR\x04runs\x12,\n" +
+	"\x06events\x18\x06 \x03(\v2\x14.mimir.v1.WorkerItemR\x06events\"+\n" +
+	"\x19ReplaceWorkerTokenRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"2\n" +
+	"\x1aReplaceWorkerTokenResponse\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\x1a\n" +
+	"\x18ListWorkerChoicesRequest\"G\n" +
+	"\x19ListWorkerChoicesResponse\x12*\n" +
+	"\aworkers\x18\x01 \x03(\v2\x10.mimir.v1.WorkerR\aworkers\"\x14\n" +
+	"\x12ListWorkersRequest\"b\n" +
 	"\x13ListWorkersResponse\x12*\n" +
-	"\aworkers\x18\x01 \x03(\v2\x10.mimir.v1.WorkerR\aworkers\")\n" +
+	"\aworkers\x18\x01 \x03(\v2\x10.mimir.v1.WorkerR\aworkers\x12\x1f\n" +
+	"\vsecure_join\x18\x02 \x01(\bR\n" +
+	"secureJoin\")\n" +
 	"\x13CreateWorkerRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"V\n" +
 	"\x14CreateWorkerResponse\x12(\n" +
@@ -1470,20 +2426,26 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x05token\x18\x02 \x01(\tR\x05token\"%\n" +
 	"\x13DeleteWorkerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x16\n" +
-	"\x14DeleteWorkerResponse\"\xb3\x02\n" +
+	"\x14DeleteWorkerResponse\"\xdc\x02\n" +
 	"\vLinkRequest\x12'\n" +
 	"\x05hello\x18\x01 \x01(\v2\x0f.mimir.v1.HelloH\x00R\x05hello\x12@\n" +
 	"\x0epredict_result\x18\x02 \x01(\v2\x17.mimir.v1.PredictResultH\x00R\rpredictResult\x12@\n" +
 	"\x0etrain_progress\x18\x03 \x01(\v2\x17.mimir.v1.TrainProgressH\x00R\rtrainProgress\x12:\n" +
 	"\ftrain_result\x18\x04 \x01(\v2\x15.mimir.v1.TrainResultH\x00R\vtrainResult\x123\n" +
-	"\theartbeat\x18\x05 \x01(\v2\x13.mimir.v1.HeartbeatH\x00R\theartbeatB\x06\n" +
-	"\x04body\"\xd5\x01\n" +
+	"\theartbeat\x18\x05 \x01(\v2\x13.mimir.v1.HeartbeatH\x00R\theartbeat\x12'\n" +
+	"\x05proof\x18\x06 \x01(\v2\x0f.mimir.v1.ProofH\x00R\x05proofB\x06\n" +
+	"\x04body\"\x8a\x02\n" +
 	"\fLinkResponse\x12-\n" +
 	"\awelcome\x18\x01 \x01(\v2\x11.mimir.v1.WelcomeH\x00R\awelcome\x121\n" +
 	"\apredict\x18\x02 \x01(\v2\x15.mimir.v1.PredictTaskH\x00R\apredict\x12+\n" +
 	"\x05train\x18\x03 \x01(\v2\x13.mimir.v1.TrainTaskH\x00R\x05train\x12.\n" +
-	"\x06cancel\x18\x04 \x01(\v2\x14.mimir.v1.CancelTaskH\x00R\x06cancelB\x06\n" +
-	"\x04body\"\xca\x01\n" +
+	"\x06cancel\x18\x04 \x01(\v2\x14.mimir.v1.CancelTaskH\x00R\x06cancel\x123\n" +
+	"\tchallenge\x18\x05 \x01(\v2\x13.mimir.v1.ChallengeH\x00R\tchallengeB\x06\n" +
+	"\x04body\"!\n" +
+	"\tChallenge\x12\x14\n" +
+	"\x05nonce\x18\x01 \x01(\fR\x05nonce\"%\n" +
+	"\x05Proof\x12\x1c\n" +
+	"\tsignature\x18\x01 \x01(\fR\tsignature\"\x90\x02\n" +
 	"\x05Hello\x12\x16\n" +
 	"\x06device\x18\x01 \x01(\tR\x06device\x12\x12\n" +
 	"\x04cpus\x18\x02 \x01(\x05R\x04cpus\x12!\n" +
@@ -1491,8 +2453,12 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\rarchitectures\x18\x04 \x03(\tR\rarchitectures\x12\x16\n" +
 	"\x06trains\x18\x05 \x01(\bR\x06trains\x12\x1a\n" +
 	"\bcapacity\x18\x06 \x01(\x05R\bcapacity\x12\x18\n" +
-	"\aversion\x18\a \x01(\tR\aversion\"\v\n" +
-	"\tHeartbeat\":\n" +
+	"\aversion\x18\a \x01(\tR\aversion\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\b \x01(\fR\tpublicKey\x12%\n" +
+	"\x05stats\x18\t \x01(\v2\x0f.mimir.v1.StatsR\x05stats\"2\n" +
+	"\tHeartbeat\x12%\n" +
+	"\x05stats\x18\x01 \x01(\v2\x0f.mimir.v1.StatsR\x05stats\":\n" +
 	"\aWelcome\x12\x1b\n" +
 	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"`\n" +
@@ -1544,11 +2510,14 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x05fresh\x18\a \x01(\bR\x05fresh\"%\n" +
 	"\n" +
 	"CancelTask\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId2\xb9\x02\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId2\xc8\x04\n" +
 	"\rWorkerService\x12O\n" +
 	"\vListWorkers\x12\x1c.mimir.v1.ListWorkersRequest\x1a\x1d.mimir.v1.ListWorkersResponse\"\x03\x90\x02\x01\x12M\n" +
 	"\fCreateWorker\x12\x1d.mimir.v1.CreateWorkerRequest\x1a\x1e.mimir.v1.CreateWorkerResponse\x12M\n" +
-	"\fDeleteWorker\x12\x1d.mimir.v1.DeleteWorkerRequest\x1a\x1e.mimir.v1.DeleteWorkerResponse\x129\n" +
+	"\fDeleteWorker\x12\x1d.mimir.v1.DeleteWorkerRequest\x1a\x1e.mimir.v1.DeleteWorkerResponse\x12I\n" +
+	"\tGetWorker\x12\x1a.mimir.v1.GetWorkerRequest\x1a\x1b.mimir.v1.GetWorkerResponse\"\x03\x90\x02\x01\x12_\n" +
+	"\x12ReplaceWorkerToken\x12#.mimir.v1.ReplaceWorkerTokenRequest\x1a$.mimir.v1.ReplaceWorkerTokenResponse\x12a\n" +
+	"\x11ListWorkerChoices\x12\".mimir.v1.ListWorkerChoicesRequest\x1a#.mimir.v1.ListWorkerChoicesResponse\"\x03\x90\x02\x01\x129\n" +
 	"\x04Link\x12\x15.mimir.v1.LinkRequest\x1a\x16.mimir.v1.LinkResponse(\x010\x01B7Z5github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1b\x06proto3"
 
 var (
@@ -1563,70 +2532,104 @@ func file_mimir_v1_worker_proto_rawDescGZIP() []byte {
 	return file_mimir_v1_worker_proto_rawDescData
 }
 
-var file_mimir_v1_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_mimir_v1_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_mimir_v1_worker_proto_goTypes = []any{
-	(*Worker)(nil),                // 0: mimir.v1.Worker
-	(*ListWorkersRequest)(nil),    // 1: mimir.v1.ListWorkersRequest
-	(*ListWorkersResponse)(nil),   // 2: mimir.v1.ListWorkersResponse
-	(*CreateWorkerRequest)(nil),   // 3: mimir.v1.CreateWorkerRequest
-	(*CreateWorkerResponse)(nil),  // 4: mimir.v1.CreateWorkerResponse
-	(*DeleteWorkerRequest)(nil),   // 5: mimir.v1.DeleteWorkerRequest
-	(*DeleteWorkerResponse)(nil),  // 6: mimir.v1.DeleteWorkerResponse
-	(*LinkRequest)(nil),           // 7: mimir.v1.LinkRequest
-	(*LinkResponse)(nil),          // 8: mimir.v1.LinkResponse
-	(*Hello)(nil),                 // 9: mimir.v1.Hello
-	(*Heartbeat)(nil),             // 10: mimir.v1.Heartbeat
-	(*Welcome)(nil),               // 11: mimir.v1.Welcome
-	(*ModelSpec)(nil),             // 12: mimir.v1.ModelSpec
-	(*PredictTask)(nil),           // 13: mimir.v1.PredictTask
-	(*PredictResult)(nil),         // 14: mimir.v1.PredictResult
-	(*TrainTask)(nil),             // 15: mimir.v1.TrainTask
-	(*TrainProgress)(nil),         // 16: mimir.v1.TrainProgress
-	(*TrainResult)(nil),           // 17: mimir.v1.TrainResult
-	(*CancelTask)(nil),            // 18: mimir.v1.CancelTask
-	(*timestamppb.Timestamp)(nil), // 19: google.protobuf.Timestamp
-	(*Tensor)(nil),                // 20: mimir.v1.Tensor
-	(*TrainingSettings)(nil),      // 21: mimir.v1.TrainingSettings
-	(DatasetKind)(0),              // 22: mimir.v1.DatasetKind
-	(*EpochResult)(nil),           // 23: mimir.v1.EpochResult
+	(*Worker)(nil),                     // 0: mimir.v1.Worker
+	(*Stats)(nil),                      // 1: mimir.v1.Stats
+	(*WorkerSample)(nil),               // 2: mimir.v1.WorkerSample
+	(*WorkerTask)(nil),                 // 3: mimir.v1.WorkerTask
+	(*WorkerItem)(nil),                 // 4: mimir.v1.WorkerItem
+	(*GetWorkerRequest)(nil),           // 5: mimir.v1.GetWorkerRequest
+	(*GetWorkerResponse)(nil),          // 6: mimir.v1.GetWorkerResponse
+	(*ReplaceWorkerTokenRequest)(nil),  // 7: mimir.v1.ReplaceWorkerTokenRequest
+	(*ReplaceWorkerTokenResponse)(nil), // 8: mimir.v1.ReplaceWorkerTokenResponse
+	(*ListWorkerChoicesRequest)(nil),   // 9: mimir.v1.ListWorkerChoicesRequest
+	(*ListWorkerChoicesResponse)(nil),  // 10: mimir.v1.ListWorkerChoicesResponse
+	(*ListWorkersRequest)(nil),         // 11: mimir.v1.ListWorkersRequest
+	(*ListWorkersResponse)(nil),        // 12: mimir.v1.ListWorkersResponse
+	(*CreateWorkerRequest)(nil),        // 13: mimir.v1.CreateWorkerRequest
+	(*CreateWorkerResponse)(nil),       // 14: mimir.v1.CreateWorkerResponse
+	(*DeleteWorkerRequest)(nil),        // 15: mimir.v1.DeleteWorkerRequest
+	(*DeleteWorkerResponse)(nil),       // 16: mimir.v1.DeleteWorkerResponse
+	(*LinkRequest)(nil),                // 17: mimir.v1.LinkRequest
+	(*LinkResponse)(nil),               // 18: mimir.v1.LinkResponse
+	(*Challenge)(nil),                  // 19: mimir.v1.Challenge
+	(*Proof)(nil),                      // 20: mimir.v1.Proof
+	(*Hello)(nil),                      // 21: mimir.v1.Hello
+	(*Heartbeat)(nil),                  // 22: mimir.v1.Heartbeat
+	(*Welcome)(nil),                    // 23: mimir.v1.Welcome
+	(*ModelSpec)(nil),                  // 24: mimir.v1.ModelSpec
+	(*PredictTask)(nil),                // 25: mimir.v1.PredictTask
+	(*PredictResult)(nil),              // 26: mimir.v1.PredictResult
+	(*TrainTask)(nil),                  // 27: mimir.v1.TrainTask
+	(*TrainProgress)(nil),              // 28: mimir.v1.TrainProgress
+	(*TrainResult)(nil),                // 29: mimir.v1.TrainResult
+	(*CancelTask)(nil),                 // 30: mimir.v1.CancelTask
+	(*timestamppb.Timestamp)(nil),      // 31: google.protobuf.Timestamp
+	(*Tensor)(nil),                     // 32: mimir.v1.Tensor
+	(*TrainingSettings)(nil),           // 33: mimir.v1.TrainingSettings
+	(DatasetKind)(0),                   // 34: mimir.v1.DatasetKind
+	(*EpochResult)(nil),                // 35: mimir.v1.EpochResult
 }
 var file_mimir_v1_worker_proto_depIdxs = []int32{
-	19, // 0: mimir.v1.Worker.last_seen:type_name -> google.protobuf.Timestamp
-	19, // 1: mimir.v1.Worker.create_time:type_name -> google.protobuf.Timestamp
-	0,  // 2: mimir.v1.ListWorkersResponse.workers:type_name -> mimir.v1.Worker
-	0,  // 3: mimir.v1.CreateWorkerResponse.worker:type_name -> mimir.v1.Worker
-	9,  // 4: mimir.v1.LinkRequest.hello:type_name -> mimir.v1.Hello
-	14, // 5: mimir.v1.LinkRequest.predict_result:type_name -> mimir.v1.PredictResult
-	16, // 6: mimir.v1.LinkRequest.train_progress:type_name -> mimir.v1.TrainProgress
-	17, // 7: mimir.v1.LinkRequest.train_result:type_name -> mimir.v1.TrainResult
-	10, // 8: mimir.v1.LinkRequest.heartbeat:type_name -> mimir.v1.Heartbeat
-	11, // 9: mimir.v1.LinkResponse.welcome:type_name -> mimir.v1.Welcome
-	13, // 10: mimir.v1.LinkResponse.predict:type_name -> mimir.v1.PredictTask
-	15, // 11: mimir.v1.LinkResponse.train:type_name -> mimir.v1.TrainTask
-	18, // 12: mimir.v1.LinkResponse.cancel:type_name -> mimir.v1.CancelTask
-	12, // 13: mimir.v1.PredictTask.spec:type_name -> mimir.v1.ModelSpec
-	20, // 14: mimir.v1.PredictTask.input:type_name -> mimir.v1.Tensor
-	20, // 15: mimir.v1.PredictResult.output:type_name -> mimir.v1.Tensor
-	20, // 16: mimir.v1.PredictResult.probabilities:type_name -> mimir.v1.Tensor
-	21, // 17: mimir.v1.TrainTask.settings:type_name -> mimir.v1.TrainingSettings
-	22, // 18: mimir.v1.TrainTask.dataset_kind:type_name -> mimir.v1.DatasetKind
-	23, // 19: mimir.v1.TrainTask.history:type_name -> mimir.v1.EpochResult
-	23, // 20: mimir.v1.TrainProgress.history:type_name -> mimir.v1.EpochResult
-	23, // 21: mimir.v1.TrainResult.history:type_name -> mimir.v1.EpochResult
-	12, // 22: mimir.v1.TrainResult.spec:type_name -> mimir.v1.ModelSpec
-	1,  // 23: mimir.v1.WorkerService.ListWorkers:input_type -> mimir.v1.ListWorkersRequest
-	3,  // 24: mimir.v1.WorkerService.CreateWorker:input_type -> mimir.v1.CreateWorkerRequest
-	5,  // 25: mimir.v1.WorkerService.DeleteWorker:input_type -> mimir.v1.DeleteWorkerRequest
-	7,  // 26: mimir.v1.WorkerService.Link:input_type -> mimir.v1.LinkRequest
-	2,  // 27: mimir.v1.WorkerService.ListWorkers:output_type -> mimir.v1.ListWorkersResponse
-	4,  // 28: mimir.v1.WorkerService.CreateWorker:output_type -> mimir.v1.CreateWorkerResponse
-	6,  // 29: mimir.v1.WorkerService.DeleteWorker:output_type -> mimir.v1.DeleteWorkerResponse
-	8,  // 30: mimir.v1.WorkerService.Link:output_type -> mimir.v1.LinkResponse
-	27, // [27:31] is the sub-list for method output_type
-	23, // [23:27] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	31, // 0: mimir.v1.Worker.last_seen:type_name -> google.protobuf.Timestamp
+	31, // 1: mimir.v1.Worker.create_time:type_name -> google.protobuf.Timestamp
+	1,  // 2: mimir.v1.Worker.stats:type_name -> mimir.v1.Stats
+	31, // 3: mimir.v1.Worker.connect_time:type_name -> google.protobuf.Timestamp
+	31, // 4: mimir.v1.WorkerSample.time:type_name -> google.protobuf.Timestamp
+	31, // 5: mimir.v1.WorkerTask.start_time:type_name -> google.protobuf.Timestamp
+	31, // 6: mimir.v1.WorkerItem.time:type_name -> google.protobuf.Timestamp
+	0,  // 7: mimir.v1.GetWorkerResponse.worker:type_name -> mimir.v1.Worker
+	2,  // 8: mimir.v1.GetWorkerResponse.samples:type_name -> mimir.v1.WorkerSample
+	3,  // 9: mimir.v1.GetWorkerResponse.tasks:type_name -> mimir.v1.WorkerTask
+	4,  // 10: mimir.v1.GetWorkerResponse.models:type_name -> mimir.v1.WorkerItem
+	4,  // 11: mimir.v1.GetWorkerResponse.runs:type_name -> mimir.v1.WorkerItem
+	4,  // 12: mimir.v1.GetWorkerResponse.events:type_name -> mimir.v1.WorkerItem
+	0,  // 13: mimir.v1.ListWorkerChoicesResponse.workers:type_name -> mimir.v1.Worker
+	0,  // 14: mimir.v1.ListWorkersResponse.workers:type_name -> mimir.v1.Worker
+	0,  // 15: mimir.v1.CreateWorkerResponse.worker:type_name -> mimir.v1.Worker
+	21, // 16: mimir.v1.LinkRequest.hello:type_name -> mimir.v1.Hello
+	26, // 17: mimir.v1.LinkRequest.predict_result:type_name -> mimir.v1.PredictResult
+	28, // 18: mimir.v1.LinkRequest.train_progress:type_name -> mimir.v1.TrainProgress
+	29, // 19: mimir.v1.LinkRequest.train_result:type_name -> mimir.v1.TrainResult
+	22, // 20: mimir.v1.LinkRequest.heartbeat:type_name -> mimir.v1.Heartbeat
+	20, // 21: mimir.v1.LinkRequest.proof:type_name -> mimir.v1.Proof
+	23, // 22: mimir.v1.LinkResponse.welcome:type_name -> mimir.v1.Welcome
+	25, // 23: mimir.v1.LinkResponse.predict:type_name -> mimir.v1.PredictTask
+	27, // 24: mimir.v1.LinkResponse.train:type_name -> mimir.v1.TrainTask
+	30, // 25: mimir.v1.LinkResponse.cancel:type_name -> mimir.v1.CancelTask
+	19, // 26: mimir.v1.LinkResponse.challenge:type_name -> mimir.v1.Challenge
+	1,  // 27: mimir.v1.Hello.stats:type_name -> mimir.v1.Stats
+	1,  // 28: mimir.v1.Heartbeat.stats:type_name -> mimir.v1.Stats
+	24, // 29: mimir.v1.PredictTask.spec:type_name -> mimir.v1.ModelSpec
+	32, // 30: mimir.v1.PredictTask.input:type_name -> mimir.v1.Tensor
+	32, // 31: mimir.v1.PredictResult.output:type_name -> mimir.v1.Tensor
+	32, // 32: mimir.v1.PredictResult.probabilities:type_name -> mimir.v1.Tensor
+	33, // 33: mimir.v1.TrainTask.settings:type_name -> mimir.v1.TrainingSettings
+	34, // 34: mimir.v1.TrainTask.dataset_kind:type_name -> mimir.v1.DatasetKind
+	35, // 35: mimir.v1.TrainTask.history:type_name -> mimir.v1.EpochResult
+	35, // 36: mimir.v1.TrainProgress.history:type_name -> mimir.v1.EpochResult
+	35, // 37: mimir.v1.TrainResult.history:type_name -> mimir.v1.EpochResult
+	24, // 38: mimir.v1.TrainResult.spec:type_name -> mimir.v1.ModelSpec
+	11, // 39: mimir.v1.WorkerService.ListWorkers:input_type -> mimir.v1.ListWorkersRequest
+	13, // 40: mimir.v1.WorkerService.CreateWorker:input_type -> mimir.v1.CreateWorkerRequest
+	15, // 41: mimir.v1.WorkerService.DeleteWorker:input_type -> mimir.v1.DeleteWorkerRequest
+	5,  // 42: mimir.v1.WorkerService.GetWorker:input_type -> mimir.v1.GetWorkerRequest
+	7,  // 43: mimir.v1.WorkerService.ReplaceWorkerToken:input_type -> mimir.v1.ReplaceWorkerTokenRequest
+	9,  // 44: mimir.v1.WorkerService.ListWorkerChoices:input_type -> mimir.v1.ListWorkerChoicesRequest
+	17, // 45: mimir.v1.WorkerService.Link:input_type -> mimir.v1.LinkRequest
+	12, // 46: mimir.v1.WorkerService.ListWorkers:output_type -> mimir.v1.ListWorkersResponse
+	14, // 47: mimir.v1.WorkerService.CreateWorker:output_type -> mimir.v1.CreateWorkerResponse
+	16, // 48: mimir.v1.WorkerService.DeleteWorker:output_type -> mimir.v1.DeleteWorkerResponse
+	6,  // 49: mimir.v1.WorkerService.GetWorker:output_type -> mimir.v1.GetWorkerResponse
+	8,  // 50: mimir.v1.WorkerService.ReplaceWorkerToken:output_type -> mimir.v1.ReplaceWorkerTokenResponse
+	10, // 51: mimir.v1.WorkerService.ListWorkerChoices:output_type -> mimir.v1.ListWorkerChoicesResponse
+	18, // 52: mimir.v1.WorkerService.Link:output_type -> mimir.v1.LinkResponse
+	46, // [46:53] is the sub-list for method output_type
+	39, // [39:46] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_worker_proto_init() }
@@ -1636,18 +2639,20 @@ func file_mimir_v1_worker_proto_init() {
 	}
 	file_mimir_v1_model_proto_init()
 	file_mimir_v1_training_proto_init()
-	file_mimir_v1_worker_proto_msgTypes[7].OneofWrappers = []any{
+	file_mimir_v1_worker_proto_msgTypes[17].OneofWrappers = []any{
 		(*LinkRequest_Hello)(nil),
 		(*LinkRequest_PredictResult)(nil),
 		(*LinkRequest_TrainProgress)(nil),
 		(*LinkRequest_TrainResult)(nil),
 		(*LinkRequest_Heartbeat)(nil),
+		(*LinkRequest_Proof)(nil),
 	}
-	file_mimir_v1_worker_proto_msgTypes[8].OneofWrappers = []any{
+	file_mimir_v1_worker_proto_msgTypes[18].OneofWrappers = []any{
 		(*LinkResponse_Welcome)(nil),
 		(*LinkResponse_Predict)(nil),
 		(*LinkResponse_Train)(nil),
 		(*LinkResponse_Cancel)(nil),
+		(*LinkResponse_Challenge)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1655,7 +2660,7 @@ func file_mimir_v1_worker_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_worker_proto_rawDesc), len(file_mimir_v1_worker_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

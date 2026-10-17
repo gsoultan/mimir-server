@@ -28,25 +28,14 @@ func (s *Service) ListWorkers(ctx context.Context, _ *connect.Request[mimirv1.Li
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	var live []cluster.Status
-	if s.Pool != nil {
-		live = s.Pool.Statuses()
+	models, waiting, err := s.store.Placement(ctx)
+	if err != nil {
+		return nil, s.internal(ctx, err)
 	}
-	res := &mimirv1.ListWorkersResponse{}
+	live := s.statuses()
+	res := &mimirv1.ListWorkersResponse{SecureJoin: s.ConsolePin != ""}
 	for _, w := range ws {
-		pw := workerProto(w)
-		for _, st := range live {
-			if st.Worker.ID != w.ID {
-				continue
-			}
-			pw.Online = true
-			pw.LastSeen = timestamppb.Now()
-			pw.Device, pw.Cpus, pw.MemoryBytes = st.Hello.Device, st.Hello.Cpus, st.Hello.MemoryBytes
-			pw.Architectures, pw.Trains, pw.Capacity = st.Hello.Architectures, st.Hello.Trains, st.Hello.Capacity
-			pw.Busy += int32(st.Busy)
-			pw.Version, pw.Address = st.Hello.Version, st.Addr
-		}
-		res.Workers = append(res.Workers, pw)
+		res.Workers = append(res.Workers, s.workerView(w, live[w.ID], models, waiting))
 	}
 	return connect.NewResponse(res), nil
 }
@@ -66,7 +55,7 @@ func (s *Service) CreateWorker(ctx context.Context, req *connect.Request[mimirv1
 		return nil, s.internal(ctx, err)
 	}
 	s.audit(ctx, p.Actor(), "worker.create", w.Name, "")
-	return connect.NewResponse(&mimirv1.CreateWorkerResponse{Worker: workerProto(w), Token: token}), nil
+	return connect.NewResponse(&mimirv1.CreateWorkerResponse{Worker: workerProto(w), Token: s.joinToken(token)}), nil
 }
 
 func (s *Service) DeleteWorker(ctx context.Context, req *connect.Request[mimirv1.DeleteWorkerRequest]) (*connect.Response[mimirv1.DeleteWorkerResponse], error) {
@@ -98,10 +87,14 @@ func (s *Service) DeleteWorker(ctx context.Context, req *connect.Request[mimirv1
 // checking instead of going through the interceptor.
 func (s *Service) Link(ctx context.Context, stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse]) error {
 	secret, ok := strings.CutPrefix(stream.RequestHeader().Get("Authorization"), "Bearer ")
+	// A pasted join token still carries the console's fingerprint; only
+	// the part before it is the secret.
+	secret, _, _ = strings.Cut(secret, ".")
 	if !ok || !strings.HasPrefix(secret, WorkerPrefix) {
 		return connect.NewError(connect.CodeUnauthenticated, errors.New("Connect with a worker token: Authorization: Bearer mimirw_..."))
 	}
-	w, err := s.store.WorkerByToken(ctx, auth.HashToken(secret))
+	hash := auth.HashToken(secret)
+	w, err := s.store.WorkerByToken(ctx, hash)
 	if errors.Is(err, store.ErrNotFound) {
 		return connect.NewError(connect.CodeUnauthenticated, errors.New("That worker token isn't valid. It may have been deleted."))
 	}
@@ -110,6 +103,12 @@ func (s *Service) Link(ctx context.Context, stream *connect.BidiStream[mimirv1.L
 	}
 	if s.Pool == nil {
 		return connect.NewError(connect.CodeUnavailable, errors.New("This server doesn't take workers."))
+	}
+	addr := stream.Peer().Addr
+	security, version := linkSecurity(ctx, addr)
+	if security == "plain" && !s.AllowPlainWorkers {
+		s.auditIn(ctx, "", "worker "+w.Name, "worker.refused", w.Name, "tried to connect without encryption from "+hostOf(addr))
+		return connect.NewError(connect.CodePermissionDenied, errors.New("Workers must connect over https. Serve the console with TLS, or put it behind an https proxy."))
 	}
 	go func() { // keep last_seen fresh while linked
 		t := time.NewTicker(time.Minute)
@@ -124,7 +123,7 @@ func (s *Service) Link(ctx context.Context, stream *connect.BidiStream[mimirv1.L
 			}
 		}
 	}()
-	return s.Pool.Serve(ctx, stream, w, stream.Peer().Addr)
+	return s.Pool.Serve(ctx, stream, cluster.Join{Worker: w, Addr: addr, Security: security, TLSVersion: version, Verify: s.verifyKey(w, hash, addr)})
 }
 
 func workerProto(w store.Worker) *mimirv1.Worker {

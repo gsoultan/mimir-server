@@ -39,6 +39,13 @@ var (
 
 func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
+	return startServer(t, false)
+}
+
+// startServer starts a test server, serving TLS with a certificate of
+// httptest's own when tls is set.
+func startServer(t *testing.T, tls bool) *httptest.Server {
+	t.Helper()
 	st, err := store.Open(context.Background(), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -53,13 +60,19 @@ func newServer(t *testing.T) *httptest.Server {
 	svc.Notifier.TelegramAPI = "http://127.0.0.1:1" // nothing listens there
 	dispatcher = webhook.New(st, log, true)
 	svc.Pool = cluster.New(log)
+	svc.Pool.OnSample = svc.KeepSample
 	runner = training.New(st, log)
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
 	svc.CancelTraining = runner.Cancel
 	srv := httptest.NewUnstartedServer(server.Handler(svc, st, ui, log))
 	srv.Config.Protocols = server.Protocols()
-	srv.Start()
+	if tls {
+		srv.EnableHTTP2 = true
+		srv.StartTLS()
+	} else {
+		srv.Start()
+	}
 	t.Cleanup(srv.Close)
 	return srv
 }

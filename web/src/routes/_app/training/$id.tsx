@@ -11,6 +11,7 @@ import { TrainingService, JobStatus } from "../../../api/gen/mimir/v1/training_p
 import { allModelQueries, allTrainingQueries, getJob, listArchitectures } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
+import { useWorkerChoices } from "../../../components/Placement";
 import { TrainingChart } from "../../../components/TrainingChart";
 import { ago } from "../../../lib/format";
 import { active, progress, repeatChoices, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
@@ -56,6 +57,8 @@ function Run() {
   }, [j.status, queryClient]);
   const error = cancel.error ?? resume.error ?? remove.error ?? setRepeat.error;
   const chain = j.parentId !== "" || j.repeatSeconds > 0n;
+  const workers = useWorkerChoices(j.runOn !== "" && j.status === JobStatus.QUEUED);
+  const waitingFor = workers.find((w) => w.id === j.runOn);
 
   return (
     <Page
@@ -97,7 +100,7 @@ function Run() {
           <Group gap="xs">
             <Badge color={statusColor[j.status]} variant="light" size="lg">{statusWord[j.status]}</Badge>
             {j.status === JobStatus.RUNNING && <Text size="sm" c="dimmed">Pass {Math.min(j.epoch + 1, epochs)} of {epochs}{j.stepsPerEpoch > 0 && `, step ${j.step} of ${j.stepsPerEpoch}`}</Text>}
-            {j.status === JobStatus.QUEUED && <Text size="sm" c="dimmed">Another run is ahead of it, or it's about to begin.</Text>}
+            {j.status === JobStatus.QUEUED && <Text size="sm" c="dimmed">{waitingFor ? (waitingFor.online ? `It starts on ${waitingFor.name} when that worker has room.` : `It waits for ${waitingFor.name}, which is offline. It starts as soon as that worker connects.`) : "Another run is ahead of it, or it's about to begin."}</Text>}
             {j.status === JobStatus.CANCELLED && <Text size="sm" c="dimmed">Stopped after {j.epoch} of {epochs} passes. Resume to carry on from there.</Text>}
             {j.status === JobStatus.SUCCEEDED && <Text size="sm" c="dimmed">Finished {ago(j.endTime)} after {epochs} passes.</Text>}
           </Group>

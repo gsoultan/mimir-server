@@ -102,6 +102,7 @@ type Job struct {
 	Started       time.Time // zero until it runs
 	Ended         time.Time // zero until it's done
 	TeamID        string
+	RunOn         string // the worker asked to train it; "" for any
 }
 
 // ErrDatasetInUse means a dataset still has training jobs.
@@ -245,7 +246,7 @@ func (s *Store) DeleteDataset(ctx context.Context, id string) error {
 	return nil
 }
 
-const jobColumns = "id, name, description, architecture, dataset_id, epochs, batch_size, learning_rate, hold_out, status, error, epoch, step, steps_per_epoch, history, model_id, worker, created_by, create_time, start_time, end_time, repeat_seconds, next_run, parent_id, base_model_id, note, team_id"
+const jobColumns = "id, name, description, architecture, dataset_id, epochs, batch_size, learning_rate, hold_out, status, error, epoch, step, steps_per_epoch, history, model_id, worker, created_by, create_time, start_time, end_time, repeat_seconds, next_run, parent_id, base_model_id, note, team_id, run_on"
 
 func scanJob(row scanner) (Job, error) {
 	var j Job
@@ -256,7 +257,7 @@ func scanJob(row scanner) (Job, error) {
 	err := row.Scan(&j.ID, &j.Name, &j.Description, &j.Architecture, &j.DatasetID,
 		&j.Settings.Epochs, &j.Settings.BatchSize, &j.Settings.LearningRate, &j.Settings.HoldOut,
 		&j.Status, &j.Error, &j.Epoch, &j.Step, &j.StepsPerEpoch, &history, &j.ModelID, &j.Worker, &j.CreatedBy, &created, &started, &ended,
-		&j.RepeatSeconds, &next, &j.ParentID, &j.BaseModelID, &j.Note, &team)
+		&j.RepeatSeconds, &next, &j.ParentID, &j.BaseModelID, &j.Note, &team, &j.RunOn)
 	j.TeamID = team.String
 	j.Created = time.UnixMilli(created).UTC()
 	j.Started, j.Ended, j.NextRun = fromMillis(started), fromMillis(ended), fromMillis(next)
@@ -279,10 +280,10 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 		j.NextRun = j.Created.Add(time.Duration(j.RepeatSeconds) * time.Second)
 		next = millis(j.NextRun)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO training_jobs ("+jobColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, 0, 0, '[]', '', '', ?, ?, NULL, NULL, ?, ?, ?, ?, '', ?)",
+	_, err = s.db.ExecContext(ctx, "INSERT INTO training_jobs ("+jobColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, 0, 0, '[]', '', '', ?, ?, NULL, NULL, ?, ?, ?, ?, '', ?, ?)",
 		j.ID, j.Name, j.Description, j.Architecture, j.DatasetID,
 		j.Settings.Epochs, j.Settings.BatchSize, j.Settings.LearningRate, j.Settings.HoldOut, j.Status, j.CreatedBy, millis(j.Created),
-		j.RepeatSeconds, next, j.ParentID, j.BaseModelID, j.TeamID)
+		j.RepeatSeconds, next, j.ParentID, j.BaseModelID, j.TeamID, j.RunOn)
 	if err != nil {
 		return Job{}, fmt.Errorf("store: insert job: %w", err)
 	}
@@ -316,15 +317,16 @@ func (s *Store) ListJobs(ctx context.Context, team string) ([]Job, error) {
 	return out, rows.Err()
 }
 
-// ClaimJob takes the oldest queued job and marks it running. It returns
-// ErrNotFound when the queue is empty.
-func (s *Store) ClaimJob(ctx context.Context) (Job, error) {
+// ClaimJob takes the oldest queued job not in skip and marks it running.
+// It returns ErrNotFound when there is none.
+func (s *Store) ClaimJob(ctx context.Context, skip ...string) (Job, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Job{}, err
 	}
 	defer tx.Rollback()
-	j, err := scanJob(tx.QueryRowContext(ctx, "SELECT "+jobColumns+" FROM training_jobs WHERE status = ? ORDER BY create_time, id LIMIT 1", JobQueued))
+	// skip holds ids the runner set aside this round, as one JSON array.
+	j, err := scanJob(tx.QueryRowContext(ctx, "SELECT "+jobColumns+" FROM training_jobs WHERE status = ? AND id NOT IN (SELECT value FROM json_each(?)) ORDER BY create_time, id LIMIT 1", JobQueued, skipList(skip)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Job{}, ErrNotFound
 	}
@@ -452,4 +454,12 @@ func (s *Store) DeleteJob(ctx context.Context, id string) error {
 func (s *Store) ResetRunningJobs(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET status = ? WHERE status = ?", JobQueued, JobRunning)
 	return err
+}
+
+// skipList is skip as a JSON array, "[]" when empty.
+func skipList(skip []string) string {
+	if len(skip) == 0 {
+		return "[]"
+	}
+	return toJSON(skip)
 }

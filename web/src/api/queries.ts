@@ -51,5 +51,7 @@ export const listTeams = createQueryOptions(TeamService.method.listTeams, {}, { 
 export const allTeamQueries = createConnectQueryKey({ schema: TeamService, cardinality: undefined });
 export const usage = (month: string) => createQueryOptions(SettingsService.method.getUsage, { month }, { transport });
 export const listWorkers = createQueryOptions(WorkerService.method.listWorkers, {}, { transport });
+export const listWorkerChoices = createQueryOptions(WorkerService.method.listWorkerChoices, {}, { transport });
+export const getWorker = (id: string, hours: number) => createQueryOptions(WorkerService.method.getWorker, { id, hours }, { transport });
 export const allWorkerQueries = createConnectQueryKey({ schema: WorkerService, cardinality: undefined });
 export const allTrainingQueries = createConnectQueryKey({ schema: TrainingService, cardinality: undefined });

@@ -1259,7 +1259,10 @@ type Job struct {
 	// base_model_id is the model a pass continued from.
 	BaseModelId string `protobuf:"bytes,24,opt,name=base_model_id,json=baseModelId,proto3" json:"base_model_id,omitempty"`
 	// note says what a pass did with its result, in words.
-	Note          string `protobuf:"bytes,25,opt,name=note,proto3" json:"note,omitempty"`
+	Note string `protobuf:"bytes,25,opt,name=note,proto3" json:"note,omitempty"`
+	// run_on is the worker the run was asked to train on; empty means any.
+	// worker is where it actually ran.
+	RunOn         string `protobuf:"bytes,26,opt,name=run_on,json=runOn,proto3" json:"run_on,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1469,6 +1472,13 @@ func (x *Job) GetNote() string {
 	return ""
 }
 
+func (x *Job) GetRunOn() string {
+	if x != nil {
+		return x.RunOn
+	}
+	return ""
+}
+
 type ListJobsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1647,6 +1657,10 @@ type CreateJobRequest struct {
 	Settings *TrainingSettings `protobuf:"bytes,5,opt,name=settings,proto3" json:"settings,omitempty"`
 	// repeat_seconds asks for the job to keep learning on that interval.
 	RepeatSeconds int64 `protobuf:"varint,6,opt,name=repeat_seconds,json=repeatSeconds,proto3" json:"repeat_seconds,omitempty"`
+	// worker_id trains the run on that worker (from
+	// WorkerService.ListWorkerChoices); empty lets the console choose. The
+	// model it makes runs on the same worker.
+	WorkerId      string `protobuf:"bytes,7,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1721,6 +1735,13 @@ func (x *CreateJobRequest) GetRepeatSeconds() int64 {
 		return x.RepeatSeconds
 	}
 	return 0
+}
+
+func (x *CreateJobRequest) GetWorkerId() string {
+	if x != nil {
+		return x.WorkerId
+	}
+	return ""
 }
 
 type CreateJobResponse struct {
@@ -2104,7 +2125,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x04loss\x18\x02 \x01(\x01R\x04loss\x12\x1a\n" +
 	"\baccuracy\x18\x03 \x01(\x01R\baccuracy\x12\x19\n" +
 	"\bval_loss\x18\x04 \x01(\x01R\avalLoss\x12'\n" +
-	"\x0fduration_millis\x18\x05 \x01(\x03R\x0edurationMillis\"\x88\a\n" +
+	"\x0fduration_millis\x18\x05 \x01(\x03R\x0edurationMillis\"\x9f\a\n" +
 	"\x03Job\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -2135,14 +2156,15 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\rnext_run_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampR\vnextRunTime\x12\x1b\n" +
 	"\tparent_id\x18\x17 \x01(\tR\bparentId\x12\"\n" +
 	"\rbase_model_id\x18\x18 \x01(\tR\vbaseModelId\x12\x12\n" +
-	"\x04note\x18\x19 \x01(\tR\x04note\"\x11\n" +
+	"\x04note\x18\x19 \x01(\tR\x04note\x12\x15\n" +
+	"\x06run_on\x18\x1a \x01(\tR\x05runOn\"\x11\n" +
 	"\x0fListJobsRequest\"5\n" +
 	"\x10ListJobsResponse\x12!\n" +
 	"\x04jobs\x18\x01 \x03(\v2\r.mimir.v1.JobR\x04jobs\"\x1f\n" +
 	"\rGetJobRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"1\n" +
 	"\x0eGetJobResponse\x12\x1f\n" +
-	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xea\x01\n" +
+	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\x87\x02\n" +
 	"\x10CreateJobRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\"\n" +
@@ -2150,7 +2172,8 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\n" +
 	"dataset_id\x18\x04 \x01(\tR\tdatasetId\x126\n" +
 	"\bsettings\x18\x05 \x01(\v2\x1a.mimir.v1.TrainingSettingsR\bsettings\x12%\n" +
-	"\x0erepeat_seconds\x18\x06 \x01(\x03R\rrepeatSeconds\"4\n" +
+	"\x0erepeat_seconds\x18\x06 \x01(\x03R\rrepeatSeconds\x12\x1b\n" +
+	"\tworker_id\x18\a \x01(\tR\bworkerId\"4\n" +
 	"\x11CreateJobResponse\x12\x1f\n" +
 	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\"\n" +
 	"\x10CancelJobRequest\x12\x0e\n" +

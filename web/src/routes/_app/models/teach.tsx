@@ -12,6 +12,7 @@ import { message } from "../../../api/client";
 import { DatasetKind, DatasetService, TrainingService, type Dataset } from "../../../api/gen/mimir/v1/training_pb";
 import { allDatasetQueries, allTrainingQueries, listArchitectures, listDatasets, whoAmI } from "../../../api/queries";
 import { Page } from "../../../components/Page";
+import { useWorkerChoices, WorkerSelect } from "../../../components/Placement";
 import { bytes } from "../../../lib/format";
 import { repeatChoices } from "../../../lib/training";
 
@@ -77,6 +78,8 @@ function Teach() {
   const [query, setQuery] = useState("");
   const [examplesName, setExamplesName] = useState("");
   const [repeat, setRepeat] = useState("0");
+  const [runOn, setRunOn] = useState("");
+  const workers = useWorkerChoices(me.permissions.includes("models.write"));
   const tested = useMutation(DatasetService.method.testQuery, {
     onSuccess: (res) => setTarget(res.columns[res.columns.length - 1] ?? ""),
   });
@@ -136,7 +139,7 @@ function Teach() {
   const fromQuery = !!dataset?.query;
   const chosenEpochs = expert ? Number(epochs) : presets.find((p) => p.value === preset)!.epochs;
   const start = () => dataset && createJob.mutate({
-    name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n,
+    name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n, workerId: runOn,
     // Outside the expert settings, zero lets the server pick what suits the examples.
     settings: { epochs: chosenEpochs, batchSize: expert ? Number(batch) : 0, learningRate: expert ? Number(rate) : 0, holdOut: expert ? Number(holdOut) / 100 : 0.2 },
   });
@@ -260,6 +263,18 @@ function Teach() {
                 <NumberInput label="Kept aside for scoring" description="Percent of examples the model never learns from, used to measure it honestly" min={0} max={50} suffix="%" value={holdOut} onChange={setHoldOut} />
               </SimpleGrid>
             </Collapse>
+            {workers.length > 0 && (
+              <div className="mt-6 max-w-md">
+                <WorkerSelect
+                  workers={workers}
+                  value={runOn}
+                  onChange={setRunOn}
+                  forTraining
+                  label="Train on"
+                  description={runOn ? "It trains there and answers there afterwards. If it's offline, the run waits for it." : "The least busy worker that can teach starts it."}
+                />
+              </div>
+            )}
             {fromQuery && (
               <Stack gap={4} mt="lg">
                 <Text fw={500} size="sm">Keep learning</Text>

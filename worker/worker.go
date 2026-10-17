@@ -13,6 +13,8 @@ package worker
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +22,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -138,8 +141,21 @@ type Config struct {
 	// Log receives connection events; nil means the default logger.
 	Log *slog.Logger
 	// HTTPClient is used for the link; nil picks one that speaks HTTP/2
-	// to the server, unencrypted for http:// addresses.
+	// to the server and checks the console's key when the token carries
+	// its fingerprint.
 	HTTPClient *http.Client
+	// KeyFile is where the worker keeps the private key it proves itself
+	// with. It is made on first start; keep it with the worker. Empty
+	// means DefaultKeyFile in DataDir, or in the user's config folder
+	// without one.
+	KeyFile string
+	// DataDir is the folder whose disk the dashboard reports, and where
+	// the key is kept by default.
+	DataDir string
+	// Insecure allows an http:// server on another machine. Tokens and
+	// examples then cross the network unencrypted; only use it on a
+	// network you trust.
+	Insecure bool
 }
 
 // Run joins the server and serves tasks until ctx ends. It returns ctx's
@@ -158,6 +174,34 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	if cfg.Log == nil {
 		cfg.Log = slog.Default()
 	}
+	secret, pin := splitToken(cfg.Token)
+	plain := u.Scheme == "http"
+	switch {
+	case plain && pin != "":
+		return errors.New("worker: this token is for an https console; use https:// in the server address")
+	case plain && !isLoopback(u.Hostname()) && !cfg.Insecure:
+		return fmt.Errorf("worker: %s isn't encrypted; use https://, or allow it explicitly (-insecure) on a network you trust", cfg.Server)
+	case plain && !isLoopback(u.Hostname()):
+		cfg.Log.Warn("worker: connecting without encryption", "server", cfg.Server)
+	}
+	if cfg.KeyFile == "" {
+		dir := cfg.DataDir
+		if dir == "" {
+			conf, err := os.UserConfigDir()
+			if err != nil {
+				return fmt.Errorf("worker: no folder for the key; set KeyFile: %w", err)
+			}
+			dir = filepath.Join(conf, "mimir-worker")
+		}
+		cfg.KeyFile = DefaultKeyFile(dir, cfg.Token)
+	}
+	if cfg.DataDir == "" {
+		cfg.DataDir = filepath.Dir(cfg.KeyFile)
+	}
+	key, err := loadKey(cfg.KeyFile)
+	if err != nil {
+		return err
+	}
 	if cfg.Device == "" {
 		cfg.Device = runtime.GOOS + "/" + runtime.GOARCH
 	}
@@ -166,9 +210,16 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	}
 	client := cfg.HTTPClient
 	if client == nil {
-		client = httpClient(u.Scheme == "http")
+		var tc *tls.Config
+		if pin != "" {
+			if tc, err = pinned(pin); err != nil {
+				return err
+			}
+		}
+		client = httpClient(plain, tc)
 	}
-	w := &worker{cfg: cfg, handlers: handlers, client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
+	cfg.Token = secret
+	w := &worker{cfg: cfg, handlers: handlers, key: key, stats: newSampler(cfg.DataDir), client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
 
 	delay := time.Second
 	for {
@@ -180,8 +231,8 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 		if time.Since(started) > time.Minute {
 			delay = time.Second // it was up for a while; try again soon
 		}
-		if connect.CodeOf(err) == connect.CodeUnauthenticated {
-			cfg.Log.Error("worker: the server rejected the token; check it under Settings → Workers", "error", err)
+		if c := connect.CodeOf(err); c == connect.CodeUnauthenticated || c == connect.CodePermissionDenied {
+			cfg.Log.Error("worker: the console refused this worker; check its token under Settings → Workers", "error", err)
 			delay = 30 * time.Second
 		} else {
 			cfg.Log.Warn("worker: link ended, reconnecting", "error", err, "in", delay)
@@ -202,6 +253,8 @@ type worker struct {
 	cfg      Config
 	handlers map[string]Handler
 	client   mimirv1connect.WorkerServiceClient
+	key      ed25519.PrivateKey
+	stats    *sampler
 
 	sendMu sync.Mutex
 	stream *connect.BidiStreamForClient[mimirv1.LinkRequest, mimirv1.LinkResponse]
@@ -234,7 +287,8 @@ func (w *worker) serve(ctx context.Context) error {
 		}
 	}
 	slices.Sort(archs)
-	hello := &mimirv1.Hello{Device: w.cfg.Device, Cpus: int32(runtime.NumCPU()), MemoryBytes: memory(), Architectures: archs, Trains: trains, Capacity: int32(w.cfg.Capacity), Version: w.cfg.Version}
+	hello := &mimirv1.Hello{Device: w.cfg.Device, Cpus: int32(runtime.NumCPU()), MemoryBytes: memory(), Architectures: archs, Trains: trains, Capacity: int32(w.cfg.Capacity), Version: w.cfg.Version,
+		PublicKey: w.key.Public().(ed25519.PublicKey), Stats: w.stats.read()}
 	if err := w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Hello{Hello: hello}}); err != nil {
 		return err
 	}
@@ -242,13 +296,22 @@ func (w *worker) serve(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if c := first.GetChallenge(); c != nil {
+		// Prove this is the machine the token joined from.
+		if err := w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Proof{Proof: &mimirv1.Proof{Signature: sign(w.key, c.Nonce)}}}); err != nil {
+			return err
+		}
+		if first, err = stream.Receive(); err != nil {
+			return err
+		}
+	}
 	welcome := first.GetWelcome()
 	if welcome == nil {
 		return errors.New("worker: the server didn't say welcome")
 	}
 	w.cfg.Log.Info("worker: linked", "server", w.cfg.Server, "as", welcome.Name)
 
-	beat := time.NewTicker(20 * time.Second)
+	beat := time.NewTicker(15 * time.Second)
 	defer beat.Stop()
 	go func() {
 		for {
@@ -256,7 +319,7 @@ func (w *worker) serve(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-beat.C:
-				if w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Heartbeat{Heartbeat: &mimirv1.Heartbeat{}}}) != nil {
+				if w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Heartbeat{Heartbeat: &mimirv1.Heartbeat{Stats: w.stats.read()}}}) != nil {
 					return
 				}
 			}
@@ -392,19 +455,6 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 			Spec: &mimirv1.ModelSpec{InputShape: int64s(res.InputShape), Labels: res.Labels, Features: res.Features},
 		})
 	}
-}
-
-// httpClient speaks HTTP/2, which a bidirectional stream needs, and does
-// so without TLS for http:// servers.
-func httpClient(plain bool) *http.Client {
-	var p http.Protocols
-	if plain {
-		p.SetUnencryptedHTTP2(true)
-	} else {
-		p.SetHTTP1(true)
-		p.SetHTTP2(true)
-	}
-	return &http.Client{Transport: &http.Transport{Protocols: &p, ForceAttemptHTTP2: true}}
 }
 
 // memory returns the machine's memory in bytes where it is easy to know.

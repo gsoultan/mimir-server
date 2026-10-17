@@ -4,6 +4,8 @@ package cluster
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -21,14 +23,25 @@ import (
 	"github.com/gsoultan/mimir-server/internal/training"
 )
 
-// ErrLinkLost means the worker went away while it had a task.
-var ErrLinkLost = errors.New("cluster: the worker disconnected")
+// ErrLinkLost means the worker went away while it had a task. A training
+// run that loses its worker goes back in the queue.
+var ErrLinkLost = training.ErrWorkerLost
 
 // ErrWorkerFailed carries an error a worker reported for a task.
 var ErrWorkerFailed = errors.New("cluster: the worker couldn't do it")
 
-// helloTimeout is how long a new link has to say hello.
+// helloTimeout is how long a new link has to say hello, and then to
+// answer the challenge.
 const helloTimeout = 30 * time.Second
+
+// sampleEvery is how often a worker's stats are kept for its charts.
+const sampleEvery = time.Minute
+
+// ProofContext starts the message a worker signs to answer a challenge.
+const ProofContext = "mimir-worker-link-v1\n"
+
+// ErrBadProof means a worker couldn't prove it holds its key.
+var ErrBadProof = errors.New("cluster: the worker's key didn't check out")
 
 // defaultCapacity is how many tasks a worker takes at once when it
 // doesn't say.
@@ -36,10 +49,33 @@ const defaultCapacity = 4
 
 // Pool is the set of connected workers.
 type Pool struct {
+	// OnSample, when set, is given a worker's stats about once a minute.
+	OnSample func(workerID string, s store.WorkerSample)
+
 	log   *slog.Logger
 	mu    sync.Mutex
 	links map[string]*link
 	seq   int64
+}
+
+// Join is who is on the other end of a new link.
+type Join struct {
+	Worker store.Worker
+	Addr   string
+	// Security and TLSVersion say how the link is protected, for display.
+	Security   string
+	TLSVersion string
+	// Verify is given the worker's hello once it has signed the challenge
+	// with the key in it. It decides whether that key may join as Worker.
+	Verify func(ctx context.Context, hello *mimirv1.Hello) error
+}
+
+// Task is something a worker is doing.
+type Task struct {
+	Kind    string // "predict" or "train"
+	ModelID string
+	JobID   string
+	Started time.Time
 }
 
 // New returns an empty pool.
@@ -49,18 +85,22 @@ func New(log *slog.Logger) *Pool {
 
 // Status is what the pool knows about one connected worker.
 type Status struct {
-	Worker store.Worker
-	Hello  *mimirv1.Hello
-	Addr   string
-	Busy   int
-	Since  time.Time
+	Worker     store.Worker
+	Hello      *mimirv1.Hello
+	Addr       string
+	Busy       int
+	Since      time.Time
+	Stats      *mimirv1.Stats
+	Tasks      []Task
+	Security   string
+	TLSVersion string
 }
 
 type link struct {
 	id     string
 	worker store.Worker
 	hello  *mimirv1.Hello
-	addr   string
+	join   Join
 	since  time.Time
 	stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse]
 
@@ -71,6 +111,9 @@ type link struct {
 	seq     int64
 	sent    map[string]bool // model ids whose weights went down this link
 	pending map[string]chan *mimirv1.LinkRequest
+	tasks   map[string]Task
+	stats   *mimirv1.Stats
+	sampled time.Time
 	closed  chan struct{}
 	dropped chan struct{} // closed when the worker is deleted
 }
@@ -87,34 +130,31 @@ func (l *link) drop() {
 
 // Serve runs a worker's link until the stream ends or ctx is done. It
 // returns the error to close the stream with.
-func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse], w store.Worker, addr string) error {
-	first := make(chan *mimirv1.LinkRequest, 1)
-	go func() {
-		msg, err := stream.Receive()
-		if err != nil {
-			close(first)
-			return
-		}
-		first <- msg
-	}()
-	var hello *mimirv1.Hello
-	select {
-	case msg, ok := <-first:
-		if ok {
-			hello = msg.GetHello()
-		}
-	case <-time.After(helloTimeout):
-	case <-ctx.Done():
-		return ctx.Err()
+func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse], j Join) error {
+	w, addr := j.Worker, j.Addr
+	msg, err := receive(ctx, stream)
+	if err != nil {
+		return err
 	}
+	hello := msg.GetHello()
 	if hello == nil {
 		return connect.NewError(connect.CodeInvalidArgument, errors.New("A worker starts its link with a hello."))
 	}
 	if hello.Capacity <= 0 {
 		hello.Capacity = defaultCapacity
 	}
+	if err := p.challenge(ctx, stream, hello); err != nil {
+		p.log.WarnContext(ctx, "worker: refused", "worker", w.Name, "addr", addr, "error", err)
+		return connect.NewError(connect.CodePermissionDenied, errors.New("This worker couldn't prove it holds its key. Update the worker to this version."))
+	}
+	if j.Verify != nil {
+		if err := j.Verify(ctx, hello); err != nil {
+			return err
+		}
+	}
 
-	l := &link{worker: w, hello: hello, addr: addr, since: time.Now(), stream: stream, sent: map[string]bool{}, pending: map[string]chan *mimirv1.LinkRequest{}, closed: make(chan struct{}), dropped: make(chan struct{})}
+	l := &link{worker: w, hello: hello, join: j, since: time.Now(), stream: stream, sent: map[string]bool{}, pending: map[string]chan *mimirv1.LinkRequest{}, tasks: map[string]Task{}, closed: make(chan struct{}), dropped: make(chan struct{})}
+	l.note(p, hello.Stats)
 	p.mu.Lock()
 	p.seq++
 	l.id = fmt.Sprint(p.seq)
@@ -126,7 +166,7 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 		p.mu.Unlock()
 		close(l.closed)
 	}()
-	log := p.log.With("worker", w.Name, "addr", addr)
+	log := p.log.With("worker", w.Name, "addr", addr, "security", j.Security)
 	log.InfoContext(ctx, "worker: connected", "device", hello.Device, "architectures", hello.Architectures, "trains", hello.Trains)
 	defer log.InfoContext(ctx, "worker: disconnected")
 
@@ -148,6 +188,9 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 		}
 		var taskID string
 		switch b := msg.Body.(type) {
+		case *mimirv1.LinkRequest_Heartbeat:
+			l.note(p, b.Heartbeat.GetStats())
+			continue
 		case *mimirv1.LinkRequest_PredictResult:
 			taskID = b.PredictResult.GetTaskId()
 		case *mimirv1.LinkRequest_TrainProgress:
@@ -171,6 +214,76 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 	}
 }
 
+// receive waits for the next message, for at most helloTimeout.
+func receive(ctx context.Context, stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse]) (*mimirv1.LinkRequest, error) {
+	got := make(chan *mimirv1.LinkRequest, 1)
+	go func() {
+		msg, err := stream.Receive()
+		if err != nil {
+			close(got)
+			return
+		}
+		got <- msg
+	}()
+	select {
+	case msg, ok := <-got:
+		if !ok {
+			return nil, connect.NewError(connect.CodeCanceled, errors.New("The worker hung up."))
+		}
+		return msg, nil
+	case <-time.After(helloTimeout):
+		return nil, connect.NewError(connect.CodeDeadlineExceeded, errors.New("The worker took too long to answer."))
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// challenge asks the worker to sign a fresh nonce with the key in its
+// hello, so a copied hello or a stolen token alone can't join.
+func (p *Pool) challenge(ctx context.Context, stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse], hello *mimirv1.Hello) error {
+	if len(hello.PublicKey) != ed25519.PublicKeySize {
+		return fmt.Errorf("%w: no key in its hello", ErrBadProof)
+	}
+	nonce := make([]byte, 32)
+	rand.Read(nonce)
+	if err := stream.Send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Challenge{Challenge: &mimirv1.Challenge{Nonce: nonce}}}); err != nil {
+		return err
+	}
+	msg, err := receive(ctx, stream)
+	if err != nil {
+		return err
+	}
+	sig := msg.GetProof().GetSignature()
+	if !ed25519.Verify(hello.PublicKey, append([]byte(ProofContext), nonce...), sig) {
+		return fmt.Errorf("%w: the signature doesn't match", ErrBadProof)
+	}
+	return nil
+}
+
+// note keeps a worker's latest stats, and hands one to OnSample a minute.
+func (l *link) note(p *Pool, st *mimirv1.Stats) {
+	if st == nil {
+		return
+	}
+	now := time.Now()
+	l.mu.Lock()
+	l.stats = st
+	take := now.Sub(l.sampled) >= sampleEvery
+	if take {
+		l.sampled = now
+	}
+	busy := l.busy
+	l.mu.Unlock()
+	if take && p.OnSample != nil {
+		p.OnSample(l.worker.ID, store.WorkerSample{
+			Time: now, CPUPercent: st.CpuPercent,
+			MemoryUsed: st.MemoryUsedBytes, MemoryTotal: st.MemoryTotalBytes,
+			DiskUsed: st.DiskUsedBytes, DiskTotal: st.DiskTotalBytes,
+			Busy: busy, Capacity: int(l.hello.Capacity),
+		})
+	}
+}
+
 func (l *link) send(msg *mimirv1.LinkResponse) error {
 	l.sendMu.Lock()
 	defer l.sendMu.Unlock()
@@ -178,13 +291,15 @@ func (l *link) send(msg *mimirv1.LinkResponse) error {
 }
 
 // open registers a task and returns its id and reply channel.
-func (l *link) open() (string, chan *mimirv1.LinkRequest) {
+func (l *link) open(t Task) (string, chan *mimirv1.LinkRequest) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.seq++
 	id := fmt.Sprintf("%s-%d", l.id, l.seq)
 	ch := make(chan *mimirv1.LinkRequest, 16)
 	l.pending[id] = ch
+	t.Started = time.Now()
+	l.tasks[id] = t
 	l.busy++
 	return id, ch
 }
@@ -193,15 +308,20 @@ func (l *link) finish(id string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	delete(l.pending, id)
+	delete(l.tasks, id)
 	l.busy--
 }
 
-// pick returns the least busy link that can do the job, or nil.
-func (p *Pool) pick(archName string, train bool) *link {
+// pick returns the least busy link that can do the job, or nil. With a
+// workerID only that worker's links count.
+func (p *Pool) pick(archName string, train bool, workerID string) *link {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	var best *link
 	for _, l := range p.links {
+		if workerID != "" && l.worker.ID != workerID {
+			continue
+		}
 		if !slices.Contains(l.hello.Architectures, archName) || (train && !l.hello.Trains) {
 			continue
 		}
@@ -232,11 +352,25 @@ func (p *Pool) Drop(workerID string) {
 	}
 }
 
-// CanPredict reports whether a connected worker runs architecture a.
-func (p *Pool) CanPredict(a string) bool { return p.pick(a, false) != nil }
+// CanPredict reports whether a connected worker runs architecture a; with
+// a workerID, whether that worker does.
+func (p *Pool) CanPredict(a, workerID string) bool { return p.pick(a, false, workerID) != nil }
 
-// CanTrain reports whether a connected worker trains architecture a.
-func (p *Pool) CanTrain(a string) bool { return p.pick(a, true) != nil }
+// CanTrain reports whether a connected worker trains architecture a; with
+// a workerID, whether that worker does.
+func (p *Pool) CanTrain(a, workerID string) bool { return p.pick(a, true, workerID) != nil }
+
+// Online reports whether a worker has a link open.
+func (p *Pool) Online(workerID string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, l := range p.links {
+		if l.worker.ID == workerID {
+			return true
+		}
+	}
+	return false
+}
 
 // Statuses describes every connected worker.
 func (p *Pool) Statuses() []Status {
@@ -245,7 +379,11 @@ func (p *Pool) Statuses() []Status {
 	out := make([]Status, 0, len(p.links))
 	for _, l := range p.links {
 		l.mu.Lock()
-		out = append(out, Status{Worker: l.worker, Hello: l.hello, Addr: l.addr, Busy: l.busy, Since: l.since})
+		st := Status{Worker: l.worker, Hello: l.hello, Addr: l.join.Addr, Busy: l.busy, Since: l.since, Stats: l.stats, Security: l.join.Security, TLSVersion: l.join.TLSVersion}
+		for _, t := range l.tasks {
+			st.Tasks = append(st.Tasks, t)
+		}
+		out = append(out, st)
 		l.mu.Unlock()
 	}
 	return out
@@ -253,12 +391,12 @@ func (p *Pool) Statuses() []Status {
 
 // Predict runs input through a model on a worker. ran is false when no
 // worker can run the architecture.
-func (p *Pool) Predict(ctx context.Context, modelID string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (res runtime.Result, worker string, ran bool, err error) {
-	l := p.pick(a.Name, false)
+func (p *Pool) Predict(ctx context.Context, modelID, workerID string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (res runtime.Result, worker string, ran bool, err error) {
+	l := p.pick(a.Name, false, workerID)
 	if l == nil {
 		return res, "", false, nil
 	}
-	id, replies := l.open()
+	id, replies := l.open(Task{Kind: "predict", ModelID: modelID})
 	defer l.finish(id)
 	task := &mimirv1.PredictTask{
 		TaskId: id, ModelId: modelID, Architecture: a.Name,
@@ -304,19 +442,20 @@ func (p *Pool) Predict(ctx context.Context, modelID string, a arch.Architecture,
 // Train runs a training task on a worker, reporting progress as it goes.
 // ran is false when no worker can train the architecture. When ctx ends
 // the worker is told to stop and the error is ctx's cause.
-func (p *Pool) Train(ctx context.Context, jobID string, t training.Task, progress training.Progress) (res training.Result, worker string, ran bool, err error) {
-	l := p.pick(t.Arch.Name, true)
+func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Task, progress training.Progress) (res training.Result, worker string, ran bool, err error) {
+	l := p.pick(t.Arch.Name, true, workerID)
 	if l == nil {
 		return res, "", false, nil
 	}
-	id, replies := l.open()
+	id, replies := l.open(Task{Kind: "train", JobID: jobID})
 	defer l.finish(id)
 	task := &mimirv1.TrainTask{
 		TaskId: id, JobId: jobID, Architecture: t.Arch.Name,
 		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut},
 		DatasetKind: mimirv1.DatasetKind(t.Source.Kind),
 		Csv:         t.Source.CSV, Target: t.Source.Target,
-		History: EpochsToProto(t.History),
+		History:     EpochsToProto(t.History),
+		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
 	}
 	if err := l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Train{Train: task}}); err != nil {
 		return res, l.worker.Name, true, ErrLinkLost

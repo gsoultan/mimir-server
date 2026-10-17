@@ -56,13 +56,19 @@ type Runner struct {
 type Remote interface {
 	// Train runs the task on a worker, reporting progress along the way.
 	// ran is false when no worker could take it, and the job is untouched.
-	Train(ctx context.Context, jobID string, t Task, progress Progress) (res Result, worker string, ran bool, err error)
-	// CanTrain reports whether some connected worker trains architecture a.
-	CanTrain(a string) bool
+	// With a workerID only that worker is used.
+	Train(ctx context.Context, jobID, workerID string, t Task, progress Progress) (res Result, worker string, ran bool, err error)
+	// CanTrain reports whether some connected worker trains architecture
+	// a; with a workerID, whether that worker does.
+	CanTrain(a, workerID string) bool
 }
 
 // errNoWorker is the failure when nobody can run a job.
 var errNoWorker = errors.New("no worker is connected that can train this kind of model")
+
+// ErrWorkerLost means the worker training a run went away; the run goes
+// back in the queue for when one is there.
+var ErrWorkerLost = errors.New("the worker disconnected")
 
 // New returns a Runner over st that trains locally.
 func New(st *store.Store, log *slog.Logger) *Runner {
@@ -116,8 +122,11 @@ func (r *Runner) Tick(ctx context.Context) {
 }
 
 func (r *Runner) drain(ctx context.Context) {
+	// skip holds jobs set aside this round because nobody can run them
+	// now, so one waiting for an offline worker doesn't hold up the rest.
+	var skip []string
 	for ctx.Err() == nil {
-		j, err := r.st.ClaimJob(ctx)
+		j, err := r.st.ClaimJob(ctx, skip...)
 		if errors.Is(err, store.ErrNotFound) {
 			return
 		}
@@ -125,11 +134,13 @@ func (r *Runner) drain(ctx context.Context) {
 			r.log.ErrorContext(ctx, "training: claim job", "error", err)
 			return
 		}
-		if !r.Local && (r.Remote == nil || !r.Remote.CanTrain(j.Architecture)) {
+		pinned := j.RunOn != ""
+		if (pinned || !r.Local) && (r.Remote == nil || !r.Remote.CanTrain(j.Architecture, j.RunOn)) {
 			// Nobody can run it right now; leave it queued for when a
 			// worker connects.
 			r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
-			return
+			skip = append(skip, j.ID)
+			continue
 		}
 		r.run(ctx, j)
 	}
@@ -158,6 +169,10 @@ func (r *Runner) run(ctx context.Context, j store.Job) {
 	case errors.Is(context.Cause(jctx), ErrCancelled):
 		r.st.SetJobStatus(ctx, j.ID, store.JobCancelled, "", "")
 		log.InfoContext(ctx, "training: cancelled")
+	case errors.Is(err, ErrWorkerLost):
+		r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
+		log.WarnContext(ctx, "training: the worker went away; back in the queue")
+		return
 	case ctx.Err() != nil:
 		// The server is stopping; the job goes back to the queue with its
 		// checkpoint, so the next start picks it up.
@@ -211,13 +226,13 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	ran := false
 	if r.Remote != nil {
 		var name string
-		res, name, ran, err = r.Remote.Train(ctx, j.ID, task, progress)
+		res, name, ran, err = r.Remote.Train(ctx, j.ID, j.RunOn, task, progress)
 		if ran {
 			r.st.SetJobWorker(ctx, j.ID, name)
 		}
 	}
 	if !ran {
-		if !r.Local {
+		if !r.Local || j.RunOn != "" {
 			return "", errNoWorker
 		}
 		res, err = Fit(ctx, task, progress)
@@ -225,7 +240,7 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID, TeamID: j.TeamID}
+	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID, TeamID: j.TeamID, WorkerID: j.RunOn}
 	if n := len(res.History); n > 0 {
 		m.Accuracy = res.History[n-1].Accuracy
 	}

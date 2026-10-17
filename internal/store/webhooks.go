@@ -309,6 +309,7 @@ func (s *Store) Trim(ctx context.Context, auditKeep, deliveryKeep time.Duration)
 		{"DELETE FROM audit_events WHERE time < ?", millis(now.Add(-auditKeep))},
 		{"DELETE FROM deliveries WHERE status <> 1 AND create_time < ?", millis(now.Add(-deliveryKeep))},
 		{"DELETE FROM sessions WHERE expire_time <= ?", millis(now)},
+		{"DELETE FROM worker_samples WHERE time < ?", millis(now.Add(-WorkerSampleKeep))},
 	} {
 		res, err := s.db.ExecContext(ctx, q.sql, q.arg)
 		if err != nil {
@@ -319,6 +320,9 @@ func (s *Store) Trim(ctx context.Context, auditKeep, deliveryKeep time.Duration)
 	}
 	return total, nil
 }
+
+// WorkerSampleKeep is how long worker stats are kept for charts.
+const WorkerSampleKeep = 7 * 24 * time.Hour
 
 // Stats describes the database for the Settings screen.
 type Stats struct {

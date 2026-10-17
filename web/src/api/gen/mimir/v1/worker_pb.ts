@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/worker.proto.
  */
 export const file_mimir_v1_worker: GenFile = /*@__PURE__*/
-  fileDesc("ChVtaW1pci92MS93b3JrZXIucHJvdG8SCG1pbWlyLnYxIsMCCgZXb3JrZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZvbmxpbmUYAyABKAgSLQoJbGFzdF9zZWVuGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtjcmVhdGVfdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGZGV2aWNlGAYgASgJEgwKBGNwdXMYByABKAUSFAoMbWVtb3J5X2J5dGVzGAggASgDEhUKDWFyY2hpdGVjdHVyZXMYCSADKAkSDgoGdHJhaW5zGAogASgIEhAKCGNhcGFjaXR5GAsgASgFEgwKBGJ1c3kYDCABKAUSDwoHdmVyc2lvbhgNIAEoCRIPCgdhZGRyZXNzGA4gASgJEhIKCmNyZWF0ZWRfYnkYDyABKAkiFAoSTGlzdFdvcmtlcnNSZXF1ZXN0IjgKE0xpc3RXb3JrZXJzUmVzcG9uc2USIQoHd29ya2VycxgBIAMoCzIQLm1pbWlyLnYxLldvcmtlciIjChNDcmVhdGVXb3JrZXJSZXF1ZXN0EgwKBG5hbWUYASABKAkiRwoUQ3JlYXRlV29ya2VyUmVzcG9uc2USIAoGd29ya2VyGAEgASgLMhAubWltaXIudjEuV29ya2VyEg0KBXRva2VuGAIgASgJIiEKE0RlbGV0ZVdvcmtlclJlcXVlc3QSCgoCaWQYASABKAkiFgoURGVsZXRlV29ya2VyUmVzcG9uc2Ui9gEKC0xpbmtSZXF1ZXN0EiAKBWhlbGxvGAEgASgLMg8ubWltaXIudjEuSGVsbG9IABIxCg5wcmVkaWN0X3Jlc3VsdBgCIAEoCzIXLm1pbWlyLnYxLlByZWRpY3RSZXN1bHRIABIxCg50cmFpbl9wcm9ncmVzcxgDIAEoCzIXLm1pbWlyLnYxLlRyYWluUHJvZ3Jlc3NIABItCgx0cmFpbl9yZXN1bHQYBCABKAsyFS5taW1pci52MS5UcmFpblJlc3VsdEgAEigKCWhlYXJ0YmVhdBgFIAEoCzITLm1pbWlyLnYxLkhlYXJ0YmVhdEgAQgYKBGJvZHkitAEKDExpbmtSZXNwb25zZRIkCgd3ZWxjb21lGAEgASgLMhEubWltaXIudjEuV2VsY29tZUgAEigKB3ByZWRpY3QYAiABKAsyFS5taW1pci52MS5QcmVkaWN0VGFza0gAEiQKBXRyYWluGAMgASgLMhMubWltaXIudjEuVHJhaW5UYXNrSAASJgoGY2FuY2VsGAQgASgLMhQubWltaXIudjEuQ2FuY2VsVGFza0gAQgYKBGJvZHkihQEKBUhlbGxvEg4KBmRldmljZRgBIAEoCRIMCgRjcHVzGAIgASgFEhQKDG1lbW9yeV9ieXRlcxgDIAEoAxIVCg1hcmNoaXRlY3R1cmVzGAQgAygJEg4KBnRyYWlucxgFIAEoCBIQCghjYXBhY2l0eRgGIAEoBRIPCgd2ZXJzaW9uGAcgASgJIgsKCUhlYXJ0YmVhdCIqCgdXZWxjb21lEhEKCXdvcmtlcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJIkIKCU1vZGVsU3BlYxITCgtpbnB1dF9zaGFwZRgBIAMoAxIOCgZsYWJlbHMYAiADKAkSEAoIZmVhdHVyZXMYAyADKAkimwEKC1ByZWRpY3RUYXNrEg8KB3Rhc2tfaWQYASABKAkSEAoIbW9kZWxfaWQYAiABKAkSFAoMYXJjaGl0ZWN0dXJlGAMgASgJEiEKBHNwZWMYBCABKAsyEy5taW1pci52MS5Nb2RlbFNwZWMSDwoHd2VpZ2h0cxgFIAEoDBIfCgVpbnB1dBgGIAEoCzIQLm1pbWlyLnYxLlRlbnNvciKQAQoNUHJlZGljdFJlc3VsdBIPCgd0YXNrX2lkGAEgASgJEiAKBm91dHB1dBgCIAEoCzIQLm1pbWlyLnYxLlRlbnNvchInCg1wcm9iYWJpbGl0aWVzGAMgASgLMhAubWltaXIudjEuVGVuc29yEg0KBWVycm9yGAQgASgJEhQKDG5lZWRfd2VpZ2h0cxgFIAEoCCKkAgoJVHJhaW5UYXNrEg8KB3Rhc2tfaWQYASABKAkSDgoGam9iX2lkGAIgASgJEhQKDGFyY2hpdGVjdHVyZRgDIAEoCRIsCghzZXR0aW5ncxgEIAEoCzIaLm1pbWlyLnYxLlRyYWluaW5nU2V0dGluZ3MSKwoMZGF0YXNldF9raW5kGAUgASgOMhUubWltaXIudjEuRGF0YXNldEtpbmQSCwoDY3N2GAYgASgMEg4KBnRhcmdldBgHIAEoCRImCgdoaXN0b3J5GAggAygLMhUubWltaXIudjEuRXBvY2hSZXN1bHQSFAoMYmFzZV93ZWlnaHRzGAkgASgMEhMKC2Jhc2VfbGFiZWxzGAogAygJEhUKDWJhc2VfZmVhdHVyZXMYCyADKAkifgoNVHJhaW5Qcm9ncmVzcxIPCgd0YXNrX2lkGAEgASgJEg0KBWVwb2NoGAIgASgFEgwKBHN0ZXAYAyABKAUSFwoPc3RlcHNfcGVyX2Vwb2NoGAQgASgFEiYKB2hpc3RvcnkYBSADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdCKrAQoLVHJhaW5SZXN1bHQSDwoHdGFza19pZBgBIAEoCRIPCgd3ZWlnaHRzGAIgASgMEiYKB2hpc3RvcnkYAyADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdBIhCgRzcGVjGAQgASgLMhMubWltaXIudjEuTW9kZWxTcGVjEg0KBWVycm9yGAUgASgJEhEKCWNhbmNlbGxlZBgGIAEoCBINCgVmcmVzaBgHIAEoCCIdCgpDYW5jZWxUYXNrEg8KB3Rhc2tfaWQYASABKAkyuQIKDVdvcmtlclNlcnZpY2USTwoLTGlzdFdvcmtlcnMSHC5taW1pci52MS5MaXN0V29ya2Vyc1JlcXVlc3QaHS5taW1pci52MS5MaXN0V29ya2Vyc1Jlc3BvbnNlIgOQAgESTQoMQ3JlYXRlV29ya2VyEh0ubWltaXIudjEuQ3JlYXRlV29ya2VyUmVxdWVzdBoeLm1pbWlyLnYxLkNyZWF0ZVdvcmtlclJlc3BvbnNlEk0KDERlbGV0ZVdvcmtlchIdLm1pbWlyLnYxLkRlbGV0ZVdvcmtlclJlcXVlc3QaHi5taW1pci52MS5EZWxldGVXb3JrZXJSZXNwb25zZRI5CgRMaW5rEhUubWltaXIudjEuTGlua1JlcXVlc3QaFi5taW1pci52MS5MaW5rUmVzcG9uc2UoATABQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_mimir_v1_model, file_mimir_v1_training]);
+  fileDesc("ChVtaW1pci92MS93b3JrZXIucHJvdG8SCG1pbWlyLnYxIvYDCgZXb3JrZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZvbmxpbmUYAyABKAgSLQoJbGFzdF9zZWVuGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtjcmVhdGVfdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGZGV2aWNlGAYgASgJEgwKBGNwdXMYByABKAUSFAoMbWVtb3J5X2J5dGVzGAggASgDEhUKDWFyY2hpdGVjdHVyZXMYCSADKAkSDgoGdHJhaW5zGAogASgIEhAKCGNhcGFjaXR5GAsgASgFEgwKBGJ1c3kYDCABKAUSDwoHdmVyc2lvbhgNIAEoCRIPCgdhZGRyZXNzGA4gASgJEhIKCmNyZWF0ZWRfYnkYDyABKAkSHgoFc3RhdHMYECABKAsyDy5taW1pci52MS5TdGF0cxIwCgxjb25uZWN0X3RpbWUYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhcKD2tleV9maW5nZXJwcmludBgSIAEoCRIQCghzZWN1cml0eRgTIAEoCRITCgt0bHNfdmVyc2lvbhgUIAEoCRIOCgZtb2RlbHMYFSABKAUSDwoHd2FpdGluZxgWIAEoBSK0AQoFU3RhdHMSEwoLY3B1X3BlcmNlbnQYASABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYAiABKAMSGgoSbWVtb3J5X3RvdGFsX2J5dGVzGAMgASgDEhcKD2Rpc2tfdXNlZF9ieXRlcxgEIAEoAxIYChBkaXNrX3RvdGFsX2J5dGVzGAUgASgDEhYKDnVwdGltZV9zZWNvbmRzGAYgASgDEhQKDGxvYWRfYXZlcmFnZRgHIAEoASLXAQoMV29ya2VyU2FtcGxlEigKBHRpbWUYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NwdV9wZXJjZW50GAIgASgBEhkKEW1lbW9yeV91c2VkX2J5dGVzGAMgASgDEhoKEm1lbW9yeV90b3RhbF9ieXRlcxgEIAEoAxIXCg9kaXNrX3VzZWRfYnl0ZXMYBSABKAMSGAoQZGlza190b3RhbF9ieXRlcxgGIAEoAxIMCgRidXN5GAcgASgFEhAKCGNhcGFjaXR5GAggASgFIqEBCgpXb3JrZXJUYXNrEgwKBGtpbmQYASABKAkSEAoIbW9kZWxfaWQYAiABKAkSEgoKbW9kZWxfbmFtZRgDIAEoCRIOCgZqb2JfaWQYBCABKAkSEAoIam9iX25hbWUYBSABKAkSLgoKc3RhcnRfdGltZRgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFY291bnQYByABKAUiYAoKV29ya2VySXRlbRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnN0YXR1cxgDIAEoCRIoCgR0aW1lGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCItChBHZXRXb3JrZXJSZXF1ZXN0EgoKAmlkGAEgASgJEg0KBWhvdXJzGAIgASgFIvMBChFHZXRXb3JrZXJSZXNwb25zZRIgCgZ3b3JrZXIYASABKAsyEC5taW1pci52MS5Xb3JrZXISJwoHc2FtcGxlcxgCIAMoCzIWLm1pbWlyLnYxLldvcmtlclNhbXBsZRIjCgV0YXNrcxgDIAMoCzIULm1pbWlyLnYxLldvcmtlclRhc2sSJAoGbW9kZWxzGAQgAygLMhQubWltaXIudjEuV29ya2VySXRlbRIiCgRydW5zGAUgAygLMhQubWltaXIudjEuV29ya2VySXRlbRIkCgZldmVudHMYBiADKAsyFC5taW1pci52MS5Xb3JrZXJJdGVtIicKGVJlcGxhY2VXb3JrZXJUb2tlblJlcXVlc3QSCgoCaWQYASABKAkiKwoaUmVwbGFjZVdvcmtlclRva2VuUmVzcG9uc2USDQoFdG9rZW4YASABKAkiGgoYTGlzdFdvcmtlckNob2ljZXNSZXF1ZXN0Ij4KGUxpc3RXb3JrZXJDaG9pY2VzUmVzcG9uc2USIQoHd29ya2VycxgBIAMoCzIQLm1pbWlyLnYxLldvcmtlciIUChJMaXN0V29ya2Vyc1JlcXVlc3QiTQoTTGlzdFdvcmtlcnNSZXNwb25zZRIhCgd3b3JrZXJzGAEgAygLMhAubWltaXIudjEuV29ya2VyEhMKC3NlY3VyZV9qb2luGAIgASgIIiMKE0NyZWF0ZVdvcmtlclJlcXVlc3QSDAoEbmFtZRgBIAEoCSJHChRDcmVhdGVXb3JrZXJSZXNwb25zZRIgCgZ3b3JrZXIYASABKAsyEC5taW1pci52MS5Xb3JrZXISDQoFdG9rZW4YAiABKAkiIQoTRGVsZXRlV29ya2VyUmVxdWVzdBIKCgJpZBgBIAEoCSIWChREZWxldGVXb3JrZXJSZXNwb25zZSKYAgoLTGlua1JlcXVlc3QSIAoFaGVsbG8YASABKAsyDy5taW1pci52MS5IZWxsb0gAEjEKDnByZWRpY3RfcmVzdWx0GAIgASgLMhcubWltaXIudjEuUHJlZGljdFJlc3VsdEgAEjEKDnRyYWluX3Byb2dyZXNzGAMgASgLMhcubWltaXIudjEuVHJhaW5Qcm9ncmVzc0gAEi0KDHRyYWluX3Jlc3VsdBgEIAEoCzIVLm1pbWlyLnYxLlRyYWluUmVzdWx0SAASKAoJaGVhcnRiZWF0GAUgASgLMhMubWltaXIudjEuSGVhcnRiZWF0SAASIAoFcHJvb2YYBiABKAsyDy5taW1pci52MS5Qcm9vZkgAQgYKBGJvZHki3gEKDExpbmtSZXNwb25zZRIkCgd3ZWxjb21lGAEgASgLMhEubWltaXIudjEuV2VsY29tZUgAEigKB3ByZWRpY3QYAiABKAsyFS5taW1pci52MS5QcmVkaWN0VGFza0gAEiQKBXRyYWluGAMgASgLMhMubWltaXIudjEuVHJhaW5UYXNrSAASJgoGY2FuY2VsGAQgASgLMhQubWltaXIudjEuQ2FuY2VsVGFza0gAEigKCWNoYWxsZW5nZRgFIAEoCzITLm1pbWlyLnYxLkNoYWxsZW5nZUgAQgYKBGJvZHkiGgoJQ2hhbGxlbmdlEg0KBW5vbmNlGAEgASgMIhoKBVByb29mEhEKCXNpZ25hdHVyZRgBIAEoDCK5AQoFSGVsbG8SDgoGZGV2aWNlGAEgASgJEgwKBGNwdXMYAiABKAUSFAoMbWVtb3J5X2J5dGVzGAMgASgDEhUKDWFyY2hpdGVjdHVyZXMYBCADKAkSDgoGdHJhaW5zGAUgASgIEhAKCGNhcGFjaXR5GAYgASgFEg8KB3ZlcnNpb24YByABKAkSEgoKcHVibGljX2tleRgIIAEoDBIeCgVzdGF0cxgJIAEoCzIPLm1pbWlyLnYxLlN0YXRzIisKCUhlYXJ0YmVhdBIeCgVzdGF0cxgBIAEoCzIPLm1pbWlyLnYxLlN0YXRzIioKB1dlbGNvbWUSEQoJd29ya2VyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkiQgoJTW9kZWxTcGVjEhMKC2lucHV0X3NoYXBlGAEgAygDEg4KBmxhYmVscxgCIAMoCRIQCghmZWF0dXJlcxgDIAMoCSKbAQoLUHJlZGljdFRhc2sSDwoHdGFza19pZBgBIAEoCRIQCghtb2RlbF9pZBgCIAEoCRIUCgxhcmNoaXRlY3R1cmUYAyABKAkSIQoEc3BlYxgEIAEoCzITLm1pbWlyLnYxLk1vZGVsU3BlYxIPCgd3ZWlnaHRzGAUgASgMEh8KBWlucHV0GAYgASgLMhAubWltaXIudjEuVGVuc29yIpABCg1QcmVkaWN0UmVzdWx0Eg8KB3Rhc2tfaWQYASABKAkSIAoGb3V0cHV0GAIgASgLMhAubWltaXIudjEuVGVuc29yEicKDXByb2JhYmlsaXRpZXMYAyABKAsyEC5taW1pci52MS5UZW5zb3ISDQoFZXJyb3IYBCABKAkSFAoMbmVlZF93ZWlnaHRzGAUgASgIIqQCCglUcmFpblRhc2sSDwoHdGFza19pZBgBIAEoCRIOCgZqb2JfaWQYAiABKAkSFAoMYXJjaGl0ZWN0dXJlGAMgASgJEiwKCHNldHRpbmdzGAQgASgLMhoubWltaXIudjEuVHJhaW5pbmdTZXR0aW5ncxIrCgxkYXRhc2V0X2tpbmQYBSABKA4yFS5taW1pci52MS5EYXRhc2V0S2luZBILCgNjc3YYBiABKAwSDgoGdGFyZ2V0GAcgASgJEiYKB2hpc3RvcnkYCCADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdBIUCgxiYXNlX3dlaWdodHMYCSABKAwSEwoLYmFzZV9sYWJlbHMYCiADKAkSFQoNYmFzZV9mZWF0dXJlcxgLIAMoCSJ+Cg1UcmFpblByb2dyZXNzEg8KB3Rhc2tfaWQYASABKAkSDQoFZXBvY2gYAiABKAUSDAoEc3RlcBgDIAEoBRIXCg9zdGVwc19wZXJfZXBvY2gYBCABKAUSJgoHaGlzdG9yeRgFIAMoCzIVLm1pbWlyLnYxLkVwb2NoUmVzdWx0IqsBCgtUcmFpblJlc3VsdBIPCgd0YXNrX2lkGAEgASgJEg8KB3dlaWdodHMYAiABKAwSJgoHaGlzdG9yeRgDIAMoCzIVLm1pbWlyLnYxLkVwb2NoUmVzdWx0EiEKBHNwZWMYBCABKAsyEy5taW1pci52MS5Nb2RlbFNwZWMSDQoFZXJyb3IYBSABKAkSEQoJY2FuY2VsbGVkGAYgASgIEg0KBWZyZXNoGAcgASgIIh0KCkNhbmNlbFRhc2sSDwoHdGFza19pZBgBIAEoCTLIBAoNV29ya2VyU2VydmljZRJPCgtMaXN0V29ya2VycxIcLm1pbWlyLnYxLkxpc3RXb3JrZXJzUmVxdWVzdBodLm1pbWlyLnYxLkxpc3RXb3JrZXJzUmVzcG9uc2UiA5ACARJNCgxDcmVhdGVXb3JrZXISHS5taW1pci52MS5DcmVhdGVXb3JrZXJSZXF1ZXN0Gh4ubWltaXIudjEuQ3JlYXRlV29ya2VyUmVzcG9uc2USTQoMRGVsZXRlV29ya2VyEh0ubWltaXIudjEuRGVsZXRlV29ya2VyUmVxdWVzdBoeLm1pbWlyLnYxLkRlbGV0ZVdvcmtlclJlc3BvbnNlEkkKCUdldFdvcmtlchIaLm1pbWlyLnYxLkdldFdvcmtlclJlcXVlc3QaGy5taW1pci52MS5HZXRXb3JrZXJSZXNwb25zZSIDkAIBEl8KElJlcGxhY2VXb3JrZXJUb2tlbhIjLm1pbWlyLnYxLlJlcGxhY2VXb3JrZXJUb2tlblJlcXVlc3QaJC5taW1pci52MS5SZXBsYWNlV29ya2VyVG9rZW5SZXNwb25zZRJhChFMaXN0V29ya2VyQ2hvaWNlcxIiLm1pbWlyLnYxLkxpc3RXb3JrZXJDaG9pY2VzUmVxdWVzdBojLm1pbWlyLnYxLkxpc3RXb3JrZXJDaG9pY2VzUmVzcG9uc2UiA5ACARI5CgRMaW5rEhUubWltaXIudjEuTGlua1JlcXVlc3QaFi5taW1pci52MS5MaW5rUmVzcG9uc2UoATABQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_mimir_v1_model, file_mimir_v1_training]);
 
 /**
  * Worker is a process that runs models for this server, here or elsewhere.
@@ -100,6 +100,56 @@ export type Worker = Message<"mimir.v1.Worker"> & {
    * @generated from field: string created_by = 15;
    */
   createdBy: string;
+
+  /**
+   * stats is the latest the worker reported, while online.
+   *
+   * @generated from field: mimir.v1.Stats stats = 16;
+   */
+  stats?: Stats | undefined;
+
+  /**
+   * connect_time is when the current link opened.
+   *
+   * @generated from field: google.protobuf.Timestamp connect_time = 17;
+   */
+  connectTime?: Timestamp | undefined;
+
+  /**
+   * key_fingerprint identifies the key the worker joined with; empty
+   * until it first joins.
+   *
+   * @generated from field: string key_fingerprint = 18;
+   */
+  keyFingerprint: string;
+
+  /**
+   * security says how the current link is protected: "tls" when the
+   * console serves TLS itself, "proxy" when a proxy in front says it does,
+   * "local" for a worker on the same machine, "plain" otherwise.
+   *
+   * @generated from field: string security = 19;
+   */
+  security: string;
+
+  /**
+   * @generated from field: string tls_version = 20;
+   */
+  tlsVersion: string;
+
+  /**
+   * models is how many models are set to run on it.
+   *
+   * @generated from field: int32 models = 21;
+   */
+  models: number;
+
+  /**
+   * waiting is how many runs are waiting for it.
+   *
+   * @generated from field: int32 waiting = 22;
+   */
+  waiting: number;
 };
 
 /**
@@ -108,6 +158,338 @@ export type Worker = Message<"mimir.v1.Worker"> & {
  */
 export const WorkerSchema: GenMessage<Worker> = /*@__PURE__*/
   messageDesc(file_mimir_v1_worker, 0);
+
+/**
+ * Stats is how a worker's machine is doing.
+ *
+ * @generated from message mimir.v1.Stats
+ */
+export type Stats = Message<"mimir.v1.Stats"> & {
+  /**
+   * cpu_percent is how busy all its CPUs are together, 0 to 100.
+   *
+   * @generated from field: double cpu_percent = 1;
+   */
+  cpuPercent: number;
+
+  /**
+   * @generated from field: int64 memory_used_bytes = 2;
+   */
+  memoryUsedBytes: bigint;
+
+  /**
+   * @generated from field: int64 memory_total_bytes = 3;
+   */
+  memoryTotalBytes: bigint;
+
+  /**
+   * disk is the storage holding the worker's data folder.
+   *
+   * @generated from field: int64 disk_used_bytes = 4;
+   */
+  diskUsedBytes: bigint;
+
+  /**
+   * @generated from field: int64 disk_total_bytes = 5;
+   */
+  diskTotalBytes: bigint;
+
+  /**
+   * uptime_seconds is how long the worker process has been running.
+   *
+   * @generated from field: int64 uptime_seconds = 6;
+   */
+  uptimeSeconds: bigint;
+
+  /**
+   * @generated from field: double load_average = 7;
+   */
+  loadAverage: number;
+};
+
+/**
+ * Describes the message mimir.v1.Stats.
+ * Use `create(StatsSchema)` to create a new message.
+ */
+export const StatsSchema: GenMessage<Stats> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 1);
+
+/**
+ * WorkerSample is a worker's stats at one moment, for charts.
+ *
+ * @generated from message mimir.v1.WorkerSample
+ */
+export type WorkerSample = Message<"mimir.v1.WorkerSample"> & {
+  /**
+   * @generated from field: google.protobuf.Timestamp time = 1;
+   */
+  time?: Timestamp | undefined;
+
+  /**
+   * @generated from field: double cpu_percent = 2;
+   */
+  cpuPercent: number;
+
+  /**
+   * @generated from field: int64 memory_used_bytes = 3;
+   */
+  memoryUsedBytes: bigint;
+
+  /**
+   * @generated from field: int64 memory_total_bytes = 4;
+   */
+  memoryTotalBytes: bigint;
+
+  /**
+   * @generated from field: int64 disk_used_bytes = 5;
+   */
+  diskUsedBytes: bigint;
+
+  /**
+   * @generated from field: int64 disk_total_bytes = 6;
+   */
+  diskTotalBytes: bigint;
+
+  /**
+   * @generated from field: int32 busy = 7;
+   */
+  busy: number;
+
+  /**
+   * @generated from field: int32 capacity = 8;
+   */
+  capacity: number;
+};
+
+/**
+ * Describes the message mimir.v1.WorkerSample.
+ * Use `create(WorkerSampleSchema)` to create a new message.
+ */
+export const WorkerSampleSchema: GenMessage<WorkerSample> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 2);
+
+/**
+ * WorkerTask is something a worker is doing now.
+ *
+ * @generated from message mimir.v1.WorkerTask
+ */
+export type WorkerTask = Message<"mimir.v1.WorkerTask"> & {
+  /**
+   * kind is "predict" or "train".
+   *
+   * @generated from field: string kind = 1;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: string model_id = 2;
+   */
+  modelId: string;
+
+  /**
+   * @generated from field: string model_name = 3;
+   */
+  modelName: string;
+
+  /**
+   * @generated from field: string job_id = 4;
+   */
+  jobId: string;
+
+  /**
+   * @generated from field: string job_name = 5;
+   */
+  jobName: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp start_time = 6;
+   */
+  startTime?: Timestamp | undefined;
+
+  /**
+   * count is how many of the same are running, for predictions.
+   *
+   * @generated from field: int32 count = 7;
+   */
+  count: number;
+};
+
+/**
+ * Describes the message mimir.v1.WorkerTask.
+ * Use `create(WorkerTaskSchema)` to create a new message.
+ */
+export const WorkerTaskSchema: GenMessage<WorkerTask> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 3);
+
+/**
+ * WorkerItem is a model, run or event that belongs to a worker.
+ *
+ * @generated from message mimir.v1.WorkerItem
+ */
+export type WorkerItem = Message<"mimir.v1.WorkerItem"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string status = 3;
+   */
+  status: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp time = 4;
+   */
+  time?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.WorkerItem.
+ * Use `create(WorkerItemSchema)` to create a new message.
+ */
+export const WorkerItemSchema: GenMessage<WorkerItem> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 4);
+
+/**
+ * @generated from message mimir.v1.GetWorkerRequest
+ */
+export type GetWorkerRequest = Message<"mimir.v1.GetWorkerRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * hours of history to chart: 1, 24 or 168. Defaults to 1.
+   *
+   * @generated from field: int32 hours = 2;
+   */
+  hours: number;
+};
+
+/**
+ * Describes the message mimir.v1.GetWorkerRequest.
+ * Use `create(GetWorkerRequestSchema)` to create a new message.
+ */
+export const GetWorkerRequestSchema: GenMessage<GetWorkerRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 5);
+
+/**
+ * @generated from message mimir.v1.GetWorkerResponse
+ */
+export type GetWorkerResponse = Message<"mimir.v1.GetWorkerResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Worker worker = 1;
+   */
+  worker?: Worker | undefined;
+
+  /**
+   * @generated from field: repeated mimir.v1.WorkerSample samples = 2;
+   */
+  samples: WorkerSample[];
+
+  /**
+   * @generated from field: repeated mimir.v1.WorkerTask tasks = 3;
+   */
+  tasks: WorkerTask[];
+
+  /**
+   * models are the models set to run on it.
+   *
+   * @generated from field: repeated mimir.v1.WorkerItem models = 4;
+   */
+  models: WorkerItem[];
+
+  /**
+   * runs are recent and waiting training runs on it, newest first.
+   *
+   * @generated from field: repeated mimir.v1.WorkerItem runs = 5;
+   */
+  runs: WorkerItem[];
+
+  /**
+   * events are recent connection events from the audit log.
+   *
+   * @generated from field: repeated mimir.v1.WorkerItem events = 6;
+   */
+  events: WorkerItem[];
+};
+
+/**
+ * Describes the message mimir.v1.GetWorkerResponse.
+ * Use `create(GetWorkerResponseSchema)` to create a new message.
+ */
+export const GetWorkerResponseSchema: GenMessage<GetWorkerResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 6);
+
+/**
+ * @generated from message mimir.v1.ReplaceWorkerTokenRequest
+ */
+export type ReplaceWorkerTokenRequest = Message<"mimir.v1.ReplaceWorkerTokenRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message mimir.v1.ReplaceWorkerTokenRequest.
+ * Use `create(ReplaceWorkerTokenRequestSchema)` to create a new message.
+ */
+export const ReplaceWorkerTokenRequestSchema: GenMessage<ReplaceWorkerTokenRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 7);
+
+/**
+ * @generated from message mimir.v1.ReplaceWorkerTokenResponse
+ */
+export type ReplaceWorkerTokenResponse = Message<"mimir.v1.ReplaceWorkerTokenResponse"> & {
+  /**
+   * @generated from field: string token = 1;
+   */
+  token: string;
+};
+
+/**
+ * Describes the message mimir.v1.ReplaceWorkerTokenResponse.
+ * Use `create(ReplaceWorkerTokenResponseSchema)` to create a new message.
+ */
+export const ReplaceWorkerTokenResponseSchema: GenMessage<ReplaceWorkerTokenResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 8);
+
+/**
+ * @generated from message mimir.v1.ListWorkerChoicesRequest
+ */
+export type ListWorkerChoicesRequest = Message<"mimir.v1.ListWorkerChoicesRequest"> & {
+};
+
+/**
+ * Describes the message mimir.v1.ListWorkerChoicesRequest.
+ * Use `create(ListWorkerChoicesRequestSchema)` to create a new message.
+ */
+export const ListWorkerChoicesRequestSchema: GenMessage<ListWorkerChoicesRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 9);
+
+/**
+ * @generated from message mimir.v1.ListWorkerChoicesResponse
+ */
+export type ListWorkerChoicesResponse = Message<"mimir.v1.ListWorkerChoicesResponse"> & {
+  /**
+   * @generated from field: repeated mimir.v1.Worker workers = 1;
+   */
+  workers: Worker[];
+};
+
+/**
+ * Describes the message mimir.v1.ListWorkerChoicesResponse.
+ * Use `create(ListWorkerChoicesResponseSchema)` to create a new message.
+ */
+export const ListWorkerChoicesResponseSchema: GenMessage<ListWorkerChoicesResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 10);
 
 /**
  * @generated from message mimir.v1.ListWorkersRequest
@@ -120,7 +502,7 @@ export type ListWorkersRequest = Message<"mimir.v1.ListWorkersRequest"> & {
  * Use `create(ListWorkersRequestSchema)` to create a new message.
  */
 export const ListWorkersRequestSchema: GenMessage<ListWorkersRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 1);
+  messageDesc(file_mimir_v1_worker, 11);
 
 /**
  * @generated from message mimir.v1.ListWorkersResponse
@@ -130,6 +512,14 @@ export type ListWorkersResponse = Message<"mimir.v1.ListWorkersResponse"> & {
    * @generated from field: repeated mimir.v1.Worker workers = 1;
    */
   workers: Worker[];
+
+  /**
+   * secure_join says new tokens carry the console's certificate
+   * fingerprint, so workers check they reach this console.
+   *
+   * @generated from field: bool secure_join = 2;
+   */
+  secureJoin: boolean;
 };
 
 /**
@@ -137,7 +527,7 @@ export type ListWorkersResponse = Message<"mimir.v1.ListWorkersResponse"> & {
  * Use `create(ListWorkersResponseSchema)` to create a new message.
  */
 export const ListWorkersResponseSchema: GenMessage<ListWorkersResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 2);
+  messageDesc(file_mimir_v1_worker, 12);
 
 /**
  * @generated from message mimir.v1.CreateWorkerRequest
@@ -154,7 +544,7 @@ export type CreateWorkerRequest = Message<"mimir.v1.CreateWorkerRequest"> & {
  * Use `create(CreateWorkerRequestSchema)` to create a new message.
  */
 export const CreateWorkerRequestSchema: GenMessage<CreateWorkerRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 3);
+  messageDesc(file_mimir_v1_worker, 13);
 
 /**
  * @generated from message mimir.v1.CreateWorkerResponse
@@ -179,7 +569,7 @@ export type CreateWorkerResponse = Message<"mimir.v1.CreateWorkerResponse"> & {
  * Use `create(CreateWorkerResponseSchema)` to create a new message.
  */
 export const CreateWorkerResponseSchema: GenMessage<CreateWorkerResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 4);
+  messageDesc(file_mimir_v1_worker, 14);
 
 /**
  * @generated from message mimir.v1.DeleteWorkerRequest
@@ -196,7 +586,7 @@ export type DeleteWorkerRequest = Message<"mimir.v1.DeleteWorkerRequest"> & {
  * Use `create(DeleteWorkerRequestSchema)` to create a new message.
  */
 export const DeleteWorkerRequestSchema: GenMessage<DeleteWorkerRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 5);
+  messageDesc(file_mimir_v1_worker, 15);
 
 /**
  * @generated from message mimir.v1.DeleteWorkerResponse
@@ -209,7 +599,7 @@ export type DeleteWorkerResponse = Message<"mimir.v1.DeleteWorkerResponse"> & {
  * Use `create(DeleteWorkerResponseSchema)` to create a new message.
  */
 export const DeleteWorkerResponseSchema: GenMessage<DeleteWorkerResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 6);
+  messageDesc(file_mimir_v1_worker, 16);
 
 /**
  * LinkRequest is what a worker sends on its link.
@@ -250,6 +640,12 @@ export type LinkRequest = Message<"mimir.v1.LinkRequest"> & {
      */
     value: Heartbeat;
     case: "heartbeat";
+  } | {
+    /**
+     * @generated from field: mimir.v1.Proof proof = 6;
+     */
+    value: Proof;
+    case: "proof";
   } | { case: undefined; value?: undefined };
 };
 
@@ -258,7 +654,7 @@ export type LinkRequest = Message<"mimir.v1.LinkRequest"> & {
  * Use `create(LinkRequestSchema)` to create a new message.
  */
 export const LinkRequestSchema: GenMessage<LinkRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 7);
+  messageDesc(file_mimir_v1_worker, 17);
 
 /**
  * LinkResponse is what the server sends down a link.
@@ -293,6 +689,12 @@ export type LinkResponse = Message<"mimir.v1.LinkResponse"> & {
      */
     value: CancelTask;
     case: "cancel";
+  } | {
+    /**
+     * @generated from field: mimir.v1.Challenge challenge = 5;
+     */
+    value: Challenge;
+    case: "challenge";
   } | { case: undefined; value?: undefined };
 };
 
@@ -301,7 +703,46 @@ export type LinkResponse = Message<"mimir.v1.LinkResponse"> & {
  * Use `create(LinkResponseSchema)` to create a new message.
  */
 export const LinkResponseSchema: GenMessage<LinkResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 8);
+  messageDesc(file_mimir_v1_worker, 18);
+
+/**
+ * Challenge asks the worker to prove it holds its key.
+ *
+ * @generated from message mimir.v1.Challenge
+ */
+export type Challenge = Message<"mimir.v1.Challenge"> & {
+  /**
+   * @generated from field: bytes nonce = 1;
+   */
+  nonce: Uint8Array;
+};
+
+/**
+ * Describes the message mimir.v1.Challenge.
+ * Use `create(ChallengeSchema)` to create a new message.
+ */
+export const ChallengeSchema: GenMessage<Challenge> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 19);
+
+/**
+ * Proof is the worker's Ed25519 signature of "mimir-worker-link-v1\n"
+ * followed by the challenge's nonce.
+ *
+ * @generated from message mimir.v1.Proof
+ */
+export type Proof = Message<"mimir.v1.Proof"> & {
+  /**
+   * @generated from field: bytes signature = 1;
+   */
+  signature: Uint8Array;
+};
+
+/**
+ * Describes the message mimir.v1.Proof.
+ * Use `create(ProofSchema)` to create a new message.
+ */
+export const ProofSchema: GenMessage<Proof> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 20);
 
 /**
  * Hello is the first message on a link: what the worker can do.
@@ -349,6 +790,18 @@ export type Hello = Message<"mimir.v1.Hello"> & {
    * @generated from field: string version = 7;
    */
   version: string;
+
+  /**
+   * public_key is the worker's Ed25519 public key.
+   *
+   * @generated from field: bytes public_key = 8;
+   */
+  publicKey: Uint8Array;
+
+  /**
+   * @generated from field: mimir.v1.Stats stats = 9;
+   */
+  stats?: Stats | undefined;
 };
 
 /**
@@ -356,12 +809,18 @@ export type Hello = Message<"mimir.v1.Hello"> & {
  * Use `create(HelloSchema)` to create a new message.
  */
 export const HelloSchema: GenMessage<Hello> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 9);
+  messageDesc(file_mimir_v1_worker, 21);
 
 /**
+ * Heartbeat keeps the link alive and carries fresh stats.
+ *
  * @generated from message mimir.v1.Heartbeat
  */
 export type Heartbeat = Message<"mimir.v1.Heartbeat"> & {
+  /**
+   * @generated from field: mimir.v1.Stats stats = 1;
+   */
+  stats?: Stats | undefined;
 };
 
 /**
@@ -369,7 +828,7 @@ export type Heartbeat = Message<"mimir.v1.Heartbeat"> & {
  * Use `create(HeartbeatSchema)` to create a new message.
  */
 export const HeartbeatSchema: GenMessage<Heartbeat> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 10);
+  messageDesc(file_mimir_v1_worker, 22);
 
 /**
  * @generated from message mimir.v1.Welcome
@@ -391,7 +850,7 @@ export type Welcome = Message<"mimir.v1.Welcome"> & {
  * Use `create(WelcomeSchema)` to create a new message.
  */
 export const WelcomeSchema: GenMessage<Welcome> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 11);
+  messageDesc(file_mimir_v1_worker, 23);
 
 /**
  * ModelSpec is what a model reads and answers.
@@ -420,7 +879,7 @@ export type ModelSpec = Message<"mimir.v1.ModelSpec"> & {
  * Use `create(ModelSpecSchema)` to create a new message.
  */
 export const ModelSpecSchema: GenMessage<ModelSpec> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 12);
+  messageDesc(file_mimir_v1_worker, 24);
 
 /**
  * PredictTask asks for one prediction. weights travel only the first time
@@ -465,7 +924,7 @@ export type PredictTask = Message<"mimir.v1.PredictTask"> & {
  * Use `create(PredictTaskSchema)` to create a new message.
  */
 export const PredictTaskSchema: GenMessage<PredictTask> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 13);
+  messageDesc(file_mimir_v1_worker, 25);
 
 /**
  * @generated from message mimir.v1.PredictResult
@@ -504,7 +963,7 @@ export type PredictResult = Message<"mimir.v1.PredictResult"> & {
  * Use `create(PredictResultSchema)` to create a new message.
  */
 export const PredictResultSchema: GenMessage<PredictResult> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 14);
+  messageDesc(file_mimir_v1_worker, 26);
 
 /**
  * TrainTask asks the worker to train a model from the examples it carries.
@@ -583,7 +1042,7 @@ export type TrainTask = Message<"mimir.v1.TrainTask"> & {
  * Use `create(TrainTaskSchema)` to create a new message.
  */
 export const TrainTaskSchema: GenMessage<TrainTask> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 15);
+  messageDesc(file_mimir_v1_worker, 27);
 
 /**
  * @generated from message mimir.v1.TrainProgress
@@ -620,7 +1079,7 @@ export type TrainProgress = Message<"mimir.v1.TrainProgress"> & {
  * Use `create(TrainProgressSchema)` to create a new message.
  */
 export const TrainProgressSchema: GenMessage<TrainProgress> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 16);
+  messageDesc(file_mimir_v1_worker, 28);
 
 /**
  * @generated from message mimir.v1.TrainResult
@@ -669,7 +1128,7 @@ export type TrainResult = Message<"mimir.v1.TrainResult"> & {
  * Use `create(TrainResultSchema)` to create a new message.
  */
 export const TrainResultSchema: GenMessage<TrainResult> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 17);
+  messageDesc(file_mimir_v1_worker, 29);
 
 /**
  * @generated from message mimir.v1.CancelTask
@@ -686,7 +1145,7 @@ export type CancelTask = Message<"mimir.v1.CancelTask"> & {
  * Use `create(CancelTaskSchema)` to create a new message.
  */
 export const CancelTaskSchema: GenMessage<CancelTask> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 18);
+  messageDesc(file_mimir_v1_worker, 30);
 
 /**
  * WorkerService manages the workers that run models for this server, and
@@ -722,9 +1181,47 @@ export const WorkerService: GenService<{
     output: typeof DeleteWorkerResponseSchema;
   },
   /**
+   * GetWorker is one worker's dashboard: how it is doing now and over
+   * time, what it runs, and how it is connected.
+   *
+   * @generated from rpc mimir.v1.WorkerService.GetWorker
+   */
+  getWorker: {
+    methodKind: "unary";
+    input: typeof GetWorkerRequestSchema;
+    output: typeof GetWorkerResponseSchema;
+  },
+  /**
+   * ReplaceWorkerToken makes a new token for a worker, shown once. The old
+   * token stops working, the worker is disconnected, and its key is
+   * forgotten so it can join again with the new token.
+   *
+   * @generated from rpc mimir.v1.WorkerService.ReplaceWorkerToken
+   */
+  replaceWorkerToken: {
+    methodKind: "unary";
+    input: typeof ReplaceWorkerTokenRequestSchema;
+    output: typeof ReplaceWorkerTokenResponseSchema;
+  },
+  /**
+   * ListWorkerChoices lists the workers a model or training run can be
+   * placed on, for anyone who can add models. It leaves out tokens,
+   * addresses and who added them.
+   *
+   * @generated from rpc mimir.v1.WorkerService.ListWorkerChoices
+   */
+  listWorkerChoices: {
+    methodKind: "unary";
+    input: typeof ListWorkerChoicesRequestSchema;
+    output: typeof ListWorkerChoicesResponseSchema;
+  },
+  /**
    * Link is the stream a worker keeps open while it is available. The
-   * worker authenticates with "Authorization: Bearer <worker token>", says
-   * hello, then answers the tasks the server sends.
+   * worker authenticates with "Authorization: Bearer <worker token>" and
+   * says hello with its public key. The server sends a challenge, the
+   * worker signs it with its private key, and only then is it welcomed and
+   * sent tasks. The first key a token joins with is the one it must keep
+   * using.
    *
    * @generated from rpc mimir.v1.WorkerService.Link
    */
