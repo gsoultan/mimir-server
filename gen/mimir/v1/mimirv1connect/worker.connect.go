@@ -42,6 +42,14 @@ const (
 	// WorkerServiceDeleteWorkerProcedure is the fully-qualified name of the WorkerService's
 	// DeleteWorker RPC.
 	WorkerServiceDeleteWorkerProcedure = "/mimir.v1.WorkerService/DeleteWorker"
+	// WorkerServiceGetWorkerProcedure is the fully-qualified name of the WorkerService's GetWorker RPC.
+	WorkerServiceGetWorkerProcedure = "/mimir.v1.WorkerService/GetWorker"
+	// WorkerServiceReplaceWorkerTokenProcedure is the fully-qualified name of the WorkerService's
+	// ReplaceWorkerToken RPC.
+	WorkerServiceReplaceWorkerTokenProcedure = "/mimir.v1.WorkerService/ReplaceWorkerToken"
+	// WorkerServiceListWorkerChoicesProcedure is the fully-qualified name of the WorkerService's
+	// ListWorkerChoices RPC.
+	WorkerServiceListWorkerChoicesProcedure = "/mimir.v1.WorkerService/ListWorkerChoices"
 	// WorkerServiceLinkProcedure is the fully-qualified name of the WorkerService's Link RPC.
 	WorkerServiceLinkProcedure = "/mimir.v1.WorkerService/Link"
 )
@@ -52,9 +60,23 @@ type WorkerServiceClient interface {
 	// CreateWorker registers a worker and returns its token, shown once.
 	CreateWorker(context.Context, *connect.Request[v1.CreateWorkerRequest]) (*connect.Response[v1.CreateWorkerResponse], error)
 	DeleteWorker(context.Context, *connect.Request[v1.DeleteWorkerRequest]) (*connect.Response[v1.DeleteWorkerResponse], error)
+	// GetWorker is one worker's dashboard: how it is doing now and over
+	// time, what it runs, and how it is connected.
+	GetWorker(context.Context, *connect.Request[v1.GetWorkerRequest]) (*connect.Response[v1.GetWorkerResponse], error)
+	// ReplaceWorkerToken makes a new token for a worker, shown once. The old
+	// token stops working, the worker is disconnected, and its key is
+	// forgotten so it can join again with the new token.
+	ReplaceWorkerToken(context.Context, *connect.Request[v1.ReplaceWorkerTokenRequest]) (*connect.Response[v1.ReplaceWorkerTokenResponse], error)
+	// ListWorkerChoices lists the workers a model or training run can be
+	// placed on, for anyone who can add models. It leaves out tokens,
+	// addresses and who added them.
+	ListWorkerChoices(context.Context, *connect.Request[v1.ListWorkerChoicesRequest]) (*connect.Response[v1.ListWorkerChoicesResponse], error)
 	// Link is the stream a worker keeps open while it is available. The
-	// worker authenticates with "Authorization: Bearer <worker token>", says
-	// hello, then answers the tasks the server sends.
+	// worker authenticates with "Authorization: Bearer <worker token>" and
+	// says hello with its public key. The server sends a challenge, the
+	// worker signs it with its private key, and only then is it welcomed and
+	// sent tasks. The first key a token joins with is the one it must keep
+	// using.
 	Link(context.Context) *connect.BidiStreamForClient[v1.LinkRequest, v1.LinkResponse]
 }
 
@@ -88,6 +110,26 @@ func NewWorkerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(workerServiceMethods.ByName("DeleteWorker")),
 			connect.WithClientOptions(opts...),
 		),
+		getWorker: connect.NewClient[v1.GetWorkerRequest, v1.GetWorkerResponse](
+			httpClient,
+			baseURL+WorkerServiceGetWorkerProcedure,
+			connect.WithSchema(workerServiceMethods.ByName("GetWorker")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		replaceWorkerToken: connect.NewClient[v1.ReplaceWorkerTokenRequest, v1.ReplaceWorkerTokenResponse](
+			httpClient,
+			baseURL+WorkerServiceReplaceWorkerTokenProcedure,
+			connect.WithSchema(workerServiceMethods.ByName("ReplaceWorkerToken")),
+			connect.WithClientOptions(opts...),
+		),
+		listWorkerChoices: connect.NewClient[v1.ListWorkerChoicesRequest, v1.ListWorkerChoicesResponse](
+			httpClient,
+			baseURL+WorkerServiceListWorkerChoicesProcedure,
+			connect.WithSchema(workerServiceMethods.ByName("ListWorkerChoices")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		link: connect.NewClient[v1.LinkRequest, v1.LinkResponse](
 			httpClient,
 			baseURL+WorkerServiceLinkProcedure,
@@ -99,10 +141,13 @@ func NewWorkerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 
 // workerServiceClient implements WorkerServiceClient.
 type workerServiceClient struct {
-	listWorkers  *connect.Client[v1.ListWorkersRequest, v1.ListWorkersResponse]
-	createWorker *connect.Client[v1.CreateWorkerRequest, v1.CreateWorkerResponse]
-	deleteWorker *connect.Client[v1.DeleteWorkerRequest, v1.DeleteWorkerResponse]
-	link         *connect.Client[v1.LinkRequest, v1.LinkResponse]
+	listWorkers        *connect.Client[v1.ListWorkersRequest, v1.ListWorkersResponse]
+	createWorker       *connect.Client[v1.CreateWorkerRequest, v1.CreateWorkerResponse]
+	deleteWorker       *connect.Client[v1.DeleteWorkerRequest, v1.DeleteWorkerResponse]
+	getWorker          *connect.Client[v1.GetWorkerRequest, v1.GetWorkerResponse]
+	replaceWorkerToken *connect.Client[v1.ReplaceWorkerTokenRequest, v1.ReplaceWorkerTokenResponse]
+	listWorkerChoices  *connect.Client[v1.ListWorkerChoicesRequest, v1.ListWorkerChoicesResponse]
+	link               *connect.Client[v1.LinkRequest, v1.LinkResponse]
 }
 
 // ListWorkers calls mimir.v1.WorkerService.ListWorkers.
@@ -120,6 +165,21 @@ func (c *workerServiceClient) DeleteWorker(ctx context.Context, req *connect.Req
 	return c.deleteWorker.CallUnary(ctx, req)
 }
 
+// GetWorker calls mimir.v1.WorkerService.GetWorker.
+func (c *workerServiceClient) GetWorker(ctx context.Context, req *connect.Request[v1.GetWorkerRequest]) (*connect.Response[v1.GetWorkerResponse], error) {
+	return c.getWorker.CallUnary(ctx, req)
+}
+
+// ReplaceWorkerToken calls mimir.v1.WorkerService.ReplaceWorkerToken.
+func (c *workerServiceClient) ReplaceWorkerToken(ctx context.Context, req *connect.Request[v1.ReplaceWorkerTokenRequest]) (*connect.Response[v1.ReplaceWorkerTokenResponse], error) {
+	return c.replaceWorkerToken.CallUnary(ctx, req)
+}
+
+// ListWorkerChoices calls mimir.v1.WorkerService.ListWorkerChoices.
+func (c *workerServiceClient) ListWorkerChoices(ctx context.Context, req *connect.Request[v1.ListWorkerChoicesRequest]) (*connect.Response[v1.ListWorkerChoicesResponse], error) {
+	return c.listWorkerChoices.CallUnary(ctx, req)
+}
+
 // Link calls mimir.v1.WorkerService.Link.
 func (c *workerServiceClient) Link(ctx context.Context) *connect.BidiStreamForClient[v1.LinkRequest, v1.LinkResponse] {
 	return c.link.CallBidiStream(ctx)
@@ -131,9 +191,23 @@ type WorkerServiceHandler interface {
 	// CreateWorker registers a worker and returns its token, shown once.
 	CreateWorker(context.Context, *connect.Request[v1.CreateWorkerRequest]) (*connect.Response[v1.CreateWorkerResponse], error)
 	DeleteWorker(context.Context, *connect.Request[v1.DeleteWorkerRequest]) (*connect.Response[v1.DeleteWorkerResponse], error)
+	// GetWorker is one worker's dashboard: how it is doing now and over
+	// time, what it runs, and how it is connected.
+	GetWorker(context.Context, *connect.Request[v1.GetWorkerRequest]) (*connect.Response[v1.GetWorkerResponse], error)
+	// ReplaceWorkerToken makes a new token for a worker, shown once. The old
+	// token stops working, the worker is disconnected, and its key is
+	// forgotten so it can join again with the new token.
+	ReplaceWorkerToken(context.Context, *connect.Request[v1.ReplaceWorkerTokenRequest]) (*connect.Response[v1.ReplaceWorkerTokenResponse], error)
+	// ListWorkerChoices lists the workers a model or training run can be
+	// placed on, for anyone who can add models. It leaves out tokens,
+	// addresses and who added them.
+	ListWorkerChoices(context.Context, *connect.Request[v1.ListWorkerChoicesRequest]) (*connect.Response[v1.ListWorkerChoicesResponse], error)
 	// Link is the stream a worker keeps open while it is available. The
-	// worker authenticates with "Authorization: Bearer <worker token>", says
-	// hello, then answers the tasks the server sends.
+	// worker authenticates with "Authorization: Bearer <worker token>" and
+	// says hello with its public key. The server sends a challenge, the
+	// worker signs it with its private key, and only then is it welcomed and
+	// sent tasks. The first key a token joins with is the one it must keep
+	// using.
 	Link(context.Context, *connect.BidiStream[v1.LinkRequest, v1.LinkResponse]) error
 }
 
@@ -163,6 +237,26 @@ func NewWorkerServiceHandler(svc WorkerServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(workerServiceMethods.ByName("DeleteWorker")),
 		connect.WithHandlerOptions(opts...),
 	)
+	workerServiceGetWorkerHandler := connect.NewUnaryHandler(
+		WorkerServiceGetWorkerProcedure,
+		svc.GetWorker,
+		connect.WithSchema(workerServiceMethods.ByName("GetWorker")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	workerServiceReplaceWorkerTokenHandler := connect.NewUnaryHandler(
+		WorkerServiceReplaceWorkerTokenProcedure,
+		svc.ReplaceWorkerToken,
+		connect.WithSchema(workerServiceMethods.ByName("ReplaceWorkerToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	workerServiceListWorkerChoicesHandler := connect.NewUnaryHandler(
+		WorkerServiceListWorkerChoicesProcedure,
+		svc.ListWorkerChoices,
+		connect.WithSchema(workerServiceMethods.ByName("ListWorkerChoices")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	workerServiceLinkHandler := connect.NewBidiStreamHandler(
 		WorkerServiceLinkProcedure,
 		svc.Link,
@@ -177,6 +271,12 @@ func NewWorkerServiceHandler(svc WorkerServiceHandler, opts ...connect.HandlerOp
 			workerServiceCreateWorkerHandler.ServeHTTP(w, r)
 		case WorkerServiceDeleteWorkerProcedure:
 			workerServiceDeleteWorkerHandler.ServeHTTP(w, r)
+		case WorkerServiceGetWorkerProcedure:
+			workerServiceGetWorkerHandler.ServeHTTP(w, r)
+		case WorkerServiceReplaceWorkerTokenProcedure:
+			workerServiceReplaceWorkerTokenHandler.ServeHTTP(w, r)
+		case WorkerServiceListWorkerChoicesProcedure:
+			workerServiceListWorkerChoicesHandler.ServeHTTP(w, r)
 		case WorkerServiceLinkProcedure:
 			workerServiceLinkHandler.ServeHTTP(w, r)
 		default:
@@ -198,6 +298,18 @@ func (UnimplementedWorkerServiceHandler) CreateWorker(context.Context, *connect.
 
 func (UnimplementedWorkerServiceHandler) DeleteWorker(context.Context, *connect.Request[v1.DeleteWorkerRequest]) (*connect.Response[v1.DeleteWorkerResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.DeleteWorker is not implemented"))
+}
+
+func (UnimplementedWorkerServiceHandler) GetWorker(context.Context, *connect.Request[v1.GetWorkerRequest]) (*connect.Response[v1.GetWorkerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.GetWorker is not implemented"))
+}
+
+func (UnimplementedWorkerServiceHandler) ReplaceWorkerToken(context.Context, *connect.Request[v1.ReplaceWorkerTokenRequest]) (*connect.Response[v1.ReplaceWorkerTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.ReplaceWorkerToken is not implemented"))
+}
+
+func (UnimplementedWorkerServiceHandler) ListWorkerChoices(context.Context, *connect.Request[v1.ListWorkerChoicesRequest]) (*connect.Response[v1.ListWorkerChoicesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.ListWorkerChoices is not implemented"))
 }
 
 func (UnimplementedWorkerServiceHandler) Link(context.Context, *connect.BidiStream[v1.LinkRequest, v1.LinkResponse]) error {

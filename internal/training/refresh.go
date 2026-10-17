@@ -41,7 +41,7 @@ func (r *Runner) schedule(ctx context.Context) {
 		next := store.Job{
 			Name: j.Name, Description: j.Description, Architecture: j.Architecture, DatasetID: j.DatasetID,
 			Settings: j.Settings, CreatedBy: j.CreatedBy, RepeatSeconds: j.RepeatSeconds,
-			ParentID: j.ParentID, BaseModelID: j.BaseModelID, TeamID: j.TeamID,
+			ParentID: j.ParentID, BaseModelID: j.BaseModelID, TeamID: j.TeamID, RunOn: j.RunOn,
 		}
 		if next.ParentID == "" {
 			next.ParentID = j.ID

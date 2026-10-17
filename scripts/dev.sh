@@ -8,7 +8,7 @@
 # Open http://localhost:5173. Settings, all optional:
 #   MIMIR_DEV_DATA   data folder        (default ./data/dev)
 #   MIMIR_DEV_ADDR   Go server address  (default localhost:8080)
-#   MIMIR_DEV_ARGS   extra server flags, such as "-role server"
+#   MIMIR_DEV_ARGS   extra server flags, such as "-role console"
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

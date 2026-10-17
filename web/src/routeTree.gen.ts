@@ -24,6 +24,7 @@ import { Route as AppModelsNewRouteImport } from './routes/_app/models/new'
 import { Route as AppModelsTeachRouteImport } from './routes/_app/models/teach'
 import { Route as AppTrainingIndexRouteImport } from './routes/_app/training/index'
 import { Route as AppTrainingIdRouteImport } from './routes/_app/training/$id'
+import { Route as AppWorkersIdRouteImport } from './routes/_app/workers/$id'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -99,6 +100,11 @@ const AppTrainingIdRoute = AppTrainingIdRouteImport.update({
   path: '/training/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppWorkersIdRoute = AppWorkersIdRouteImport.update({
+  id: '/workers/$id',
+  path: '/workers/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
   '/training/$id': typeof AppTrainingIdRoute
+  '/workers/$id': typeof AppWorkersIdRoute
   '/models/': typeof AppModelsIndexRoute
   '/training/': typeof AppTrainingIndexRoute
 }
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
   '/training/$id': typeof AppTrainingIdRoute
+  '/workers/$id': typeof AppWorkersIdRoute
   '/models': typeof AppModelsIndexRoute
   '/training': typeof AppTrainingIndexRoute
 }
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/_app/models/new': typeof AppModelsNewRoute
   '/_app/models/teach': typeof AppModelsTeachRoute
   '/_app/training/$id': typeof AppTrainingIdRoute
+  '/_app/workers/$id': typeof AppWorkersIdRoute
   '/_app/models/': typeof AppModelsIndexRoute
   '/_app/training/': typeof AppTrainingIndexRoute
 }
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/models/new'
     | '/models/teach'
     | '/training/$id'
+    | '/workers/$id'
     | '/models/'
     | '/training/'
   fileRoutesByTo: FileRoutesByTo
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/models/new'
     | '/models/teach'
     | '/training/$id'
+    | '/workers/$id'
     | '/models'
     | '/training'
   id:
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/_app/models/new'
     | '/_app/models/teach'
     | '/_app/training/$id'
+    | '/_app/workers/$id'
     | '/_app/models/'
     | '/_app/training/'
   fileRoutesById: FileRoutesById
@@ -315,6 +327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTrainingIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/workers/$id': {
+      id: '/_app/workers/$id'
+      path: '/workers/$id'
+      fullPath: '/workers/$id'
+      preLoaderRoute: typeof AppWorkersIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -329,6 +348,7 @@ interface AppRouteChildren {
   AppModelsNewRoute: typeof AppModelsNewRoute
   AppModelsTeachRoute: typeof AppModelsTeachRoute
   AppTrainingIdRoute: typeof AppTrainingIdRoute
+  AppWorkersIdRoute: typeof AppWorkersIdRoute
   AppModelsIndexRoute: typeof AppModelsIndexRoute
   AppTrainingIndexRoute: typeof AppTrainingIndexRoute
 }
@@ -344,6 +364,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppModelsNewRoute: AppModelsNewRoute,
   AppModelsTeachRoute: AppModelsTeachRoute,
   AppTrainingIdRoute: AppTrainingIdRoute,
+  AppWorkersIdRoute: AppWorkersIdRoute,
   AppModelsIndexRoute: AppModelsIndexRoute,
   AppTrainingIndexRoute: AppTrainingIndexRoute,
 }

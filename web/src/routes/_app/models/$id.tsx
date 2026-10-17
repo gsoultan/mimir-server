@@ -12,6 +12,7 @@ import { ModelService } from "../../../api/gen/mimir/v1/model_pb";
 import { allModelQueries, getModel, listArchitectures, whoAmI } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
+import { RunsOn } from "../../../components/Placement";
 import { ago, bytes } from "../../../lib/format";
 
 export const Route = createFileRoute("/_app/models/$id")({
@@ -106,6 +107,7 @@ function ModelDetails() {
             <Tabs.Panel value="grpc" pt="sm"><Code block>{grpc}</Code></Tabs.Panel>
           </Tabs>
         </Card>
+        <RunsOn model={m} canWrite={canWrite} />
       </SimpleGrid>
 
       <Modal opened={confirming} onClose={confirm.close} title={`Delete ${m.name}?`} centered>

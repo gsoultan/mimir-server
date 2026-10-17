@@ -284,7 +284,13 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 	if err := checkRepeat(repeat); err != nil {
 		return nil, err
 	}
-	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat, TeamID: p.Team()})
+	runOn := req.Msg.GetWorkerId()
+	if runOn != "" {
+		if _, err := s.worker(ctx, runOn); err != nil {
+			return nil, err
+		}
+	}
+	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat, TeamID: p.Team(), RunOn: runOn})
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -511,7 +517,7 @@ func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 		Id: j.ID, Name: j.Name, Description: j.Description, Architecture: j.Architecture, DatasetId: j.DatasetID, DatasetName: datasetName,
 		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut},
 		Status:   mimirv1.JobStatus(j.Status), Error: j.Error, Epoch: int32(j.Epoch), ModelId: j.ModelID, Worker: j.Worker, CreatedBy: j.CreatedBy,
-		RepeatSeconds: j.RepeatSeconds, ParentId: j.ParentID, BaseModelId: j.BaseModelID, Note: j.Note,
+		RepeatSeconds: j.RepeatSeconds, ParentId: j.ParentID, BaseModelId: j.BaseModelID, Note: j.Note, RunOn: j.RunOn,
 		CreateTime: timestamppb.New(j.Created), Accuracy: accuracy(j), StepsPerEpoch: int32(j.StepsPerEpoch), Step: int32(j.Step),
 	}
 	if !j.Started.IsZero() {

@@ -54,6 +54,13 @@ type Service struct {
 	CancelTraining func(id string) bool
 	// Pool holds connected workers; nil means this server takes none.
 	Pool *cluster.Pool
+	// ConsolePin is the fingerprint of the console's own TLS key, put in
+	// join tokens so workers check they reached this console. Empty when
+	// a proxy or a publicly trusted certificate does that job.
+	ConsolePin string
+	// AllowPlainWorkers lets workers connect without encryption from
+	// other machines, for a private network you trust.
+	AllowPlainWorkers bool
 	// Local says predictions run in this process when no worker is
 	// preferred. Off for a server that only coordinates workers.
 	Local bool
@@ -219,12 +226,16 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	ran := false
 	// A worker takes the prediction when this server doesn't run models
 	// itself; otherwise local is faster for the small models here.
-	if s.Pool != nil && !s.Local {
+	// A model placed on one worker only runs there.
+	if s.Pool != nil && (!s.Local || m.WorkerID != "") {
 		var worker string
-		r, worker, ran, err2 = s.Pool.Predict(ctx, m.ID, a, spec, load, input)
+		r, worker, ran, err2 = s.Pool.Predict(ctx, m.ID, m.WorkerID, a, spec, load, input)
 		if ran && err2 != nil {
 			s.log.WarnContext(ctx, "predict: worker failed", "worker", worker, "model_id", m.ID, "error", err2)
 		}
+	}
+	if !ran && m.WorkerID != "" {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("This model runs on %s, which is offline or full right now. Wait for it, or change where the model runs on its page.", s.workerName(ctx, m.WorkerID)))
 	}
 	if !ran {
 		if !s.Local {
@@ -325,6 +336,7 @@ func toProto(m store.Model) *mimirv1.Model {
 		Features:     m.Features,
 		JobId:        m.JobID,
 		Accuracy:     m.Accuracy,
+		WorkerId:     m.WorkerID,
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {

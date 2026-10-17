@@ -27,6 +27,20 @@ service ModelService {
   rpc UpdateModel(UpdateModelRequest) returns (UpdateModelResponse);
   // DeleteModel removes a model and its weights.
   rpc DeleteModel(DeleteModelRequest) returns (DeleteModelResponse);
+  // SetModelWorker picks the worker that answers a model's questions, or
+  // none to let the console choose.
+  rpc SetModelWorker(SetModelWorkerRequest) returns (SetModelWorkerResponse);
+}
+
+message SetModelWorkerRequest {
+  string id = 1;
+  // worker_id is a worker from WorkerService.ListWorkerChoices, or empty
+  // for automatic.
+  string worker_id = 2;
+}
+
+message SetModelWorkerResponse {
+  Model model = 1;
 }
 
 // PredictService asks models questions.
@@ -86,6 +100,10 @@ message Model {
   // accuracy is the share of held-out examples a taught model got right,
   // 0 when unknown.
   double accuracy = 14;
+  // worker_id is the worker that answers this model's questions; empty
+  // means automatic: this server in standalone mode, else any worker that
+  // runs the model's type.
+  string worker_id = 15;
 }
 
 // Tensor is a dense float32 array.

@@ -49,6 +49,8 @@ type Model struct {
 	JobID    string
 	// TeamID is the team the model belongs to.
 	TeamID string
+	// WorkerID is the worker that answers its questions; "" for automatic.
+	WorkerID string
 }
 
 // Store is safe for concurrent use.
@@ -139,7 +141,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id, accuracy, team_id"
+const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id, accuracy, team_id, worker_id"
 
 type scanner interface{ Scan(dest ...any) error }
 
@@ -148,7 +150,7 @@ func scan(row scanner) (Model, error) {
 	var created, updated int64
 	var shape, labels, features string
 	var team sql.NullString
-	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID, &m.Accuracy, &team)
+	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID, &m.Accuracy, &team, &m.WorkerID)
 	m.TeamID = team.String
 	m.Created = time.UnixMilli(created).UTC()
 	m.Updated = time.UnixMilli(updated).UTC()
@@ -210,9 +212,9 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	if err := writeFileAtomic(path, weights); err != nil {
 		return Model{}, fmt.Errorf("store: write weights: %w", err)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		m.ID, m.Name, m.Description, m.Architecture, m.SizeBytes, m.SHA256, now.UnixMilli(), now.UnixMilli(),
-		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, m.TeamID)
+		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, m.TeamID, m.WorkerID)
 	if err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)
@@ -250,6 +252,18 @@ func (s *Store) Update(ctx context.Context, id, name, description string) (Model
 		return Model{}, ErrNotFound
 	}
 	return s.Get(ctx, id)
+}
+
+// SetModelWorker places a model on a worker, or "" for automatic.
+func (s *Store) SetModelWorker(ctx context.Context, id, workerID string) error {
+	res, err := s.db.ExecContext(ctx, "UPDATE models SET worker_id = ? WHERE id = ?", workerID, id)
+	if err != nil {
+		return fmt.Errorf("store: set model worker: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Delete removes a model's row and then its weights.

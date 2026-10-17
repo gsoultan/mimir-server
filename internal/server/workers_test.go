@@ -56,7 +56,7 @@ func TestWorker(t *testing.T) {
 	defer stop()
 	done := make(chan error, 1)
 	go func() {
-		done <- worker.Run(wctx, worker.Config{Server: srv.URL, Token: created.Msg.GetToken(), Capacity: 2, Version: "test", Log: slog.New(slog.NewTextHandler(io.Discard, nil))}, builtin.Builtin(t.TempDir()))
+		done <- worker.Run(wctx, worker.Config{Server: srv.URL, Token: created.Msg.GetToken(), Capacity: 2, Version: "test", DataDir: t.TempDir(), Log: slog.New(slog.NewTextHandler(io.Discard, nil))}, builtin.Builtin(t.TempDir()))
 	}()
 	deadline := time.Now().Add(10 * time.Second)
 	for {

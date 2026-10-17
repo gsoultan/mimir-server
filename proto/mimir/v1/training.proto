@@ -226,6 +226,9 @@ message Job {
   string base_model_id = 24;
   // note says what a pass did with its result, in words.
   string note = 25;
+  // run_on is the worker the run was asked to train on; empty means any.
+  // worker is where it actually ran.
+  string run_on = 26;
 }
 
 message ListJobsRequest {}
@@ -251,6 +254,10 @@ message CreateJobRequest {
   TrainingSettings settings = 5;
   // repeat_seconds asks for the job to keep learning on that interval.
   int64 repeat_seconds = 6;
+  // worker_id trains the run on that worker (from
+  // WorkerService.ListWorkerChoices); empty lets the console choose. The
+  // model it makes runs on the same worker.
+  string worker_id = 7;
 }
 
 message CreateJobResponse {
