@@ -248,6 +248,7 @@ message ModelSpec {
   repeated int64 input_shape = 1;
   repeated string labels = 2;
   repeated string features = 3;
+  repeated Column columns = 4;
 }
 
 // PredictTask asks for one prediction. weights travel only the first time
@@ -289,6 +290,10 @@ message TrainTask {
   // reads; its weights carry over only while they still match.
   repeated string base_labels = 10;
   repeated string base_features = 11;
+  // archive holds the ZIP for DATASET_KIND_PHOTOS and PHOTO_TABLE.
+  bytes archive = 12;
+  // columns are the dataset's columns as first read; their kinds are kept.
+  repeated Column columns = 13;
 }
 
 message TrainProgress {

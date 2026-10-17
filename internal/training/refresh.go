@@ -20,11 +20,11 @@ func Refresh(ctx context.Context, st *store.Store, d store.Dataset) (store.Datas
 		return d, err
 	}
 	b := r.CSV()
-	t, err := ParseTable(bytes.NewReader(b), d.Target)
+	t, err := ParseTable(bytes.NewReader(b), d.Target, Source{Columns: d.Columns}.Hints())
 	if err != nil {
 		return d, err
 	}
-	d.Rows, d.Features, d.Labels, d.InputShape = int64(t.Rows), t.Features, t.Classes, []int{len(t.Features)}
+	t.Describe(&d)
 	return st.RefreshDataset(ctx, d, b)
 }
 

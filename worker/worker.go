@@ -73,14 +73,31 @@ type Epoch struct {
 	Accuracy float64
 	ValLoss  float64
 	Millis   int64
+	// MAE is how far a number model's answers are off on average.
+	MAE float64
 }
 
 // Dataset is the examples a training task learns from: a CSV table with a
-// header row and a target column, or the built-in handwritten digits.
+// header row and a target column, a ZIP of photos, or the built-in
+// handwritten digits.
 type Dataset struct {
-	Kind   string // "table" or "mnist"
+	Kind   string // "table", "photos", "photo_table" or "mnist"
 	CSV    []byte
 	Target string
+	// Archive is the ZIP for "photos" (a folder per answer) and
+	// "photo_table" (a data.csv and the photos it names).
+	Archive []byte
+	// Columns are the table's columns as first read; keep their kinds.
+	Columns []Column
+}
+
+// Column is a table column and how it becomes numbers.
+type Column struct {
+	Name string
+	// Kind is "number", "category", "yesno", "text" or "photo".
+	Kind   string
+	Values []string // a category's values, in encoding order
+	Fill   float64  // what an empty number cell reads as
 }
 
 // TrainTask asks for a model to be trained.
@@ -113,6 +130,7 @@ type Trained struct {
 	InputShape []int
 	Labels     []string
 	Features   []string
+	Columns    []Column
 	// Fresh says BaseWeights didn't fit and it learned from scratch.
 	Fresh bool
 }
@@ -423,14 +441,18 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		reply(&mimirv1.TrainResult{Error: "this worker doesn't train " + t.Architecture})
 		return
 	}
-	kind := "table"
-	if t.DatasetKind == mimirv1.DatasetKind_DATASET_KIND_MNIST {
-		kind = "mnist"
+	kind := map[mimirv1.DatasetKind]string{
+		mimirv1.DatasetKind_DATASET_KIND_MNIST:       "mnist",
+		mimirv1.DatasetKind_DATASET_KIND_PHOTOS:      "photos",
+		mimirv1.DatasetKind_DATASET_KIND_PHOTO_TABLE: "photo_table",
+	}[t.DatasetKind]
+	if kind == "" {
+		kind = "table"
 	}
 	task := TrainTask{
 		JobID: t.JobId, Architecture: t.Architecture,
 		Settings:    Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut()},
-		Dataset:     Dataset{Kind: kind, CSV: t.Csv, Target: t.Target},
+		Dataset:     Dataset{Kind: kind, CSV: t.Csv, Target: t.Target, Archive: t.Archive, Columns: columnsFromProto(t.Columns)},
 		History:     epochsFromProto(t.History),
 		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
 	}
@@ -452,7 +474,7 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 	default:
 		reply(&mimirv1.TrainResult{
 			Weights: res.Weights, History: epochsToProto(res.History), Fresh: res.Fresh,
-			Spec: &mimirv1.ModelSpec{InputShape: int64s(res.InputShape), Labels: res.Labels, Features: res.Features},
+			Spec: &mimirv1.ModelSpec{InputShape: int64s(res.InputShape), Labels: res.Labels, Features: res.Features, Columns: columnsToProto(res.Columns)},
 		})
 	}
 }
@@ -476,7 +498,7 @@ func memory() int64 {
 func epochsToProto(h []Epoch) []*mimirv1.EpochResult {
 	out := make([]*mimirv1.EpochResult, len(h))
 	for i, e := range h {
-		out[i] = &mimirv1.EpochResult{Epoch: int32(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, DurationMillis: e.Millis}
+		out[i] = &mimirv1.EpochResult{Epoch: int32(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, DurationMillis: e.Millis, TypicalError: e.MAE}
 	}
 	return out
 }
@@ -484,7 +506,23 @@ func epochsToProto(h []Epoch) []*mimirv1.EpochResult {
 func epochsFromProto(h []*mimirv1.EpochResult) []Epoch {
 	out := make([]Epoch, len(h))
 	for i, e := range h {
-		out[i] = Epoch{Epoch: int(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.DurationMillis}
+		out[i] = Epoch{Epoch: int(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.DurationMillis, MAE: e.TypicalError}
+	}
+	return out
+}
+
+func columnsToProto(cols []Column) []*mimirv1.Column {
+	out := make([]*mimirv1.Column, len(cols))
+	for i, c := range cols {
+		out[i] = &mimirv1.Column{Name: c.Name, Kind: c.Kind, Values: c.Values, Fill: c.Fill}
+	}
+	return out
+}
+
+func columnsFromProto(cols []*mimirv1.Column) []Column {
+	out := make([]Column, len(cols))
+	for i, c := range cols {
+		out[i] = Column{Name: c.GetName(), Kind: c.GetKind(), Values: c.GetValues(), Fill: c.GetFill()}
 	}
 	return out
 }

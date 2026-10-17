@@ -88,26 +88,60 @@ registry.
 ## Teach a new model
 
 Under **Models → Teach a new model** (or **Training**), anyone who can add
-models can train one in three steps:
+models first says what their data looks like, then trains in three steps:
+
+- **A table**: rows and columns from a spreadsheet or a database.
+- **Text**: reviews, messages or notes, one per cell next to the answer.
+- **Photos in folders**: one folder per answer, as a ZIP or a dropped folder.
+- **Photos with details**: a ZIP with `data.csv` and the photos it names.
 
 1. **The examples.** Upload a `.csv` with a header row and pick the column
-   that holds the answer; every other column must be a number. Or use the
+   that holds the answer, upload photos, query a database, or use the
    built-in handwritten digits (MNIST, downloaded once into the data
-   folder). Up to 64 MB, a million rows, a thousand columns and a thousand
-   different answers.
-2. **What kind.** The model types that fit the examples, plus a name.
+   folder). Columns can hold numbers, categories (a word from a short
+   list), yes/no, free text, or a photo's file name; the server tells
+   them apart and turns each into numbers. CSVs go up to 64 MB, a million
+   rows and a thousand columns; ZIPs up to 200 MB and 30,000 photos.
+2. **What kind.** The model types that fit the examples, plus a name:
+   a table or text classifier, a **number predictor** when the answer is
+   a number, a **picture classifier** for photo folders, and a **photo
+   and table classifier** when each row has a photo too.
 3. **How long.** Quick look (3 passes), Normal (10) or Thorough (30), with
    batch size, learning rate and the share kept aside for scoring under
    *Expert settings*.
+
+A number predictor can't be exactly right, so its score counts answers
+within a tenth of the real one, and the run page shows how far off it
+usually is.
+
+### Templates
+
+**Templates** lists 46 business problems across manufacturing, quality
+control, sales, shops, finance, people, logistics and support: "which
+customers won't renew", "is this weld OK", "how much energy will the
+next shift use". Each says exactly what data to bring, with a
+downloadable made-up example (a CSV, a ZIP of photo folders, or a ZIP
+with `data.csv` and photos) and a starting SQL query. **Use this
+template** opens the wizard with the template filled in; **Try it with
+the example data** teaches from the example in a few clicks.
+
+When data comes in, the server checks it against the template before
+anything runs: which columns were found, the answer column and how its
+answers are spread, empty or unreadable cells, too few rows, missing
+photos. A column under another name can be matched to the template's
+from a list. The same check is in the API as `CheckDataset`, and the
+catalog as `TemplateService` (`proto/mimir/v1/template.proto`).
 
 Runs queue up and train one at a time in the server process. The run page
 shows the pass and step, a chart of right answers and loss per pass, and
 the score on examples the model never saw while learning. A run can be
 stopped and resumed: a checkpoint is written after every pass. When a run
 finishes, the model appears under **Models** with its columns and answers,
-so **Try a model** shows one box per column and `Predict` takes the
-numbers in that order. Table models standardize their columns inside the
-model, so apps send the raw numbers.
+so **Try a model** shows one input per column (a list for categories,
+yes/no, a text box, a photo picker). Apps send the row by column name in
+`fields` and a photo in `photo`, and the server turns them into numbers
+the same way it did while teaching. Table models standardize their
+columns inside the model, so apps send the raw values.
 
 ### From a database, and keeping it learning
 
@@ -145,7 +179,15 @@ curl localhost:8080/mimir.v1.PredictService/Predict \
 grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \
   -d '{"model_id": "<id>", "input": {"values": [...]}}' \
   localhost:8080 mimir.v1.PredictService/Predict
+
+# A model taught from a table: the row by column name.
+curl localhost:8080/mimir.v1.PredictService/Predict \
+  -H 'Authorization: Bearer mimir_...' \
+  -H 'Content-Type: application/json' \
+  -d '{"modelId": "<id>", "fields": {"seats": "25", "plan": "team"}}'
 ```
+
+A number predictor answers with `number: true` and the answer in `value`.
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public. Health checks are at `grpc.health.v1.Health`.

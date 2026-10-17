@@ -3,6 +3,8 @@ syntax = "proto3";
 package mimir.v1;
 
 import "google/protobuf/timestamp.proto";
+import "mimir/v1/model.proto";
+import "mimir/v1/template.proto";
 
 option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
 
@@ -23,6 +25,27 @@ service DatasetService {
   rpc TestQuery(TestQueryRequest) returns (TestQueryResponse);
   // RefreshDataset runs a dataset's query again and replaces its rows.
   rpc RefreshDataset(RefreshDatasetRequest) returns (RefreshDatasetResponse);
+  // CheckDataset checks a dataset against a template, with the columns
+  // matched as given, and can keep that match.
+  rpc CheckDataset(CheckDatasetRequest) returns (CheckDatasetResponse);
+}
+
+message CheckDatasetRequest {
+  string dataset_id = 1;
+  // template_id is the template to check against; empty checks the data
+  // on its own.
+  string template_id = 2;
+  // match maps a template column to the dataset column that holds it, for
+  // columns named differently.
+  map<string, string> match = 3;
+  // apply keeps the match: the answer column and column kinds change to
+  // the template's, for the models taught from the dataset from now on.
+  bool apply = 4;
+}
+
+message CheckDatasetResponse {
+  DataCheck check = 1;
+  Dataset dataset = 2;
 }
 
 // TrainingService teaches new models and follows their progress.
@@ -62,6 +85,10 @@ enum DatasetKind {
   DATASET_KIND_TABLE = 1;
   // MNIST is the built-in handwritten digits set, downloaded on first use.
   DATASET_KIND_MNIST = 2;
+  // PHOTOS is a ZIP of photos with one folder per answer.
+  DATASET_KIND_PHOTOS = 3;
+  // PHOTO_TABLE is a ZIP of a data.csv and the photos its rows name.
+  DATASET_KIND_PHOTO_TABLE = 4;
 }
 
 message Dataset {
@@ -87,6 +114,12 @@ message Dataset {
   google.protobuf.Timestamp refresh_time = 14;
   // Architectures lists the model types that can learn from this dataset.
   repeated string architectures = 11;
+  // columns are the input columns and their kinds.
+  repeated Column columns = 15;
+  // number_target says every answer is a number.
+  bool number_target = 16;
+  // skipped counts rows left out: no answer, or no photo.
+  int64 skipped = 17;
 }
 
 message ListDatasetsRequest {}
@@ -120,6 +153,14 @@ message CreateDatasetRequest {
   // Connection and query fetch the table from a database instead of csv.
   Connection connection = 5;
   string query = 6;
+  // archive is the ZIP for a PHOTOS or PHOTO_TABLE dataset.
+  bytes archive = 7;
+  // template_id checks the data against a template and reads its columns
+  // as the template says; the answer column is the template's when found.
+  string template_id = 8;
+  // example makes the dataset from the template's made-up example data,
+  // instead of csv, archive or a query.
+  bool example = 9;
 }
 
 // Connection is how to reach a database.
@@ -151,6 +192,9 @@ message RefreshDatasetResponse {
 
 message CreateDatasetResponse {
   Dataset dataset = 1;
+  // check says how well the data fits: always for a table or photos, and
+  // against the template when one was given.
+  DataCheck check = 2;
 }
 
 message DeleteDatasetRequest {
@@ -182,10 +226,14 @@ message TrainingSettings {
 message EpochResult {
   int32 epoch = 1;
   double loss = 2;
-  // Accuracy is the share of held-out examples the model got right.
+  // Accuracy is the share of held-out examples the model got right. For a
+  // number model, an answer within 10% of the real one counts as right.
   double accuracy = 3;
   double val_loss = 4;
   int64 duration_millis = 5;
+  // typical_error is how far a number model's answers are off on average,
+  // in the answer's units.
+  double typical_error = 6;
 }
 
 message Job {

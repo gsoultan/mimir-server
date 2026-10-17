@@ -65,8 +65,22 @@ message Architecture {
   // Trainable says the server can teach models of this shape.
   bool trainable = 6;
   // Input says what the model reads: "image" for pictures, "table" for a
-  // row of numbers.
+  // row of a table, "photo_table" for a photo with a row of details.
   string input = 7;
+  // Output says what the model answers: "class" picks a label, "number"
+  // answers with a number.
+  string output = 8;
+}
+
+// Column is one column a model reads and how it becomes numbers.
+message Column {
+  string name = 1;
+  // kind is "number", "category", "yesno", "text" or "photo".
+  string kind = 2;
+  // values are a category column's known values, most common first.
+  repeated string values = 3;
+  // fill is what an empty cell of a number column reads as.
+  double fill = 4;
 }
 
 // ModelStatus says whether a model can answer.
@@ -104,6 +118,9 @@ message Model {
   // means automatic: this server in standalone mode, else any worker that
   // runs the model's type.
   string worker_id = 15;
+  // columns are the table columns the model reads, in order, when it was
+  // taught from a table. Ask it with PredictRequest.fields.
+  repeated Column columns = 16;
 }
 
 // Tensor is a dense float32 array.
@@ -170,9 +187,15 @@ message DeleteModelResponse {}
 message PredictRequest {
   string model_id = 1;
   // Input is one example shaped like the architecture's input_shape.
+  // Leave it empty to ask with fields and photo instead.
   Tensor input = 2;
   // TopK is how many guesses to return; 0 means 3.
   int32 top_k = 3;
+  // fields are a table row by column name, for a model with columns.
+  // Missing columns read as empty.
+  map<string, string> fields = 4;
+  // photo is a JPG, PNG or GIF, for a model that looks at photos.
+  bytes photo = 5;
 }
 
 message PredictResponse {
@@ -184,4 +207,7 @@ message PredictResponse {
   int64 duration_micros = 3;
   // Probabilities is the softmax of output: one value per label, summing to 1.
   Tensor probabilities = 4;
+  // number is set for a model that answers with a number; value is it.
+  bool number = 5;
+  double value = 6;
 }

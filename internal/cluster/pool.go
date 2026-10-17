@@ -19,6 +19,7 @@ import (
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/runtime"
+	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
 )
@@ -105,6 +106,7 @@ type link struct {
 	stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse]
 
 	sendMu sync.Mutex // one message at a time down the stream
+	ended  bool       // the stream is done; guarded by sendMu
 
 	mu      sync.Mutex
 	busy    int
@@ -161,6 +163,11 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 	p.links[l.id] = l
 	p.mu.Unlock()
 	defer func() {
+		// No send may touch the stream once Serve returns: connect
+		// flushes and closes it from here on.
+		l.sendMu.Lock()
+		l.ended = true
+		l.sendMu.Unlock()
 		p.mu.Lock()
 		delete(p.links, l.id)
 		p.mu.Unlock()
@@ -287,6 +294,9 @@ func (l *link) note(p *Pool, st *mimirv1.Stats) {
 func (l *link) send(msg *mimirv1.LinkResponse) error {
 	l.sendMu.Lock()
 	defer l.sendMu.Unlock()
+	if l.ended {
+		return ErrLinkLost
+	}
 	return l.stream.Send(msg)
 }
 
@@ -453,9 +463,14 @@ func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Tas
 		TaskId: id, JobId: jobID, Architecture: t.Arch.Name,
 		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut},
 		DatasetKind: mimirv1.DatasetKind(t.Source.Kind),
-		Csv:         t.Source.CSV, Target: t.Source.Target,
+		Target:      t.Source.Target, Columns: ColumnsToProto(t.Source.Columns),
 		History:     EpochsToProto(t.History),
 		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
+	}
+	if t.Source.Kind.Archive() {
+		task.Archive = t.Source.CSV
+	} else {
+		task.Csv = t.Source.CSV
 	}
 	if err := l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Train{Train: task}}); err != nil {
 		return res, l.worker.Name, true, ErrLinkLost
@@ -499,6 +514,7 @@ func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Tas
 				History:  EpochsFromProto(r.History),
 				Spec:     arch.Spec{InputShape: ints(sp.GetInputShape()), Labels: sp.GetLabels()},
 				Features: sp.GetFeatures(),
+				Columns:  ColumnsFromProto(sp.GetColumns()),
 				Fresh:    r.Fresh,
 			}, l.worker.Name, true, nil
 		}
@@ -528,7 +544,25 @@ func wait(ctx context.Context, replies chan *mimirv1.LinkRequest, closed chan st
 func EpochsToProto(h []store.Epoch) []*mimirv1.EpochResult {
 	out := make([]*mimirv1.EpochResult, len(h))
 	for i, e := range h {
-		out[i] = &mimirv1.EpochResult{Epoch: int32(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, DurationMillis: e.Millis}
+		out[i] = &mimirv1.EpochResult{Epoch: int32(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, DurationMillis: e.Millis, TypicalError: e.MAE}
+	}
+	return out
+}
+
+// ColumnsToProto converts table columns for the wire.
+func ColumnsToProto(cols []schema.Column) []*mimirv1.Column {
+	out := make([]*mimirv1.Column, len(cols))
+	for i, c := range cols {
+		out[i] = &mimirv1.Column{Name: c.Name, Kind: string(c.Kind), Values: c.Values, Fill: c.Fill}
+	}
+	return out
+}
+
+// ColumnsFromProto converts table columns back.
+func ColumnsFromProto(cols []*mimirv1.Column) []schema.Column {
+	out := make([]schema.Column, len(cols))
+	for i, c := range cols {
+		out[i] = schema.Column{Name: c.GetName(), Kind: schema.Kind(c.GetKind()), Values: c.GetValues(), Fill: c.GetFill()}
 	}
 	return out
 }
@@ -537,7 +571,7 @@ func EpochsToProto(h []store.Epoch) []*mimirv1.EpochResult {
 func EpochsFromProto(h []*mimirv1.EpochResult) []store.Epoch {
 	out := make([]store.Epoch, len(h))
 	for i, e := range h {
-		out[i] = store.Epoch{Epoch: int(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.DurationMillis}
+		out[i] = store.Epoch{Epoch: int(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.DurationMillis, MAE: e.TypicalError}
 	}
 	return out
 }

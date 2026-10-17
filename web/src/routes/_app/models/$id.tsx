@@ -14,6 +14,7 @@ import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { RunsOn } from "../../../components/Placement";
 import { ago, bytes } from "../../../lib/format";
+import { score } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/models/$id")({
   loader: ({ context, params }) => Promise.all([
@@ -57,19 +58,28 @@ function ModelDetails() {
 
   const shape = m.inputShape.length > 0 ? m.inputShape : arch?.inputShape ?? [];
   const input = shape.reduce((a, b) => a * b, 1n);
-  const table = m.features.length > 0;
+  const number = arch?.output === "number";
+  const wantsPhoto = (arch?.input === "image" && shape.length === 0) || arch?.input === "photo_table";
+  const columns = arch?.input === "image" ? [] : m.columns.length > 0 ? m.columns.filter((c) => c.kind !== "photo") : m.features.map((name) => ({ name, kind: "number" }));
+  const named = columns.length > 0 || wantsPhoto;
+  const sample = (c: { kind: string; values?: string[] }) => c.kind === "number" ? "1.5" : c.kind === "yesno" ? "yes" : c.kind === "category" ? c.values?.[0] ?? "a" : "some words";
+  const fields = JSON.stringify(Object.fromEntries(columns.map((c) => [c.name, sample(c)])));
+  const body = (id: string) => named
+    ? `{"${id}": "${m.id}"${columns.length > 0 ? `, "fields": ${fields}` : ""}${wantsPhoto ? `, "photo": "<the photo, base64>"` : ""}}`
+    : `{"${id}": "${m.id}", "input": {"values": [ /* ${input} numbers */ ]}}`;
   const curl = `curl ${location.origin}/mimir.v1.PredictService/Predict \\
   -H 'Authorization: Bearer mimir_...' \\
   -H 'Content-Type: application/json' \\
-  -d '{"modelId": "${m.id}", "input": {"values": [ /* ${input} numbers */ ]}}'`;
+  -d '${body("modelId")}'`;
   const grpc = `grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \\
-  -d '{"model_id": "${m.id}", "input": {"values": [...]}}' \\
+  -d '${body("model_id")}' \\
   ${location.host} mimir.v1.PredictService/Predict`;
+  const answer = number ? "You get back a number in value." : `You get back the likeliest of: ${m.labels.join(", ")}.`;
 
   return (
     <Page
       title={m.name}
-      intro={`${arch?.title ?? m.architecture} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}${m.accuracy > 0 ? ` · gets ${Math.round(m.accuracy * 100)} of 100 right` : ""}${m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? ` · last learned ${ago(m.updateTime)}` : ""}`}
+      intro={`${arch?.title ?? m.architecture} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}${m.accuracy > 0 ? ` · ${score(m.accuracy, arch?.output === "number")}` : ""}${m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? ` · last learned ${ago(m.updateTime)}` : ""}`}
       actions={<ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>Try it</ButtonLink>}
     >
       <SimpleGrid cols={{ base: 1, md: 2 }}>
@@ -94,8 +104,8 @@ function ModelDetails() {
         <Card withBorder radius="lg" padding="lg">
           <Text fw={700} mb={4}>Use it from your app</Text>
           <Text size="sm" c="dimmed" mb="sm">
-            {table
-              ? `Send ${input.toString()} numbers, in this order: ${m.features.join(", ")}. You get back the likeliest of: ${m.labels.join(", ")}.`
+            {named
+              ? `Send ${[columns.length > 0 && "each column by name in fields", wantsPhoto && "the photo as a JPG, PNG or GIF"].filter(Boolean).join(", and ")}. ${answer}`
               : `Send ${input.toString()} numbers between 0 and 1; get back the likeliest answers.`} Make a key under Connect your apps.
           </Text>
           <Tabs defaultValue="http">

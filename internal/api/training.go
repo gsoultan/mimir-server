@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/dbsource"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir-server/internal/templates"
 	"github.com/gsoultan/mimir-server/internal/training"
 )
 
@@ -50,8 +50,15 @@ func (s *Service) GetDataset(ctx context.Context, req *connect.Request[mimirv1.G
 		return nil, err
 	}
 	res := &mimirv1.GetDatasetResponse{Dataset: datasetProto(d)}
-	if d.Kind == store.DatasetTable {
-		if b, err := s.store.ReadDataset(d.ID); err == nil {
+	if d.Kind == store.DatasetTable || d.Kind == store.DatasetPhotoTable {
+		b, err := s.store.ReadDataset(d.ID)
+		if err == nil && d.Kind == store.DatasetPhotoTable {
+			var arc *training.Archive
+			if arc, err = training.OpenArchive(b); err == nil {
+				_, b, err = arc.Table()
+			}
+		}
+		if err == nil {
 			for _, row := range training.Sample(b, 5) {
 				res.Sample = append(res.Sample, &mimirv1.Row{Values: row})
 			}
@@ -66,61 +73,75 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 	if err != nil {
 		return nil, err
 	}
-	var d store.Dataset
-	var csvBytes []byte
+	tpl, err := template(req.Msg.GetTemplateId())
+	if err != nil {
+		return nil, err
+	}
+	kind := store.DatasetKind(req.Msg.GetKind())
+	var file []byte
 	conn, query := req.Msg.GetConnection(), strings.TrimSpace(req.Msg.GetQuery())
-	if conn != nil || query != "" {
+	switch {
+	case req.Msg.GetExample():
+		if tpl == nil {
+			return nil, invalid("Pick a template to use its example data.")
+		}
+		if _, _, file, err = templates.Example(*tpl); err != nil {
+			return nil, s.internal(ctx, err)
+		}
+		kind = kindOf(*tpl)
+	case conn != nil || query != "":
 		if !p.Can(auth.DatabaseQuery) {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("Only admins can connect a database."))
 		}
-		if req.Msg.GetKind() != mimirv1.DatasetKind_DATASET_KIND_TABLE {
+		if kind != store.DatasetTable {
 			return nil, invalid("A query gives a table; choose the table kind.")
 		}
 		r, err := s.fetch(ctx, conn, query)
 		if err != nil {
 			return nil, err
 		}
-		csvBytes = r.CSV()
+		file = r.CSV()
+	case kind == store.DatasetTable:
+		file = req.Msg.GetCsv()
+	case kind.Archive():
+		file = req.Msg.GetArchive()
 	}
-	switch req.Msg.GetKind() {
-	case mimirv1.DatasetKind_DATASET_KIND_TABLE:
-		if csvBytes == nil {
-			csvBytes = req.Msg.GetCsv()
-		}
-		if len(csvBytes) == 0 {
+
+	var d store.Dataset
+	var check *mimirv1.DataCheck
+	switch kind {
+	case store.DatasetTable:
+		if len(file) == 0 {
 			return nil, invalid("The file is empty. Upload a CSV with a header row.")
 		}
-		if len(csvBytes) > maxCSVBytes {
+		if len(file) > maxCSVBytes {
 			return nil, invalid("That file is too big. Tables up to 64 MB work here.")
 		}
-		t, err := training.ParseTable(bytes.NewReader(csvBytes), strings.TrimSpace(req.Msg.GetTarget()))
-		if errors.Is(err, training.ErrBadTable) {
-			return nil, invalid("%s", strings.TrimPrefix(err.Error(), "training: bad table: "))
-		}
-		if err != nil {
-			return nil, s.internal(ctx, err)
-		}
-		target := strings.TrimSpace(req.Msg.GetTarget())
-		if target == "" {
-			target = lastColumn(csvBytes)
-		}
-		d = store.Dataset{Name: name, Kind: store.DatasetTable, Rows: int64(t.Rows), Features: t.Features, Labels: t.Classes, InputShape: []int{len(t.Features)}, Target: target}
+		d, check, err = describeTable(file, strings.TrimSpace(req.Msg.GetTarget()), tpl, nil)
 		if query != "" {
 			d.Driver, d.DSN, d.Query = conn.GetDriver(), conn.GetDsn(), query
 		}
-	case mimirv1.DatasetKind_DATASET_KIND_MNIST:
-		d = store.Dataset{Name: name, Kind: store.DatasetMNIST, Rows: 60000, InputShape: []int{1, 28, 28},
+	case store.DatasetPhotos:
+		d, check, err = describePhotos(file, tpl)
+	case store.DatasetPhotoTable:
+		d, check, err = describePhotoTable(file, strings.TrimSpace(req.Msg.GetTarget()), tpl, nil)
+	case store.DatasetMNIST:
+		file = nil
+		d = store.Dataset{Kind: store.DatasetMNIST, Rows: 60000, InputShape: []int{1, 28, 28},
 			Labels: []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}}
 	default:
-		return nil, invalid("Choose a table (CSV) or the built-in handwritten digits.")
+		return nil, invalid("Choose a table (CSV), photos (ZIP) or the built-in handwritten digits.")
 	}
-	d.TeamID = p.Team()
-	d, err = s.store.CreateDataset(ctx, d, csvBytes)
+	if err != nil {
+		return nil, err
+	}
+	d.Name, d.TeamID = name, p.Team()
+	d, err = s.store.CreateDataset(ctx, d, file)
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
 	s.audit(ctx, p.Actor(), "dataset.create", d.Name, fmt.Sprintf("%d rows", d.Rows))
-	return connect.NewResponse(&mimirv1.CreateDatasetResponse{Dataset: datasetProto(d)}), nil
+	return connect.NewResponse(&mimirv1.CreateDatasetResponse{Dataset: datasetProto(d), Check: check}), nil
 }
 
 // fetch runs a query for a dataset, refusing the server's own files.
@@ -477,12 +498,6 @@ func (s *Service) jobWithDataset(ctx context.Context, j store.Job) *mimirv1.Job 
 	return jobProto(j, name)
 }
 
-func lastColumn(csvBytes []byte) string {
-	line, _, _ := bytes.Cut(csvBytes, []byte("\n"))
-	parts := strings.Split(strings.TrimSpace(string(line)), ",")
-	return strings.TrimSpace(parts[len(parts)-1])
-}
-
 func contains(xs []string, x string) bool {
 	for _, y := range xs {
 		if y == x {
@@ -505,6 +520,7 @@ func datasetProto(d store.Dataset) *mimirv1.Dataset {
 		InputShape: int64s(d.InputShape), Target: d.Target, SizeBytes: d.SizeBytes, CreateTime: timestamppb.New(d.Created),
 		Architectures: training.Architectures(d),
 		Driver:        d.Driver, Query: d.Query, // never the connection string
+		Columns: columnsProto(d.Columns), NumberTarget: d.NumberTarget, Skipped: d.Skipped,
 	}
 	if !d.Refreshed.IsZero() {
 		out.RefreshTime = timestamppb.New(d.Refreshed)
@@ -530,7 +546,7 @@ func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 		out.NextRunTime = timestamppb.New(j.NextRun)
 	}
 	for _, e := range j.History {
-		out.History = append(out.History, &mimirv1.EpochResult{Epoch: int32(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, DurationMillis: e.Millis})
+		out.History = append(out.History, &mimirv1.EpochResult{Epoch: int32(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, DurationMillis: e.Millis, TypicalError: e.MAE})
 	}
 	return out
 }

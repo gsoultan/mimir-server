@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/gsoultan/mimir-server/internal/schema"
 )
 
 // DatasetKind says where a dataset's examples come from.
@@ -17,7 +19,14 @@ type DatasetKind int
 const (
 	DatasetTable DatasetKind = 1 // a CSV someone uploaded
 	DatasetMNIST DatasetKind = 2 // the built-in handwritten digits
+	// DatasetPhotos is a ZIP of photos, one folder per answer.
+	DatasetPhotos DatasetKind = 3
+	// DatasetPhotoTable is a ZIP of a data.csv and the photos it names.
+	DatasetPhotoTable DatasetKind = 4
 )
+
+// Archive reports whether the dataset's file is a ZIP.
+func (k DatasetKind) Archive() bool { return k == DatasetPhotos || k == DatasetPhotoTable }
 
 // Dataset is a set of examples models learn from.
 type Dataset struct {
@@ -38,6 +47,13 @@ type Dataset struct {
 	Query     string
 	Refreshed time.Time // when the query last ran; zero for uploads
 	TeamID    string
+	// Columns are the input columns and their kinds, as first found;
+	// empty when every column is a number.
+	Columns []schema.Column
+	// NumberTarget says every answer is a number.
+	NumberTarget bool
+	// Skipped counts rows left out: no answer, or a missing photo.
+	Skipped int64
 }
 
 // FromQuery reports whether the dataset's rows come from a database.
@@ -72,6 +88,8 @@ type Epoch struct {
 	Accuracy float64 `json:"accuracy"`
 	ValLoss  float64 `json:"val_loss"`
 	Millis   int64   `json:"millis"`
+	// MAE is how far a number model's answers are off on average.
+	MAE float64 `json:"mae,omitempty"`
 }
 
 // Job is one training run.
@@ -117,9 +135,22 @@ func (s *Store) DatasetDir() string { return filepath.Join(filepath.Dir(s.weight
 // DatasetPath is where a table dataset's CSV lives.
 func (s *Store) DatasetPath(id string) string { return filepath.Join(s.DatasetDir(), id+".csv") }
 
-// ReadDataset returns a table dataset's CSV.
+// archivePath is where a photo dataset's ZIP lives.
+func (s *Store) archivePath(id string) string { return filepath.Join(s.DatasetDir(), id+".zip") }
+
+func (s *Store) datasetFile(d Dataset) string {
+	if d.Kind.Archive() {
+		return s.archivePath(d.ID)
+	}
+	return s.DatasetPath(d.ID)
+}
+
+// ReadDataset returns a dataset's file: a table's CSV or a photo ZIP.
 func (s *Store) ReadDataset(id string) ([]byte, error) {
 	b, err := os.ReadFile(s.DatasetPath(id))
+	if errors.Is(err, fs.ErrNotExist) {
+		b, err = os.ReadFile(s.archivePath(id))
+	}
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrNotFound
 	}
@@ -131,15 +162,16 @@ func (s *Store) JobDir(id string) string {
 	return filepath.Join(filepath.Dir(s.weights), "training", id)
 }
 
-const datasetColumns = "id, name, kind, rows, features, labels, input_shape, target, size_bytes, create_time, driver, dsn, query, refresh_time, team_id"
+const datasetColumns = "id, name, kind, rows, features, labels, input_shape, target, size_bytes, create_time, driver, dsn, query, refresh_time, team_id, columns, number_target, skipped"
 
 func scanDataset(row scanner) (Dataset, error) {
 	var d Dataset
 	var created int64
-	var features, labels, shape string
+	var features, labels, shape, cols string
 	var refreshed sql.NullInt64
 	var team sql.NullString
-	err := row.Scan(&d.ID, &d.Name, &d.Kind, &d.Rows, &features, &labels, &shape, &d.Target, &d.SizeBytes, &created, &d.Driver, &d.DSN, &d.Query, &refreshed, &team)
+	err := row.Scan(&d.ID, &d.Name, &d.Kind, &d.Rows, &features, &labels, &shape, &d.Target, &d.SizeBytes, &created, &d.Driver, &d.DSN, &d.Query, &refreshed, &team, &cols, &d.NumberTarget, &d.Skipped)
+	d.Columns = fromJSON[[]schema.Column](cols)
 	d.TeamID = team.String
 	d.Created = time.UnixMilli(created).UTC()
 	d.Refreshed = fromMillis(refreshed)
@@ -163,7 +195,7 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 		if err := os.MkdirAll(s.DatasetDir(), 0o750); err != nil {
 			return Dataset{}, err
 		}
-		if err := writeFileAtomic(s.DatasetPath(id), csv); err != nil {
+		if err := writeFileAtomic(s.datasetFile(d), csv); err != nil {
 			return Dataset{}, fmt.Errorf("store: write dataset: %w", err)
 		}
 		d.SizeBytes = int64(len(csv))
@@ -173,10 +205,11 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 		d.Refreshed = d.Created
 		refreshed = millis(d.Created)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO datasets ("+datasetColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		d.ID, d.Name, d.Kind, d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.Target, d.SizeBytes, millis(d.Created), d.Driver, d.DSN, d.Query, refreshed, d.TeamID)
+	_, err = s.db.ExecContext(ctx, "INSERT INTO datasets ("+datasetColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		d.ID, d.Name, d.Kind, d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.Target, d.SizeBytes, millis(d.Created), d.Driver, d.DSN, d.Query, refreshed, d.TeamID,
+		toJSON(d.Columns), d.NumberTarget, d.Skipped)
 	if err != nil {
-		os.Remove(s.DatasetPath(id))
+		os.Remove(s.datasetFile(d))
 		return Dataset{}, fmt.Errorf("store: insert dataset: %w", err)
 	}
 	return d, nil
@@ -188,10 +221,21 @@ func (s *Store) RefreshDataset(ctx context.Context, d Dataset, csv []byte) (Data
 		return Dataset{}, fmt.Errorf("store: write dataset: %w", err)
 	}
 	d.SizeBytes, d.Refreshed = int64(len(csv)), time.Now().UTC().Truncate(time.Millisecond)
-	_, err := s.db.ExecContext(ctx, "UPDATE datasets SET rows = ?, features = ?, labels = ?, input_shape = ?, size_bytes = ?, refresh_time = ? WHERE id = ?",
-		d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.SizeBytes, millis(d.Refreshed), d.ID)
+	_, err := s.db.ExecContext(ctx, "UPDATE datasets SET rows = ?, features = ?, labels = ?, input_shape = ?, size_bytes = ?, refresh_time = ?, columns = ?, number_target = ?, skipped = ? WHERE id = ?",
+		d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.SizeBytes, millis(d.Refreshed), toJSON(d.Columns), d.NumberTarget, d.Skipped, d.ID)
 	if err != nil {
 		return Dataset{}, fmt.Errorf("store: refresh dataset: %w", err)
+	}
+	return d, nil
+}
+
+// UpdateDatasetColumns changes how a dataset's columns are read: its
+// answer column, column kinds and what follows from them.
+func (s *Store) UpdateDatasetColumns(ctx context.Context, d Dataset) (Dataset, error) {
+	_, err := s.db.ExecContext(ctx, "UPDATE datasets SET target = ?, rows = ?, features = ?, labels = ?, input_shape = ?, columns = ?, number_target = ?, skipped = ? WHERE id = ?",
+		d.Target, d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), toJSON(d.Columns), d.NumberTarget, d.Skipped, d.ID)
+	if err != nil {
+		return Dataset{}, fmt.Errorf("store: update dataset columns: %w", err)
 	}
 	return d, nil
 }
@@ -240,8 +284,10 @@ func (s *Store) DeleteDataset(ctx context.Context, id string) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
-	if err := os.Remove(s.DatasetPath(id)); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
+	for _, p := range []string{s.DatasetPath(id), s.archivePath(id)} {
+		if err := os.Remove(p); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
 	}
 	return nil
 }

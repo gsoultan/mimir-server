@@ -20,6 +20,8 @@ import (
 
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite" // registers the "sqlite" driver, pure Go
+
+	"github.com/gsoultan/mimir-server/internal/schema"
 )
 
 // ErrNotFound reports that no model has the requested id.
@@ -51,6 +53,9 @@ type Model struct {
 	TeamID string
 	// WorkerID is the worker that answers its questions; "" for automatic.
 	WorkerID string
+	// Columns are the table columns it reads and how each becomes
+	// numbers; empty when it reads numbers as they are.
+	Columns []schema.Column
 }
 
 // Store is safe for concurrent use.
@@ -96,6 +101,11 @@ func LatestSchemaVersion() int {
 // Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }
 
+// rebuildMarker starts a migration that rebuilds a table other tables
+// point at. It runs with foreign keys off, as SQLite's guide to changing a
+// table asks, and the keys are checked before it commits.
+const rebuildMarker = "-- rebuild: foreign keys off"
+
 // migrate applies every migration newer than the schema's user_version, in
 // order, each in its own transaction.
 func (s *Store) migrate(ctx context.Context) error {
@@ -120,20 +130,7 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		tx, err := s.db.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, string(body)); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("store: migration %s: %w", name, err)
-		}
-		// PRAGMA takes no parameters; n is an integer parsed above.
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", n)); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("store: migration %s: %w", name, err)
-		}
-		if err := tx.Commit(); err != nil {
+		if err := s.apply(ctx, n, string(body)); err != nil {
 			return fmt.Errorf("store: migration %s: %w", name, err)
 		}
 		version = n
@@ -141,16 +138,57 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id, accuracy, team_id, worker_id"
+// apply runs migration n in a transaction on one connection.
+func (s *Store) apply(ctx context.Context, n int, body string) error {
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	rebuild := strings.HasPrefix(body, rebuildMarker)
+	if rebuild {
+		if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
+			return err
+		}
+		defer conn.ExecContext(context.WithoutCancel(ctx), "PRAGMA foreign_keys = ON")
+	}
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, body); err != nil {
+		return err
+	}
+	if rebuild {
+		rows, err := tx.QueryContext(ctx, "PRAGMA foreign_key_check")
+		if err != nil {
+			return err
+		}
+		broken := rows.Next()
+		rows.Close()
+		if broken {
+			return errors.New("a foreign key no longer holds")
+		}
+	}
+	// PRAGMA takes no parameters; n is an integer parsed from the name.
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", n)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id, accuracy, team_id, worker_id, columns"
 
 type scanner interface{ Scan(dest ...any) error }
 
 func scan(row scanner) (Model, error) {
 	var m Model
 	var created, updated int64
-	var shape, labels, features string
+	var shape, labels, features, cols string
 	var team sql.NullString
-	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID, &m.Accuracy, &team, &m.WorkerID)
+	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID, &m.Accuracy, &team, &m.WorkerID, &cols)
+	m.Columns = fromJSON[[]schema.Column](cols)
 	m.TeamID = team.String
 	m.Created = time.UnixMilli(created).UTC()
 	m.Updated = time.UnixMilli(updated).UTC()
@@ -212,9 +250,9 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	if err := writeFileAtomic(path, weights); err != nil {
 		return Model{}, fmt.Errorf("store: write weights: %w", err)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		m.ID, m.Name, m.Description, m.Architecture, m.SizeBytes, m.SHA256, now.UnixMilli(), now.UnixMilli(),
-		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, m.TeamID, m.WorkerID)
+		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, m.TeamID, m.WorkerID, toJSON(m.Columns))
 	if err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)
@@ -230,8 +268,8 @@ func (s *Store) Replace(ctx context.Context, id string, m Model, weights []byte)
 	if err := writeFileAtomic(path, weights); err != nil {
 		return fmt.Errorf("store: write weights: %w", err)
 	}
-	res, err := s.db.ExecContext(ctx, "UPDATE models SET size_bytes = ?, sha256 = ?, update_time = ?, input_shape = ?, labels = ?, features = ?, job_id = ?, accuracy = ? WHERE id = ?",
-		len(weights), hex.EncodeToString(sum[:]), time.Now().UTC().UnixMilli(), toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, id)
+	res, err := s.db.ExecContext(ctx, "UPDATE models SET size_bytes = ?, sha256 = ?, update_time = ?, input_shape = ?, labels = ?, features = ?, job_id = ?, accuracy = ?, columns = ? WHERE id = ?",
+		len(weights), hex.EncodeToString(sum[:]), time.Now().UTC().UnixMilli(), toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, toJSON(m.Columns), id)
 	if err != nil {
 		return fmt.Errorf("store: replace model: %w", err)
 	}
