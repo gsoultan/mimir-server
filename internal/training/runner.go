@@ -18,12 +18,18 @@ import (
 var (
 	Defaults      = store.Settings{Epochs: 5, BatchSize: 64, LearningRate: 1e-3, HoldOut: 0.2}
 	TableDefaults = store.Settings{Epochs: 10, BatchSize: 32, LearningRate: 5e-3, HoldOut: 0.2}
+	// PhotoDefaults suit a few hundred photos per answer: smaller batches
+	// and a larger step than the digits need, so it settles in a few passes.
+	PhotoDefaults = store.Settings{Epochs: 10, BatchSize: 32, LearningRate: 3e-3, HoldOut: 0.2}
 )
 
 // DefaultsFor returns the defaults for a dataset of kind k.
 func DefaultsFor(k store.DatasetKind) store.Settings {
-	if k == store.DatasetTable {
+	switch k {
+	case store.DatasetTable:
 		return TableDefaults
+	case store.DatasetPhotos, store.DatasetPhotoTable:
+		return PhotoDefaults
 	}
 	return Defaults
 }
@@ -245,7 +251,7 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		m.Accuracy = res.History[n-1].Accuracy
 	}
 	if !a.Fixed() {
-		m.InputShape, m.Labels, m.Features = res.Spec.InputShape, res.Spec.Labels, res.Features
+		m.InputShape, m.Labels, m.Features, m.Columns = res.Spec.InputShape, res.Spec.Labels, res.Features, res.Columns
 	}
 	setNote := func(note string) {
 		if j.Note != "" {

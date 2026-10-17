@@ -53,6 +53,9 @@ const (
 	// DatasetServiceRefreshDatasetProcedure is the fully-qualified name of the DatasetService's
 	// RefreshDataset RPC.
 	DatasetServiceRefreshDatasetProcedure = "/mimir.v1.DatasetService/RefreshDataset"
+	// DatasetServiceCheckDatasetProcedure is the fully-qualified name of the DatasetService's
+	// CheckDataset RPC.
+	DatasetServiceCheckDatasetProcedure = "/mimir.v1.DatasetService/CheckDataset"
 	// TrainingServiceListJobsProcedure is the fully-qualified name of the TrainingService's ListJobs
 	// RPC.
 	TrainingServiceListJobsProcedure = "/mimir.v1.TrainingService/ListJobs"
@@ -88,6 +91,9 @@ type DatasetServiceClient interface {
 	TestQuery(context.Context, *connect.Request[v1.TestQueryRequest]) (*connect.Response[v1.TestQueryResponse], error)
 	// RefreshDataset runs a dataset's query again and replaces its rows.
 	RefreshDataset(context.Context, *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error)
+	// CheckDataset checks a dataset against a template, with the columns
+	// matched as given, and can keep that match.
+	CheckDataset(context.Context, *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error)
 }
 
 // NewDatasetServiceClient constructs a client for the mimir.v1.DatasetService service. By default,
@@ -139,6 +145,12 @@ func NewDatasetServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(datasetServiceMethods.ByName("RefreshDataset")),
 			connect.WithClientOptions(opts...),
 		),
+		checkDataset: connect.NewClient[v1.CheckDatasetRequest, v1.CheckDatasetResponse](
+			httpClient,
+			baseURL+DatasetServiceCheckDatasetProcedure,
+			connect.WithSchema(datasetServiceMethods.ByName("CheckDataset")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -150,6 +162,7 @@ type datasetServiceClient struct {
 	deleteDataset  *connect.Client[v1.DeleteDatasetRequest, v1.DeleteDatasetResponse]
 	testQuery      *connect.Client[v1.TestQueryRequest, v1.TestQueryResponse]
 	refreshDataset *connect.Client[v1.RefreshDatasetRequest, v1.RefreshDatasetResponse]
+	checkDataset   *connect.Client[v1.CheckDatasetRequest, v1.CheckDatasetResponse]
 }
 
 // ListDatasets calls mimir.v1.DatasetService.ListDatasets.
@@ -182,6 +195,11 @@ func (c *datasetServiceClient) RefreshDataset(ctx context.Context, req *connect.
 	return c.refreshDataset.CallUnary(ctx, req)
 }
 
+// CheckDataset calls mimir.v1.DatasetService.CheckDataset.
+func (c *datasetServiceClient) CheckDataset(ctx context.Context, req *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error) {
+	return c.checkDataset.CallUnary(ctx, req)
+}
+
 // DatasetServiceHandler is an implementation of the mimir.v1.DatasetService service.
 type DatasetServiceHandler interface {
 	ListDatasets(context.Context, *connect.Request[v1.ListDatasetsRequest]) (*connect.Response[v1.ListDatasetsResponse], error)
@@ -195,6 +213,9 @@ type DatasetServiceHandler interface {
 	TestQuery(context.Context, *connect.Request[v1.TestQueryRequest]) (*connect.Response[v1.TestQueryResponse], error)
 	// RefreshDataset runs a dataset's query again and replaces its rows.
 	RefreshDataset(context.Context, *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error)
+	// CheckDataset checks a dataset against a template, with the columns
+	// matched as given, and can keep that match.
+	CheckDataset(context.Context, *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error)
 }
 
 // NewDatasetServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -242,6 +263,12 @@ func NewDatasetServiceHandler(svc DatasetServiceHandler, opts ...connect.Handler
 		connect.WithSchema(datasetServiceMethods.ByName("RefreshDataset")),
 		connect.WithHandlerOptions(opts...),
 	)
+	datasetServiceCheckDatasetHandler := connect.NewUnaryHandler(
+		DatasetServiceCheckDatasetProcedure,
+		svc.CheckDataset,
+		connect.WithSchema(datasetServiceMethods.ByName("CheckDataset")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.DatasetService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DatasetServiceListDatasetsProcedure:
@@ -256,6 +283,8 @@ func NewDatasetServiceHandler(svc DatasetServiceHandler, opts ...connect.Handler
 			datasetServiceTestQueryHandler.ServeHTTP(w, r)
 		case DatasetServiceRefreshDatasetProcedure:
 			datasetServiceRefreshDatasetHandler.ServeHTTP(w, r)
+		case DatasetServiceCheckDatasetProcedure:
+			datasetServiceCheckDatasetHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -287,6 +316,10 @@ func (UnimplementedDatasetServiceHandler) TestQuery(context.Context, *connect.Re
 
 func (UnimplementedDatasetServiceHandler) RefreshDataset(context.Context, *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.DatasetService.RefreshDataset is not implemented"))
+}
+
+func (UnimplementedDatasetServiceHandler) CheckDataset(context.Context, *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.DatasetService.CheckDataset is not implemented"))
 }
 
 // TrainingServiceClient is a client for the mimir.v1.TrainingService service.

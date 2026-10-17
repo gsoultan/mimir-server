@@ -11,6 +11,8 @@ import (
 
 	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/tensor"
+
+	"github.com/gsoultan/mimir-server/internal/schema"
 )
 
 // Input says what kind of example an architecture reads.
@@ -19,6 +21,17 @@ type Input string
 const (
 	Image Input = "image" // a picture, shape [channels, height, width]
 	Table Input = "table" // one row of numbers, shape [features]
+	// PhotoTable is a photo and a row of numbers side by side, flattened
+	// into one shape [schema.PhotoPixels + features].
+	PhotoTable Input = "photo_table"
+)
+
+// Output is what an architecture answers.
+type Output string
+
+const (
+	Class  Output = "class"  // which label fits, with a probability each
+	Number Output = "number" // one number, like a price or a count
 )
 
 // Spec is what a model reads and answers. Fixed architectures carry their
@@ -32,6 +45,9 @@ type Spec struct {
 	// model standardizes its input with. They are baked into the model as
 	// buffers, so they only matter when building a fresh module to train.
 	Mean, Std []float32
+	// TargetMean and TargetStd scale the answer of a number model, so it
+	// learns as evenly for prices in millions as for counts in tens.
+	TargetMean, TargetStd float32
 }
 
 // Standardize is a module that rescales each input feature to roughly zero
@@ -64,17 +80,113 @@ func (s *Standardize) Forward(x *tensor.Tensor) *tensor.Tensor {
 	return x.Sub(s.Mean.Value()).Div(s.Std.Value())
 }
 
+// Unscale is the last layer of a number model: it turns the network's
+// output, about zero on average, back into the answer's own units.
+type Unscale struct {
+	Mean *tensor.Param // [1, 1]
+	Std  *tensor.Param // [1, 1]
+}
+
+// NewUnscale returns an Unscale for an answer with the given statistics.
+func NewUnscale(mean, std float32) *Unscale {
+	if std == 0 {
+		std = 1
+	}
+	return &Unscale{
+		Mean: tensor.NewBuffer(tensor.FromSlice([]float32{mean}, 1, 1)),
+		Std:  tensor.NewBuffer(tensor.FromSlice([]float32{std}, 1, 1)),
+	}
+}
+
+// Forward returns x * std + mean.
+func (u *Unscale) Forward(x *tensor.Tensor) *tensor.Tensor {
+	return x.Mul(u.Std.Value()).Add(u.Mean.Value())
+}
+
+// PhotoNet reads a photo and a row of numbers together: a small picture
+// network and a small table network each sum up their part, and a last
+// layer weighs both.
+type PhotoNet struct {
+	Photo *nn.Sequential
+	Table *nn.Sequential
+	Head  *nn.Sequential
+	F     int // numbers in the table part
+}
+
+// Forward splits x, shape [batch, schema.PhotoPixels + F], into its photo
+// and table parts and reads both.
+func (p *PhotoNet) Forward(x *tensor.Tensor) *tensor.Tensor {
+	n := x.Shape()[0]
+	const px, side = schema.PhotoPixels, schema.PhotoSize
+	photo := x.Shrink([][2]int{{0, n}, {0, px}}).Reshape(n, 3, side, side)
+	parts := []*tensor.Tensor{p.Photo.Forward(photo)}
+	if p.F > 0 {
+		parts = append(parts, p.Table.Forward(x.Shrink([][2]int{{0, n}, {px, px + p.F}})))
+	}
+	return p.Head.Forward(tensor.Cat(1, parts...))
+}
+
+// photoLayers is the picture network shared by the photo architectures:
+// three rounds of looking for patterns and halving the size, from
+// schema.PhotoSize down to a sixth of it.
+func photoLayers() []nn.Module {
+	const side = schema.PhotoSize / 8
+	return []nn.Module{
+		nn.Func(func(x *tensor.Tensor) *tensor.Tensor {
+			return x.Sub(tensor.Scalar[float32](0.5)).Mul(tensor.Scalar[float32](4))
+		}),
+		nn.NewConv2d(3, 16, 3, nn.Padding(1)), nn.ReLU(), nn.MaxPool2d(2),
+		nn.NewConv2d(16, 32, 3, nn.Padding(1)), nn.ReLU(), nn.MaxPool2d(2),
+		nn.NewConv2d(32, 64, 3, nn.Padding(1)), nn.ReLU(), nn.MaxPool2d(2),
+		nn.Flatten(),
+		nn.NewLinear(64*side*side, 128), nn.ReLU(),
+	}
+}
+
+func size(shape []int) int {
+	n := 1
+	for _, d := range shape {
+		n *= d
+	}
+	return n
+}
+
+// tableNet is the network for a row of numbers: out is how many numbers
+// it answers.
+func tableNet(s Spec, out int) []nn.Module {
+	in := size(s.InputShape)
+	hidden := max(16, min(256, 4*in))
+	return []nn.Module{
+		NewStandardize(in, s.Mean, s.Std),
+		nn.NewLinear(in, hidden), nn.ReLU(),
+		nn.NewLinear(hidden, hidden), nn.ReLU(),
+		nn.NewLinear(hidden, out),
+	}
+}
+
 // Architecture is a model shape the server knows how to build.
 type Architecture struct {
 	Name        string
 	Title       string
 	Description string
 	Input       Input
+	// Output is what the model answers; empty means Class.
+	Output Output
+	// Text marks a table architecture made for rows with free text.
+	Text bool
 	// Spec is the fixed shape and labels, or zero when they come from the
 	// dataset.
 	Spec Spec
 	// New builds the module with freshly initialized weights for spec.
 	New func(spec Spec) nn.Module
+}
+
+// Answers returns what the architecture answers.
+func (a Architecture) Answers() Output {
+	if a.Output == "" {
+		return Class
+	}
+	return a.Output
 }
 
 // Fixed reports whether the architecture's shape and labels are built in.
@@ -121,17 +233,54 @@ var builtin = []Architecture{
 		Description: "Reads one row of numbers, like a spreadsheet line, and picks a category. Learns from a CSV you upload.",
 		Input:       Table,
 		New: func(s Spec) nn.Module {
-			in := 1
-			for _, d := range s.InputShape {
-				in *= d
+			return nn.NewSequential(tableNet(s, len(s.Labels))...)
+		},
+	},
+	{
+		Name:        "text-mlp",
+		Title:       "Text and table",
+		Description: "Reads a row with free text, like a message or a review, next to numbers and categories, and picks a category.",
+		Input:       Table,
+		Text:        true,
+		New: func(s Spec) nn.Module {
+			return nn.NewSequential(tableNet(s, len(s.Labels))...)
+		},
+	},
+	{
+		Name:        "number-mlp",
+		Title:       "Number predictor",
+		Description: "Reads one row of a table and answers with a number, like a price, a count or a number of days.",
+		Input:       Table,
+		Output:      Number,
+		New: func(s Spec) nn.Module {
+			return nn.NewSequential(append(tableNet(s, 1), NewUnscale(s.TargetMean, s.TargetStd))...)
+		},
+	},
+	{
+		Name:        "photo-cnn",
+		Title:       "Picture classifier",
+		Description: "Looks at a photo and picks a category. Learns from photos sorted into one folder per answer.",
+		Input:       Image,
+		New: func(s Spec) nn.Module {
+			return nn.NewSequential(append(photoLayers(), nn.NewLinear(128, len(s.Labels)))...)
+		},
+	},
+	{
+		Name:        "photo-table",
+		Title:       "Photo and table classifier",
+		Description: "Looks at a photo and reads the details next to it, like a price or a note, and picks a category.",
+		Input:       PhotoTable,
+		New: func(s Spec) nn.Module {
+			f := size(s.InputShape) - schema.PhotoPixels
+			hidden := max(16, min(128, 4*f))
+			p := &PhotoNet{Photo: nn.NewSequential(photoLayers()...), F: f}
+			width := 128
+			if f > 0 {
+				p.Table = nn.NewSequential(NewStandardize(f, s.Mean, s.Std), nn.NewLinear(f, hidden), nn.ReLU())
+				width += hidden
 			}
-			hidden := max(16, min(256, 4*in))
-			return nn.NewSequential(
-				NewStandardize(in, s.Mean, s.Std),
-				nn.NewLinear(in, hidden), nn.ReLU(),
-				nn.NewLinear(hidden, hidden), nn.ReLU(),
-				nn.NewLinear(hidden, len(s.Labels)),
-			)
+			p.Head = nn.NewSequential(nn.NewLinear(width, 64), nn.ReLU(), nn.NewLinear(64, len(s.Labels)))
+			return p
 		},
 	},
 }

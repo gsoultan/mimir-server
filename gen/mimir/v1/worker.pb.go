@@ -1767,6 +1767,7 @@ type ModelSpec struct {
 	InputShape    []int64                `protobuf:"varint,1,rep,packed,name=input_shape,json=inputShape,proto3" json:"input_shape,omitempty"`
 	Labels        []string               `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty"`
 	Features      []string               `protobuf:"bytes,3,rep,name=features,proto3" json:"features,omitempty"`
+	Columns       []*Column              `protobuf:"bytes,4,rep,name=columns,proto3" json:"columns,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1818,6 +1819,13 @@ func (x *ModelSpec) GetLabels() []string {
 func (x *ModelSpec) GetFeatures() []string {
 	if x != nil {
 		return x.Features
+	}
+	return nil
+}
+
+func (x *ModelSpec) GetColumns() []*Column {
+	if x != nil {
+		return x.Columns
 	}
 	return nil
 }
@@ -2003,8 +2011,12 @@ type TrainTask struct {
 	BaseWeights []byte `protobuf:"bytes,9,opt,name=base_weights,json=baseWeights,proto3" json:"base_weights,omitempty"`
 	// base_labels and base_features are what the base model answers and
 	// reads; its weights carry over only while they still match.
-	BaseLabels    []string `protobuf:"bytes,10,rep,name=base_labels,json=baseLabels,proto3" json:"base_labels,omitempty"`
-	BaseFeatures  []string `protobuf:"bytes,11,rep,name=base_features,json=baseFeatures,proto3" json:"base_features,omitempty"`
+	BaseLabels   []string `protobuf:"bytes,10,rep,name=base_labels,json=baseLabels,proto3" json:"base_labels,omitempty"`
+	BaseFeatures []string `protobuf:"bytes,11,rep,name=base_features,json=baseFeatures,proto3" json:"base_features,omitempty"`
+	// archive holds the ZIP for DATASET_KIND_PHOTOS and PHOTO_TABLE.
+	Archive []byte `protobuf:"bytes,12,opt,name=archive,proto3" json:"archive,omitempty"`
+	// columns are the dataset's columns as first read; their kinds are kept.
+	Columns       []*Column `protobuf:"bytes,13,rep,name=columns,proto3" json:"columns,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2112,6 +2124,20 @@ func (x *TrainTask) GetBaseLabels() []string {
 func (x *TrainTask) GetBaseFeatures() []string {
 	if x != nil {
 		return x.BaseFeatures
+	}
+	return nil
+}
+
+func (x *TrainTask) GetArchive() []byte {
+	if x != nil {
+		return x.Archive
+	}
+	return nil
+}
+
+func (x *TrainTask) GetColumns() []*Column {
+	if x != nil {
+		return x.Columns
 	}
 	return nil
 }
@@ -2461,12 +2487,13 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x05stats\x18\x01 \x01(\v2\x0f.mimir.v1.StatsR\x05stats\":\n" +
 	"\aWelcome\x12\x1b\n" +
 	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"`\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"\x8c\x01\n" +
 	"\tModelSpec\x12\x1f\n" +
 	"\vinput_shape\x18\x01 \x03(\x03R\n" +
 	"inputShape\x12\x16\n" +
 	"\x06labels\x18\x02 \x03(\tR\x06labels\x12\x1a\n" +
-	"\bfeatures\x18\x03 \x03(\tR\bfeatures\"\xd0\x01\n" +
+	"\bfeatures\x18\x03 \x03(\tR\bfeatures\x12*\n" +
+	"\acolumns\x18\x04 \x03(\v2\x10.mimir.v1.ColumnR\acolumns\"\xd0\x01\n" +
 	"\vPredictTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12\"\n" +
@@ -2479,7 +2506,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x06output\x18\x02 \x01(\v2\x10.mimir.v1.TensorR\x06output\x126\n" +
 	"\rprobabilities\x18\x03 \x01(\v2\x10.mimir.v1.TensorR\rprobabilities\x12\x14\n" +
 	"\x05error\x18\x04 \x01(\tR\x05error\x12!\n" +
-	"\fneed_weights\x18\x05 \x01(\bR\vneedWeights\"\x95\x03\n" +
+	"\fneed_weights\x18\x05 \x01(\bR\vneedWeights\"\xdb\x03\n" +
 	"\tTrainTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\"\n" +
@@ -2493,7 +2520,9 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\vbase_labels\x18\n" +
 	" \x03(\tR\n" +
 	"baseLabels\x12#\n" +
-	"\rbase_features\x18\v \x03(\tR\fbaseFeatures\"\xab\x01\n" +
+	"\rbase_features\x18\v \x03(\tR\fbaseFeatures\x12\x18\n" +
+	"\aarchive\x18\f \x01(\fR\aarchive\x12*\n" +
+	"\acolumns\x18\r \x03(\v2\x10.mimir.v1.ColumnR\acolumns\"\xab\x01\n" +
 	"\rTrainProgress\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
 	"\x05epoch\x18\x02 \x01(\x05R\x05epoch\x12\x12\n" +
@@ -2566,10 +2595,11 @@ var file_mimir_v1_worker_proto_goTypes = []any{
 	(*TrainResult)(nil),                // 29: mimir.v1.TrainResult
 	(*CancelTask)(nil),                 // 30: mimir.v1.CancelTask
 	(*timestamppb.Timestamp)(nil),      // 31: google.protobuf.Timestamp
-	(*Tensor)(nil),                     // 32: mimir.v1.Tensor
-	(*TrainingSettings)(nil),           // 33: mimir.v1.TrainingSettings
-	(DatasetKind)(0),                   // 34: mimir.v1.DatasetKind
-	(*EpochResult)(nil),                // 35: mimir.v1.EpochResult
+	(*Column)(nil),                     // 32: mimir.v1.Column
+	(*Tensor)(nil),                     // 33: mimir.v1.Tensor
+	(*TrainingSettings)(nil),           // 34: mimir.v1.TrainingSettings
+	(DatasetKind)(0),                   // 35: mimir.v1.DatasetKind
+	(*EpochResult)(nil),                // 36: mimir.v1.EpochResult
 }
 var file_mimir_v1_worker_proto_depIdxs = []int32{
 	31, // 0: mimir.v1.Worker.last_seen:type_name -> google.protobuf.Timestamp
@@ -2601,35 +2631,37 @@ var file_mimir_v1_worker_proto_depIdxs = []int32{
 	19, // 26: mimir.v1.LinkResponse.challenge:type_name -> mimir.v1.Challenge
 	1,  // 27: mimir.v1.Hello.stats:type_name -> mimir.v1.Stats
 	1,  // 28: mimir.v1.Heartbeat.stats:type_name -> mimir.v1.Stats
-	24, // 29: mimir.v1.PredictTask.spec:type_name -> mimir.v1.ModelSpec
-	32, // 30: mimir.v1.PredictTask.input:type_name -> mimir.v1.Tensor
-	32, // 31: mimir.v1.PredictResult.output:type_name -> mimir.v1.Tensor
-	32, // 32: mimir.v1.PredictResult.probabilities:type_name -> mimir.v1.Tensor
-	33, // 33: mimir.v1.TrainTask.settings:type_name -> mimir.v1.TrainingSettings
-	34, // 34: mimir.v1.TrainTask.dataset_kind:type_name -> mimir.v1.DatasetKind
-	35, // 35: mimir.v1.TrainTask.history:type_name -> mimir.v1.EpochResult
-	35, // 36: mimir.v1.TrainProgress.history:type_name -> mimir.v1.EpochResult
-	35, // 37: mimir.v1.TrainResult.history:type_name -> mimir.v1.EpochResult
-	24, // 38: mimir.v1.TrainResult.spec:type_name -> mimir.v1.ModelSpec
-	11, // 39: mimir.v1.WorkerService.ListWorkers:input_type -> mimir.v1.ListWorkersRequest
-	13, // 40: mimir.v1.WorkerService.CreateWorker:input_type -> mimir.v1.CreateWorkerRequest
-	15, // 41: mimir.v1.WorkerService.DeleteWorker:input_type -> mimir.v1.DeleteWorkerRequest
-	5,  // 42: mimir.v1.WorkerService.GetWorker:input_type -> mimir.v1.GetWorkerRequest
-	7,  // 43: mimir.v1.WorkerService.ReplaceWorkerToken:input_type -> mimir.v1.ReplaceWorkerTokenRequest
-	9,  // 44: mimir.v1.WorkerService.ListWorkerChoices:input_type -> mimir.v1.ListWorkerChoicesRequest
-	17, // 45: mimir.v1.WorkerService.Link:input_type -> mimir.v1.LinkRequest
-	12, // 46: mimir.v1.WorkerService.ListWorkers:output_type -> mimir.v1.ListWorkersResponse
-	14, // 47: mimir.v1.WorkerService.CreateWorker:output_type -> mimir.v1.CreateWorkerResponse
-	16, // 48: mimir.v1.WorkerService.DeleteWorker:output_type -> mimir.v1.DeleteWorkerResponse
-	6,  // 49: mimir.v1.WorkerService.GetWorker:output_type -> mimir.v1.GetWorkerResponse
-	8,  // 50: mimir.v1.WorkerService.ReplaceWorkerToken:output_type -> mimir.v1.ReplaceWorkerTokenResponse
-	10, // 51: mimir.v1.WorkerService.ListWorkerChoices:output_type -> mimir.v1.ListWorkerChoicesResponse
-	18, // 52: mimir.v1.WorkerService.Link:output_type -> mimir.v1.LinkResponse
-	46, // [46:53] is the sub-list for method output_type
-	39, // [39:46] is the sub-list for method input_type
-	39, // [39:39] is the sub-list for extension type_name
-	39, // [39:39] is the sub-list for extension extendee
-	0,  // [0:39] is the sub-list for field type_name
+	32, // 29: mimir.v1.ModelSpec.columns:type_name -> mimir.v1.Column
+	24, // 30: mimir.v1.PredictTask.spec:type_name -> mimir.v1.ModelSpec
+	33, // 31: mimir.v1.PredictTask.input:type_name -> mimir.v1.Tensor
+	33, // 32: mimir.v1.PredictResult.output:type_name -> mimir.v1.Tensor
+	33, // 33: mimir.v1.PredictResult.probabilities:type_name -> mimir.v1.Tensor
+	34, // 34: mimir.v1.TrainTask.settings:type_name -> mimir.v1.TrainingSettings
+	35, // 35: mimir.v1.TrainTask.dataset_kind:type_name -> mimir.v1.DatasetKind
+	36, // 36: mimir.v1.TrainTask.history:type_name -> mimir.v1.EpochResult
+	32, // 37: mimir.v1.TrainTask.columns:type_name -> mimir.v1.Column
+	36, // 38: mimir.v1.TrainProgress.history:type_name -> mimir.v1.EpochResult
+	36, // 39: mimir.v1.TrainResult.history:type_name -> mimir.v1.EpochResult
+	24, // 40: mimir.v1.TrainResult.spec:type_name -> mimir.v1.ModelSpec
+	11, // 41: mimir.v1.WorkerService.ListWorkers:input_type -> mimir.v1.ListWorkersRequest
+	13, // 42: mimir.v1.WorkerService.CreateWorker:input_type -> mimir.v1.CreateWorkerRequest
+	15, // 43: mimir.v1.WorkerService.DeleteWorker:input_type -> mimir.v1.DeleteWorkerRequest
+	5,  // 44: mimir.v1.WorkerService.GetWorker:input_type -> mimir.v1.GetWorkerRequest
+	7,  // 45: mimir.v1.WorkerService.ReplaceWorkerToken:input_type -> mimir.v1.ReplaceWorkerTokenRequest
+	9,  // 46: mimir.v1.WorkerService.ListWorkerChoices:input_type -> mimir.v1.ListWorkerChoicesRequest
+	17, // 47: mimir.v1.WorkerService.Link:input_type -> mimir.v1.LinkRequest
+	12, // 48: mimir.v1.WorkerService.ListWorkers:output_type -> mimir.v1.ListWorkersResponse
+	14, // 49: mimir.v1.WorkerService.CreateWorker:output_type -> mimir.v1.CreateWorkerResponse
+	16, // 50: mimir.v1.WorkerService.DeleteWorker:output_type -> mimir.v1.DeleteWorkerResponse
+	6,  // 51: mimir.v1.WorkerService.GetWorker:output_type -> mimir.v1.GetWorkerResponse
+	8,  // 52: mimir.v1.WorkerService.ReplaceWorkerToken:output_type -> mimir.v1.ReplaceWorkerTokenResponse
+	10, // 53: mimir.v1.WorkerService.ListWorkerChoices:output_type -> mimir.v1.ListWorkerChoicesResponse
+	18, // 54: mimir.v1.WorkerService.Link:output_type -> mimir.v1.LinkResponse
+	48, // [48:55] is the sub-list for method output_type
+	41, // [41:48] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_worker_proto_init() }

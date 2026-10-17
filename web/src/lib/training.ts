@@ -29,9 +29,10 @@ export function progress(j: Job) {
   return Math.min(100, ((j.epoch + within) / epochs) * 100);
 }
 
-// "gets 98 of 100 right"
-export function score(accuracy: number) {
-  return `gets ${Math.round(accuracy * 100)} of 100 right`;
+// "gets 98 of 100 right". A number model can't be exactly right, so it
+// counts answers within a tenth of the real one.
+export function score(accuracy: number, number = false) {
+  return `gets ${Math.round(accuracy * 100)} of 100 ${number ? "close" : "right"}`;
 }
 
 // How often a model keeps learning, as a choice and in words.

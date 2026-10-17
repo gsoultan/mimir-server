@@ -39,8 +39,8 @@ func TestTeachFromTable(t *testing.T) {
 		t.Fatalf("tiny table: %v", err)
 	}
 	_, err = own.datasets.CreateDataset(ctx, connect.NewRequest(&mimirv1.CreateDatasetRequest{Name: "bad", Kind: mimirv1.DatasetKind_DATASET_KIND_TABLE, Csv: []byte("a,b\n" + strings.Repeat("x,1\n", 12))}))
-	if code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "not a number") {
-		t.Fatalf("text feature: %v", err)
+	if code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "only one value") {
+		t.Fatalf("one answer: %v", err)
 	}
 
 	ds, err := own.datasets.CreateDataset(ctx, connect.NewRequest(&mimirv1.CreateDatasetRequest{Name: "Fruit", Kind: mimirv1.DatasetKind_DATASET_KIND_TABLE, Csv: []byte(blobs(200))}))

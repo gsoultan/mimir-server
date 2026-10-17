@@ -29,6 +29,8 @@ export const Route = createFileRoute("/_app/training/$id")({
   component: Run,
 });
 
+const round = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
 function Run() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -58,6 +60,7 @@ function Run() {
   const error = cancel.error ?? resume.error ?? remove.error ?? setRepeat.error;
   const chain = j.parentId !== "" || j.repeatSeconds > 0n;
   const workers = useWorkerChoices(j.runOn !== "" && j.status === JobStatus.QUEUED);
+  const number = arch?.output === "number";
   const waitingFor = workers.find((w) => w.id === j.runOn);
 
   return (
@@ -104,17 +107,17 @@ function Run() {
             {j.status === JobStatus.CANCELLED && <Text size="sm" c="dimmed">Stopped after {j.epoch} of {epochs} passes. Resume to carry on from there.</Text>}
             {j.status === JobStatus.SUCCEEDED && <Text size="sm" c="dimmed">Finished {ago(j.endTime)} after {epochs} passes.</Text>}
           </Group>
-          {last && last.accuracy > 0 && <Title order={3} fz="lg">{score(last.accuracy)}</Title>}
+          {last && last.accuracy > 0 && <Title order={3} fz="lg">{score(last.accuracy, number)}</Title>}
         </Group>
         {active(j) && <Progress value={progress(j)} size="lg" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label="Progress" mb="md" />}
         {j.status === JobStatus.FAILED && <Alert color="red" icon={<IconAlertCircle />} mb="md">{j.error}</Alert>}
         {j.status === JobStatus.SUCCEEDED && (
           <Alert color="teal" mb="md">
-            The model is ready. It {score(j.accuracy)} on {j.settings && j.settings.holdOut > 0 ? "examples it never saw while learning" : "the examples it learned from"}.{" "}
+            The model is ready. It {score(j.accuracy, number)} on {j.settings && j.settings.holdOut > 0 ? "examples it never saw while learning" : "the examples it learned from"}{number && last && last.typicalError > 0 ? `, and is usually off by about ${round(last.typicalError)}` : ""}.{number && " Close means within a tenth of the real answer."}{" "}
             <Link to="/models/$id" params={{ id: j.modelId }}>See the model</Link>.
           </Alert>
         )}
-        <TrainingChart history={j.history} epochs={epochs} />
+        <TrainingChart history={j.history} epochs={epochs} number={number} />
       </Card>
 
       <SimpleGrid cols={{ base: 1, md: 2 }}>
@@ -122,12 +125,13 @@ function Run() {
           <Title order={3} fz="lg" mb="sm">Each pass</Title>
           {j.history.length === 0 ? <Text c="dimmed" size="sm">Nothing yet.</Text> : (
             <Table verticalSpacing="xs" fz="sm">
-              <Table.Thead><Table.Tr><Table.Th>Pass</Table.Th><Table.Th>Right answers</Table.Th><Table.Th>Loss</Table.Th><Table.Th>Took</Table.Th></Table.Tr></Table.Thead>
+              <Table.Thead><Table.Tr><Table.Th>Pass</Table.Th><Table.Th>{number ? "Close answers" : "Right answers"}</Table.Th>{number && <Table.Th>Usually off by</Table.Th>}<Table.Th>Loss</Table.Th><Table.Th>Took</Table.Th></Table.Tr></Table.Thead>
               <Table.Tbody>
                 {j.history.map((e) => (
                   <Table.Tr key={e.epoch}>
                     <Table.Td>{e.epoch}</Table.Td>
                     <Table.Td>{e.accuracy > 0 ? `${(e.accuracy * 100).toFixed(1)}%` : "–"}</Table.Td>
+                    {number && <Table.Td>{e.typicalError > 0 ? round(e.typicalError) : "–"}</Table.Td>}
                     <Table.Td>{e.loss.toFixed(4)}</Table.Td>
                     <Table.Td>{(Number(e.durationMillis) / 1000).toFixed(1)} s</Table.Td>
                   </Table.Tr>

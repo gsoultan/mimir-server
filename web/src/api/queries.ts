@@ -6,6 +6,7 @@ import { SettingsService } from "./gen/mimir/v1/settings_pb";
 import { DatasetService, TrainingService } from "./gen/mimir/v1/training_pb";
 import { WebhookService } from "./gen/mimir/v1/webhook_pb";
 import { TeamService } from "./gen/mimir/v1/team_pb";
+import { TemplateService } from "./gen/mimir/v1/template_pb";
 import { WorkerService } from "./gen/mimir/v1/worker_pb";
 import { transport } from "./client";
 
@@ -55,3 +56,5 @@ export const listWorkerChoices = createQueryOptions(WorkerService.method.listWor
 export const getWorker = (id: string, hours: number) => createQueryOptions(WorkerService.method.getWorker, { id, hours }, { transport });
 export const allWorkerQueries = createConnectQueryKey({ schema: WorkerService, cardinality: undefined });
 export const allTrainingQueries = createConnectQueryKey({ schema: TrainingService, cardinality: undefined });
+// The catalog only changes with the server, so it is fetched once.
+export const listTemplates = { ...createQueryOptions(TemplateService.method.listTemplates, {}, { transport }), staleTime: Infinity };

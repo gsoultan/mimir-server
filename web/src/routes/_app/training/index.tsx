@@ -6,19 +6,24 @@ import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { TrainingService, JobStatus } from "../../../api/gen/mimir/v1/training_pb";
-import { allTrainingQueries, listJobs } from "../../../api/queries";
+import { allTrainingQueries, listArchitectures, listJobs } from "../../../api/queries";
 import { AnchorLink, ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { ago } from "../../../lib/format";
 import { active, progress, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/training/")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(listJobs),
+  loader: ({ context }) => Promise.all([
+    context.queryClient.ensureQueryData(listJobs),
+    context.queryClient.ensureQueryData(listArchitectures),
+  ]),
   component: Training,
 });
 
 function Training() {
   const { data } = useSuspenseQuery({ ...listJobs, refetchInterval: (q) => (q.state.data?.jobs.some(active) ? 2000 : false) });
+  const { data: archs } = useSuspenseQuery(listArchitectures);
+  const numbers = new Set(archs.architectures.filter((a) => a.output === "number").map((a) => a.name));
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: allTrainingQueries });
   const cancel = useMutation(TrainingService.method.cancelJob, { onSuccess: refresh });
@@ -50,7 +55,7 @@ function Training() {
                   </Group>
                   <Text size="sm" c="dimmed">
                     From {j.datasetName || "deleted examples"} · {j.settings?.epochs} passes · started {ago(j.createTime)}
-                    {j.status === JobStatus.SUCCEEDED && ` · ${score(j.accuracy)}`}
+                    {j.status === JobStatus.SUCCEEDED && ` · ${score(j.accuracy, numbers.has(j.architecture))}`}
                   </Text>
                   {active(j) && <Progress value={progress(j)} mt="xs" size="sm" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label="Progress" />}
                   {j.status === JobStatus.FAILED && <Text size="sm" c="red" mt={4}>{j.error}</Text>}

@@ -4,7 +4,7 @@ import type { EpochResult } from "../api/gen/mimir/v1/training_pb";
 
 // A small line chart of accuracy per pass, drawn as SVG so it needs no
 // library and resizes with its box.
-export function TrainingChart({ history, epochs }: { history: EpochResult[]; epochs: number }) {
+export function TrainingChart({ history, epochs, number }: { history: EpochResult[]; epochs: number; number?: boolean }) {
   const w = 600, h = 180, pl = 36, pr = 12, pt = 12, pb = 26;
   const n = Math.max(epochs, history.length, 1);
   const x = (e: number) => pl + ((e - 1) / Math.max(n - 1, 1)) * (w - pl - pr);
@@ -31,7 +31,7 @@ export function TrainingChart({ history, epochs }: { history: EpochResult[]; epo
       {acc.map((e) => <circle key={e.epoch} cx={x(e.epoch)} cy={y(e.accuracy)} r="3.5" fill="var(--mantine-color-teal-7)" />)}
     </svg>
     <Group gap="lg" justify="flex-end" mt={4}>
-      <Group gap={6}><span className="inline-block h-[3px] w-5 bg-[var(--mantine-color-teal-7)]" /><Text size="xs" c="dimmed">Right answers, on examples kept aside</Text></Group>
+      <Group gap={6}><span className="inline-block h-[3px] w-5 bg-[var(--mantine-color-teal-7)]" /><Text size="xs" c="dimmed">{number ? "Close answers" : "Right answers"}, on examples kept aside</Text></Group>
       <Group gap={6}><span className="inline-block w-5 border-t-2 border-dashed border-[var(--mantine-color-gray-5)]" /><Text size="xs" c="dimmed">Loss, relative to the first pass</Text></Group>
     </Group>
     </div>

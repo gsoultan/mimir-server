@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/runtime"
+	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -87,6 +89,7 @@ func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.Li
 			Labels:      a.Spec.Labels,
 			Trainable:   a.Trainable(),
 			Input:       string(a.Input),
+			Output:      string(a.Answers()),
 		})
 	}
 	return connect.NewResponse(res), nil
@@ -212,6 +215,11 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	spec := arch.Resolve(a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
 	start := time.Now()
 	input := msg.GetInput().GetValues()
+	if len(input) == 0 && (len(msg.GetFields()) > 0 || len(msg.GetPhoto()) > 0) {
+		if input, err = encode(m, a, msg.GetFields(), msg.GetPhoto()); err != nil {
+			return nil, err
+		}
+	}
 	if want := size(spec.InputShape); len(input) != want {
 		return nil, invalid("Send %d numbers (shape %v); got %d.", want, spec.InputShape, len(input))
 	}
@@ -256,10 +264,59 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		Probabilities:  &mimirv1.Tensor{Shape: []int64{int64(len(r.Probability))}, Values: r.Probability},
 		DurationMicros: time.Since(start).Microseconds(),
 	}
+	if a.Answers() == arch.Number {
+		res.Number = true
+		if len(r.Output) > 0 {
+			res.Value = float64(r.Output[0])
+		}
+		return connect.NewResponse(res), nil
+	}
 	for _, g := range r.Top(spec.Labels, topK) {
 		res.Guesses = append(res.Guesses, &mimirv1.Guess{Label: g.Label, Probability: g.Probability})
 	}
 	return connect.NewResponse(res), nil
+}
+
+// encode turns a question asked by column name, and a photo, into the
+// numbers model m reads, the same way its examples were.
+func encode(m store.Model, a arch.Architecture, fields map[string]string, photo []byte) ([]float32, error) {
+	var out []float32
+	if a.Input == arch.Image && a.Fixed() {
+		return nil, invalid("This model reads numbers; send them as input.")
+	}
+	if a.Input == arch.Image || a.Input == arch.PhotoTable {
+		if len(photo) == 0 {
+			return nil, invalid("This model looks at a photo. Send one.")
+		}
+		px, err := schema.DecodePhoto(photo)
+		if err != nil {
+			return nil, invalid("That photo can't be read. Send a JPG, PNG or GIF.")
+		}
+		out = schema.Floats(out, px)
+	}
+	if a.Input == arch.Image {
+		return out, nil
+	}
+	cols := m.Columns
+	if len(cols) == 0 {
+		// Taught before columns had kinds: every column is a number.
+		for _, f := range m.Features {
+			cols = append(cols, schema.Column{Name: f, Kind: schema.Number})
+		}
+	}
+	for name := range fields {
+		if !slices.ContainsFunc(cols, func(c schema.Column) bool { return c.Name == name }) {
+			return nil, invalid("This model has no column called %q.", name)
+		}
+	}
+	for _, c := range cols {
+		if v := strings.TrimSpace(fields[c.Name]); c.Kind == schema.Number && v != "" {
+			if _, ok := schema.ParseNumber(v); !ok {
+				return nil, invalid("%s needs a number; %q isn't one.", c.Name, v)
+			}
+		}
+	}
+	return schema.Encode(out, cols, func(i int) string { return fields[cols[i].Name] }), nil
 }
 
 // DataDir is the server's data folder.
@@ -337,12 +394,21 @@ func toProto(m store.Model) *mimirv1.Model {
 		JobId:        m.JobID,
 		Accuracy:     m.Accuracy,
 		WorkerId:     m.WorkerID,
+		Columns:      columnsProto(m.Columns),
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {
 		spec = arch.Resolve(a, spec)
 	}
 	out.InputShape, out.Labels = int64s(spec.InputShape), spec.Labels
+	return out
+}
+
+func columnsProto(cols []schema.Column) []*mimirv1.Column {
+	out := make([]*mimirv1.Column, len(cols))
+	for i, c := range cols {
+		out[i] = &mimirv1.Column{Name: c.Name, Kind: string(c.Kind), Values: c.Values, Fill: c.Fill}
+	}
 	return out
 }
 

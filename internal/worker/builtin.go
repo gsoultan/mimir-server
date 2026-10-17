@@ -8,6 +8,7 @@ import (
 
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/runtime"
+	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
 	"github.com/gsoultan/mimir-server/worker"
@@ -41,8 +42,16 @@ func (h *handler) Predict(ctx context.Context, m *worker.Model, input []float32)
 
 func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(worker.Progress)) (worker.Trained, error) {
 	src := training.Source{Kind: store.DatasetTable, CSV: t.Dataset.CSV, Target: t.Dataset.Target}
-	if t.Dataset.Kind == "mnist" {
+	switch t.Dataset.Kind {
+	case "mnist":
 		src = training.Source{Kind: store.DatasetMNIST, MNISTDir: filepath.Join(h.data, "datasets", "mnist")}
+	case "photos":
+		src = training.Source{Kind: store.DatasetPhotos, CSV: t.Dataset.Archive}
+	case "photo_table":
+		src = training.Source{Kind: store.DatasetPhotoTable, CSV: t.Dataset.Archive, Target: t.Dataset.Target}
+	}
+	for _, c := range t.Dataset.Columns {
+		src.Columns = append(src.Columns, schema.Column{Name: c.Name, Kind: schema.Kind(c.Kind), Values: c.Values, Fill: c.Fill})
 	}
 	task := training.Task{
 		Arch:          h.a,
@@ -58,13 +67,17 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 	if err != nil {
 		return worker.Trained{}, err
 	}
-	return worker.Trained{Weights: res.Weights, History: toSDK(res.History), InputShape: res.Spec.InputShape, Labels: res.Spec.Labels, Features: res.Features, Fresh: res.Fresh}, nil
+	out := worker.Trained{Weights: res.Weights, History: toSDK(res.History), InputShape: res.Spec.InputShape, Labels: res.Spec.Labels, Features: res.Features, Fresh: res.Fresh}
+	for _, c := range res.Columns {
+		out.Columns = append(out.Columns, worker.Column{Name: c.Name, Kind: string(c.Kind), Values: c.Values, Fill: c.Fill})
+	}
+	return out, nil
 }
 
 func toSDK(h []store.Epoch) []worker.Epoch {
 	out := make([]worker.Epoch, len(h))
 	for i, e := range h {
-		out[i] = worker.Epoch{Epoch: e.Epoch, Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.Millis}
+		out[i] = worker.Epoch{Epoch: e.Epoch, Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.Millis, MAE: e.MAE}
 	}
 	return out
 }
@@ -72,7 +85,7 @@ func toSDK(h []store.Epoch) []worker.Epoch {
 func fromSDK(h []worker.Epoch) []store.Epoch {
 	out := make([]store.Epoch, len(h))
 	for i, e := range h {
-		out[i] = store.Epoch{Epoch: e.Epoch, Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.Millis}
+		out[i] = store.Epoch{Epoch: e.Epoch, Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.Millis, MAE: e.MAE}
 	}
 	return out
 }

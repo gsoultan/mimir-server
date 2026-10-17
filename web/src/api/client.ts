@@ -1,8 +1,9 @@
 import { ConnectError, Code } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 
-// The UI is served by the same server as the API.
-export const transport = createConnectTransport({ baseUrl: location.origin });
+// The UI is served by the same server as the API. Binary keeps uploads of
+// tables and photo ZIPs the size of the file, not a third bigger.
+export const transport = createConnectTransport({ baseUrl: location.origin, useBinaryFormat: true });
 
 // message turns any error into a sentence a person can act on. The server
 // already writes its messages for people, so those pass through.
