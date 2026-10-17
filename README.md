@@ -214,11 +214,28 @@ Owners find these under **Settings**; admins see their team's
 
 ## Develop
 
+You need Go and [Bun](https://bun.sh). Then:
+
+```sh
+make dev
+```
+
+Open http://localhost:5173. The web app reloads as you edit it, and the
+server rebuilds and restarts whenever a Go or SQL file changes (a build
+error is printed and the old server keeps running). Data goes to
+`data/dev`, so it survives restarts; delete that folder to start over.
+Webhooks may point at local addresses. Stop everything with Ctrl+C.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `MIMIR_DEV_DATA` | `./data/dev` | Data folder |
+| `MIMIR_DEV_ADDR` | `localhost:8080` | Where the Go server listens |
+| `MIMIR_DEV_ARGS` | | Extra server flags, such as `-role server` |
+
 ```sh
 make test       # go vet, go test, web typecheck and unit tests
 make gen        # regenerate code after editing proto/ (needs protoc-gen-go
                 # and protoc-gen-connect-go on PATH)
-cd web && bun run dev   # UI on :5173, API calls proxied to :8080
 ```
 
 | Path | What's there |
