@@ -67,13 +67,16 @@ function ModelDetails() {
   const body = (id: string) => named
     ? `{"${id}": "${m.id}"${columns.length > 0 ? `, "fields": ${fields}` : ""}${wantsPhoto ? `, "photo": "<the photo, base64>"` : ""}}`
     : `{"${id}": "${m.id}", "input": {"values": [ /* ${input} numbers */ ]}}`;
-  const curl = `curl ${location.origin}/mimir.v1.PredictService/Predict \\
+  const writes = arch?.output === "text";
+  const method = writes ? "Generate" : "Predict";
+  const request = (id: string) => writes ? `{"${id}": "${m.id}", "prompt": "Once upon a time", "${id === "modelId" ? "maxTokens" : "max_tokens"}": 128}` : body(id);
+  const curl = `curl ${location.origin}/mimir.v1.PredictService/${method} \\
   -H 'Authorization: Bearer mimir_...' \\
   -H 'Content-Type: application/json' \\
-  -d '${body("modelId")}'`;
+  -d '${request("modelId")}'`;
   const grpc = `grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \\
-  -d '${body("model_id")}' \\
-  ${location.host} mimir.v1.PredictService/Predict`;
+  -d '${request("model_id")}' \\
+  ${location.host} mimir.v1.PredictService/${method}`;
   const answer = number ? "You get back a number in value." : `You get back the likeliest of: ${m.labels.join(", ")}.`;
 
   return (
@@ -104,7 +107,9 @@ function ModelDetails() {
         <Card withBorder radius="lg" padding="lg">
           <Text fw={700} mb={4}>Use it from your app</Text>
           <Text size="sm" c="dimmed" mb="sm">
-            {named
+            {writes
+              ? "Send the start of a text as prompt; get back how the model carries on, in text."
+              : named
               ? `Send ${[columns.length > 0 && "each column by name in fields", wantsPhoto && "the photo as a JPG, PNG or GIF"].filter(Boolean).join(", and ")}. ${answer}`
               : `Send ${input.toString()} numbers between 0 and 1; get back the likeliest answers.`} Make a key under Connect your apps.
           </Text>
@@ -117,7 +122,7 @@ function ModelDetails() {
             <Tabs.Panel value="grpc" pt="sm"><Code block>{grpc}</Code></Tabs.Panel>
           </Tabs>
         </Card>
-        <RunsOn model={m} canWrite={canWrite} />
+        {!writes && <RunsOn model={m} canWrite={canWrite} />}
       </SimpleGrid>
 
       <Modal opened={confirming} onClose={confirm.close} title={`Delete ${m.name}?`} centered>

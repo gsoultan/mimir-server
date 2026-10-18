@@ -3,7 +3,7 @@ import { Alert, Badge, Button, Card, Collapse, Group, NumberInput, PasswordInput
 import { Dropzone, type FileWithPath } from "@mantine/dropzone";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconCheck, IconDatabase, IconFileSpreadsheet, IconFileZip, IconFolder, IconNumbers, IconSparkles, IconTable } from "@tabler/icons-react";
+import { IconAlertCircle, IconBucket, IconCheck, IconDatabase, IconFileSpreadsheet, IconFileZip, IconFolder, IconNumbers, IconSparkles, IconTable } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -46,13 +46,23 @@ const presets = [
   { value: "thorough", label: "Thorough", epochs: 30, hint: "Takes longer; squeezes out the last few points." },
 ];
 
-type Source = "existing" | "upload" | "database" | "digits" | "example";
+type Source = "existing" | "upload" | "database" | "storage" | "digits" | "example";
 
 const drivers = [
   { value: "postgres", label: "PostgreSQL", example: "postgres://user:password@db.example.com:5432/shop" },
   { value: "mysql", label: "MySQL", example: "user:password@tcp(db.example.com:3306)/shop" },
   { value: "sqlite", label: "SQLite", example: "/srv/data/shop.db" },
 ];
+// Where the examples live in S3-compatible storage. AWS and R2 fill in the address.
+const providers = [
+  { value: "r2", label: "Cloudflare R2" },
+  { value: "s3", label: "AWS S3" },
+  { value: "other", label: "Other S3-compatible" },
+];
+type Bucket = { provider: string; accountId: string; region: string; endpoint: string; bucket: string; accessKeyId: string; secretAccessKey: string };
+const noBucket: Bucket = { provider: "r2", accountId: "", region: "", endpoint: "", bucket: "", accessKeyId: "", secretAccessKey: "" };
+const bucketFilled = (b: Bucket) => !!b.bucket.trim() && !!b.accessKeyId.trim() && !!b.secretAccessKey.trim()
+  && (b.provider !== "r2" || !!b.accountId.trim()) && (b.provider !== "other" || !!b.endpoint.trim());
 type Upload = { name: string; size: number; bytes: Uint8Array; columns: string[]; rows: string[][]; summary: string; zip: boolean };
 
 // Reads the header and first rows of a CSV without a parser; enough to pick a
@@ -125,7 +135,8 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const tpl = templates.templates.find((t) => t.id === search.template);
   const photos = dataType === "photos";
   const archive = dataType === "photos" || dataType === "photo_table";
-  const canConnect = me.permissions.includes("databases.query") && !archive;
+  const canStore = me.permissions.includes("databases.query");
+  const canConnect = canStore && !archive;
   const navigate = useNavigate();
   const { queryClient } = Route.useRouteContext();
   const fitting = sets.datasets.filter((d) => dataTypeOfKind(d.kind).includes(dataType));
@@ -150,6 +161,8 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const [dsn, setDsn] = useState("");
   const [query, setQuery] = useState(tpl?.query ?? "");
   const [examplesName, setExamplesName] = useState("");
+  const [bucket, setBucket] = useState<Bucket>(noBucket);
+  const [bucketPath, setBucketPath] = useState("");
   const [repeat, setRepeat] = useState("0");
   const [runOn, setRunOn] = useState("");
   const folder = useRef<HTMLInputElement>(null);
@@ -157,6 +170,11 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const tested = useMutation(DatasetService.method.testQuery, {
     onSuccess: (res) => setTarget(res.columns[res.columns.length - 1] ?? ""),
   });
+  const looked = useMutation(DatasetService.method.testBucket, {
+    onSuccess: (res) => setTarget(res.columns[res.columns.length - 1] ?? ""),
+  });
+  const kindToMake = tpl ? datasetKindOf(tpl) : dataType === "photos" ? DatasetKind.PHOTOS : dataType === "photo_table" ? DatasetKind.PHOTO_TABLE : DatasetKind.TABLE;
+  const editBucket = (b: Partial<Bucket>) => { setBucket((cur) => ({ ...cur, ...b })); looked.reset(); reset(); };
 
   const createDataset = useMutation(DatasetService.method.createDataset, {
     onSuccess: async (res) => {
@@ -249,8 +267,11 @@ function Wizard({ data: dataType }: { data: DataType }) {
       else if (d) chose(d);
     } else if (source === "database" && (tested.data || tpl)) {
       createDataset.mutate({ name: examplesName.trim() || (tpl ? `${tpl.name} data` : "Examples from a query"), kind: DatasetKind.TABLE, connection: { driver, dsn }, query, target: tpl ? "" : target, templateId });
+    } else if (source === "storage") {
+      const where = `${bucket.bucket.trim()}/${bucketPath.trim().replace(/^\/+/, "")}`.replace(/\/+$/, "");
+      createDataset.mutate({ name: examplesName.trim() || where, kind: kindToMake, bucket, path: bucketPath.trim(), target: tpl || archive ? "" : target, templateId });
     } else if (source === "upload" && upload) {
-      const kind = tpl ? datasetKindOf(tpl) : dataType === "photos" ? DatasetKind.PHOTOS : dataType === "photo_table" ? DatasetKind.PHOTO_TABLE : DatasetKind.TABLE;
+      const kind = kindToMake;
       createDataset.mutate(archive
         ? { name: upload.name, kind, archive: upload.bytes, templateId }
         : { name: upload.name, kind, csv: upload.bytes, target: tpl ? "" : target, templateId });
@@ -280,8 +301,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const busy = createDataset.isPending || checkDataset.isPending;
   const ready0 = !!dataset
     ? check?.verdict !== "bad"
-    : source === "digits" || source === "example" || (source === "existing" && !!existing) || (source === "upload" && !!upload && (archive || !!target || !!tpl)) || (source === "database" && !!dsn.trim() && !!query.trim() && (!!tpl || (!!tested.data && !!target)));
-  const fromQuery = !!dataset?.query;
+    : source === "digits" || source === "example" || (source === "existing" && !!existing) || (source === "upload" && !!upload && (archive || !!target || !!tpl)) || (source === "database" && !!dsn.trim() && !!query.trim() && (!!tpl || (!!tested.data && !!target)))
+      || (source === "storage" && bucketFilled(bucket) && (archive || !!tpl || (!!looked.data && !!target)));
+  const fromQuery = !!dataset?.query || !!dataset?.storage;
   const chosenEpochs = expert ? Number(epochs) : presets.find((p) => p.value === preset)!.epochs;
   const start = () => dataset && createJob.mutate({
     name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n, workerId: runOn,
@@ -321,7 +343,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                 {fitting.length > 0 && (
                   <Choice value="existing" icon={<IconTable size={22} />} title="Examples already here" hint="Reuse examples you added before.">
                     {source === "existing" && (
-                      <Select mt="sm" data={fitting.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} ${archiveKind(d.kind) ? "photos" : "rows"}${d.query ? " · from a database" : ""}` }))} value={existing} onChange={(v) => { if (v) { setExisting(v); reset(); } }} allowDeselect={false} aria-label="Examples" />
+                      <Select mt="sm" data={fitting.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} ${archiveKind(d.kind) ? "photos" : "rows"}${d.query ? " · from a database" : d.storage ? " · from storage" : ""}` }))} value={existing} onChange={(v) => { if (v) { setExisting(v); reset(); } }} allowDeselect={false} aria-label="Examples" />
                     )}
                   </Choice>
                 )}
@@ -384,6 +406,56 @@ function Wizard({ data: dataType }: { data: DataType }) {
                               </Table>
                             </Table.ScrollContainer>
                             <TextInput label="Name these examples" placeholder="Harvest from the shop database" maxLength={100} value={examplesName} onChange={(e) => setExamplesName(e.currentTarget.value)} />
+                          </>
+                        )}
+                      </Stack>
+                    )}
+                  </Choice>
+                )}
+                {canStore && (
+                  <Choice value="storage" icon={<IconBucket size={22} />} title="From storage" hint={archive ? "Read a .zip, or a folder of photos, from Cloudflare R2, AWS S3 or other S3-compatible storage." : "Read a .csv, or a folder of them, from Cloudflare R2, AWS S3 or other S3-compatible storage. The model can keep learning as new files land."}>
+                    {source === "storage" && (
+                      <Stack mt="sm" gap="sm">
+                        <SegmentedControl value={bucket.provider} onChange={(v) => editBucket({ provider: v })} data={providers} />
+                        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                          {bucket.provider === "r2" && <TextInput label="Account ID" description="On the R2 page of your Cloudflare dashboard." value={bucket.accountId} onChange={(e) => editBucket({ accountId: e.currentTarget.value })} />}
+                          {bucket.provider === "s3" && <TextInput label="Region" placeholder="us-east-1" description="Where the bucket lives." value={bucket.region} onChange={(e) => editBucket({ region: e.currentTarget.value })} />}
+                          {bucket.provider === "other" && <TextInput label="Address" placeholder="https://minio.example.com" description="The storage's S3 address." value={bucket.endpoint} onChange={(e) => editBucket({ endpoint: e.currentTarget.value })} />}
+                          <TextInput label="Bucket" placeholder="training-data" value={bucket.bucket} onChange={(e) => editBucket({ bucket: e.currentTarget.value })} />
+                          {bucket.provider === "other" && <TextInput label="Region" placeholder="us-east-1" description="Leave empty if the storage doesn't use one." value={bucket.region} onChange={(e) => editBucket({ region: e.currentTarget.value })} />}
+                          <TextInput label="Access key ID" value={bucket.accessKeyId} onChange={(e) => editBucket({ accessKeyId: e.currentTarget.value })} autoComplete="off" />
+                          <PasswordInput label="Secret access key" description="Kept on the server; never shown again. Read access is enough." value={bucket.secretAccessKey} onChange={(e) => editBucket({ secretAccessKey: e.currentTarget.value })} autoComplete="off" />
+                        </SimpleGrid>
+                        <TextInput
+                          label="File or folder"
+                          placeholder={archive ? "photos/pets/" : "exports/sales.csv"}
+                          description={archive
+                            ? (dataType === "photos" ? "A .zip, or a folder with one folder of photos per answer inside." : "A .zip, or a folder holding data.csv and the photos it names.")
+                            : "A .csv file, or a folder of .csv files with the same header row. Empty reads the whole bucket."}
+                          value={bucketPath}
+                          onChange={(e) => { setBucketPath(e.currentTarget.value); looked.reset(); reset(); }}
+                          classNames={{ input: "font-mono" }}
+                        />
+                        <Group><Button variant="default" loading={looked.isPending} disabled={!bucketFilled(bucket)} onClick={() => looked.mutate({ bucket, path: bucketPath.trim(), kind: kindToMake })}>Look in the bucket</Button></Group>
+                        {looked.error && <Alert color="red" icon={<IconAlertCircle />}>{message(looked.error)}</Alert>}
+                        {looked.data && (
+                          <>
+                            <Alert color="teal" icon={<IconCheck />}>
+                              {looked.data.files === 1n ? "1 file" : `${looked.data.files.toLocaleString()} files`}, {bytes(Number(looked.data.sizeBytes))}{looked.data.columns.length > 0 && `: ${looked.data.rows.toLocaleString()} rows, ${looked.data.columns.length} columns`}.
+                              {looked.data.columns.length === 0 && looked.data.names.length > 0 && <Text size="xs" c="dimmed" mt={4} className="font-mono">{looked.data.names.slice(0, 5).join(", ")}{looked.data.files > 5n ? ", …" : ""}</Text>}
+                            </Alert>
+                            {looked.data.columns.length > 0 && (
+                              <>
+                                {!tpl && <Select label="Which column is the answer?" description="The model learns to predict this from the other columns." data={looked.data.columns} value={target} onChange={(v) => v && setTarget(v)} allowDeselect={false} />}
+                                <Table.ScrollContainer minWidth={300}>
+                                  <Table fz="xs" withTableBorder>
+                                    <Table.Thead><Table.Tr>{looked.data.columns.map((c) => <Table.Th key={c} c={c === target && !tpl ? "teal" : undefined}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
+                                    <Table.Tbody>{looked.data.sample.map((r, i) => <Table.Tr key={i}>{r.values.map((v, k) => <Table.Td key={k}>{v}</Table.Td>)}</Table.Tr>)}</Table.Tbody>
+                                  </Table>
+                                </Table.ScrollContainer>
+                              </>
+                            )}
+                            <TextInput label="Name these examples" placeholder={`${bucket.bucket || "bucket"}/${bucketPath}`.replace(/\/+$/, "")} maxLength={100} value={examplesName} onChange={(e) => setExamplesName(e.currentTarget.value)} />
                           </>
                         )}
                       </Stack>
@@ -473,7 +545,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
             {fromQuery && (
               <Stack gap={4} mt="lg">
                 <Text fw={500} size="sm">Keep learning</Text>
-                <Text size="xs" c="dimmed">Run the query again on a schedule and continue teaching the same model with the new rows. The model is only replaced when the new pass scores at least as well.</Text>
+                <Text size="xs" c="dimmed">{dataset?.storage ? "Read the files again on a schedule" : "Run the query again on a schedule"} and continue teaching the same model with the new rows. The model is only replaced when the new pass scores at least as well.</Text>
                 <SegmentedControl value={repeat} onChange={setRepeat} data={repeatChoices} className="self-start" />
               </Stack>
             )}

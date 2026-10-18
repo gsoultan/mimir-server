@@ -26,6 +26,8 @@ const (
 	PhotoTable Input = "photo_table"
 	// Tensor is raw numbers in the shape a Mimir Model file declares.
 	Tensor Input = "tensor"
+	// Prompt is text for a language model to continue.
+	Prompt Input = "text"
 )
 
 // Output is what an architecture answers.
@@ -34,6 +36,8 @@ type Output string
 const (
 	Class  Output = "class"  // which label fits, with a probability each
 	Number Output = "number" // one number, like a price or a count
+	// Written is text a language model writes, one token at a time.
+	Written Output = "text"
 )
 
 // Spec is what a model reads and answers. Fixed architectures carry their
@@ -202,6 +206,10 @@ func (a Architecture) Fixed() bool { return len(a.Spec.InputShape) > 0 }
 // Trainable reports whether the server can teach models of this shape.
 func (a Architecture) Trainable() bool { return !a.File }
 
+// LanguageModel is the name of the architecture of language models, which
+// come as whole Mimir Model files.
+const LanguageModel = "language-model"
+
 var digits = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
 
 var builtin = []Architecture{
@@ -293,8 +301,16 @@ var builtin = []Architecture{
 	{
 		Name:        "mim",
 		Title:       "Mimir Model file",
-		Description: "Any model saved as a .mim file, by mimir's mim.Export or by converting a PyTorch, ONNX, GGUF or safetensors model. The file holds the whole model, so it runs as it is.",
+		Description: "Any model saved as a .mim file by mimir's mim.Export, or an ONNX model, which becomes a .mim file when you upload it. The file holds the whole model, so it runs as it is.",
 		Input:       Tensor,
+		File:        true,
+	},
+	{
+		Name:        LanguageModel,
+		Title:       "Language model",
+		Description: "Give it the start of a text and it carries on writing. Upload a GGUF file of a Llama, TinyLlama, Mistral, SmolLM or Qwen 2 model; it becomes a .mim file when you upload it.",
+		Input:       Prompt,
+		Output:      Written,
 		File:        true,
 	},
 }

@@ -47,6 +47,9 @@ message SetModelWorkerResponse {
 service PredictService {
   // Predict runs one input through a model.
   rpc Predict(PredictRequest) returns (PredictResponse);
+  // Generate continues a prompt with a language model, such as one
+  // uploaded as a GGUF file.
+  rpc Generate(GenerateRequest) returns (GenerateResponse);
 }
 
 // Architecture is a model shape the server knows how to build.
@@ -65,10 +68,11 @@ message Architecture {
   // Trainable says the server can teach models of this shape.
   bool trainable = 6;
   // Input says what the model reads: "image" for pictures, "table" for a
-  // row of a table, "photo_table" for a photo with a row of details.
+  // row of a table, "photo_table" for a photo with a row of details,
+  // "tensor" for raw numbers and "text" for a prompt.
   string input = 7;
   // Output says what the model answers: "class" picks a label, "number"
-  // answers with a number.
+  // answers with a number and "text" writes text (see Generate).
   string output = 8;
 }
 
@@ -161,7 +165,10 @@ message CreateModelRequest {
   string architecture = 3;
   // Weights is a Mimir Model (.mim) file: every parameter of the
   // architecture, as mimir's mim.Save writes it, or for the mim
-  // architecture the whole model.
+  // architecture the whole model. For the mim and language-model
+  // architectures it may also be an ONNX or GGUF file, which the server
+  // converts to a Mimir Model file and stores that way; a GGUF language
+  // model uploaded as mim becomes a language-model model.
   bytes weights = 4;
 }
 
@@ -211,4 +218,30 @@ message PredictResponse {
   // number is set for a model that answers with a number; value is it.
   bool number = 5;
   double value = 6;
+}
+
+message GenerateRequest {
+  string model_id = 1;
+  // prompt is the text to continue.
+  string prompt = 2;
+  // max_tokens is the most tokens to write; 0 means 128, and it is at most
+  // 1024.
+  int32 max_tokens = 3;
+  // temperature 0 always picks the likeliest next token; higher values,
+  // up to 2, write more varied text.
+  float temperature = 4;
+  // seed makes a generation with a temperature repeatable.
+  uint64 seed = 5;
+}
+
+message GenerateResponse {
+  // text is what the model wrote after the prompt.
+  string text = 1;
+  int32 prompt_tokens = 2;
+  int32 generated_tokens = 3;
+  // finished says the model ended the text itself, rather than running
+  // into max_tokens or the end of its context.
+  bool finished = 4;
+  // DurationMicros is how long the model took.
+  int64 duration_micros = 5;
 }

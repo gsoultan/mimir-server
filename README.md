@@ -36,10 +36,48 @@ format it reads or writes.
 
 A model of any other shape can come as a whole Mimir Model file: choose the
 **Mimir Model file** type and upload a `.mim` file written by mimir's
-`mim.Export`, or converted once from PyTorch, ONNX, GGUF or safetensors with
+`mim.Export`, or converted once from PyTorch or safetensors with
 `mim-import`. The file holds the whole model, so the server and its workers
-run it as it is. It must take one fixed-shape float input; its first output
-is the answer, and a `mimir.labels` list in its metadata names the classes.
+run it as it is. It must take one float input of a fixed shape (a free
+batch size is fine; questions come one at a time); its first output is the
+answer, and a `mimir.labels` list in its metadata names the classes.
+
+### ONNX and GGUF models
+
+You can also upload an ONNX or a GGUF file as it is. The server converts it
+to a Mimir Model file when you add it, stores only that, and runs it like
+any other, so nothing downstream sees the original format.
+
+- **ONNX**, under **Mimir Model file**: convolutional and fully connected
+  networks in float32, opsets 7 to 22, built from Conv,
+  BatchNormalization, Relu, Clip, Sigmoid, Tanh, MaxPool, AveragePool,
+  GlobalAveragePool, Add, Sub, Mul, Div, Gemm, MatMul, Flatten, Reshape,
+  Transpose, Concat, Softmax, Identity, Dropout and Constant. The graph
+  and its weights carry over as they are.
+- **GGUF**, under **Language model**: decoder-only language models of the
+  `llama` architecture (Llama 1 to 3, TinyLlama, Mistral without sliding
+  windows, SmolLM) or `qwen2` (Qwen 2 and 2.5), with F32, F16, BF16, Q8_0,
+  Q4_0, Q4_K or Q6_K weights, so the common Q4_K_M and Q8_0 downloads work;
+  Q5_K_M, Q3_K, Q2_K and the IQ types don't yet. The weights are kept as
+  they are, and the server adds the forward pass GGUF doesn't carry, with a
+  key-value cache of the model's context length, up to 4096 tokens.
+  **Try a model** then gives it the start of a text to continue, and apps
+  call `PredictService.Generate`. Language models run on the console
+  itself, one generation at a time per model, not on workers. They
+  continue text; chat templates aren't applied.
+
+The server goes by what the file holds: a GGUF file added as a Mimir Model
+file still becomes a language model.
+
+Anything else, such as an ONNX model with an operator outside that list,
+a recurrent or quantized ONNX model, a GGUF file of another architecture
+or with RoPE scaling, or a safetensors file, is refused when you add it,
+with a message that names what isn't supported.
+
+Uploads are limited to 256 MB by default, which fits ONNX models and small
+language models. Start the console with `-max-model-mb 2048`, say, to take
+bigger GGUF files; converting one needs about three times its size in
+memory for a moment.
 
 ## Who can do what
 
@@ -207,6 +245,18 @@ curl localhost:8080/mimir.v1.PredictService/Predict \
 ```
 
 A number predictor answers with `number: true` and the answer in `value`.
+
+A language model takes a prompt instead and answers with what it wrote:
+
+```sh
+curl localhost:8080/mimir.v1.PredictService/Generate \
+  -H 'Authorization: Bearer mimir_...' \
+  -H 'Content-Type: application/json' \
+  -d '{"modelId": "<id>", "prompt": "Once upon a time", "maxTokens": 128, "temperature": 0.7}'
+```
+
+`maxTokens` is up to 1024 (128 by default) and `temperature` from 0, which
+always picks the likeliest word, to 2.
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public. Health checks are at `grpc.health.v1.Health`.
