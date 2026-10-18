@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -139,7 +140,7 @@ func TestWebhooksAndSettings(t *testing.T) {
 		t.Fatalf("test alert with unreachable bot: %v", err)
 	}
 	info, err := own.settings.GetDatabaseInfo(ctx, connect.NewRequest(&mimirv1.GetDatabaseInfoRequest{}))
-	if err != nil || info.Msg.GetKind() != "sqlite" || info.Msg.GetSchemaVersion() != info.Msg.GetLatestSchemaVersion() || info.Msg.GetModels() != 2 {
+	if err != nil || info.Msg.GetKind() != "postgres" || !strings.HasPrefix(info.Msg.GetPath(), "postgres://") || info.Msg.GetLatestSchemaVersion() < 1 || info.Msg.GetSchemaVersion() != info.Msg.GetLatestSchemaVersion() || info.Msg.GetSizeBytes() <= 0 || info.Msg.GetModels() != 2 {
 		t.Fatalf("GetDatabaseInfo = %v, %v", info.Msg, err)
 	}
 
@@ -156,7 +157,15 @@ func TestWebhooksAndSettings(t *testing.T) {
 	}
 	b, _ := io.ReadAll(res.Body)
 	res.Body.Close()
-	if res.StatusCode != http.StatusOK || !strings.HasPrefix(string(b), "SQLite format 3") {
-		t.Fatalf("backup: %s, %d bytes", res.Status, len(b))
+	if _, err := exec.LookPath("pg_dump"); err != nil {
+		// Without pg_dump the server says how to back up instead.
+		if res.StatusCode != http.StatusNotImplemented || !strings.Contains(string(b), "pg_dump") {
+			t.Fatalf("backup without pg_dump: %s, %q", res.Status, b)
+		}
+		return
+	}
+	// pg_dump's custom format starts with PGDMP.
+	if res.StatusCode != http.StatusOK || !strings.HasPrefix(string(b), "PGDMP") {
+		t.Fatalf("backup: %s, %d bytes: %.200s", res.Status, len(b), b)
 	}
 }

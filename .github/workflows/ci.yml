@@ -10,7 +10,24 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      MIMIR_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
@@ -34,8 +51,23 @@ jobs:
           web/node_modules/.bin/buf lint
           web/node_modules/.bin/buf generate
           git diff --exit-code -- gen web/src/api/gen web/src/routeTree.gen.ts
+      - name: Check storm code and migrations are current
+        run: |
+          go install github.com/gsoultan/storm/cmd/storm@v1.2.0
+          createdb storm_generate
+          createdb storm_migrate
+          STORM_DSN=postgres://postgres:postgres@localhost:5432/storm_generate?sslmode=disable \
+            "$(go env GOPATH)/bin/storm" verify -stale internal/store/db
+          STORM_DSN=postgres://postgres:postgres@localhost:5432/storm_migrate?sslmode=disable \
+            "$(go env GOPATH)/bin/storm" verify -pending -out internal/store/migrations
+      - name: pg_dump for the backup test
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq postgresql-client-16
+          echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
       - name: Go vet and test
         run: |
+          test -z "$(gofmt -l cmd internal worker)"
           go vet ./...
           go test -race ./...
       - name: Build binary
