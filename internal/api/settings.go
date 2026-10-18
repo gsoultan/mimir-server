@@ -162,7 +162,7 @@ func (s *Service) GetDatabaseInfo(ctx context.Context, _ *connect.Request[mimirv
 		return nil, s.internal(ctx, err)
 	}
 	res := &mimirv1.GetDatabaseInfoResponse{
-		Kind: "sqlite", Path: st.Path, SizeBytes: st.SizeBytes,
+		Kind: "postgres", Path: st.Path, SizeBytes: st.SizeBytes,
 		SchemaVersion: int32(st.SchemaVersion), LatestSchemaVersion: int32(store.LatestSchemaVersion()),
 		Models: int32(st.Models), Users: int32(st.Users), AuditEvents: int32(st.AuditEvents), Deliveries: int32(st.Deliveries),
 	}

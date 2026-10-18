@@ -2,10 +2,19 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
+
+	"github.com/gsoultan/storm/runtime"
+
+	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
+	"github.com/gsoultan/mimir-server/internal/store/db/model"
+	"github.com/gsoultan/mimir-server/internal/store/db/team"
+	"github.com/gsoultan/mimir-server/internal/store/db/trainingjob"
+	"github.com/gsoultan/mimir-server/internal/store/db/user"
 )
 
 // DefaultTeam is the team the server starts with; everything made before
@@ -29,18 +38,46 @@ type Team struct {
 	Datasets int
 }
 
-const teamQuery = `SELECT t.id, t.name, t.create_time,
-	(SELECT count(*) FROM users u WHERE u.team_id = t.id),
-	(SELECT count(*) FROM models m WHERE m.team_id = t.id),
-	(SELECT count(*) FROM datasets d WHERE d.team_id = t.id)
-	FROM teams t`
+// teamCounts is how many people, models and datasets each team has.
+type teamCounts struct{ members, models, datasets map[string]int }
 
-func scanTeam(row scanner) (Team, error) {
-	var t Team
-	var created int64
-	err := row.Scan(&t.ID, &t.Name, &created, &t.Members, &t.Models, &t.Datasets)
-	t.Created = time.UnixMilli(created).UTC()
-	return t, err
+// countTeams reads the per-team counts in three grouped queries, whatever
+// the number of teams. one narrows them to a single team when set.
+func (s *Store) countTeams(ctx context.Context, one string) (teamCounts, error) {
+	c := teamCounts{members: map[string]int{}, models: map[string]int{}, datasets: map[string]int{}}
+	users, err := user.New().WhereIf(one != "", user.TeamID.Eq(one)).AllPerTeam(ctx, s.ex)
+	if err != nil {
+		return c, err
+	}
+	for _, r := range users {
+		c.members[r.TeamID.V] = int(r.N)
+	}
+	models, err := model.New().WhereIf(one != "", model.TeamID.Eq(one)).AllPerTeam(ctx, s.ex)
+	if err != nil {
+		return c, err
+	}
+	for _, r := range models {
+		c.models[r.TeamID.V] = int(r.N)
+	}
+	datasets, err := dataset.New().WhereIf(one != "", dataset.TeamID.Eq(one)).AllPerTeam(ctx, s.ex)
+	if err != nil {
+		return c, err
+	}
+	for _, r := range datasets {
+		c.datasets[r.TeamID.V] = int(r.N)
+	}
+	return c, nil
+}
+
+func (c teamCounts) team(r team.Row) Team {
+	return Team{
+		ID:       r.ID,
+		Name:     r.Name,
+		Created:  r.CreateTime.UTC(),
+		Members:  c.members[r.ID],
+		Models:   c.models[r.ID],
+		Datasets: c.datasets[r.ID],
+	}
 }
 
 // CreateTeam adds an empty team.
@@ -49,11 +86,14 @@ func (s *Store) CreateTeam(ctx context.Context, name string) (Team, error) {
 	if err != nil {
 		return Team{}, err
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO teams (id, name, create_time) VALUES (?, ?, ?)", id, name, millis(time.Now()))
-	if isUnique(err) {
-		return Team{}, ErrTeamNameTaken
-	}
-	if err != nil {
+	n := team.Create()
+	n.SetID(id)
+	n.SetName(name)
+	n.SetCreateTime(now())
+	if _, err := n.Insert(ctx, s.ex); err != nil {
+		if isUnique(err) {
+			return Team{}, ErrTeamNameTaken
+		}
 		return Team{}, fmt.Errorf("store: create team: %w", err)
 	}
 	return s.GetTeam(ctx, id)
@@ -61,45 +101,57 @@ func (s *Store) CreateTeam(ctx context.Context, name string) (Team, error) {
 
 // GetTeam returns a team with its counts.
 func (s *Store) GetTeam(ctx context.Context, id string) (Team, error) {
-	t, err := scanTeam(s.db.QueryRowContext(ctx, teamQuery+" WHERE t.id = ?", id))
-	if errors.Is(err, sql.ErrNoRows) {
-		return Team{}, ErrNotFound
-	}
+	r, ok, err := team.New().Where(team.ID.Eq(id)).One(ctx, s.ex)
 	if err != nil {
 		return Team{}, fmt.Errorf("store: get team: %w", err)
 	}
-	return t, nil
+	if !ok {
+		return Team{}, ErrNotFound
+	}
+	c, err := s.countTeams(ctx, id)
+	if err != nil {
+		return Team{}, fmt.Errorf("store: get team: %w", err)
+	}
+	return c.team(r), nil
 }
 
-// ListTeams returns every team by name.
+// ListTeams returns every team by name, ignoring case.
 func (s *Store) ListTeams(ctx context.Context) ([]Team, error) {
-	rows, err := s.db.QueryContext(ctx, teamQuery+" ORDER BY t.name COLLATE NOCASE, t.id LIMIT 1000")
+	rows, err := team.New().Order(team.Name.Asc(), team.ID.Asc()).Limit(1000).All(ctx, s.ex, nil)
 	if err != nil {
 		return nil, fmt.Errorf("store: list teams: %w", err)
 	}
-	defer rows.Close()
-	var out []Team
-	for rows.Next() {
-		t, err := scanTeam(rows)
-		if err != nil {
-			return nil, fmt.Errorf("store: list teams: %w", err)
-		}
-		out = append(out, t)
+	c, err := s.countTeams(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf("store: list teams: %w", err)
 	}
-	return out, rows.Err()
+	out := make([]Team, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, c.team(r))
+	}
+	// Case-insensitive, as the list always was; the database's collation
+	// may order upper and lower case apart.
+	slices.SortStableFunc(out, func(a, b Team) int {
+		if c := strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)); c != 0 {
+			return c
+		}
+		return strings.Compare(a.ID, b.ID)
+	})
+	return out, nil
 }
 
 // RenameTeam changes a team's name.
 func (s *Store) RenameTeam(ctx context.Context, id, name string) (Team, error) {
-	res, err := s.db.ExecContext(ctx, "UPDATE teams SET name = ? WHERE id = ?", name, id)
-	if isUnique(err) {
-		return Team{}, ErrTeamNameTaken
-	}
-	if err != nil {
+	m := team.MutateKey(id)
+	m.SetName(name)
+	if err := m.Update(ctx, s.ex); err != nil {
+		switch {
+		case isUnique(err):
+			return Team{}, ErrTeamNameTaken
+		case errors.Is(err, runtime.ErrNoRow):
+			return Team{}, ErrNotFound
+		}
 		return Team{}, fmt.Errorf("store: rename team: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return Team{}, ErrNotFound
 	}
 	return s.GetTeam(ctx, id)
 }
@@ -107,29 +159,33 @@ func (s *Store) RenameTeam(ctx context.Context, id, name string) (Team, error) {
 // DeleteTeam removes a team that has no people, models, examples or
 // training runs left. Its webhooks go with it; its audit events stay.
 func (s *Store) DeleteTeam(ctx context.Context, id string) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	var used int
-	err = tx.QueryRowContext(ctx, `SELECT
-		(SELECT count(*) FROM users WHERE team_id = ?) +
-		(SELECT count(*) FROM models WHERE team_id = ?) +
-		(SELECT count(*) FROM datasets WHERE team_id = ?) +
-		(SELECT count(*) FROM training_jobs WHERE team_id = ?)`, id, id, id, id).Scan(&used)
-	if err != nil {
-		return fmt.Errorf("store: delete team: %w", err)
-	}
-	if used > 0 {
-		return ErrTeamInUse
-	}
-	res, err := tx.ExecContext(ctx, "DELETE FROM teams WHERE id = ?", id)
-	if err != nil {
-		return fmt.Errorf("store: delete team: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
-	}
-	return tx.Commit()
+	return s.inTx(ctx, func(ex runtime.Executor) error {
+		// Lock the team so nothing joins it between the count and the delete.
+		if _, ok, err := team.New().Where(team.ID.Eq(id)).ForUpdate().One(ctx, ex); err != nil {
+			return fmt.Errorf("store: delete team: %w", err)
+		} else if !ok {
+			return ErrNotFound
+		}
+		for _, count := range []func() (int64, error){
+			func() (int64, error) { return user.New().Where(user.TeamID.Eq(id)).Count(ctx, ex) },
+			func() (int64, error) { return model.New().Where(model.TeamID.Eq(id)).Count(ctx, ex) },
+			func() (int64, error) { return dataset.New().Where(dataset.TeamID.Eq(id)).Count(ctx, ex) },
+			func() (int64, error) { return trainingjob.New().Where(trainingjob.TeamID.Eq(id)).Count(ctx, ex) },
+		} {
+			n, err := count()
+			if err != nil {
+				return fmt.Errorf("store: delete team: %w", err)
+			}
+			if n > 0 {
+				return ErrTeamInUse
+			}
+		}
+		if err := team.Delete(ctx, ex, id); err != nil {
+			if errors.Is(err, runtime.ErrNoRow) {
+				return ErrNotFound
+			}
+			return fmt.Errorf("store: delete team: %w", err)
+		}
+		return nil
+	})
 }

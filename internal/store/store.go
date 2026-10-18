@@ -1,32 +1,45 @@
-// Package store keeps model metadata in SQLite and model weights on disk.
+// Package store keeps the server's records in PostgreSQL, through storm's
+// generated packages under internal/store/db, and model weights, datasets
+// and training checkpoints on disk under the data folder.
 package store
 
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	_ "modernc.org/sqlite" // registers the "sqlite" driver, pure Go
+	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/migrate"
+	"github.com/gsoultan/storm/runtime"
+	"github.com/gsoultan/storm/runtime/pgxdrv"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/gsoultan/mimir-server/internal/schema"
+	"github.com/gsoultan/mimir-server/internal/store/db/model"
+	"github.com/gsoultan/mimir-server/internal/store/db/team"
+	"github.com/gsoultan/mimir-server/internal/store/tables"
 )
 
 // ErrNotFound reports that no model has the requested id.
 var ErrNotFound = errors.New("store: model not found")
 
+// migrations holds the reviewed migrations `storm diff` wrote from the
+// model. The server applies the model itself with migrate.Auto; these are
+// the record of what that does, and CI checks they carry the whole model.
+//
 //go:embed migrations/*.sql
 var migrations embed.FS
 
@@ -60,31 +73,115 @@ type Model struct {
 
 // Store is safe for concurrent use.
 type Store struct {
-	db      *sql.DB
-	dbPath  string
+	pool    *pgxpool.Pool
+	ex      pgxdrv.Pool
+	url     string
 	weights string // directory holding <id>.mim files
+	applied int    // migration steps Open applied
 }
 
-// Open opens or creates the store in dir and brings its schema up to date.
-func Open(ctx context.Context, dir string) (*Store, error) {
+// Pool limits used unless the database URL sets its own pool_* options.
+const (
+	defaultMaxConns        = 16
+	defaultMinConns        = 1
+	defaultMaxConnLifetime = time.Hour
+	defaultMaxConnIdleTime = 5 * time.Minute
+	defaultHealthCheck     = 30 * time.Second
+	defaultConnectTimeout  = 10 * time.Second
+)
+
+// Open connects to the PostgreSQL database at databaseURL, brings its
+// schema up to the model with storm's automigrate, and keeps files in dir.
+//
+// Automigrate takes an advisory lock, so servers starting together migrate
+// once; applies every step in one transaction; and refuses a plan that
+// could lose data. The role needs CREATE on the database.
+func Open(ctx context.Context, databaseURL, dir string) (*Store, error) {
+	if strings.TrimSpace(databaseURL) == "" {
+		return nil, errors.New("store: no database URL: pass -database-url or set MIMIR_DATABASE_URL, such as postgres://mimir:secret@localhost:5432/mimir")
+	}
 	weights := filepath.Join(dir, "models")
 	if err := os.MkdirAll(weights, 0o750); err != nil {
 		return nil, fmt.Errorf("store: create %s: %w", weights, err)
 	}
-	dbPath := filepath.Join(dir, "mimir.db")
-	dsn := "file:" + dbPath +
-		"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(on)"
-	db, err := sql.Open("sqlite", dsn)
+	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("store: open: %w", err)
+		return nil, fmt.Errorf("store: database URL: %w", err)
 	}
-	s := &Store{db: db, dbPath: dbPath, weights: weights}
+	poolDefaults(cfg, databaseURL)
+	pool, err := pgxdrv.NewPoolConfig(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("store: connect: %w", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("store: connect to %s: %w", Redact(databaseURL), err)
+	}
+	s := &Store{pool: pool, ex: pgxdrv.Pool{P: pool}, url: databaseURL, weights: weights}
 	if err := s.migrate(ctx); err != nil {
-		db.Close()
+		pool.Close()
 		return nil, err
 	}
 	return s, nil
 }
+
+// poolDefaults sets the pool's limits, leaving any the URL names alone.
+func poolDefaults(cfg *pgxpool.Config, databaseURL string) {
+	set := func(opt string) bool { return strings.Contains(databaseURL, opt) }
+	if !set("pool_max_conns") {
+		cfg.MaxConns = defaultMaxConns
+	}
+	if !set("pool_min_conns") {
+		cfg.MinConns = defaultMinConns
+	}
+	if !set("pool_max_conn_lifetime") {
+		cfg.MaxConnLifetime = defaultMaxConnLifetime
+	}
+	if !set("pool_max_conn_idle_time") {
+		cfg.MaxConnIdleTime = defaultMaxConnIdleTime
+	}
+	if !set("pool_health_check_period") {
+		cfg.HealthCheckPeriod = defaultHealthCheck
+	}
+	if !set("connect_timeout") {
+		cfg.ConnConfig.ConnectTimeout = defaultConnectTimeout
+	}
+}
+
+// migrate applies the model to the database and makes sure the first team
+// exists.
+func (s *Store) migrate(ctx context.Context) error {
+	want, err := storm.Build(tables.All()...)
+	if err != nil {
+		return fmt.Errorf("store: model: %w", err)
+	}
+	res, err := migrate.AutoPool(ctx, s.pool, want, migrate.AutoOptions{})
+	if err != nil {
+		return fmt.Errorf("store: migrate: %w", err)
+	}
+	s.applied = len(res.Applied)
+	// A new database starts with the team everything belongs to by
+	// default. With no team at all nothing could be made, so an empty
+	// table gets it back too.
+	n, err := team.New().Count(ctx, s.ex)
+	if err != nil {
+		return fmt.Errorf("store: count teams: %w", err)
+	}
+	if n == 0 {
+		t := team.Create()
+		t.SetID(DefaultTeam)
+		t.SetName("My team")
+		t.SetCreateTime(now())
+		if _, err := t.DoNothing().Insert(ctx, s.ex); err != nil && !errors.Is(err, runtime.ErrConflict) && !errors.Is(err, runtime.ErrNoRow) {
+			return fmt.Errorf("store: first team: %w", err)
+		}
+	}
+	return nil
+}
+
+// Applied reports how many schema steps Open applied; 0 when the database
+// already matched the model.
+func (s *Store) Applied() int { return s.applied }
 
 // LatestSchemaVersion is the newest migration shipped with this build.
 func LatestSchemaVersion() int {
@@ -98,134 +195,75 @@ func LatestSchemaVersion() int {
 	return latest
 }
 
-// Close closes the database.
-func (s *Store) Close() error { return s.db.Close() }
-
-// rebuildMarker starts a migration that rebuilds a table other tables
-// point at. It runs with foreign keys off, as SQLite's guide to changing a
-// table asks, and the keys are checked before it commits.
-const rebuildMarker = "-- rebuild: foreign keys off"
-
-// migrate applies every migration newer than the schema's user_version, in
-// order, each in its own transaction.
-func (s *Store) migrate(ctx context.Context) error {
-	var version int
-	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
-		return fmt.Errorf("store: read schema version: %w", err)
-	}
-	names, err := fs.Glob(migrations, "migrations/*.sql")
-	if err != nil {
-		return err
-	}
-	slices.Sort(names)
-	for _, name := range names {
-		n, err := strconv.Atoi(strings.SplitN(filepath.Base(name), "_", 2)[0])
-		if err != nil {
-			return fmt.Errorf("store: migration %s: bad number: %w", name, err)
-		}
-		if n <= version {
-			continue
-		}
-		body, err := migrations.ReadFile(name)
-		if err != nil {
-			return err
-		}
-		if err := s.apply(ctx, n, string(body)); err != nil {
-			return fmt.Errorf("store: migration %s: %w", name, err)
-		}
-		version = n
-	}
+// Close closes the database pool.
+func (s *Store) Close() error {
+	s.pool.Close()
 	return nil
 }
 
-// apply runs migration n in a transaction on one connection.
-func (s *Store) apply(ctx context.Context, n int, body string) error {
-	conn, err := s.db.Conn(ctx)
-	if err != nil {
-		return err
+// Redact returns a database URL without its password, for logs and screens.
+func Redact(databaseURL string) string {
+	u, err := url.Parse(databaseURL)
+	if err != nil || u.Scheme == "" {
+		return "(database)"
 	}
-	defer conn.Close()
-	rebuild := strings.HasPrefix(body, rebuildMarker)
-	if rebuild {
-		if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
-			return err
-		}
-		defer conn.ExecContext(context.WithoutCancel(ctx), "PRAGMA foreign_keys = ON")
-	}
-	tx, err := conn.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, body); err != nil {
-		return err
-	}
-	if rebuild {
-		rows, err := tx.QueryContext(ctx, "PRAGMA foreign_key_check")
-		if err != nil {
-			return err
-		}
-		broken := rows.Next()
-		rows.Close()
-		if broken {
-			return errors.New("a foreign key no longer holds")
+	if u.User != nil {
+		if _, ok := u.User.Password(); ok {
+			u.User = url.UserPassword(u.User.Username(), "xxxxx")
 		}
 	}
-	// PRAGMA takes no parameters; n is an integer parsed from the name.
-	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", n)); err != nil {
-		return err
-	}
-	return tx.Commit()
+	u.RawQuery = ""
+	return u.String()
 }
 
-const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id, accuracy, team_id, worker_id, columns"
-
-type scanner interface{ Scan(dest ...any) error }
-
-func scan(row scanner) (Model, error) {
-	var m Model
-	var created, updated int64
-	var shape, labels, features, cols string
-	var team sql.NullString
-	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID, &m.Accuracy, &team, &m.WorkerID, &cols)
-	m.Columns = fromJSON[[]schema.Column](cols)
-	m.TeamID = team.String
-	m.Created = time.UnixMilli(created).UTC()
-	m.Updated = time.UnixMilli(updated).UTC()
-	m.InputShape = fromJSON[[]int](shape)
-	m.Labels = fromJSON[[]string](labels)
-	m.Features = fromJSON[[]string](features)
-	return m, err
+func fromModel(r model.Row) Model {
+	return Model{
+		ID:           r.ID,
+		Name:         r.Name,
+		Description:  r.Description,
+		Architecture: r.Architecture,
+		SizeBytes:    r.SizeBytes,
+		SHA256:       r.Sha256,
+		Created:      r.CreateTime.UTC(),
+		Updated:      r.UpdateTime.UTC(),
+		InputShape:   fromJSON[[]int](r.InputShape),
+		Labels:       fromJSON[[]string](r.Labels),
+		Features:     fromJSON[[]string](r.Features),
+		Accuracy:     r.Accuracy,
+		JobID:        r.JobID,
+		TeamID:       r.TeamID.V,
+		WorkerID:     r.WorkerID,
+		Columns:      fromJSON[[]schema.Column](r.Columns),
+	}
 }
 
 // List returns a team's models, newest first.
-func (s *Store) List(ctx context.Context, team string) ([]Model, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+columns+" FROM models WHERE team_id = ? ORDER BY create_time DESC, id DESC LIMIT 1000", team)
+func (s *Store) List(ctx context.Context, teamID string) ([]Model, error) {
+	rows, err := model.New().
+		Where(model.TeamID.Eq(teamID)).
+		Order(model.CreateTime.Desc(), model.ID.Desc()).
+		Limit(1000).
+		All(ctx, s.ex, nil)
 	if err != nil {
 		return nil, fmt.Errorf("store: list: %w", err)
 	}
-	defer rows.Close()
-	var out []Model
-	for rows.Next() {
-		m, err := scan(rows)
-		if err != nil {
-			return nil, fmt.Errorf("store: list: %w", err)
-		}
-		out = append(out, m)
+	out := make([]Model, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, fromModel(r))
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // Get returns the model with id, or ErrNotFound.
 func (s *Store) Get(ctx context.Context, id string) (Model, error) {
-	m, err := scan(s.db.QueryRowContext(ctx, "SELECT "+columns+" FROM models WHERE id = ?", id))
-	if errors.Is(err, sql.ErrNoRows) {
-		return Model{}, ErrNotFound
-	}
+	r, ok, err := model.New().Where(model.ID.Eq(id)).One(ctx, s.ex)
 	if err != nil {
 		return Model{}, fmt.Errorf("store: get %s: %w", id, err)
 	}
-	return m, nil
+	if !ok {
+		return Model{}, ErrNotFound
+	}
+	return fromModel(r), nil
 }
 
 // Create stores weights and a new model row. It fills in the model's ID,
@@ -236,9 +274,9 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 		return Model{}, fmt.Errorf("store: new id: %w", err)
 	}
 	sum := sha256.Sum256(weights)
-	now := time.Now().UTC().Truncate(time.Millisecond)
+	t := now()
 	m.ID, m.SizeBytes, m.SHA256 = id.String(), int64(len(weights)), hex.EncodeToString(sum[:])
-	m.Created, m.Updated = now, now
+	m.Created, m.Updated = t, t
 	if m.TeamID == "" {
 		m.TeamID = DefaultTeam
 	}
@@ -250,10 +288,24 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	if err := writeFileAtomic(path, weights); err != nil {
 		return Model{}, fmt.Errorf("store: write weights: %w", err)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		m.ID, m.Name, m.Description, m.Architecture, m.SizeBytes, m.SHA256, now.UnixMilli(), now.UnixMilli(),
-		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, m.TeamID, m.WorkerID, toJSON(m.Columns))
-	if err != nil {
+	n := model.Create()
+	n.SetID(m.ID)
+	n.SetName(m.Name)
+	n.SetDescription(m.Description)
+	n.SetArchitecture(m.Architecture)
+	n.SetSizeBytes(m.SizeBytes)
+	n.SetSha256(m.SHA256)
+	n.SetCreateTime(t)
+	n.SetUpdateTime(t)
+	n.SetInputShape(toJSON(m.InputShape))
+	n.SetLabels(toJSON(m.Labels))
+	n.SetFeatures(toJSON(m.Features))
+	n.SetJobID(m.JobID)
+	n.SetAccuracy(m.Accuracy)
+	n.SetTeamID(m.TeamID)
+	n.SetWorkerID(m.WorkerID)
+	n.SetColumns(toJSON(m.Columns))
+	if _, err := n.Insert(ctx, s.ex); err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)
 	}
@@ -268,50 +320,60 @@ func (s *Store) Replace(ctx context.Context, id string, m Model, weights []byte)
 	if err := writeFileAtomic(path, weights); err != nil {
 		return fmt.Errorf("store: write weights: %w", err)
 	}
-	res, err := s.db.ExecContext(ctx, "UPDATE models SET size_bytes = ?, sha256 = ?, update_time = ?, input_shape = ?, labels = ?, features = ?, job_id = ?, accuracy = ?, columns = ? WHERE id = ?",
-		len(weights), hex.EncodeToString(sum[:]), time.Now().UTC().UnixMilli(), toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, toJSON(m.Columns), id)
-	if err != nil {
+	u := model.MutateKey(id)
+	u.SetSizeBytes(int64(len(weights)))
+	u.SetSha256(hex.EncodeToString(sum[:]))
+	u.SetUpdateTime(now())
+	u.SetInputShape(toJSON(m.InputShape))
+	u.SetLabels(toJSON(m.Labels))
+	u.SetFeatures(toJSON(m.Features))
+	u.SetJobID(m.JobID)
+	u.SetAccuracy(m.Accuracy)
+	u.SetColumns(toJSON(m.Columns))
+	if err := u.Update(ctx, s.ex); err != nil {
+		if errors.Is(err, runtime.ErrNoRow) {
+			return ErrNotFound
+		}
 		return fmt.Errorf("store: replace model: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
 	}
 	return nil
 }
 
 // Update changes a model's name and description and returns the result.
 func (s *Store) Update(ctx context.Context, id, name, description string) (Model, error) {
-	res, err := s.db.ExecContext(ctx, "UPDATE models SET name = ?, description = ?, update_time = ? WHERE id = ?",
-		name, description, time.Now().UTC().UnixMilli(), id)
-	if err != nil {
+	u := model.MutateKey(id)
+	u.SetName(name)
+	u.SetDescription(description)
+	u.SetUpdateTime(now())
+	if err := u.Update(ctx, s.ex); err != nil {
+		if errors.Is(err, runtime.ErrNoRow) {
+			return Model{}, ErrNotFound
+		}
 		return Model{}, fmt.Errorf("store: update %s: %w", id, err)
-	}
-	if n, err := res.RowsAffected(); err == nil && n == 0 {
-		return Model{}, ErrNotFound
 	}
 	return s.Get(ctx, id)
 }
 
 // SetModelWorker places a model on a worker, or "" for automatic.
 func (s *Store) SetModelWorker(ctx context.Context, id, workerID string) error {
-	res, err := s.db.ExecContext(ctx, "UPDATE models SET worker_id = ? WHERE id = ?", workerID, id)
-	if err != nil {
+	u := model.MutateKey(id)
+	u.SetWorkerID(workerID)
+	if err := u.Update(ctx, s.ex); err != nil {
+		if errors.Is(err, runtime.ErrNoRow) {
+			return ErrNotFound
+		}
 		return fmt.Errorf("store: set model worker: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
 	}
 	return nil
 }
 
 // Delete removes a model's row and then its weights.
 func (s *Store) Delete(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, "DELETE FROM models WHERE id = ?", id)
-	if err != nil {
+	if err := model.Delete(ctx, s.ex, id); err != nil {
+		if errors.Is(err, runtime.ErrNoRow) {
+			return ErrNotFound
+		}
 		return fmt.Errorf("store: delete %s: %w", id, err)
-	}
-	if n, err := res.RowsAffected(); err == nil && n == 0 {
-		return ErrNotFound
 	}
 	if err := os.Remove(s.path(id)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("store: delete weights %s: %w", id, err)
@@ -339,6 +401,21 @@ func (s *Store) path(id string) string {
 func ValidID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil && !strings.ContainsAny(id, `/\`)
+}
+
+// now is the current time as the database keeps it: UTC, to the
+// millisecond, as every time was before the move to PostgreSQL.
+func now() time.Time { return time.Now().UTC().Truncate(time.Millisecond) }
+
+// ms rounds a time down to the millisecond, in UTC.
+func ms(t time.Time) time.Time { return t.UTC().Truncate(time.Millisecond) }
+
+// timeOf reads a nullable time; NULL is the zero time.
+func timeOf(n runtime.Null[time.Time]) time.Time {
+	if !n.Valid {
+		return time.Time{}
+	}
+	return n.V.UTC()
 }
 
 // toJSON and fromJSON keep small lists in text columns. An empty list is
@@ -377,4 +454,40 @@ func writeFileAtomic(path string, b []byte) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+// inTx runs fn in one transaction and commits it, or rolls back and
+// returns fn's error. A panic in fn rolls back too.
+func (s *Store) inTx(ctx context.Context, fn func(ex runtime.Executor) error) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: begin: %w", err)
+	}
+	defer tx.Rollback(context.WithoutCancel(ctx))
+	if err := fn(pgxdrv.Tx{T: tx}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// IsOwnDatabase reports whether a PostgreSQL connection string reaches the
+// database this server keeps its own records in, which holds password
+// hashes and sessions and so is never a source of examples. It compares
+// host, port and database name; an unparsable string is not this one.
+func (s *Store) IsOwnDatabase(dsn string) bool {
+	theirs, err := pgconn.ParseConfig(dsn)
+	if err != nil {
+		return false
+	}
+	ours := s.pool.Config().ConnConfig
+	return theirs.Database == ours.Database && theirs.Port == ours.Port && sameHost(theirs.Host, ours.Host)
+}
+
+// sameHost compares two hosts, treating the loopback names and a local
+// socket directory as one machine.
+func sameHost(a, b string) bool {
+	local := func(h string) bool {
+		return h == "localhost" || h == "127.0.0.1" || h == "::1" || strings.HasPrefix(h, "/")
+	}
+	return strings.EqualFold(a, b) || (local(a) && local(b))
 }

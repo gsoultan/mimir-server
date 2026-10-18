@@ -38,7 +38,8 @@ func main() {
 
 func run() error {
 	addr := flag.String("addr", ":8080", "address to listen on")
-	data := flag.String("data", "./data", "directory for the database and model files")
+	data := flag.String("data", "./data", "directory for model weights, datasets and training checkpoints")
+	databaseURL := flag.String("database-url", os.Getenv("MIMIR_DATABASE_URL"), "console: the PostgreSQL database for the server's own records, such as postgres://mimir:secret@localhost:5432/mimir ($MIMIR_DATABASE_URL)")
 	allowPrivate := flag.Bool("allow-private-webhooks", false, "let webhooks point at local and private addresses (for development)")
 	role := flag.String("role", "standalone", "standalone (the console and a worker in one), console (the web app and API; workers run the models) or worker (runs models for a console)")
 	tlsCert := flag.String("tls-cert", "", "console: serve TLS with this certificate file")
@@ -78,11 +79,15 @@ func run() error {
 	}
 	local := *role == "standalone"
 
-	st, err := store.Open(ctx, *data)
+	if *databaseURL == "" {
+		return errors.New("the console keeps its records in PostgreSQL: pass -database-url or set $MIMIR_DATABASE_URL, such as postgres://mimir:secret@localhost:5432/mimir")
+	}
+	st, err := store.Open(ctx, *databaseURL, *data)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
+	log.Info("database ready", "database", store.Redact(*databaseURL), "migration_steps", st.Applied())
 
 	svc := api.New(st, log)
 	svc.AllowPrivateWebhooks = *allowPrivate

@@ -93,8 +93,11 @@ func harden(next http.Handler) http.Handler {
 	})
 }
 
-// backupHandler streams a consistent copy of the database to an admin.
-// It's a plain download rather than an RPC so the browser can save it.
+// backupHandler sends an admin a pg_dump of the server's database, in
+// pg_dump's custom format (restore it with pg_restore). It's a plain
+// download rather than an RPC so the browser can save it. The dump goes to
+// a temporary file first, so a pg_dump that fails half way is an error
+// rather than a truncated download.
 func backupHandler(st *store.Store, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, err := auth.Authenticate(r.Context(), st, r.Header, r.RemoteAddr)
@@ -108,8 +111,12 @@ func backupHandler(st *store.Store, log *slog.Logger) http.Handler {
 			return
 		}
 		defer os.RemoveAll(dir)
-		path := filepath.Join(dir, "mimir.db")
+		path := filepath.Join(dir, "mimir.dump")
 		if err := st.Backup(r.Context(), path); err != nil {
+			if errors.Is(err, store.ErrBackupUnavailable) {
+				http.Error(w, "This server can't make backups because pg_dump isn't installed where it runs. Back up the database with pg_dump --format=custom instead, or install the PostgreSQL client tools on the server.", http.StatusNotImplemented)
+				return
+			}
 			log.ErrorContext(r.Context(), "backup", "error", err)
 			http.Error(w, "Couldn't make the backup.", http.StatusInternalServerError)
 			return
@@ -120,10 +127,10 @@ func backupHandler(st *store.Store, log *slog.Logger) http.Handler {
 			return
 		}
 		defer f.Close()
-		w.Header().Set("Content-Type", "application/vnd.sqlite3")
-		w.Header().Set("Content-Disposition", `attachment; filename="mimir-`+time.Now().UTC().Format("2006-01-02-150405")+`.db"`)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", `attachment; filename="mimir-`+time.Now().UTC().Format("2006-01-02-150405")+`.dump"`)
 		w.Header().Set("Cache-Control", "no-store")
-		http.ServeContent(w, r, "mimir.db", time.Now(), f)
+		http.ServeContent(w, r, "mimir.dump", time.Now(), f)
 	})
 }
 
