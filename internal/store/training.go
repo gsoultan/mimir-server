@@ -41,7 +41,9 @@ type Dataset struct {
 	SizeBytes  int64
 	Created    time.Time
 	// Driver, DSN and Query are set when the rows come from a database.
-	// DSN is a secret and never leaves the server.
+	// For S3-compatible storage, Driver is "s3", DSN the bucket connection
+	// and Query the path in the bucket. DSN is a secret and never leaves
+	// the server.
 	Driver    string
 	DSN       string
 	Query     string
@@ -56,8 +58,9 @@ type Dataset struct {
 	Skipped int64
 }
 
-// FromQuery reports whether the dataset's rows come from a database.
-func (d Dataset) FromQuery() bool { return d.Query != "" }
+// FromQuery reports whether the dataset's rows come from a database or
+// from storage, so they can be fetched again.
+func (d Dataset) FromQuery() bool { return d.Driver != "" }
 
 // JobStatus is where a training job is in its life.
 type JobStatus int

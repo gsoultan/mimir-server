@@ -53,6 +53,9 @@ const (
 	// DatasetServiceRefreshDatasetProcedure is the fully-qualified name of the DatasetService's
 	// RefreshDataset RPC.
 	DatasetServiceRefreshDatasetProcedure = "/mimir.v1.DatasetService/RefreshDataset"
+	// DatasetServiceTestBucketProcedure is the fully-qualified name of the DatasetService's TestBucket
+	// RPC.
+	DatasetServiceTestBucketProcedure = "/mimir.v1.DatasetService/TestBucket"
 	// DatasetServiceCheckDatasetProcedure is the fully-qualified name of the DatasetService's
 	// CheckDataset RPC.
 	DatasetServiceCheckDatasetProcedure = "/mimir.v1.DatasetService/CheckDataset"
@@ -91,6 +94,10 @@ type DatasetServiceClient interface {
 	TestQuery(context.Context, *connect.Request[v1.TestQueryRequest]) (*connect.Response[v1.TestQueryResponse], error)
 	// RefreshDataset runs a dataset's query again and replaces its rows.
 	RefreshDataset(context.Context, *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error)
+	// TestBucket reads a file or folder from S3-compatible storage and says
+	// what is there, so the answer column can be picked before anything is
+	// saved.
+	TestBucket(context.Context, *connect.Request[v1.TestBucketRequest]) (*connect.Response[v1.TestBucketResponse], error)
 	// CheckDataset checks a dataset against a template, with the columns
 	// matched as given, and can keep that match.
 	CheckDataset(context.Context, *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error)
@@ -145,6 +152,12 @@ func NewDatasetServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(datasetServiceMethods.ByName("RefreshDataset")),
 			connect.WithClientOptions(opts...),
 		),
+		testBucket: connect.NewClient[v1.TestBucketRequest, v1.TestBucketResponse](
+			httpClient,
+			baseURL+DatasetServiceTestBucketProcedure,
+			connect.WithSchema(datasetServiceMethods.ByName("TestBucket")),
+			connect.WithClientOptions(opts...),
+		),
 		checkDataset: connect.NewClient[v1.CheckDatasetRequest, v1.CheckDatasetResponse](
 			httpClient,
 			baseURL+DatasetServiceCheckDatasetProcedure,
@@ -162,6 +175,7 @@ type datasetServiceClient struct {
 	deleteDataset  *connect.Client[v1.DeleteDatasetRequest, v1.DeleteDatasetResponse]
 	testQuery      *connect.Client[v1.TestQueryRequest, v1.TestQueryResponse]
 	refreshDataset *connect.Client[v1.RefreshDatasetRequest, v1.RefreshDatasetResponse]
+	testBucket     *connect.Client[v1.TestBucketRequest, v1.TestBucketResponse]
 	checkDataset   *connect.Client[v1.CheckDatasetRequest, v1.CheckDatasetResponse]
 }
 
@@ -195,6 +209,11 @@ func (c *datasetServiceClient) RefreshDataset(ctx context.Context, req *connect.
 	return c.refreshDataset.CallUnary(ctx, req)
 }
 
+// TestBucket calls mimir.v1.DatasetService.TestBucket.
+func (c *datasetServiceClient) TestBucket(ctx context.Context, req *connect.Request[v1.TestBucketRequest]) (*connect.Response[v1.TestBucketResponse], error) {
+	return c.testBucket.CallUnary(ctx, req)
+}
+
 // CheckDataset calls mimir.v1.DatasetService.CheckDataset.
 func (c *datasetServiceClient) CheckDataset(ctx context.Context, req *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error) {
 	return c.checkDataset.CallUnary(ctx, req)
@@ -213,6 +232,10 @@ type DatasetServiceHandler interface {
 	TestQuery(context.Context, *connect.Request[v1.TestQueryRequest]) (*connect.Response[v1.TestQueryResponse], error)
 	// RefreshDataset runs a dataset's query again and replaces its rows.
 	RefreshDataset(context.Context, *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error)
+	// TestBucket reads a file or folder from S3-compatible storage and says
+	// what is there, so the answer column can be picked before anything is
+	// saved.
+	TestBucket(context.Context, *connect.Request[v1.TestBucketRequest]) (*connect.Response[v1.TestBucketResponse], error)
 	// CheckDataset checks a dataset against a template, with the columns
 	// matched as given, and can keep that match.
 	CheckDataset(context.Context, *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error)
@@ -263,6 +286,12 @@ func NewDatasetServiceHandler(svc DatasetServiceHandler, opts ...connect.Handler
 		connect.WithSchema(datasetServiceMethods.ByName("RefreshDataset")),
 		connect.WithHandlerOptions(opts...),
 	)
+	datasetServiceTestBucketHandler := connect.NewUnaryHandler(
+		DatasetServiceTestBucketProcedure,
+		svc.TestBucket,
+		connect.WithSchema(datasetServiceMethods.ByName("TestBucket")),
+		connect.WithHandlerOptions(opts...),
+	)
 	datasetServiceCheckDatasetHandler := connect.NewUnaryHandler(
 		DatasetServiceCheckDatasetProcedure,
 		svc.CheckDataset,
@@ -283,6 +312,8 @@ func NewDatasetServiceHandler(svc DatasetServiceHandler, opts ...connect.Handler
 			datasetServiceTestQueryHandler.ServeHTTP(w, r)
 		case DatasetServiceRefreshDatasetProcedure:
 			datasetServiceRefreshDatasetHandler.ServeHTTP(w, r)
+		case DatasetServiceTestBucketProcedure:
+			datasetServiceTestBucketHandler.ServeHTTP(w, r)
 		case DatasetServiceCheckDatasetProcedure:
 			datasetServiceCheckDatasetHandler.ServeHTTP(w, r)
 		default:
@@ -316,6 +347,10 @@ func (UnimplementedDatasetServiceHandler) TestQuery(context.Context, *connect.Re
 
 func (UnimplementedDatasetServiceHandler) RefreshDataset(context.Context, *connect.Request[v1.RefreshDatasetRequest]) (*connect.Response[v1.RefreshDatasetResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.DatasetService.RefreshDataset is not implemented"))
+}
+
+func (UnimplementedDatasetServiceHandler) TestBucket(context.Context, *connect.Request[v1.TestBucketRequest]) (*connect.Response[v1.TestBucketResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.DatasetService.TestBucket is not implemented"))
 }
 
 func (UnimplementedDatasetServiceHandler) CheckDataset(context.Context, *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error) {
