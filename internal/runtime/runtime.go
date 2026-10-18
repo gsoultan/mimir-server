@@ -11,7 +11,6 @@ import (
 
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir/io/mim"
-	"github.com/gsoultan/mimir/io/safetensors"
 	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/tensor"
 )
@@ -48,16 +47,17 @@ func (r Result) Top(labels []string, k int) []Guess {
 	return gs[:min(k, len(gs))]
 }
 
-// Build loads weights into a new module of architecture a shaped by spec,
-// ready for inference. It fails with ErrBadWeights when the file does not
-// match.
+// Build loads weights, a Mimir Model file of the parameters as mim.Save
+// writes them, into a new module of architecture a shaped by spec, ready
+// for inference. It fails with ErrBadWeights when the file does not match.
 func Build(a arch.Architecture, spec arch.Spec, weights []byte) (nn.Module, error) {
-	f, err := safetensors.Parse(weights)
+	f, err := mim.Parse(weights)
 	if err != nil {
-		return nil, fmt.Errorf("%w: not a safetensors file: %v", ErrBadWeights, err)
+		return nil, fmt.Errorf("%w: not a Mimir Model file: %v", ErrBadWeights, err)
 	}
+	defer f.Close()
 	m := a.New(spec)
-	if err := nn.Load(f, m); err != nil {
+	if err := f.Load(m); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
 	}
 	nn.Eval(m)
