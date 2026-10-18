@@ -107,7 +107,13 @@ func run() error {
 	// server stops.
 	var bg sync.WaitGroup
 	bgCtx, stopBg := context.WithCancel(context.Background())
-	defer stopBg()
+	// Deferred after st.Close, so it runs first: on every way out the
+	// background work stops and finishes, including the last usage flush,
+	// before the database closes under it.
+	defer func() {
+		stopBg()
+		bg.Wait()
+	}()
 	dispatcher := webhook.New(st, log, *allowPrivate)
 	dispatcher.OnGiveUp = func(ctx context.Context, w store.Webhook, d store.Delivery) {
 		svc.Notifier.Notify(ctx, "Webhook "+w.Name+" is failing",
@@ -190,11 +196,12 @@ func run() error {
 	log.Info("shutting down")
 	shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	// A connected worker's link never ends on its own, so Shutdown runs out
+	// of time whenever one is connected; close what is left and carry on.
 	if err := srv.Shutdown(shutdown); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+		log.Warn("shutdown: closing connections still open", "error", err)
+		srv.Close()
 	}
-	stopBg()
-	bg.Wait()
 	return nil
 }
 
