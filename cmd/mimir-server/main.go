@@ -50,6 +50,7 @@ func run() error {
 	token := flag.String("token", os.Getenv("MIMIR_WORKER_TOKEN"), "worker: the token made under Settings → Workers ($MIMIR_WORKER_TOKEN)")
 	name := flag.String("name", "", "worker: a name for the logs")
 	capacity := flag.Int("capacity", 0, "worker: how many tasks to run at once (default: the CPU count)")
+	maxModelMB := flag.Int("max-model-mb", 256, "console: the largest model file an upload may be, in MB; a GGUF language model is often larger, and an upload needs about three times its size in memory while it is converted")
 	insecure := flag.Bool("insecure", false, "worker: allow an http:// console on another machine (a private network you trust)")
 	flag.Parse()
 
@@ -94,6 +95,7 @@ func run() error {
 	svc.Pool = cluster.New(log)
 	svc.Pool.OnSample = svc.KeepSample
 	svc.Local = local
+	svc.MaxModelBytes = *maxModelMB << 20
 	svc.AllowPlainWorkers = *plainWorkers
 	tlsConfig, pin, err := server.TLS(*tlsCert, *tlsKey, *tlsAuto, *data)
 	if err != nil {

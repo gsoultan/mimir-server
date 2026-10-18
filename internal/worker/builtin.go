@@ -20,6 +20,9 @@ func Builtin(data string) map[string]worker.Handler {
 	cache := runtime.NewCache()
 	out := map[string]worker.Handler{}
 	for _, a := range arch.All() {
+		if a.Answers() == arch.Written {
+			continue // language models run on the console
+		}
 		out[a.Name] = &handler{a: a, data: data, cache: cache}
 	}
 	return out

@@ -1,9 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"time"
@@ -16,6 +19,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/dbsource"
+	"github.com/gsoultan/mimir-server/internal/s3source"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/templates"
 	"github.com/gsoultan/mimir-server/internal/training"
@@ -27,7 +31,7 @@ var (
 )
 
 // maxCSVBytes bounds an uploaded table.
-const maxCSVBytes = 64 << 20
+const maxCSVBytes = training.MaxTableBytes
 
 // Datasets
 
@@ -80,6 +84,8 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 	kind := store.DatasetKind(req.Msg.GetKind())
 	var file []byte
 	conn, query := req.Msg.GetConnection(), strings.TrimSpace(req.Msg.GetQuery())
+	var stored *s3source.Client
+	path := strings.TrimSpace(req.Msg.GetPath())
 	switch {
 	case req.Msg.GetExample():
 		if tpl == nil {
@@ -101,6 +107,19 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 			return nil, err
 		}
 		file = r.CSV()
+	case req.Msg.GetBucket() != nil:
+		if !p.Can(auth.DatabaseQuery) {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("Only admins can connect storage."))
+		}
+		if tpl != nil && kind == store.DatasetKind(0) {
+			kind = kindOf(*tpl)
+		}
+		if stored, err = openBucket(req.Msg.GetBucket()); err != nil {
+			return nil, err
+		}
+		if file, err = s.readBucket(ctx, stored, path, kind); err != nil {
+			return nil, err
+		}
 	case kind == store.DatasetTable:
 		file = req.Msg.GetCsv()
 	case kind.Archive():
@@ -120,6 +139,10 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 		d, check, err = describeTable(file, strings.TrimSpace(req.Msg.GetTarget()), tpl, nil)
 		if query != "" {
 			d.Driver, d.DSN, d.Query = conn.GetDriver(), conn.GetDsn(), query
+		}
+		if stored != nil {
+			// Kept so the tables can be fetched again. Photos are read once.
+			d.Driver, d.DSN, d.Query = s3source.Driver, stored.Conn().JSON(), path
 		}
 	case store.DatasetPhotos:
 		d, check, err = describePhotos(file, tpl)
@@ -180,6 +203,104 @@ func (s *Service) fetch(ctx context.Context, conn *mimirv1.Connection, query str
 	return r, nil
 }
 
+// openBucket checks a storage connection.
+func openBucket(b *mimirv1.Bucket) (*s3source.Client, error) {
+	cl, err := s3source.New(s3source.Conn{
+		Provider: b.GetProvider(), Endpoint: b.GetEndpoint(), Region: b.GetRegion(), AccountID: b.GetAccountId(),
+		Bucket: b.GetBucket(), AccessKeyID: b.GetAccessKeyId(), SecretAccessKey: b.GetSecretAccessKey(),
+	})
+	if err != nil {
+		return nil, badBucket(err)
+	}
+	return cl, nil
+}
+
+// readBucket downloads what a path names, as the file an upload of kind
+// would be.
+func (s *Service) readBucket(ctx context.Context, cl *s3source.Client, path string, kind store.DatasetKind) ([]byte, error) {
+	var b []byte
+	var err error
+	switch {
+	case kind == store.DatasetTable:
+		b, err = cl.Table(ctx, path, maxCSVBytes)
+	case kind.Archive():
+		b, err = cl.Archive(ctx, path, training.MaxArchiveBytes)
+	default:
+		return nil, invalid("Choose a table (CSV) or photos to read from storage.")
+	}
+	if err != nil {
+		return nil, s.mapBucket(ctx, err)
+	}
+	return b, nil
+}
+
+// countRows counts a CSV's rows after the header.
+func countRows(b []byte) int {
+	r := csv.NewReader(bytes.NewReader(b))
+	r.FieldsPerRecord, r.LazyQuotes, r.ReuseRecord = -1, true, true
+	n := -1
+	for {
+		if _, err := r.Read(); err != nil {
+			if err == io.EOF {
+				return max(n, 0)
+			}
+			continue
+		}
+		n++
+	}
+}
+
+// badBucket turns a s3source.ErrBad into a message for people.
+func badBucket(err error) error {
+	if !errors.Is(err, s3source.ErrBad) {
+		return err
+	}
+	msg := strings.Replace(err.Error(), "s3source: bad request: ", "", 1)
+	return invalid("%s.", strings.ToUpper(msg[:1])+msg[1:])
+}
+
+func (s *Service) TestBucket(ctx context.Context, req *connect.Request[mimirv1.TestBucketRequest]) (*connect.Response[mimirv1.TestBucketResponse], error) {
+	cl, err := openBucket(req.Msg.GetBucket())
+	if err != nil {
+		return nil, err
+	}
+	kind := store.DatasetKind(req.Msg.GetKind())
+	if kind == store.DatasetKind(0) {
+		kind = store.DatasetTable
+	}
+	f, err := cl.Find(ctx, req.Msg.GetPath())
+	if err != nil {
+		return nil, s.mapBucket(ctx, err)
+	}
+	res := &mimirv1.TestBucketResponse{Files: int64(len(f.Objects)), SizeBytes: f.Size()}
+	for _, o := range f.Objects[:min(10, len(f.Objects))] {
+		res.Names = append(res.Names, f.Name(o))
+	}
+	if kind == store.DatasetTable {
+		b, err := s.readBucket(ctx, cl, req.Msg.GetPath(), kind)
+		if err != nil {
+			return nil, err
+		}
+		rows := training.Sample(b, 5)
+		if len(rows) == 0 || len(rows[0]) < 2 {
+			return nil, invalid("The first row should name at least two columns, separated by commas.")
+		}
+		res.Columns = rows[0]
+		for _, r := range rows[1:] {
+			res.Sample = append(res.Sample, &mimirv1.Row{Values: r})
+		}
+		res.Rows = int64(countRows(b))
+	}
+	return connect.NewResponse(res), nil
+}
+
+func (s *Service) mapBucket(ctx context.Context, err error) error {
+	if errors.Is(err, s3source.ErrBad) {
+		return badBucket(err)
+	}
+	return s.internal(ctx, err)
+}
+
 func (s *Service) TestQuery(ctx context.Context, req *connect.Request[mimirv1.TestQueryRequest]) (*connect.Response[mimirv1.TestQueryResponse], error) {
 	r, err := s.fetch(ctx, req.Msg.GetConnection(), strings.TrimSpace(req.Msg.GetQuery()))
 	if err != nil {
@@ -204,6 +325,9 @@ func (s *Service) RefreshDataset(ctx context.Context, req *connect.Request[mimir
 	d, err = training.Refresh(ctx, s.store, d)
 	if errors.Is(err, dbsource.ErrBadQuery) || errors.Is(err, training.ErrBadTable) {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("The query didn't give usable rows: %v", err))
+	}
+	if errors.Is(err, s3source.ErrBad) {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("The files in storage didn't give usable rows: %v", strings.Replace(err.Error(), "s3source: bad request: ", "", 1)))
 	}
 	if err != nil {
 		return nil, s.internal(ctx, err)
@@ -524,6 +648,12 @@ func datasetProto(d store.Dataset) *mimirv1.Dataset {
 		Architectures: training.Architectures(d),
 		Driver:        d.Driver, Query: d.Query, // never the connection string
 		Columns: columnsProto(d.Columns), NumberTarget: d.NumberTarget, Skipped: d.Skipped,
+	}
+	if d.Driver == s3source.Driver {
+		// The path is in storage, not a query; the keys stay here.
+		out.Query = ""
+		c, _ := s3source.Parse(d.DSN)
+		out.Storage = &mimirv1.StorageSource{Provider: c.Provider, Endpoint: c.Endpoint, Bucket: c.Bucket, Path: d.Query}
 	}
 	if !d.Refreshed.IsZero() {
 		out.RefreshTime = timestamppb.New(d.Refreshed)
