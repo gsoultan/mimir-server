@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir-server/internal/testdb"
 )
 
 func TestSignVerify(t *testing.T) {
@@ -44,7 +45,7 @@ func TestCheckURL(t *testing.T) {
 
 func TestDeliverAndRetry(t *testing.T) {
 	ctx := context.Background()
-	st, err := store.Open(ctx, t.TempDir())
+	st, err := store.Open(ctx, testdb.URL(t), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -10,7 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gsoultan/storm/runtime"
+
 	"github.com/gsoultan/mimir-server/internal/schema"
+	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
+	"github.com/gsoultan/mimir-server/internal/store/db/trainingjob"
+	"github.com/gsoultan/mimir-server/internal/store/tables"
 )
 
 // DatasetKind says where a dataset's examples come from.
@@ -165,23 +169,27 @@ func (s *Store) JobDir(id string) string {
 	return filepath.Join(filepath.Dir(s.weights), "training", id)
 }
 
-const datasetColumns = "id, name, kind, rows, features, labels, input_shape, target, size_bytes, create_time, driver, dsn, query, refresh_time, team_id, columns, number_target, skipped"
-
-func scanDataset(row scanner) (Dataset, error) {
-	var d Dataset
-	var created int64
-	var features, labels, shape, cols string
-	var refreshed sql.NullInt64
-	var team sql.NullString
-	err := row.Scan(&d.ID, &d.Name, &d.Kind, &d.Rows, &features, &labels, &shape, &d.Target, &d.SizeBytes, &created, &d.Driver, &d.DSN, &d.Query, &refreshed, &team, &cols, &d.NumberTarget, &d.Skipped)
-	d.Columns = fromJSON[[]schema.Column](cols)
-	d.TeamID = team.String
-	d.Created = time.UnixMilli(created).UTC()
-	d.Refreshed = fromMillis(refreshed)
-	d.Features = fromJSON[[]string](features)
-	d.Labels = fromJSON[[]string](labels)
-	d.InputShape = fromJSON[[]int](shape)
-	return d, err
+func fromDataset(r dataset.Row) Dataset {
+	return Dataset{
+		ID:           r.ID,
+		Name:         r.Name,
+		Kind:         DatasetKind(r.Kind),
+		Rows:         r.Rows,
+		Features:     fromJSON[[]string](r.Features),
+		Labels:       fromJSON[[]string](r.Labels),
+		InputShape:   fromJSON[[]int](r.InputShape),
+		Target:       r.Target,
+		SizeBytes:    r.SizeBytes,
+		Created:      r.CreateTime.UTC(),
+		Driver:       r.Driver,
+		DSN:          r.Dsn,
+		Query:        r.SourceQuery,
+		Refreshed:    timeOf(r.RefreshTime),
+		TeamID:       r.TeamID.V,
+		Columns:      fromJSON[[]schema.Column](r.Columns),
+		NumberTarget: r.NumberTarget,
+		Skipped:      r.Skipped,
+	}
 }
 
 // CreateDataset stores a dataset row and, for a table, its CSV.
@@ -190,7 +198,7 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 	if err != nil {
 		return Dataset{}, err
 	}
-	d.ID, d.Created = id, time.Now().UTC().Truncate(time.Millisecond)
+	d.ID, d.Created = id, now()
 	if d.TeamID == "" {
 		d.TeamID = DefaultTeam
 	}
@@ -203,15 +211,29 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 		}
 		d.SizeBytes = int64(len(csv))
 	}
-	var refreshed any
+	n := dataset.Create()
 	if d.FromQuery() {
 		d.Refreshed = d.Created
-		refreshed = millis(d.Created)
+		n.SetRefreshTime(d.Refreshed)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO datasets ("+datasetColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		d.ID, d.Name, d.Kind, d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.Target, d.SizeBytes, millis(d.Created), d.Driver, d.DSN, d.Query, refreshed, d.TeamID,
-		toJSON(d.Columns), d.NumberTarget, d.Skipped)
-	if err != nil {
+	n.SetID(d.ID)
+	n.SetName(d.Name)
+	n.SetKind(int32(d.Kind))
+	n.SetRows(d.Rows)
+	n.SetFeatures(toJSON(d.Features))
+	n.SetLabels(toJSON(d.Labels))
+	n.SetInputShape(toJSON(d.InputShape))
+	n.SetTarget(d.Target)
+	n.SetSizeBytes(d.SizeBytes)
+	n.SetCreateTime(d.Created)
+	n.SetDriver(d.Driver)
+	n.SetDsn(d.DSN)
+	n.SetSourceQuery(d.Query)
+	n.SetTeamID(d.TeamID)
+	n.SetColumns(toJSON(d.Columns))
+	n.SetNumberTarget(d.NumberTarget)
+	n.SetSkipped(d.Skipped)
+	if _, err := n.Insert(ctx, s.ex); err != nil {
 		os.Remove(s.datasetFile(d))
 		return Dataset{}, fmt.Errorf("store: insert dataset: %w", err)
 	}
@@ -223,10 +245,18 @@ func (s *Store) RefreshDataset(ctx context.Context, d Dataset, csv []byte) (Data
 	if err := writeFileAtomic(s.DatasetPath(d.ID), csv); err != nil {
 		return Dataset{}, fmt.Errorf("store: write dataset: %w", err)
 	}
-	d.SizeBytes, d.Refreshed = int64(len(csv)), time.Now().UTC().Truncate(time.Millisecond)
-	_, err := s.db.ExecContext(ctx, "UPDATE datasets SET rows = ?, features = ?, labels = ?, input_shape = ?, size_bytes = ?, refresh_time = ?, columns = ?, number_target = ?, skipped = ? WHERE id = ?",
-		d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), d.SizeBytes, millis(d.Refreshed), toJSON(d.Columns), d.NumberTarget, d.Skipped, d.ID)
-	if err != nil {
+	d.SizeBytes, d.Refreshed = int64(len(csv)), now()
+	m := dataset.MutateKey(d.ID)
+	m.SetRows(d.Rows)
+	m.SetFeatures(toJSON(d.Features))
+	m.SetLabels(toJSON(d.Labels))
+	m.SetInputShape(toJSON(d.InputShape))
+	m.SetSizeBytes(d.SizeBytes)
+	m.SetRefreshTime(d.Refreshed)
+	m.SetColumns(toJSON(d.Columns))
+	m.SetNumberTarget(d.NumberTarget)
+	m.SetSkipped(d.Skipped)
+	if err := m.Update(ctx, s.ex); err != nil && !errors.Is(err, runtime.ErrNoRow) {
 		return Dataset{}, fmt.Errorf("store: refresh dataset: %w", err)
 	}
 	return d, nil
@@ -235,9 +265,16 @@ func (s *Store) RefreshDataset(ctx context.Context, d Dataset, csv []byte) (Data
 // UpdateDatasetColumns changes how a dataset's columns are read: its
 // answer column, column kinds and what follows from them.
 func (s *Store) UpdateDatasetColumns(ctx context.Context, d Dataset) (Dataset, error) {
-	_, err := s.db.ExecContext(ctx, "UPDATE datasets SET target = ?, rows = ?, features = ?, labels = ?, input_shape = ?, columns = ?, number_target = ?, skipped = ? WHERE id = ?",
-		d.Target, d.Rows, toJSON(d.Features), toJSON(d.Labels), toJSON(d.InputShape), toJSON(d.Columns), d.NumberTarget, d.Skipped, d.ID)
-	if err != nil {
+	m := dataset.MutateKey(d.ID)
+	m.SetTarget(d.Target)
+	m.SetRows(d.Rows)
+	m.SetFeatures(toJSON(d.Features))
+	m.SetLabels(toJSON(d.Labels))
+	m.SetInputShape(toJSON(d.InputShape))
+	m.SetColumns(toJSON(d.Columns))
+	m.SetNumberTarget(d.NumberTarget)
+	m.SetSkipped(d.Skipped)
+	if err := m.Update(ctx, s.ex); err != nil && !errors.Is(err, runtime.ErrNoRow) {
 		return Dataset{}, fmt.Errorf("store: update dataset columns: %w", err)
 	}
 	return d, nil
@@ -245,47 +282,51 @@ func (s *Store) UpdateDatasetColumns(ctx context.Context, d Dataset) (Dataset, e
 
 // GetDataset returns one dataset.
 func (s *Store) GetDataset(ctx context.Context, id string) (Dataset, error) {
-	d, err := scanDataset(s.db.QueryRowContext(ctx, "SELECT "+datasetColumns+" FROM datasets WHERE id = ?", id))
-	if errors.Is(err, sql.ErrNoRows) {
+	r, ok, err := dataset.New().Where(dataset.ID.Eq(id)).One(ctx, s.ex)
+	if err != nil {
+		return Dataset{}, err
+	}
+	if !ok {
 		return Dataset{}, ErrNotFound
 	}
-	return d, err
+	return fromDataset(r), nil
 }
 
 // ListDatasets returns a team's datasets, newest first.
-func (s *Store) ListDatasets(ctx context.Context, team string) ([]Dataset, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+datasetColumns+" FROM datasets WHERE team_id = ? ORDER BY create_time DESC, id DESC LIMIT 1000", team)
+func (s *Store) ListDatasets(ctx context.Context, teamID string) ([]Dataset, error) {
+	rows, err := dataset.New().
+		Where(dataset.TeamID.Eq(teamID)).
+		Order(dataset.CreateTime.Desc(), dataset.ID.Desc()).
+		Limit(1000).
+		All(ctx, s.ex, nil)
 	if err != nil {
 		return nil, fmt.Errorf("store: list datasets: %w", err)
 	}
-	defer rows.Close()
-	var out []Dataset
-	for rows.Next() {
-		d, err := scanDataset(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, d)
+	out := make([]Dataset, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, fromDataset(r))
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // DeleteDataset removes a dataset and its file. It refuses while jobs
 // still point at it.
 func (s *Store) DeleteDataset(ctx context.Context, id string) error {
-	var n int
-	if err := s.db.QueryRowContext(ctx, "SELECT count(*) FROM training_jobs WHERE dataset_id = ?", id).Scan(&n); err != nil {
+	used, err := trainingjob.New().Where(trainingjob.DatasetID.Eq(id)).Exists(ctx, s.ex)
+	if err != nil {
 		return err
 	}
-	if n > 0 {
+	if used {
 		return ErrDatasetInUse
 	}
-	res, err := s.db.ExecContext(ctx, "DELETE FROM datasets WHERE id = ?", id)
-	if err != nil {
+	if err := dataset.Delete(ctx, s.ex, id); err != nil {
+		switch {
+		case errors.Is(err, runtime.ErrNoRow):
+			return ErrNotFound
+		case errors.Is(err, runtime.ErrForeignKeyViolation):
+			return ErrDatasetInUse // a job arrived since the check
+		}
 		return fmt.Errorf("store: delete dataset: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
 	}
 	for _, p := range []string{s.DatasetPath(id), s.archivePath(id)} {
 		if err := os.Remove(p); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -295,23 +336,39 @@ func (s *Store) DeleteDataset(ctx context.Context, id string) error {
 	return nil
 }
 
-const jobColumns = "id, name, description, architecture, dataset_id, epochs, batch_size, learning_rate, hold_out, status, error, epoch, step, steps_per_epoch, history, model_id, worker, created_by, create_time, start_time, end_time, repeat_seconds, next_run, parent_id, base_model_id, note, team_id, run_on"
-
-func scanJob(row scanner) (Job, error) {
-	var j Job
-	var created int64
-	var started, ended, next sql.NullInt64
-	var history string
-	var team sql.NullString
-	err := row.Scan(&j.ID, &j.Name, &j.Description, &j.Architecture, &j.DatasetID,
-		&j.Settings.Epochs, &j.Settings.BatchSize, &j.Settings.LearningRate, &j.Settings.HoldOut,
-		&j.Status, &j.Error, &j.Epoch, &j.Step, &j.StepsPerEpoch, &history, &j.ModelID, &j.Worker, &j.CreatedBy, &created, &started, &ended,
-		&j.RepeatSeconds, &next, &j.ParentID, &j.BaseModelID, &j.Note, &team, &j.RunOn)
-	j.TeamID = team.String
-	j.Created = time.UnixMilli(created).UTC()
-	j.Started, j.Ended, j.NextRun = fromMillis(started), fromMillis(ended), fromMillis(next)
-	j.History = fromJSON[[]Epoch](history)
-	return j, err
+func fromJob(r trainingjob.Row) Job {
+	return Job{
+		ID:           r.ID,
+		Name:         r.Name,
+		Description:  r.Description,
+		Architecture: r.Architecture,
+		DatasetID:    r.DatasetID,
+		Settings: Settings{
+			Epochs:       int(r.Epochs),
+			BatchSize:    int(r.BatchSize),
+			LearningRate: r.LearningRate,
+			HoldOut:      r.HoldOut,
+		},
+		Status:        JobStatus(r.Status),
+		Error:         r.Error,
+		Epoch:         int(r.Epoch),
+		Step:          int(r.Step),
+		StepsPerEpoch: int(r.StepsPerEpoch),
+		History:       fromJSON[[]Epoch](r.History),
+		ModelID:       r.ModelID,
+		Worker:        r.Worker,
+		RepeatSeconds: r.RepeatSeconds,
+		NextRun:       timeOf(r.NextRun),
+		ParentID:      r.ParentID,
+		BaseModelID:   r.BaseModelID,
+		Note:          r.Note,
+		CreatedBy:     r.CreatedBy,
+		Created:       r.CreateTime.UTC(),
+		Started:       timeOf(r.StartTime),
+		Ended:         timeOf(r.EndTime),
+		TeamID:        r.TeamID.V,
+		RunOn:         r.RunOn,
+	}
 }
 
 // CreateJob queues a job.
@@ -320,20 +377,33 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 	if err != nil {
 		return Job{}, err
 	}
-	j.ID, j.Status, j.Created = id, JobQueued, time.Now().UTC().Truncate(time.Millisecond)
+	j.ID, j.Status, j.Created = id, JobQueued, now()
 	if j.TeamID == "" {
 		j.TeamID = DefaultTeam
 	}
-	var next any
+	n := trainingjob.Create()
 	if j.RepeatSeconds > 0 {
 		j.NextRun = j.Created.Add(time.Duration(j.RepeatSeconds) * time.Second)
-		next = millis(j.NextRun)
+		n.SetNextRun(j.NextRun)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO training_jobs ("+jobColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, 0, 0, '[]', '', '', ?, ?, NULL, NULL, ?, ?, ?, ?, '', ?, ?)",
-		j.ID, j.Name, j.Description, j.Architecture, j.DatasetID,
-		j.Settings.Epochs, j.Settings.BatchSize, j.Settings.LearningRate, j.Settings.HoldOut, j.Status, j.CreatedBy, millis(j.Created),
-		j.RepeatSeconds, next, j.ParentID, j.BaseModelID, j.TeamID, j.RunOn)
-	if err != nil {
+	n.SetID(j.ID)
+	n.SetName(j.Name)
+	n.SetDescription(j.Description)
+	n.SetArchitecture(j.Architecture)
+	n.SetDatasetID(j.DatasetID)
+	n.SetEpochs(int64(j.Settings.Epochs))
+	n.SetBatchSize(int64(j.Settings.BatchSize))
+	n.SetLearningRate(j.Settings.LearningRate)
+	n.SetHoldOut(j.Settings.HoldOut)
+	n.SetStatus(int32(j.Status))
+	n.SetCreatedBy(j.CreatedBy)
+	n.SetCreateTime(j.Created)
+	n.SetRepeatSeconds(j.RepeatSeconds)
+	n.SetParentID(j.ParentID)
+	n.SetBaseModelID(j.BaseModelID)
+	n.SetTeamID(j.TeamID)
+	n.SetRunOn(j.RunOn)
+	if _, err := n.Insert(ctx, s.ex); err != nil {
 		return Job{}, fmt.Errorf("store: insert job: %w", err)
 	}
 	return j, nil
@@ -341,99 +411,136 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 
 // GetJob returns one job.
 func (s *Store) GetJob(ctx context.Context, id string) (Job, error) {
-	j, err := scanJob(s.db.QueryRowContext(ctx, "SELECT "+jobColumns+" FROM training_jobs WHERE id = ?", id))
-	if errors.Is(err, sql.ErrNoRows) {
+	r, ok, err := trainingjob.New().Where(trainingjob.ID.Eq(id)).One(ctx, s.ex)
+	if err != nil {
+		return Job{}, err
+	}
+	if !ok {
 		return Job{}, ErrNotFound
 	}
-	return j, err
+	return fromJob(r), nil
 }
 
 // ListJobs returns a team's jobs, newest first.
-func (s *Store) ListJobs(ctx context.Context, team string) ([]Job, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+jobColumns+" FROM training_jobs WHERE team_id = ? ORDER BY create_time DESC, id DESC LIMIT 1000", team)
+func (s *Store) ListJobs(ctx context.Context, teamID string) ([]Job, error) {
+	rows, err := trainingjob.New().
+		Where(trainingjob.TeamID.Eq(teamID)).
+		Order(trainingjob.CreateTime.Desc(), trainingjob.ID.Desc()).
+		Limit(1000).
+		All(ctx, s.ex, nil)
 	if err != nil {
 		return nil, fmt.Errorf("store: list jobs: %w", err)
 	}
-	defer rows.Close()
-	var out []Job
-	for rows.Next() {
-		j, err := scanJob(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, j)
+	return jobs(rows), nil
+}
+
+func jobs(rows []trainingjob.Row) []Job {
+	out := make([]Job, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, fromJob(r))
 	}
-	return out, rows.Err()
+	return out
 }
 
 // ClaimJob takes the oldest queued job not in skip and marks it running.
 // It returns ErrNotFound when there is none.
 func (s *Store) ClaimJob(ctx context.Context, skip ...string) (Job, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	var j Job
+	err := s.inTx(ctx, func(ex runtime.Executor) error {
+		// SKIP LOCKED: two claimers take two different jobs, and neither
+		// waits for the other.
+		r, ok, err := trainingjob.New().
+			Where(trainingjob.Status.Eq(int32(JobQueued))).
+			WhereIf(len(skip) > 0, trainingjob.ID.NotIn(skip...)).
+			Order(trainingjob.CreateTime.Asc(), trainingjob.ID.Asc()).
+			ForUpdateSkipLocked().
+			One(ctx, ex)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return ErrNotFound
+		}
+		t := now()
+		m := trainingjob.Mutate(r)
+		m.SetStatus(int32(JobRunning))
+		m.SetStartTime(t)
+		m.SetEndTimeNull()
+		m.SetError("")
+		if err := m.Update(ctx, ex); err != nil {
+			return err
+		}
+		j = fromJob(r)
+		j.Status, j.Started, j.Ended, j.Error = JobRunning, t, time.Time{}, ""
+		return nil
+	})
 	if err != nil {
 		return Job{}, err
 	}
-	defer tx.Rollback()
-	// skip holds ids the runner set aside this round, as one JSON array.
-	j, err := scanJob(tx.QueryRowContext(ctx, "SELECT "+jobColumns+" FROM training_jobs WHERE status = ? AND id NOT IN (SELECT value FROM json_each(?)) ORDER BY create_time, id LIMIT 1", JobQueued, skipList(skip)))
-	if errors.Is(err, sql.ErrNoRows) {
-		return Job{}, ErrNotFound
+	return j, nil
+}
+
+// updateJob applies m to a job. A job that is gone is not an error: the
+// runner writes progress for jobs a person may have just deleted.
+func (s *Store) updateJob(ctx context.Context, m trainingjob.Mut) error {
+	if err := m.Update(ctx, s.ex); err != nil && !errors.Is(err, runtime.ErrNoRow) {
+		return err
 	}
-	if err != nil {
-		return Job{}, err
-	}
-	now := time.Now()
-	if _, err := tx.ExecContext(ctx, "UPDATE training_jobs SET status = ?, start_time = ?, end_time = NULL, error = '' WHERE id = ?", JobRunning, millis(now), j.ID); err != nil {
-		return Job{}, err
-	}
-	j.Status, j.Started, j.Ended, j.Error = JobRunning, now.UTC(), time.Time{}, ""
-	return j, tx.Commit()
+	return nil
 }
 
 // SetJobStatus moves a job to a final state, or back to the queue.
 func (s *Store) SetJobStatus(ctx context.Context, id string, status JobStatus, errText, modelID string) error {
-	var end any
-	if status.Done() {
-		end = millis(time.Now())
+	m := trainingjob.MutateKey(id)
+	m.SetStatus(int32(status))
+	m.SetError(errText)
+	if modelID != "" {
+		m.SetModelID(modelID)
 	}
-	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET status = ?, error = ?, model_id = CASE WHEN ? <> '' THEN ? ELSE model_id END, end_time = ? WHERE id = ?",
-		status, errText, modelID, modelID, end, id)
-	return err
+	if status.Done() {
+		m.SetEndTime(now())
+	} else {
+		m.SetEndTimeNull()
+	}
+	return s.updateJob(ctx, m)
 }
 
 // SetJobNote records what a pass did with its result.
 func (s *Store) SetJobNote(ctx context.Context, id, note string) error {
-	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET note = ? WHERE id = ?", note, id)
-	return err
+	m := trainingjob.MutateKey(id)
+	m.SetNote(note)
+	return s.updateJob(ctx, m)
 }
 
 // SetRepeat changes how often a job keeps learning; 0 stops it. The next
 // pass is one interval from now.
 func (s *Store) SetRepeat(ctx context.Context, id string, seconds int64) error {
-	var next any
+	m := trainingjob.MutateKey(id)
+	m.SetRepeatSeconds(seconds)
 	if seconds > 0 {
-		next = millis(time.Now().Add(time.Duration(seconds) * time.Second))
+		m.SetNextRun(now().Add(time.Duration(seconds) * time.Second))
+	} else {
+		m.SetNextRunNull()
 	}
-	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET repeat_seconds = ?, next_run = ? WHERE id = ?", seconds, next, id)
-	return err
+	return s.updateJob(ctx, m)
 }
 
 // DueJobs returns finished jobs whose next keep-learning pass is due.
-func (s *Store) DueJobs(ctx context.Context, now time.Time) ([]Job, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+jobColumns+" FROM training_jobs WHERE repeat_seconds > 0 AND next_run IS NOT NULL AND next_run <= ? AND status >= ? ORDER BY next_run", millis(now), JobSucceeded)
+func (s *Store) DueJobs(ctx context.Context, at time.Time) ([]Job, error) {
+	rows, err := trainingjob.New().
+		Where(
+			trainingjob.RepeatSeconds.Gt(0),
+			trainingjob.NextRun.IsNotNull(),
+			trainingjob.NextRun.Lte(at),
+			trainingjob.Status.Gte(int32(JobSucceeded)),
+		).
+		Order(trainingjob.NextRun.Asc(), trainingjob.ID.Asc()).
+		Limit(1000).
+		All(ctx, s.ex, nil)
 	if err != nil {
 		return nil, fmt.Errorf("store: due jobs: %w", err)
 	}
-	defer rows.Close()
-	var out []Job
-	for rows.Next() {
-		j, err := scanJob(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, j)
-	}
-	return out, rows.Err()
+	return jobs(rows), nil
 }
 
 // HandOver moves a job's schedule to its next pass: the old job stops
@@ -444,25 +551,41 @@ func (s *Store) HandOver(ctx context.Context, old Job, next Job) (Job, error) {
 	if err != nil {
 		return Job{}, err
 	}
-	_, err = s.db.ExecContext(ctx, "UPDATE training_jobs SET repeat_seconds = 0, next_run = NULL WHERE id = ?", old.ID)
-	return j, err
+	m := trainingjob.MutateKey(old.ID)
+	m.SetRepeatSeconds(0)
+	m.SetNextRunNull()
+	return j, s.updateJob(ctx, m)
 }
 
 // SetJobWorker records who is running a job.
-func (s *Store) SetJobWorker(ctx context.Context, id, worker string) error {
-	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET worker = ? WHERE id = ?", worker, id)
-	return err
+func (s *Store) SetJobWorker(ctx context.Context, id, workerName string) error {
+	m := trainingjob.MutateKey(id)
+	m.SetWorker(workerName)
+	return s.updateJob(ctx, m)
 }
 
 // RequeueJob puts a cancelled or failed job back in the queue.
 func (s *Store) RequeueJob(ctx context.Context, id string) (bool, error) {
-	res, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET status = ?, error = '', end_time = NULL WHERE id = ? AND status IN (?, ?)",
-		JobQueued, id, JobFailed, JobCancelled)
-	if err != nil {
-		return false, err
-	}
-	n, _ := res.RowsAffected()
-	return n > 0, nil
+	requeued := false
+	err := s.inTx(ctx, func(ex runtime.Executor) error {
+		r, ok, err := trainingjob.New().
+			Where(trainingjob.ID.Eq(id), trainingjob.Status.In(int32(JobFailed), int32(JobCancelled))).
+			ForUpdate().
+			One(ctx, ex)
+		if err != nil || !ok {
+			return err
+		}
+		m := trainingjob.Mutate(r)
+		m.SetStatus(int32(JobQueued))
+		m.SetError("")
+		m.SetEndTimeNull()
+		if err := m.Update(ctx, ex); err != nil {
+			return err
+		}
+		requeued = true
+		return nil
+	})
+	return requeued && err == nil, err
 }
 
 // JobProgress records where a running job is.
@@ -471,29 +594,51 @@ func (s *Store) JobProgress(ctx context.Context, id string, epoch, step, stepsPe
 	if h == "" {
 		h = "[]"
 	}
-	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET epoch = ?, step = ?, steps_per_epoch = ?, history = ? WHERE id = ?",
-		epoch, step, stepsPerEpoch, h, id)
-	return err
+	m := trainingjob.MutateKey(id)
+	m.SetEpoch(int64(epoch))
+	m.SetStep(int64(step))
+	m.SetStepsPerEpoch(int64(stepsPerEpoch))
+	m.SetHistory(h)
+	return s.updateJob(ctx, m)
 }
 
 // JobStatusOf returns just a job's status, for a runner polling for cancel.
 func (s *Store) JobStatusOf(ctx context.Context, id string) (JobStatus, error) {
-	var st JobStatus
-	err := s.db.QueryRowContext(ctx, "SELECT status FROM training_jobs WHERE id = ?", id).Scan(&st)
-	if errors.Is(err, sql.ErrNoRows) {
+	r, ok, err := trainingjob.New().Where(trainingjob.ID.Eq(id)).One(ctx, s.ex)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
 		return 0, ErrNotFound
 	}
-	return st, err
+	return JobStatus(r.Status), nil
 }
 
 // DeleteJob removes a job and its checkpoint. A running job can't go.
 func (s *Store) DeleteJob(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, "DELETE FROM training_jobs WHERE id = ? AND status <> ?", id, JobRunning)
+	err := s.inTx(ctx, func(ex runtime.Executor) error {
+		// Locked, so the runner can't claim it between the check and the
+		// delete.
+		_, ok, err := trainingjob.New().
+			Where(trainingjob.ID.Eq(id), trainingjob.Status.NotEq(int32(JobRunning))).
+			ForUpdate().
+			One(ctx, ex)
+		if err != nil {
+			return fmt.Errorf("store: delete job: %w", err)
+		}
+		if !ok {
+			return ErrNotFound
+		}
+		if err := trainingjob.Delete(ctx, ex, id); err != nil {
+			if errors.Is(err, runtime.ErrNoRow) {
+				return ErrNotFound
+			}
+			return fmt.Errorf("store: delete job: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("store: delete job: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
+		return err
 	}
 	return os.RemoveAll(s.JobDir(id))
 }
@@ -501,14 +646,6 @@ func (s *Store) DeleteJob(ctx context.Context, id string) error {
 // ResetRunningJobs puts jobs a previous process left running back in the
 // queue, for a server that restarted mid-training.
 func (s *Store) ResetRunningJobs(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, "UPDATE training_jobs SET status = ? WHERE status = ?", JobQueued, JobRunning)
+	_, err := tables.RequeueRunning.Exec(ctx, s.ex, int32(JobQueued), int32(JobRunning))
 	return err
-}
-
-// skipList is skip as a JSON array, "[]" when empty.
-func skipList(skip []string) string {
-	if len(skip) == 0 {
-		return "[]"
-	}
-	return toJSON(skip)
 }

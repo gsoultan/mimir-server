@@ -5,7 +5,8 @@
 #
 #   ./scripts/dev.sh      or   make dev
 #
-# Open http://localhost:5173. Settings, all optional:
+# Open http://localhost:5173. The server's database comes from
+# MIMIR_DATABASE_URL, a PostgreSQL URL (required). Other settings, optional:
 #   MIMIR_DEV_DATA   data folder        (default ./data/dev)
 #   MIMIR_DEV_ADDR   Go server address  (default localhost:8080)
 #   MIMIR_DEV_ARGS   extra server flags, such as "-role console"
@@ -25,6 +26,12 @@ for tool in go bun; do
 		exit 1
 	fi
 done
+
+if [ -z "${MIMIR_DATABASE_URL:-}" ] && [[ "$extra" != *"-database-url"* ]]; then
+	echo "dev: set MIMIR_DATABASE_URL to a PostgreSQL URL, such as" >&2
+	echo "     postgres://mimir:secret@localhost:5432/mimir_dev?sslmode=disable" >&2
+	exit 1
+fi
 
 mkdir -p "$data" bin
 if [ ! -d web/node_modules ]; then

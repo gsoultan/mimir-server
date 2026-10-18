@@ -66,7 +66,7 @@ func (s *Service) Generate(ctx context.Context, req *connect.Request[mimirv1.Gen
 	}
 	start := time.Now()
 	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
-	g, err := s.cache.Generate(ctx, m.ID, a, load, prompt, runtime.Sampling{MaxTokens: tokens, Temperature: temp, Seed: msg.GetSeed()})
+	g, err := s.cache.Generate(ctx, m.ID, m.SHA256, a, load, prompt, runtime.Sampling{MaxTokens: tokens, Temperature: temp, Seed: msg.GetSeed()})
 	switch {
 	case errors.Is(err, runtime.ErrBadInput):
 		return nil, invalid("%s.", strings.TrimPrefix(err.Error(), runtime.ErrBadInput.Error()+": "))

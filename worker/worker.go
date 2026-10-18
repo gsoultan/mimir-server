@@ -14,7 +14,9 @@ package worker
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -44,6 +46,9 @@ type Model struct {
 	Labels       []string
 	Features     []string
 	Weights      []byte
+	// Version is the SHA-256 of Weights, hex-encoded. It changes when the
+	// model is retrained in place under the same ID.
+	Version string
 }
 
 // Prediction is a model's answer: one raw output and one probability per
@@ -407,7 +412,7 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 	w.mu.Lock()
 	m := w.models[t.ModelId]
 	if len(t.Weights) > 0 {
-		m = &Model{ID: t.ModelId, Architecture: t.Architecture, InputShape: ints(t.GetSpec().GetInputShape()), Labels: t.GetSpec().GetLabels(), Features: t.GetSpec().GetFeatures(), Weights: t.Weights}
+		m = &Model{ID: t.ModelId, Architecture: t.Architecture, InputShape: ints(t.GetSpec().GetInputShape()), Labels: t.GetSpec().GetLabels(), Features: t.GetSpec().GetFeatures(), Weights: t.Weights, Version: version(t.Weights)}
 		w.models[t.ModelId] = m
 	}
 	w.mu.Unlock()
@@ -533,6 +538,12 @@ func int64s(v []int) []int64 {
 		out[i] = int64(x)
 	}
 	return out
+}
+
+// version is the hex SHA-256 of weights, the Model's Version.
+func version(weights []byte) string {
+	sum := sha256.Sum256(weights)
+	return hex.EncodeToString(sum[:])
 }
 
 func ints(v []int64) []int {
