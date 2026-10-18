@@ -21,6 +21,12 @@ import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppModelsIndexRouteImport } from './routes/_app/models/index'
 import { Route as AppModelsIdRouteImport } from './routes/_app/models/$id'
 import { Route as AppModelsNewRouteImport } from './routes/_app/models/new'
+import { Route as AppModelsTeachRouteImport } from './routes/_app/models/teach'
+import { Route as AppTemplatesIndexRouteImport } from './routes/_app/templates/index'
+import { Route as AppTemplatesIdRouteImport } from './routes/_app/templates/$id'
+import { Route as AppTrainingIndexRouteImport } from './routes/_app/training/index'
+import { Route as AppTrainingIdRouteImport } from './routes/_app/training/$id'
+import { Route as AppWorkersIdRouteImport } from './routes/_app/workers/$id'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -81,6 +87,36 @@ const AppModelsNewRoute = AppModelsNewRouteImport.update({
   path: '/models/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppModelsTeachRoute = AppModelsTeachRouteImport.update({
+  id: '/models/teach',
+  path: '/models/teach',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTemplatesIndexRoute = AppTemplatesIndexRouteImport.update({
+  id: '/templates/',
+  path: '/templates/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTemplatesIdRoute = AppTemplatesIdRouteImport.update({
+  id: '/templates/$id',
+  path: '/templates/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTrainingIndexRoute = AppTrainingIndexRouteImport.update({
+  id: '/training/',
+  path: '/training/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTrainingIdRoute = AppTrainingIdRouteImport.update({
+  id: '/training/$id',
+  path: '/training/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkersIdRoute = AppWorkersIdRouteImport.update({
+  id: '/workers/$id',
+  path: '/workers/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -93,7 +129,13 @@ export interface FileRoutesByFullPath {
   '/users': typeof AppUsersRoute
   '/models/$id': typeof AppModelsIdRoute
   '/models/new': typeof AppModelsNewRoute
+  '/models/teach': typeof AppModelsTeachRoute
+  '/templates/$id': typeof AppTemplatesIdRoute
+  '/training/$id': typeof AppTrainingIdRoute
+  '/workers/$id': typeof AppWorkersIdRoute
   '/models/': typeof AppModelsIndexRoute
+  '/templates/': typeof AppTemplatesIndexRoute
+  '/training/': typeof AppTrainingIndexRoute
 }
 export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
@@ -106,7 +148,13 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/models/$id': typeof AppModelsIdRoute
   '/models/new': typeof AppModelsNewRoute
+  '/models/teach': typeof AppModelsTeachRoute
+  '/templates/$id': typeof AppTemplatesIdRoute
+  '/training/$id': typeof AppTrainingIdRoute
+  '/workers/$id': typeof AppWorkersIdRoute
   '/models': typeof AppModelsIndexRoute
+  '/templates': typeof AppTemplatesIndexRoute
+  '/training': typeof AppTrainingIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -121,7 +169,13 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/models/$id': typeof AppModelsIdRoute
   '/_app/models/new': typeof AppModelsNewRoute
+  '/_app/models/teach': typeof AppModelsTeachRoute
+  '/_app/templates/$id': typeof AppTemplatesIdRoute
+  '/_app/training/$id': typeof AppTrainingIdRoute
+  '/_app/workers/$id': typeof AppWorkersIdRoute
   '/_app/models/': typeof AppModelsIndexRoute
+  '/_app/templates/': typeof AppTemplatesIndexRoute
+  '/_app/training/': typeof AppTrainingIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -136,7 +190,13 @@ export interface FileRouteTypes {
     | '/users'
     | '/models/$id'
     | '/models/new'
+    | '/models/teach'
+    | '/templates/$id'
+    | '/training/$id'
+    | '/workers/$id'
     | '/models/'
+    | '/templates/'
+    | '/training/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/setup'
@@ -149,7 +209,13 @@ export interface FileRouteTypes {
     | '/'
     | '/models/$id'
     | '/models/new'
+    | '/models/teach'
+    | '/templates/$id'
+    | '/training/$id'
+    | '/workers/$id'
     | '/models'
+    | '/templates'
+    | '/training'
   id:
     | '__root__'
     | '/_app'
@@ -163,7 +229,13 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/models/$id'
     | '/_app/models/new'
+    | '/_app/models/teach'
+    | '/_app/templates/$id'
+    | '/_app/training/$id'
+    | '/_app/workers/$id'
     | '/_app/models/'
+    | '/_app/templates/'
+    | '/_app/training/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -258,6 +330,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppModelsNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/models/teach': {
+      id: '/_app/models/teach'
+      path: '/models/teach'
+      fullPath: '/models/teach'
+      preLoaderRoute: typeof AppModelsTeachRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/templates/': {
+      id: '/_app/templates/'
+      path: '/templates'
+      fullPath: '/templates/'
+      preLoaderRoute: typeof AppTemplatesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/templates/$id': {
+      id: '/_app/templates/$id'
+      path: '/templates/$id'
+      fullPath: '/templates/$id'
+      preLoaderRoute: typeof AppTemplatesIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/training/': {
+      id: '/_app/training/'
+      path: '/training'
+      fullPath: '/training/'
+      preLoaderRoute: typeof AppTrainingIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/training/$id': {
+      id: '/_app/training/$id'
+      path: '/training/$id'
+      fullPath: '/training/$id'
+      preLoaderRoute: typeof AppTrainingIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/workers/$id': {
+      id: '/_app/workers/$id'
+      path: '/workers/$id'
+      fullPath: '/workers/$id'
+      preLoaderRoute: typeof AppWorkersIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -270,7 +384,13 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppModelsIdRoute: typeof AppModelsIdRoute
   AppModelsNewRoute: typeof AppModelsNewRoute
+  AppModelsTeachRoute: typeof AppModelsTeachRoute
+  AppTemplatesIdRoute: typeof AppTemplatesIdRoute
+  AppTrainingIdRoute: typeof AppTrainingIdRoute
+  AppWorkersIdRoute: typeof AppWorkersIdRoute
   AppModelsIndexRoute: typeof AppModelsIndexRoute
+  AppTemplatesIndexRoute: typeof AppTemplatesIndexRoute
+  AppTrainingIndexRoute: typeof AppTrainingIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -282,7 +402,13 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppModelsIdRoute: AppModelsIdRoute,
   AppModelsNewRoute: AppModelsNewRoute,
+  AppModelsTeachRoute: AppModelsTeachRoute,
+  AppTemplatesIdRoute: AppTemplatesIdRoute,
+  AppTrainingIdRoute: AppTrainingIdRoute,
+  AppWorkersIdRoute: AppWorkersIdRoute,
   AppModelsIndexRoute: AppModelsIndexRoute,
+  AppTemplatesIndexRoute: AppTemplatesIndexRoute,
+  AppTrainingIndexRoute: AppTrainingIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

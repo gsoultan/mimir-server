@@ -19,8 +19,10 @@ import (
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir-server/internal/training"
 	"github.com/gsoultan/mimir-server/internal/webhook"
 	"github.com/gsoultan/mimir/nn"
 )
@@ -32,9 +34,17 @@ const password = "correct horse battery"
 var (
 	svc        *api.Service
 	dispatcher *webhook.Dispatcher
+	runner     *training.Runner
 )
 
 func newServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return startServer(t, false)
+}
+
+// startServer starts a test server, serving TLS with a certificate of
+// httptest's own when tls is set.
+func startServer(t *testing.T, tls bool) *httptest.Server {
 	t.Helper()
 	st, err := store.Open(context.Background(), t.TempDir())
 	if err != nil {
@@ -49,9 +59,20 @@ func newServer(t *testing.T) *httptest.Server {
 	svc = api.New(st, log)
 	svc.Notifier.TelegramAPI = "http://127.0.0.1:1" // nothing listens there
 	dispatcher = webhook.New(st, log, true)
+	svc.Pool = cluster.New(log)
+	svc.Pool.OnSample = svc.KeepSample
+	runner = training.New(st, log)
+	runner.Remote = svc.Pool
+	runner.OnDone = svc.TrainingDone
+	svc.CancelTraining = runner.Cancel
 	srv := httptest.NewUnstartedServer(server.Handler(svc, st, ui, log))
 	srv.Config.Protocols = server.Protocols()
-	srv.Start()
+	if tls {
+		srv.EnableHTTP2 = true
+		srv.StartTLS()
+	} else {
+		srv.Start()
+	}
 	t.Cleanup(srv.Close)
 	return srv
 }
@@ -91,6 +112,10 @@ type clients struct {
 	audit    mimirv1connect.AuditServiceClient
 	hooks    mimirv1connect.WebhookServiceClient
 	settings mimirv1connect.SettingsServiceClient
+	datasets mimirv1connect.DatasetServiceClient
+	training mimirv1connect.TrainingServiceClient
+	workers  mimirv1connect.WorkerServiceClient
+	teams    mimirv1connect.TeamServiceClient
 }
 
 func newClients(srv *httptest.Server, opts ...connect.ClientOption) clients {
@@ -106,6 +131,10 @@ func newClients(srv *httptest.Server, opts ...connect.ClientOption) clients {
 		audit:    mimirv1connect.NewAuditServiceClient(srv.Client(), srv.URL, opts...),
 		hooks:    mimirv1connect.NewWebhookServiceClient(srv.Client(), srv.URL, opts...),
 		settings: mimirv1connect.NewSettingsServiceClient(srv.Client(), srv.URL, opts...),
+		datasets: mimirv1connect.NewDatasetServiceClient(srv.Client(), srv.URL, opts...),
+		training: mimirv1connect.NewTrainingServiceClient(srv.Client(), srv.URL, opts...),
+		workers:  mimirv1connect.NewWorkerServiceClient(srv.Client(), srv.URL, opts...),
+		teams:    mimirv1connect.NewTeamServiceClient(srv.Client(), srv.URL, opts...),
 	}
 }
 
@@ -139,7 +168,7 @@ func weights(t *testing.T, name string) []byte {
 		t.Fatalf("no architecture %q", name)
 	}
 	var buf bytes.Buffer
-	if err := nn.Save(context.Background(), &buf, a.New()); err != nil {
+	if err := nn.Save(context.Background(), &buf, a.New(a.Spec)); err != nil {
 		t.Fatal(err)
 	}
 	return buf.Bytes()

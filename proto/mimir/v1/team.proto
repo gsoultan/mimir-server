@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// TeamService keeps groups of people apart on one server. Each person
+// belongs to one team and sees only its models, examples, training runs,
+// webhooks and audit events. Only owners manage teams.
+service TeamService {
+  rpc ListTeams(ListTeamsRequest) returns (ListTeamsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc CreateTeam(CreateTeamRequest) returns (CreateTeamResponse);
+  rpc UpdateTeam(UpdateTeamRequest) returns (UpdateTeamResponse);
+  // DeleteTeam removes a team with no people, models, examples or
+  // training runs left.
+  rpc DeleteTeam(DeleteTeamRequest) returns (DeleteTeamResponse);
+}
+
+message Team {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Timestamp create_time = 3;
+  int32 members = 4;
+  int32 models = 5;
+  int32 datasets = 6;
+}
+
+message ListTeamsRequest {}
+
+message ListTeamsResponse {
+  repeated Team teams = 1;
+}
+
+message CreateTeamRequest {
+  string name = 1;
+}
+
+message CreateTeamResponse {
+  Team team = 1;
+}
+
+message UpdateTeamRequest {
+  string id = 1;
+  string name = 2;
+}
+
+message UpdateTeamResponse {
+  Team team = 1;
+}
+
+message DeleteTeamRequest {
+  string id = 1;
+}
+
+message DeleteTeamResponse {}

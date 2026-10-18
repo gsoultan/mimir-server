@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -19,6 +20,8 @@ import (
 
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite" // registers the "sqlite" driver, pure Go
+
+	"github.com/gsoultan/mimir-server/internal/schema"
 )
 
 // ErrNotFound reports that no model has the requested id.
@@ -37,6 +40,22 @@ type Model struct {
 	SHA256       string
 	Created      time.Time
 	Updated      time.Time
+	// InputShape, Labels and Features are set for models taught from a
+	// dataset; uploaded models of a fixed architecture leave them empty.
+	InputShape []int
+	Labels     []string
+	Features   []string
+	// Accuracy is the share of held-out examples a taught model got right,
+	// 0 when unknown.
+	Accuracy float64
+	JobID    string
+	// TeamID is the team the model belongs to.
+	TeamID string
+	// WorkerID is the worker that answers its questions; "" for automatic.
+	WorkerID string
+	// Columns are the table columns it reads and how each becomes
+	// numbers; empty when it reads numbers as they are.
+	Columns []schema.Column
 }
 
 // Store is safe for concurrent use.
@@ -82,6 +101,11 @@ func LatestSchemaVersion() int {
 // Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }
 
+// rebuildMarker starts a migration that rebuilds a table other tables
+// point at. It runs with foreign keys off, as SQLite's guide to changing a
+// table asks, and the keys are checked before it commits.
+const rebuildMarker = "-- rebuild: foreign keys off"
+
 // migrate applies every migration newer than the schema's user_version, in
 // order, each in its own transaction.
 func (s *Store) migrate(ctx context.Context) error {
@@ -106,20 +130,7 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		tx, err := s.db.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, string(body)); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("store: migration %s: %w", name, err)
-		}
-		// PRAGMA takes no parameters; n is an integer parsed above.
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", n)); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("store: migration %s: %w", name, err)
-		}
-		if err := tx.Commit(); err != nil {
+		if err := s.apply(ctx, n, string(body)); err != nil {
 			return fmt.Errorf("store: migration %s: %w", name, err)
 		}
 		version = n
@@ -127,22 +138,69 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time"
+// apply runs migration n in a transaction on one connection.
+func (s *Store) apply(ctx context.Context, n int, body string) error {
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	rebuild := strings.HasPrefix(body, rebuildMarker)
+	if rebuild {
+		if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
+			return err
+		}
+		defer conn.ExecContext(context.WithoutCancel(ctx), "PRAGMA foreign_keys = ON")
+	}
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, body); err != nil {
+		return err
+	}
+	if rebuild {
+		rows, err := tx.QueryContext(ctx, "PRAGMA foreign_key_check")
+		if err != nil {
+			return err
+		}
+		broken := rows.Next()
+		rows.Close()
+		if broken {
+			return errors.New("a foreign key no longer holds")
+		}
+	}
+	// PRAGMA takes no parameters; n is an integer parsed from the name.
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", n)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+const columns = "id, name, description, architecture, size_bytes, sha256, create_time, update_time, input_shape, labels, features, job_id, accuracy, team_id, worker_id, columns"
 
 type scanner interface{ Scan(dest ...any) error }
 
 func scan(row scanner) (Model, error) {
 	var m Model
 	var created, updated int64
-	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated)
+	var shape, labels, features, cols string
+	var team sql.NullString
+	err := row.Scan(&m.ID, &m.Name, &m.Description, &m.Architecture, &m.SizeBytes, &m.SHA256, &created, &updated, &shape, &labels, &features, &m.JobID, &m.Accuracy, &team, &m.WorkerID, &cols)
+	m.Columns = fromJSON[[]schema.Column](cols)
+	m.TeamID = team.String
 	m.Created = time.UnixMilli(created).UTC()
 	m.Updated = time.UnixMilli(updated).UTC()
+	m.InputShape = fromJSON[[]int](shape)
+	m.Labels = fromJSON[[]string](labels)
+	m.Features = fromJSON[[]string](features)
 	return m, err
 }
 
-// List returns every model, newest first.
-func (s *Store) List(ctx context.Context) ([]Model, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+columns+" FROM models ORDER BY create_time DESC, id DESC LIMIT 1000")
+// List returns a team's models, newest first.
+func (s *Store) List(ctx context.Context, team string) ([]Model, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT "+columns+" FROM models WHERE team_id = ? ORDER BY create_time DESC, id DESC LIMIT 1000", team)
 	if err != nil {
 		return nil, fmt.Errorf("store: list: %w", err)
 	}
@@ -181,6 +239,9 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	m.ID, m.SizeBytes, m.SHA256 = id.String(), int64(len(weights)), hex.EncodeToString(sum[:])
 	m.Created, m.Updated = now, now
+	if m.TeamID == "" {
+		m.TeamID = DefaultTeam
+	}
 
 	// The file goes first and the row second, so a row never points at a
 	// missing file. A crash between the two leaves an orphan file, which is
@@ -189,13 +250,33 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	if err := writeFileAtomic(path, weights); err != nil {
 		return Model{}, fmt.Errorf("store: write weights: %w", err)
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		m.ID, m.Name, m.Description, m.Architecture, m.SizeBytes, m.SHA256, now.UnixMilli(), now.UnixMilli())
+	_, err = s.db.ExecContext(ctx, "INSERT INTO models ("+columns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		m.ID, m.Name, m.Description, m.Architecture, m.SizeBytes, m.SHA256, now.UnixMilli(), now.UnixMilli(),
+		toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, m.TeamID, m.WorkerID, toJSON(m.Columns))
 	if err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)
 	}
 	return m, nil
+}
+
+// Replace swaps a model's weights, shape, labels, columns and score for
+// those of a newer pass, keeping its id so apps keep working.
+func (s *Store) Replace(ctx context.Context, id string, m Model, weights []byte) error {
+	sum := sha256.Sum256(weights)
+	path := s.path(id)
+	if err := writeFileAtomic(path, weights); err != nil {
+		return fmt.Errorf("store: write weights: %w", err)
+	}
+	res, err := s.db.ExecContext(ctx, "UPDATE models SET size_bytes = ?, sha256 = ?, update_time = ?, input_shape = ?, labels = ?, features = ?, job_id = ?, accuracy = ?, columns = ? WHERE id = ?",
+		len(weights), hex.EncodeToString(sum[:]), time.Now().UTC().UnixMilli(), toJSON(m.InputShape), toJSON(m.Labels), toJSON(m.Features), m.JobID, m.Accuracy, toJSON(m.Columns), id)
+	if err != nil {
+		return fmt.Errorf("store: replace model: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Update changes a model's name and description and returns the result.
@@ -209,6 +290,18 @@ func (s *Store) Update(ctx context.Context, id, name, description string) (Model
 		return Model{}, ErrNotFound
 	}
 	return s.Get(ctx, id)
+}
+
+// SetModelWorker places a model on a worker, or "" for automatic.
+func (s *Store) SetModelWorker(ctx context.Context, id, workerID string) error {
+	res, err := s.db.ExecContext(ctx, "UPDATE models SET worker_id = ? WHERE id = ?", workerID, id)
+	if err != nil {
+		return fmt.Errorf("store: set model worker: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Delete removes a model's row and then its weights.
@@ -246,6 +339,24 @@ func (s *Store) path(id string) string {
 func ValidID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil && !strings.ContainsAny(id, `/\`)
+}
+
+// toJSON and fromJSON keep small lists in text columns. An empty list is
+// stored as "" so uploaded models read back with nil slices.
+func toJSON[T any](v T) string {
+	b, err := json.Marshal(v)
+	if err != nil || string(b) == "null" || string(b) == "[]" {
+		return ""
+	}
+	return string(b)
+}
+
+func fromJSON[T any](s string) T {
+	var v T
+	if s != "" {
+		json.Unmarshal([]byte(s), &v)
+	}
+	return v
 }
 
 func writeFileAtomic(path string, b []byte) error {

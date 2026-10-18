@@ -15,7 +15,9 @@ export function fromProto(a: Access | undefined): AccessValue {
 
 // AccessPicker chooses a role and which models it covers. maxRole is the
 // highest role the current person may hand out.
-export function AccessPicker({ value, onChange, maxRole, subject }: { value: AccessValue; onChange: (v: AccessValue) => void; maxRole: Role; subject: string }) {
+// otherTeam means the person is in a team whose models aren't listed here,
+// so only "all models" can be chosen.
+export function AccessPicker({ value, onChange, maxRole, subject, otherTeam = false }: { value: AccessValue; onChange: (v: AccessValue) => void; maxRole: Role; subject: string; otherTeam?: boolean }) {
   const { data } = useSuspenseQuery(listModels);
   const manager = value.role >= Role.ADMIN;
   return (
@@ -29,13 +31,13 @@ export function AccessPicker({ value, onChange, maxRole, subject }: { value: Acc
       </Radio.Group>
       <Radio.Group
         label="Which models?"
-        description={manager ? "Admins and owners always reach every model." : undefined}
+        description={manager ? "Admins and owners always reach every model in their team." : otherTeam ? "All of their team's models. To pick some, move yourself to that team first." : undefined}
         value={value.allModels || manager ? "all" : "some"}
         onChange={(v) => onChange({ ...value, allModels: v === "all" })}
       >
         <Stack gap="xs" mt="xs">
           <Radio value="all" label="All models, including ones added later" disabled={manager} />
-          <Radio value="some" label="Only the models I pick" disabled={manager} />
+          <Radio value="some" label="Only the models I pick" disabled={manager || otherTeam} />
         </Stack>
       </Radio.Group>
       {!value.allModels && !manager && (
@@ -53,10 +55,13 @@ export function AccessPicker({ value, onChange, maxRole, subject }: { value: Acc
   );
 }
 
-export function describe(a: Access | undefined, modelNames: Map<string, string>): string {
+// describe says what access covers. Without modelNames (another team's
+// models) it counts them instead of naming them.
+export function describe(a: Access | undefined, modelNames?: Map<string, string>): string {
   if (!a) return "";
   const role = roles.find((r) => r.value === a.role)?.label ?? "Unknown";
   if (a.allModels) return `${role} · all models`;
+  if (!modelNames) return `${role} · ${a.modelIds.length === 1 ? "1 model" : `${a.modelIds.length} models`}`;
   const names = a.modelIds.map((id) => modelNames.get(id) ?? "a deleted model");
   return `${role} · ${names.length === 0 ? "no models" : names.length <= 2 ? names.join(", ") : `${names.length} models`}`;
 }

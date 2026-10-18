@@ -116,7 +116,7 @@ func (s *Service) VerifySecondFactor(ctx context.Context, req *connect.Request[m
 		}
 		if !used {
 			s.Limiter.Fail(keys...)
-			s.audit(ctx, u.Email, "user.code_failed", u.Email, "recovery code")
+			s.auditIn(ctx, u.TeamID, u.Email, "user.code_failed", u.Email, "recovery code")
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("That recovery code isn't right, or was already used."))
 		}
 		res.UsedRecoveryCode, res.RecoveryCodesLeft = true, int32(left)
@@ -133,7 +133,7 @@ func (s *Service) VerifySecondFactor(ctx context.Context, req *connect.Request[m
 		}
 		if !ok {
 			s.Limiter.Fail(keys...)
-			s.audit(ctx, u.Email, "user.code_failed", u.Email, "")
+			s.auditIn(ctx, u.TeamID, u.Email, "user.code_failed", u.Email, "")
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("That code isn't right. Check the time on your phone and try again."))
 		}
 	}
@@ -144,8 +144,8 @@ func (s *Service) VerifySecondFactor(ctx context.Context, req *connect.Request[m
 	if _, err := s.signIn(ctx, req, out.Header(), u, false); err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	res.User = userProto(u)
-	s.audit(ctx, u.Email, "user.signin", u.Email, s.whence(req)+boolNote(" recovery code", res.UsedRecoveryCode))
+	res.User = s.userProto(ctx, u)
+	s.auditIn(ctx, u.TeamID, u.Email, "user.signin", u.Email, s.whence(req)+boolNote(" recovery code", res.UsedRecoveryCode))
 	return out, nil
 }
 

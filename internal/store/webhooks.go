@@ -19,6 +19,7 @@ type Webhook struct {
 	Events  []string // empty means every event
 	Enabled bool
 	Created time.Time
+	TeamID  string
 }
 
 // Wants reports whether the webhook subscribes to eventType.
@@ -60,15 +61,17 @@ type Delivery struct {
 	NextAttempt  time.Time
 }
 
-const webhookColumns = "id, name, url, secret, events, enabled, create_time"
+const webhookColumns = "id, name, url, secret, events, enabled, create_time, team_id"
 
 func scanWebhook(row scanner) (Webhook, error) {
 	var w Webhook
 	var events string
 	var created int64
-	if err := row.Scan(&w.ID, &w.Name, &w.URL, &w.Secret, &events, &w.Enabled, &created); err != nil {
+	var team sql.NullString
+	if err := row.Scan(&w.ID, &w.Name, &w.URL, &w.Secret, &events, &w.Enabled, &created, &team); err != nil {
 		return Webhook{}, err
 	}
+	w.TeamID = team.String
 	w.Created = time.UnixMilli(created).UTC()
 	if err := json.Unmarshal([]byte(events), &w.Events); err != nil {
 		return Webhook{}, fmt.Errorf("store: webhook %s events: %w", w.ID, err)
@@ -91,8 +94,11 @@ func (s *Store) CreateWebhook(ctx context.Context, w Webhook) (Webhook, error) {
 		return Webhook{}, err
 	}
 	w.ID, w.Created = id, time.Now().UTC().Truncate(time.Millisecond)
-	_, err = s.db.ExecContext(ctx, "INSERT INTO webhooks ("+webhookColumns+") VALUES (?, ?, ?, ?, ?, ?, ?)",
-		w.ID, w.Name, w.URL, w.Secret, eventsJSON(w.Events), w.Enabled, millis(w.Created))
+	if w.TeamID == "" {
+		w.TeamID = DefaultTeam
+	}
+	_, err = s.db.ExecContext(ctx, "INSERT INTO webhooks ("+webhookColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		w.ID, w.Name, w.URL, w.Secret, eventsJSON(w.Events), w.Enabled, millis(w.Created), w.TeamID)
 	if err != nil {
 		return Webhook{}, fmt.Errorf("store: insert webhook: %w", err)
 	}
@@ -108,9 +114,9 @@ func (s *Store) GetWebhook(ctx context.Context, id string) (Webhook, error) {
 	return w, err
 }
 
-// ListWebhooks returns every webhook, oldest first.
-func (s *Store) ListWebhooks(ctx context.Context) ([]Webhook, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+webhookColumns+" FROM webhooks ORDER BY create_time, id LIMIT 1000")
+// ListWebhooks returns a team's webhooks, oldest first.
+func (s *Store) ListWebhooks(ctx context.Context, team string) ([]Webhook, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT "+webhookColumns+" FROM webhooks WHERE team_id = ? ORDER BY create_time, id LIMIT 1000", team)
 	if err != nil {
 		return nil, fmt.Errorf("store: list webhooks: %w", err)
 	}
@@ -163,11 +169,12 @@ func scanDelivery(row scanner) (Delivery, error) {
 	return d, err
 }
 
-// Enqueue adds one pending delivery per enabled webhook that wants the
-// event, in the same transaction as nothing else: callers write their own
-// change first, so an event is never announced for a change that failed.
-func (s *Store) Enqueue(ctx context.Context, eventID, eventType, payload string) (int, error) {
-	hooks, err := s.ListWebhooks(ctx)
+// Enqueue adds one pending delivery per enabled webhook of the team that
+// wants the event, in the same transaction as nothing else: callers write
+// their own change first, so an event is never announced for a change that
+// failed.
+func (s *Store) Enqueue(ctx context.Context, team, eventID, eventType, payload string) (int, error) {
+	hooks, err := s.ListWebhooks(ctx, team)
 	if err != nil {
 		return 0, err
 	}
@@ -302,6 +309,7 @@ func (s *Store) Trim(ctx context.Context, auditKeep, deliveryKeep time.Duration)
 		{"DELETE FROM audit_events WHERE time < ?", millis(now.Add(-auditKeep))},
 		{"DELETE FROM deliveries WHERE status <> 1 AND create_time < ?", millis(now.Add(-deliveryKeep))},
 		{"DELETE FROM sessions WHERE expire_time <= ?", millis(now)},
+		{"DELETE FROM worker_samples WHERE time < ?", millis(now.Add(-WorkerSampleKeep))},
 	} {
 		res, err := s.db.ExecContext(ctx, q.sql, q.arg)
 		if err != nil {
@@ -312,6 +320,9 @@ func (s *Store) Trim(ctx context.Context, auditKeep, deliveryKeep time.Duration)
 	}
 	return total, nil
 }
+
+// WorkerSampleKeep is how long worker stats are kept for charts.
+const WorkerSampleKeep = 7 * 24 * time.Hour
 
 // Stats describes the database for the Settings screen.
 type Stats struct {

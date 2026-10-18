@@ -47,14 +47,15 @@ func (r Result) Top(labels []string, k int) []Guess {
 	return gs[:min(k, len(gs))]
 }
 
-// Build loads weights into a new module of architecture a, ready for
-// inference. It fails with ErrBadWeights when the file does not match.
-func Build(a arch.Architecture, weights []byte) (nn.Module, error) {
+// Build loads weights into a new module of architecture a shaped by spec,
+// ready for inference. It fails with ErrBadWeights when the file does not
+// match.
+func Build(a arch.Architecture, spec arch.Spec, weights []byte) (nn.Module, error) {
 	f, err := safetensors.Parse(weights)
 	if err != nil {
 		return nil, fmt.Errorf("%w: not a safetensors file: %v", ErrBadWeights, err)
 	}
-	m := a.New()
+	m := a.New(spec)
 	if err := nn.Load(f, m); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
 	}
@@ -79,28 +80,28 @@ type entry struct {
 // NewCache returns an empty cache.
 func NewCache() *Cache { return &Cache{loaded: map[string]*entry{}} }
 
-// Predict runs input, shaped like a's InputShape, through the model with id,
-// loading it with load on first use.
-func (c *Cache) Predict(ctx context.Context, id string, a arch.Architecture, load func() ([]byte, error), input []float32) (Result, error) {
+// Predict runs input, shaped like spec's InputShape, through the model
+// with id, loading it with load on first use.
+func (c *Cache) Predict(ctx context.Context, id string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (Result, error) {
 	want := 1
-	for _, d := range a.InputShape {
+	for _, d := range spec.InputShape {
 		want *= d
 	}
 	if len(input) != want {
-		return Result{}, fmt.Errorf("%w: got %d values, want %d (shape %v)", ErrBadInput, len(input), want, a.InputShape)
+		return Result{}, fmt.Errorf("%w: got %d values, want %d (shape %v)", ErrBadInput, len(input), want, spec.InputShape)
 	}
 	e := c.entry(id)
 	e.once.Do(func() {
 		var w []byte
 		if w, e.err = load(); e.err == nil {
-			e.mod, e.err = Build(a, w)
+			e.mod, e.err = Build(a, spec, w)
 		}
 	})
 	if e.err != nil {
 		c.Forget(id) // let the next request try again
 		return Result{}, e.err
 	}
-	shape := append([]int{1}, a.InputShape...)
+	shape := append([]int{1}, spec.InputShape...)
 	logits := e.mod.Forward(tensor.FromSlice(input, shape...)).Reshape(-1)
 	probs := logits.Softmax(-1)
 	if err := tensor.Realize(ctx, logits, probs); err != nil { // one schedule for both

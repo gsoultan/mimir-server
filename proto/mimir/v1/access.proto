@@ -100,6 +100,10 @@ message User {
   google.protobuf.Timestamp last_sign_in_time = 7;
   // TwoFactor is true once the person confirmed an authenticator app.
   bool two_factor = 8;
+  // The team the person belongs to. They see only its models, examples,
+  // training runs, webhooks and audit events.
+  string team_id = 9;
+  string team_name = 10;
 }
 
 message GetSetupStateRequest {}
@@ -232,6 +236,9 @@ message CreateUserRequest {
   // it after signing in.
   string password = 3;
   Access access = 4;
+  // team_id puts the person in a team; only owners may pick one other than
+  // their own. Empty means the caller's team.
+  string team_id = 5;
 }
 
 message CreateUserResponse {
@@ -249,6 +256,9 @@ message UpdateUserRequest {
   // ResetTwoFactor turns off the user's authenticator so they can sign in
   // with their password alone, for when they lost their phone.
   bool reset_two_factor = 6;
+  // team_id, when set and different, moves the person to that team (owners
+  // only). It signs them out and revokes their API keys.
+  string team_id = 7;
 }
 
 message UpdateUserResponse {
@@ -306,6 +316,8 @@ message AuditEvent {
   // Target is what it happened to, such as a model's name.
   string target = 5;
   string detail = 6;
+  // team_name is the team it happened in; owners see every team's events.
+  string team_name = 7;
 }
 
 message ListAuditEventsRequest {
