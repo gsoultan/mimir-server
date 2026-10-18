@@ -24,6 +24,8 @@ const (
 	// PhotoTable is a photo and a row of numbers side by side, flattened
 	// into one shape [schema.PhotoPixels + features].
 	PhotoTable Input = "photo_table"
+	// Tensor is raw numbers in the shape a Mimir Model file declares.
+	Tensor Input = "tensor"
 )
 
 // Output is what an architecture answers.
@@ -178,7 +180,12 @@ type Architecture struct {
 	// dataset.
 	Spec Spec
 	// New builds the module with freshly initialized weights for spec.
+	// It is nil for a File architecture.
 	New func(spec Spec) nn.Module
+	// File marks the architecture of Mimir Model (.mim) files, which hold
+	// their model's graph as well as its weights and so run as they are.
+	// Their shape and labels come from the file.
+	File bool
 }
 
 // Answers returns what the architecture answers.
@@ -193,7 +200,7 @@ func (a Architecture) Answers() Output {
 func (a Architecture) Fixed() bool { return len(a.Spec.InputShape) > 0 }
 
 // Trainable reports whether the server can teach models of this shape.
-func (a Architecture) Trainable() bool { return true }
+func (a Architecture) Trainable() bool { return !a.File }
 
 var digits = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
 
@@ -282,6 +289,13 @@ var builtin = []Architecture{
 			p.Head = nn.NewSequential(nn.NewLinear(width, 64), nn.ReLU(), nn.NewLinear(64, len(s.Labels)))
 			return p
 		},
+	},
+	{
+		Name:        "mim",
+		Title:       "Mimir Model file",
+		Description: "Any model saved as a .mim file, by mimir's mim.Export or by converting a PyTorch, ONNX, GGUF or safetensors model. The file holds the whole model, so it runs as it is.",
+		Input:       Tensor,
+		File:        true,
 	},
 }
 

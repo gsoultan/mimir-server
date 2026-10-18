@@ -7,7 +7,7 @@ require (
 	connectrpc.com/grpchealth v1.5.0
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
-	github.com/gsoultan/mimir v0.0.0-20261016011332-dc0a1d30ead6
+	github.com/gsoultan/mimir v0.0.0-20261018053449-6d53facf4c27
 	github.com/jackc/pgx/v5 v5.11.0
 	golang.org/x/crypto v0.58.0
 	google.golang.org/protobuf v1.36.12
@@ -18,9 +18,11 @@ require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.11.1 // indirect
+	github.com/gsoultan/mim v0.0.0-20261018040759-70ce158f529a // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
@@ -31,3 +33,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
+
+replace github.com/gsoultan/mim => github.com/gsoultan/mmf v0.0.0-20261018040759-70ce158f529a
