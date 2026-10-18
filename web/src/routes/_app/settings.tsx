@@ -76,8 +76,8 @@ function Database() {
   const { data } = useSuspenseQuery(databaseInfo);
   const upToDate = data.schemaVersion === data.latestSchemaVersion;
   const facts: [string, string][] = [
-    ["Engine", "SQLite, built in"],
-    ["File", data.path],
+    ["Engine", "PostgreSQL"],
+    ["Server", data.path],
     ["Size", bytes(data.sizeBytes)],
     ["Models", String(data.models)],
     ["People", String(data.users)],
@@ -102,13 +102,8 @@ function Database() {
       <Stack>
         <Card withBorder radius="lg" padding="lg">
           <Title order={2} fz="lg">Back it up</Title>
-          <Text size="sm" c="dimmed" mb="md">Download a copy of the database: people, keys, settings and model details. Model files live next to it in the data folder and aren't included.</Text>
+          <Text size="sm" c="dimmed" mb="md">Download a copy of the database, made with pg_dump in its custom format: people, keys, settings and model details. Restore it with pg_restore. The server needs pg_dump installed for this; without it, run pg_dump yourself. Model files live in the data folder and aren't included.</Text>
           <Button component="a" href="/api/backup" download leftSection={<IconDownload size={18} />}>Download a backup</Button>
-        </Card>
-        <Card withBorder radius="lg" padding="lg" className="border-dashed">
-          <Badge variant="light" mb="xs">Coming soon</Badge>
-          <Text fw={600}>Move to PostgreSQL</Text>
-          <Text size="sm" c="dimmed">For a server with many people and workers.</Text>
         </Card>
       </Stack>
     </SimpleGrid>

@@ -23,6 +23,8 @@ github.com/gsoultan/mimir v0.0.0-20261018101107-3d5242f815c4 h1:Uz2c7/tV101MHrle
 github.com/gsoultan/mimir v0.0.0-20261018101107-3d5242f815c4/go.mod h1:ETy6/f6PLIdBlbCwsESdWBlqNn1kopvlKpNAjPNPH40=
 github.com/gsoultan/mimir-model v0.0.0-20261018100945-b05abe798cbb h1:QzThWya60C1IyrYzAq7sRIAAHMr404+URHT0VrPsBUg=
 github.com/gsoultan/mimir-model v0.0.0-20261018100945-b05abe798cbb/go.mod h1:VpI+gj4GV7T7E6MXyWIwp8X+a1RAfDW4ldNYracFp4M=
+github.com/gsoultan/storm v1.2.0 h1:e1N7FezjszNo1UkCgB+f6WZJ37osgWFzr406P/6LZ9E=
+github.com/gsoultan/storm v1.2.0/go.mod h1:2I/uTOv2r2AJYZtkAi7b4IFq9wvEGI/B8+lCCPTX2fE=
 github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k=
 github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=

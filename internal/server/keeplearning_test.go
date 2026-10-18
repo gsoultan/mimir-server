@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -62,11 +63,29 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 	if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: conn, Query: "SELECT * FROM nothing"})); code(err) != connect.CodeInvalidArgument {
 		t.Fatalf("bad query: %v", err)
 	}
-	// The server's own database is off limits.
-	own.models.ListModels(ctx, connect.NewRequest(&mimirv1.ListModelsRequest{}))
-	mine := &mimirv1.Connection{Driver: "sqlite", Dsn: filepath.Join(svc.DataDir(), "mimir.db")}
-	if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: mine, Query: "SELECT email, password_hash FROM users"})); code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "own data") {
-		t.Fatalf("own database: %v", err)
+	// The server's own files are off limits: a SQLite file in its data
+	// folder is refused before it is opened.
+	ownFile := filepath.Join(svc.DataDir(), "copy.db")
+	if b, err := os.ReadFile(path); err != nil || os.WriteFile(ownFile, b, 0o600) != nil {
+		t.Fatal(err)
+	}
+	// SQLite decodes a URI's path, so a percent-encoded spelling of the
+	// same file is refused too.
+	dir, base := filepath.Split(ownFile)
+	encoded := "file:" + strings.Replace(dir, "/", "%2F", 1) + strings.Replace(base, ".", "%2e", 1)
+	for _, dsn := range []string{ownFile, "file:" + ownFile, encoded, "file://localhost" + ownFile} {
+		mine := &mimirv1.Connection{Driver: "sqlite", Dsn: dsn}
+		if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: mine, Query: "SELECT width, height, kind FROM fruit"})); code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "own data") {
+			t.Fatalf("own data folder %s: %v", dsn, err)
+		}
+	}
+	// So is its own PostgreSQL database, which holds password hashes and
+	// sessions, however the URL is spelled.
+	for _, dsn := range []string{dbURL, strings.Replace(dbURL, "127.0.0.1", "localhost", 1)} {
+		ours := &mimirv1.Connection{Driver: "postgres", Dsn: dsn}
+		if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: ours, Query: "SELECT email, password_hash FROM users"})); code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "own database") {
+			t.Fatalf("own database %s: %v", dsn, err)
+		}
 	}
 	// Only admins connect databases.
 	own.users.CreateUser(ctx, connect.NewRequest(&mimirv1.CreateUserRequest{Email: "e@example.com", Name: "E", Password: password, Access: &mimirv1.Access{Role: mimirv1.Role_ROLE_EDITOR, AllModels: true}}))
@@ -107,6 +126,13 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 		t.Fatalf("model accuracy %v", m1.Msg.GetModel().GetAccuracy())
 	}
 
+	// Answer once so the first version is loaded; the second pass must
+	// replace it rather than keep serving it.
+	if _, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: modelID, Input: &mimirv1.Tensor{Values: []float32{-1, -1}}})); err != nil {
+		t.Fatal(err)
+	}
+	before := m1.Msg.GetModel().GetUpdateTime().AsTime()
+
 	// Nothing is due yet.
 	runner.Tick(ctx)
 	if ls, _ := own.training.ListJobs(ctx, connect.NewRequest(&mimirv1.ListJobsRequest{})); len(ls.Msg.GetJobs()) != 1 {
@@ -136,6 +162,9 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 	}
 	if ms, _ := own.models.ListModels(ctx, connect.NewRequest(&mimirv1.ListModelsRequest{})); len(ms.Msg.GetModels()) != 1 {
 		t.Fatalf("models after second pass: %d", len(ms.Msg.GetModels()))
+	}
+	if m2, _ := own.models.GetModel(ctx, connect.NewRequest(&mimirv1.GetModelRequest{Id: modelID})); !m2.Msg.GetModel().GetUpdateTime().AsTime().After(before) {
+		t.Fatal("the second pass left the weights unchanged")
 	}
 	p, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: modelID, Input: &mimirv1.Tensor{Values: []float32{-1, -1}}}))
 	if err != nil || p.Msg.GetGuesses()[0].GetLabel() != "pear" {

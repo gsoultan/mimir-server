@@ -38,7 +38,8 @@ func main() {
 
 func run() error {
 	addr := flag.String("addr", ":8080", "address to listen on")
-	data := flag.String("data", "./data", "directory for the database and model files")
+	data := flag.String("data", "./data", "directory for model weights, datasets and training checkpoints")
+	databaseURL := flag.String("database-url", os.Getenv("MIMIR_DATABASE_URL"), "console: the PostgreSQL database for the server's own records, such as postgres://mimir:secret@localhost:5432/mimir ($MIMIR_DATABASE_URL)")
 	allowPrivate := flag.Bool("allow-private-webhooks", false, "let webhooks point at local and private addresses (for development)")
 	role := flag.String("role", "standalone", "standalone (the console and a worker in one), console (the web app and API; workers run the models) or worker (runs models for a console)")
 	tlsCert := flag.String("tls-cert", "", "console: serve TLS with this certificate file")
@@ -79,11 +80,15 @@ func run() error {
 	}
 	local := *role == "standalone"
 
-	st, err := store.Open(ctx, *data)
+	if *databaseURL == "" {
+		return errors.New("the console keeps its records in PostgreSQL: pass -database-url or set $MIMIR_DATABASE_URL, such as postgres://mimir:secret@localhost:5432/mimir")
+	}
+	st, err := store.Open(ctx, *databaseURL, *data)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
+	log.Info("database ready", "database", store.Redact(*databaseURL), "migration_steps", st.Applied())
 
 	svc := api.New(st, log)
 	svc.AllowPrivateWebhooks = *allowPrivate
@@ -102,7 +107,13 @@ func run() error {
 	// server stops.
 	var bg sync.WaitGroup
 	bgCtx, stopBg := context.WithCancel(context.Background())
-	defer stopBg()
+	// Deferred after st.Close, so it runs first: on every way out the
+	// background work stops and finishes, including the last usage flush,
+	// before the database closes under it.
+	defer func() {
+		stopBg()
+		bg.Wait()
+	}()
 	dispatcher := webhook.New(st, log, *allowPrivate)
 	dispatcher.OnGiveUp = func(ctx context.Context, w store.Webhook, d store.Delivery) {
 		svc.Notifier.Notify(ctx, "Webhook "+w.Name+" is failing",
@@ -185,11 +196,12 @@ func run() error {
 	log.Info("shutting down")
 	shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	// A connected worker's link never ends on its own, so Shutdown runs out
+	// of time whenever one is connected; close what is left and carry on.
 	if err := srv.Shutdown(shutdown); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+		log.Warn("shutdown: closing connections still open", "error", err)
+		srv.Close()
 	}
-	stopBg()
-	bg.Wait()
 	return nil
 }
 

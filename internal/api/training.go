@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -173,8 +174,10 @@ func (s *Service) fetch(ctx context.Context, conn *mimirv1.Connection, query str
 	if driver == "sqlite" {
 		// The server's own database and files are off limits: they hold
 		// password hashes and sessions.
-		path := strings.TrimPrefix(dsn, "file:")
-		path, _, _ = strings.Cut(path, "?")
+		path, ok := sqlitePath(dsn)
+		if !ok {
+			return dbsource.Result{}, invalid("That file path isn't valid.")
+		}
 		abs, err := filepath.Abs(path)
 		if err != nil {
 			return dbsource.Result{}, invalid("That file path isn't valid.")
@@ -190,6 +193,9 @@ func (s *Service) fetch(ctx context.Context, conn *mimirv1.Connection, query str
 			return dbsource.Result{}, invalid("That file is part of this server's own data. Point at another database.")
 		}
 	}
+	if driver == "postgres" && s.store.IsOwnDatabase(dsn) {
+		return dbsource.Result{}, invalid("That is this server's own database. Point at another database.")
+	}
 	r, err := dbsource.Fetch(ctx, driver, dsn, query, training.MaxRows)
 	if errors.Is(err, dbsource.ErrBadQuery) {
 		return dbsource.Result{}, invalid("%s", strings.TrimPrefix(err.Error(), "dbsource: bad query: "))
@@ -198,6 +204,28 @@ func (s *Service) fetch(ctx context.Context, conn *mimirv1.Connection, query str
 		return dbsource.Result{}, s.internal(ctx, err)
 	}
 	return r, nil
+}
+
+// sqlitePath returns the file a SQLite connection opens. dbsource always
+// opens it as a URI, and SQLite decodes a URI's path, so "dat%61/x.db" is
+// "data/x.db": the path is checked as SQLite will read it. A URI naming a
+// host other than localhost is refused.
+func sqlitePath(dsn string) (string, bool) {
+	path := strings.TrimPrefix(dsn, "file:")
+	path, _, _ = strings.Cut(path, "#")
+	path, _, _ = strings.Cut(path, "?")
+	if rest, ok := strings.CutPrefix(path, "//"); ok {
+		host, p, found := strings.Cut(rest, "/")
+		if !found || (host != "" && host != "localhost") {
+			return "", false
+		}
+		path = "/" + p
+	}
+	path, err := url.PathUnescape(path)
+	if err != nil || path == "" || strings.ContainsRune(path, 0) {
+		return "", false
+	}
+	return path, true
 }
 
 // openBucket checks a storage connection.

@@ -4,19 +4,29 @@ A server for [mimir](https://github.com/gsoultan/mimir) models. Upload a
 model's weights, then ask it questions from the web UI, over HTTP/JSON, or
 over gRPC, all on one port.
 
-One binary, a SQLite database, a model store, prediction, training from
+One binary, a PostgreSQL database, a model store, prediction, training from
 your own examples, accounts with roles and per-model access, API keys, an
 audit log, webhooks, alerts, log retention, database backup and the web
 UI, and workers on other machines that run and teach models for it.
 
 ## Run it
 
-You need Go 1.27 and [Bun](https://bun.sh).
+You need Go 1.27, [Bun](https://bun.sh) and PostgreSQL (14 or later).
 
 ```sh
 make            # builds the web UI, then bin/mimir-server with it embedded
-./bin/mimir-server -addr :8080 -data ./data
+createdb mimir
+./bin/mimir-server -addr :8080 -data ./data \
+  -database-url 'postgres://mimir:secret@localhost:5432/mimir?sslmode=disable'
 ```
+
+The server keeps its accounts, models, runs and settings in PostgreSQL;
+`-database-url` (or `MIMIR_DATABASE_URL`) is required for the standalone
+and console roles. On start it brings the schema up to date by itself
+(only the first start or an upgrade changes anything), so the role needs
+`CREATE` on the database. Pool options such as `pool_max_conns=32` may go
+in the URL; the default is at most 16 connections. Model weights and
+uploaded examples stay as files in the `-data` folder.
 
 Open http://localhost:8080. The first visit asks you to make the owner
 account. Then choose **Add a model**, pick the model type and upload a
@@ -353,9 +363,13 @@ Owners find these under **Settings**; admins see their team's
   failing. Each has a test button.
 - **Log retention**: how long audit events and webhook deliveries are kept.
   A cleanup runs every hour.
-- **Database**: engine, file, size and counts, plus **Download a backup**
-  (`GET /api/backup`, owners only), a consistent copy of the SQLite file.
-  Model weights live next to it in the data folder.
+- **Database**: engine, server (password hidden), size and counts, plus
+  **Download a backup** (`GET /api/backup`, owners only): a consistent
+  `pg_dump --format=custom` copy, restored with `pg_restore`. The server
+  needs `pg_dump` on its `PATH` for this (same major version as the
+  database or newer); without it the download fails with HTTP 501 and you
+  run `pg_dump` yourself. Model weights live in the data folder; back that
+  up too.
 - **Limits**: how many predictions each API key or person may make a minute,
   how many each person may make a month (all their keys together), and how
   many training runs each person may have waiting or learning at once. 0
@@ -384,6 +398,10 @@ Webhooks may point at local addresses. Stop everything with Ctrl+C.
 | `MIMIR_DEV_ADDR` | `localhost:8080` | Where the Go server listens |
 | `MIMIR_DEV_ARGS` | | Extra server flags, such as `-role console` |
 
+Tests that need a database read `MIMIR_TEST_DATABASE_URL`, a PostgreSQL
+URL whose role may create databases; each test makes its own database and
+drops it after. Without it those tests are skipped.
+
 ```sh
 make test       # go vet, go test, web typecheck and unit tests
 make gen        # regenerate code after editing proto/ (needs protoc-gen-go
@@ -398,7 +416,29 @@ make gen        # regenerate code after editing proto/ (needs protoc-gen-go
 | `internal/alert` | Email and Telegram alerts |
 | `internal/auth` | Passwords, sessions, API keys, permissions |
 | `internal/runtime` | Loads weights into mimir and runs them |
-| `internal/store` | SQLite metadata and weight files |
+| `internal/store` | PostgreSQL metadata (through [storm](https://github.com/gsoultan/storm)) and weight files |
 | `internal/webhook` | Signing, delivery and retries |
 | `internal/server` | HTTP wiring, health, web UI serving |
 | `web` | React 19, Mantine 9, TanStack Router and Query, Connect, PWA |
+
+### The database schema
+
+The tables are Go structs in `internal/store/tables`. The typed query code
+in `internal/store/db` and the migrations in `internal/store/migrations`
+are generated from them with storm's CLI
+(`go install github.com/gsoultan/storm/cmd/storm@v1.2.0`), and both are
+committed. After changing a struct, against a scratch PostgreSQL database:
+
+```sh
+export STORM_DSN='postgres://postgres@localhost:5432/scratch?sslmode=disable'
+storm diff <change_name> -out internal/store/migrations   # new migration
+storm generate internal/store/db                          # query code
+storm verify -stale internal/store/db                     # what CI checks
+storm verify -pending -out internal/store/migrations
+```
+
+At start the server brings the database up to the structs with storm's
+automigrate, in one transaction under an advisory lock, so several servers
+starting together are safe. The files in `internal/store/migrations` are
+the reviewed SQL for each change (embedded in the binary), and CI fails
+when they or the generated code fall behind the structs.
