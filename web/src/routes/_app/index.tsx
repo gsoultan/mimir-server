@@ -33,7 +33,7 @@ function Home() {
           <Card withBorder radius="lg" padding="xl">
             <ThemeIcon size={44} radius="md" variant="light"><IconUpload /></ThemeIcon>
             <Title order={3} mt="md">Add a model you already have</Title>
-            <Text c="dimmed" mt={4} mb="lg">Upload a .safetensors or .mim file saved from mimir. It takes a minute.</Text>
+            <Text c="dimmed" mt={4} mb="lg">Upload a .mim file saved from mimir. It takes a minute.</Text>
             <ButtonLink to="/models/new">Add a model</ButtonLink>
           </Card>
           <Card withBorder radius="lg" padding="xl">

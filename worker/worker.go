@@ -36,7 +36,7 @@ import (
 )
 
 // Model is a stored model the server asks a worker to run. Weights are the
-// safetensors file the server holds for it.
+// Mimir Model file the server holds for it.
 type Model struct {
 	ID           string
 	Architecture string
