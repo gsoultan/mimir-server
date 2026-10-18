@@ -7,8 +7,8 @@ require (
 	connectrpc.com/grpchealth v1.5.0
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
-	github.com/gsoultan/mim v0.0.0-20261018040759-70ce158f529a
-	github.com/gsoultan/mimir v0.0.0-20261018061854-f40544ba8372
+	github.com/gsoultan/mimir v0.0.0-20261018101107-3d5242f815c4
+	github.com/gsoultan/mimir-model v0.0.0-20261018100945-b05abe798cbb
 	github.com/jackc/pgx/v5 v5.11.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sync v0.24.0
@@ -33,5 +33,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
-
-replace github.com/gsoultan/mim => github.com/gsoultan/mmf v0.0.0-20261018040759-70ce158f529a
