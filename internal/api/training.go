@@ -711,11 +711,7 @@ func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 
 func jobEvent(j store.Job, datasetName string) map[string]any {
 	return map[string]any{
-		"id": j.ID, "name": j.Name, "architecture": j.Architecture, "dataset": datasetName, "status": statusWord(j.Status),
+		"id": j.ID, "name": j.Name, "architecture": j.Architecture, "dataset": datasetName, "status": j.Status.String(),
 		"epoch": j.Epoch, "epochs": j.Settings.Epochs, "accuracy": accuracy(j), "model_id": j.ModelID, "error": j.Error,
 	}
-}
-
-func statusWord(s store.JobStatus) string {
-	return [...]string{"", "queued", "running", "succeeded", "failed", "cancelled"}[s]
 }

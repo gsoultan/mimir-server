@@ -21,21 +21,21 @@ var (
 // replaced by their scalar foreign keys and *T rewritten to Null[T].
 type Row struct {
 	ID           string
+	CreateTime   time.Time
 	Name         string
+	TeamID       runtime.Null[string]
 	Kind         int32
 	Rows         int64
-	Features     string
-	Labels       string
-	InputShape   string
+	Features     []string
+	Labels       []string
+	InputShape   []int64
 	Target       string
 	SizeBytes    int64
-	CreateTime   time.Time
 	Driver       string
 	Dsn          string
 	SourceQuery  string
 	RefreshTime  runtime.Null[time.Time]
-	TeamID       runtime.Null[string]
-	Columns      string
+	Columns      runtime.JSON
 	NumberTarget bool
 	Skipped      int64
 }
@@ -86,11 +86,12 @@ type Query struct {
 	nt   uint8
 	top  uint8 // top-level conjuncts, ANDed at compile time
 
-	strs             [6]string
-	nums             [6]int64
-	tims             [4]time.Time
-	bools            [4]bool
-	ns, nn, ntm, nbo uint8
+	strs                  [6]string
+	nums                  [6]int64
+	tims                  [4]time.Time
+	bools                 [4]bool
+	jsns                  [2]runtime.JSON
+	ns, nn, ntm, nbo, njs uint8
 
 	anyStr            [3][]string
 	anyI32            [3][]int32
@@ -198,110 +199,82 @@ func (q *Query) cursor(col uint32, r Row) {
 		q.strs[q.ns] = r.ID
 		q.ns++
 	case 1:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Name
-		q.ns++
-	case 2:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.Kind)
-		q.nn++
-	case 3:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.Rows)
-		q.nn++
-	case 4:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Features
-		q.ns++
-	case 5:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Labels
-		q.ns++
-	case 6:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.InputShape
-		q.ns++
-	case 7:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Target
-		q.ns++
-	case 8:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.SizeBytes)
-		q.nn++
-	case 9:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.CreateTime
 		q.ntm++
-	case 10:
+	case 2:
 		if int(q.ns) >= len(q.strs) {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = r.Driver
+		q.strs[q.ns] = r.Name
 		q.ns++
-	case 11:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Dsn
-		q.ns++
-	case 12:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.SourceQuery
-		q.ns++
-	case 13:
-		if int(q.ntm) >= len(q.tims) {
-			q.over = true
-			return
-		}
-		q.tims[q.ntm] = r.RefreshTime.V
-		q.ntm++
-	case 14:
+	case 3:
 		if int(q.ns) >= len(q.strs) {
 			q.over = true
 			return
 		}
 		q.strs[q.ns] = r.TeamID.V
 		q.ns++
-	case 15:
+	case 4:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.Kind)
+		q.nn++
+	case 5:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.Rows)
+		q.nn++
+	case 9:
 		if int(q.ns) >= len(q.strs) {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = r.Columns
+		q.strs[q.ns] = r.Target
 		q.ns++
+	case 10:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.SizeBytes)
+		q.nn++
+	case 11:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Driver
+		q.ns++
+	case 12:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Dsn
+		q.ns++
+	case 13:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.SourceQuery
+		q.ns++
+	case 14:
+		if int(q.ntm) >= len(q.tims) {
+			q.over = true
+			return
+		}
+		q.tims[q.ntm] = r.RefreshTime.V
+		q.ntm++
 	case 16:
 		if int(q.nbo) >= len(q.bools) {
 			q.over = true
@@ -467,6 +440,7 @@ type Pred struct {
 	str    string
 	tim    time.Time
 	bol    bool
+	jsn    runtime.JSON
 	anyStr []string
 	anyI32 []int32
 	anyI64 []int64
@@ -484,21 +458,21 @@ func b2i(b bool) int64 {
 // Age.Like(...) fail to compile.
 var (
 	ID           = TextCol{0}
-	Name         = TextCol{1}
-	Kind         = Int32Col{2}
-	Rows         = Int64Col{3}
-	Features     = TextCol{4}
-	Labels       = TextCol{5}
-	InputShape   = TextCol{6}
-	Target       = TextCol{7}
-	SizeBytes    = Int64Col{8}
-	CreateTime   = TimeCol{9}
-	Driver       = TextCol{10}
-	Dsn          = TextCol{11}
-	SourceQuery  = TextCol{12}
-	RefreshTime  = NullTimeCol{13}
-	TeamID       = NullTextCol{14}
-	Columns      = TextCol{15}
+	CreateTime   = TimeCol{1}
+	Name         = TextCol{2}
+	TeamID       = NullTextCol{3}
+	Kind         = Int32Col{4}
+	Rows         = Int64Col{5}
+	Features     = TextArrayCol{6}
+	Labels       = TextArrayCol{7}
+	InputShape   = Int64ArrayCol{8}
+	Target       = TextCol{9}
+	SizeBytes    = Int64Col{10}
+	Driver       = TextCol{11}
+	Dsn          = TextCol{12}
+	SourceQuery  = TextCol{13}
+	RefreshTime  = NullTimeCol{14}
+	Columns      = JSONCol{15}
 	NumberTarget = BoolCol{16}
 	Skipped      = Int64Col{17}
 )
@@ -530,6 +504,55 @@ func (h TextCol) In(v ...string) Pred   { return Pred{col: h.c, op: opIn, anyStr
 // comparison NULL for every row and the result empty —
 // PostgreSQL's rule for NOT IN, not storm's.
 func (h TextCol) NotIn(v ...string) Pred { return Pred{col: h.c, op: opNotIn, anyStr: v} }
+
+// TimeCol addresses a timestamptz column.
+type TimeCol struct{ c uint8 }
+
+func (h TimeCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h TimeCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h TimeCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h TimeCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+func (h TimeCol) Eq(v time.Time) Pred    { return Pred{col: h.c, op: opEq, tim: v} }
+func (h TimeCol) NotEq(v time.Time) Pred { return Pred{col: h.c, op: opNotEq, tim: v} }
+func (h TimeCol) Gt(v time.Time) Pred    { return Pred{col: h.c, op: opGt, tim: v} }
+func (h TimeCol) Gte(v time.Time) Pred   { return Pred{col: h.c, op: opGte, tim: v} }
+func (h TimeCol) Lt(v time.Time) Pred    { return Pred{col: h.c, op: opLt, tim: v} }
+func (h TimeCol) Lte(v time.Time) Pred   { return Pred{col: h.c, op: opLte, tim: v} }
+
+// NullTextCol addresses a text column.
+type NullTextCol struct{ c uint8 }
+
+func (h NullTextCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h NullTextCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h NullTextCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h NullTextCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+func (h NullTextCol) Eq(v string) Pred      { return Pred{col: h.c, op: opEq, str: v} }
+func (h NullTextCol) NotEq(v string) Pred   { return Pred{col: h.c, op: opNotEq, str: v} }
+func (h NullTextCol) Gt(v string) Pred      { return Pred{col: h.c, op: opGt, str: v} }
+func (h NullTextCol) Gte(v string) Pred     { return Pred{col: h.c, op: opGte, str: v} }
+func (h NullTextCol) Lt(v string) Pred      { return Pred{col: h.c, op: opLt, str: v} }
+func (h NullTextCol) Lte(v string) Pred     { return Pred{col: h.c, op: opLte, str: v} }
+func (h NullTextCol) EqLower(v string) Pred { return Pred{col: h.c, op: opEqLower, str: v} }
+func (h NullTextCol) Like(v string) Pred    { return Pred{col: h.c, op: opLike, str: v} }
+func (h NullTextCol) ILike(v string) Pred   { return Pred{col: h.c, op: opILike, str: v} }
+func (h NullTextCol) In(v ...string) Pred   { return Pred{col: h.c, op: opIn, anyStr: v} }
+
+// NotIn is `<> ALL($1)`. A NULL anywhere in v makes the
+// comparison NULL for every row and the result empty —
+// PostgreSQL's rule for NOT IN, not storm's.
+func (h NullTextCol) NotIn(v ...string) Pred { return Pred{col: h.c, op: opNotIn, anyStr: v} }
+func (h NullTextCol) IsNull() Pred           { return Pred{col: h.c, op: opIsNull} }
+func (h NullTextCol) IsNotNull() Pred        { return Pred{col: h.c, op: opIsNotNull} }
 
 // Int32Col addresses a int4 column.
 type Int32Col struct{ c uint8 }
@@ -581,24 +604,63 @@ func (h Int64Col) In(v ...int64) Pred { return Pred{col: h.c, op: opIn, anyI64: 
 // PostgreSQL's rule for NOT IN, not storm's.
 func (h Int64Col) NotIn(v ...int64) Pred { return Pred{col: h.c, op: opNotIn, anyI64: v} }
 
-// TimeCol addresses a timestamptz column.
-type TimeCol struct{ c uint8 }
+// TextArrayCol addresses a text[] column.
+type TextArrayCol struct{ c uint8 }
 
-func (h TimeCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
-func (h TimeCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
-func (h TimeCol) AscNullsFirst() Sort {
+func (h TextArrayCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h TextArrayCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h TextArrayCol) AscNullsFirst() Sort {
 	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
 }
-func (h TimeCol) DescNullsLast() Sort {
+func (h TextArrayCol) DescNullsLast() Sort {
 	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
 }
 
-func (h TimeCol) Eq(v time.Time) Pred    { return Pred{col: h.c, op: opEq, tim: v} }
-func (h TimeCol) NotEq(v time.Time) Pred { return Pred{col: h.c, op: opNotEq, tim: v} }
-func (h TimeCol) Gt(v time.Time) Pred    { return Pred{col: h.c, op: opGt, tim: v} }
-func (h TimeCol) Gte(v time.Time) Pred   { return Pred{col: h.c, op: opGte, tim: v} }
-func (h TimeCol) Lt(v time.Time) Pred    { return Pred{col: h.c, op: opLt, tim: v} }
-func (h TimeCol) Lte(v time.Time) Pred   { return Pred{col: h.c, op: opLte, tim: v} }
+// Contains is `@>`: every element of v is in the column.
+// An empty v is true for every row — every array contains
+// the empty one.
+func (h TextArrayCol) Contains(v ...string) Pred {
+	return Pred{col: h.c, op: opArrayContains, anyStr: v}
+}
+
+// ContainedBy is `<@`: every element of the column is in v.
+func (h TextArrayCol) ContainedBy(v ...string) Pred {
+	return Pred{col: h.c, op: opArrayContainedBy, anyStr: v}
+}
+
+// Overlaps is `&&`: the column and v share an element.
+func (h TextArrayCol) Overlaps(v ...string) Pred {
+	return Pred{col: h.c, op: opArrayOverlaps, anyStr: v}
+}
+
+// Int64ArrayCol addresses a int8[] column.
+type Int64ArrayCol struct{ c uint8 }
+
+func (h Int64ArrayCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h Int64ArrayCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h Int64ArrayCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h Int64ArrayCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+// Contains is `@>`: every element of v is in the column.
+// An empty v is true for every row — every array contains
+// the empty one.
+func (h Int64ArrayCol) Contains(v ...int64) Pred {
+	return Pred{col: h.c, op: opArrayContains, anyI64: v}
+}
+
+// ContainedBy is `<@`: every element of the column is in v.
+func (h Int64ArrayCol) ContainedBy(v ...int64) Pred {
+	return Pred{col: h.c, op: opArrayContainedBy, anyI64: v}
+}
+
+// Overlaps is `&&`: the column and v share an element.
+func (h Int64ArrayCol) Overlaps(v ...int64) Pred {
+	return Pred{col: h.c, op: opArrayOverlaps, anyI64: v}
+}
 
 // NullTimeCol addresses a timestamptz column.
 type NullTimeCol struct{ c uint8 }
@@ -621,35 +683,24 @@ func (h NullTimeCol) Lte(v time.Time) Pred   { return Pred{col: h.c, op: opLte, 
 func (h NullTimeCol) IsNull() Pred           { return Pred{col: h.c, op: opIsNull} }
 func (h NullTimeCol) IsNotNull() Pred        { return Pred{col: h.c, op: opIsNotNull} }
 
-// NullTextCol addresses a text column.
-type NullTextCol struct{ c uint8 }
+// JSONCol addresses a jsonb column.
+type JSONCol struct{ c uint8 }
 
-func (h NullTextCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
-func (h NullTextCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
-func (h NullTextCol) AscNullsFirst() Sort {
+func (h JSONCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h JSONCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h JSONCol) AscNullsFirst() Sort {
 	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
 }
-func (h NullTextCol) DescNullsLast() Sort {
+func (h JSONCol) DescNullsLast() Sort {
 	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
 }
 
-func (h NullTextCol) Eq(v string) Pred      { return Pred{col: h.c, op: opEq, str: v} }
-func (h NullTextCol) NotEq(v string) Pred   { return Pred{col: h.c, op: opNotEq, str: v} }
-func (h NullTextCol) Gt(v string) Pred      { return Pred{col: h.c, op: opGt, str: v} }
-func (h NullTextCol) Gte(v string) Pred     { return Pred{col: h.c, op: opGte, str: v} }
-func (h NullTextCol) Lt(v string) Pred      { return Pred{col: h.c, op: opLt, str: v} }
-func (h NullTextCol) Lte(v string) Pred     { return Pred{col: h.c, op: opLte, str: v} }
-func (h NullTextCol) EqLower(v string) Pred { return Pred{col: h.c, op: opEqLower, str: v} }
-func (h NullTextCol) Like(v string) Pred    { return Pred{col: h.c, op: opLike, str: v} }
-func (h NullTextCol) ILike(v string) Pred   { return Pred{col: h.c, op: opILike, str: v} }
-func (h NullTextCol) In(v ...string) Pred   { return Pred{col: h.c, op: opIn, anyStr: v} }
-
-// NotIn is `<> ALL($1)`. A NULL anywhere in v makes the
-// comparison NULL for every row and the result empty —
-// PostgreSQL's rule for NOT IN, not storm's.
-func (h NullTextCol) NotIn(v ...string) Pred { return Pred{col: h.c, op: opNotIn, anyStr: v} }
-func (h NullTextCol) IsNull() Pred           { return Pred{col: h.c, op: opIsNull} }
-func (h NullTextCol) IsNotNull() Pred        { return Pred{col: h.c, op: opIsNotNull} }
+func (h JSONCol) Contains(v runtime.JSON) Pred { return Pred{col: h.c, op: opJSONContains, jsn: v} }
+func (h JSONCol) ContainedBy(v runtime.JSON) Pred {
+	return Pred{col: h.c, op: opJSONContainedBy, jsn: v}
+}
+func (h JSONCol) HasAnyKey(v ...string) Pred  { return Pred{col: h.c, op: opHasAnyKey, anyStr: v} }
+func (h JSONCol) HasAllKeys(v ...string) Pred { return Pred{col: h.c, op: opHasAllKeys, anyStr: v} }
 
 // BoolCol addresses a bool column.
 type BoolCol struct{ c uint8 }
@@ -814,41 +865,34 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 1:
+		case 2:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 2:
+		case 3:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
+		case 4:
 			if int(q.nai32) >= 3 {
 				q.over = true
 				return
 			}
 			q.anyI32[q.nai32] = p.anyI32
 			q.nai32++
-		case 3:
+		case 5:
 			if int(q.nai64) >= 3 {
 				q.over = true
 				return
 			}
 			q.anyI64[q.nai64] = p.anyI64
 			q.nai64++
-		case 4:
-			if int(q.nas) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyStr[q.nas] = p.anyStr
-			q.nas++
-		case 5:
-			if int(q.nas) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyStr[q.nas] = p.anyStr
-			q.nas++
 		case 6:
 			if int(q.nas) >= 3 {
 				q.over = true
@@ -870,13 +914,20 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyI64[q.nai64] = p.anyI64
 			q.nai64++
-		case 10:
+		case 9:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 10:
+			if int(q.nai64) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
 		case 11:
 			if int(q.nas) >= 3 {
 				q.over = true
@@ -891,7 +942,7 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 14:
+		case 13:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
@@ -929,55 +980,34 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 1:
-		if int(q.ns) >= 6 {
+		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.tims[q.ntm] = p.tim
+		q.ntm++
 	case 2:
-		if int(q.nn) >= 6 {
+		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
-		q.nums[q.nn] = p.num
-		q.nn++
+		q.strs[q.ns] = p.str
+		q.ns++
 	case 3:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 4:
 		if int(q.nn) >= 6 {
 			q.over = true
 			return
 		}
 		q.nums[q.nn] = p.num
 		q.nn++
-	case 4:
-		if int(q.ns) >= 6 {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = p.str
-		q.ns++
 	case 5:
-		if int(q.ns) >= 6 {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = p.str
-		q.ns++
-	case 6:
-		if int(q.ns) >= 6 {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = p.str
-		q.ns++
-	case 7:
-		if int(q.ns) >= 6 {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = p.str
-		q.ns++
-	case 8:
 		if int(q.nn) >= 6 {
 			q.over = true
 			return
@@ -985,19 +1015,19 @@ func (q *Query) leaf(p Pred) {
 		q.nums[q.nn] = p.num
 		q.nn++
 	case 9:
-		if int(q.ntm) >= 4 {
-			q.over = true
-			return
-		}
-		q.tims[q.ntm] = p.tim
-		q.ntm++
-	case 10:
 		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
 		q.strs[q.ns] = p.str
 		q.ns++
+	case 10:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
 	case 11:
 		if int(q.ns) >= 6 {
 			q.over = true
@@ -1013,26 +1043,26 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 13:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 14:
 		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = p.tim
 		q.ntm++
-	case 14:
-		if int(q.ns) >= 6 {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = p.str
-		q.ns++
 	case 15:
-		if int(q.ns) >= 6 {
+		if int(q.njs) >= 2 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.jsns[q.njs] = p.jsn
+		q.njs++
 	case 16:
 		if int(q.nbo) >= 4 {
 			q.over = true
@@ -1052,179 +1082,148 @@ func (q *Query) leaf(p Pred) {
 }
 
 // Chained predicate sugar. Identical to Where(Col.Op(v)).
-func (q Query) IDEq(v string) Query                { return q.Where(ID.Eq(v)) }
-func (q Query) IDNotEq(v string) Query             { return q.Where(ID.NotEq(v)) }
-func (q Query) IDGt(v string) Query                { return q.Where(ID.Gt(v)) }
-func (q Query) IDGte(v string) Query               { return q.Where(ID.Gte(v)) }
-func (q Query) IDLt(v string) Query                { return q.Where(ID.Lt(v)) }
-func (q Query) IDLte(v string) Query               { return q.Where(ID.Lte(v)) }
-func (q Query) IDEqLower(v string) Query           { return q.Where(ID.EqLower(v)) }
-func (q Query) IDLike(v string) Query              { return q.Where(ID.Like(v)) }
-func (q Query) IDILike(v string) Query             { return q.Where(ID.ILike(v)) }
-func (q Query) IDIn(v ...string) Query             { return q.Where(ID.In(v...)) }
-func (q Query) IDNotIn(v ...string) Query          { return q.Where(ID.NotIn(v...)) }
-func (q Query) NameEq(v string) Query              { return q.Where(Name.Eq(v)) }
-func (q Query) NameNotEq(v string) Query           { return q.Where(Name.NotEq(v)) }
-func (q Query) NameGt(v string) Query              { return q.Where(Name.Gt(v)) }
-func (q Query) NameGte(v string) Query             { return q.Where(Name.Gte(v)) }
-func (q Query) NameLt(v string) Query              { return q.Where(Name.Lt(v)) }
-func (q Query) NameLte(v string) Query             { return q.Where(Name.Lte(v)) }
-func (q Query) NameEqLower(v string) Query         { return q.Where(Name.EqLower(v)) }
-func (q Query) NameLike(v string) Query            { return q.Where(Name.Like(v)) }
-func (q Query) NameILike(v string) Query           { return q.Where(Name.ILike(v)) }
-func (q Query) NameIn(v ...string) Query           { return q.Where(Name.In(v...)) }
-func (q Query) NameNotIn(v ...string) Query        { return q.Where(Name.NotIn(v...)) }
-func (q Query) KindEq(v int32) Query               { return q.Where(Kind.Eq(v)) }
-func (q Query) KindNotEq(v int32) Query            { return q.Where(Kind.NotEq(v)) }
-func (q Query) KindGt(v int32) Query               { return q.Where(Kind.Gt(v)) }
-func (q Query) KindGte(v int32) Query              { return q.Where(Kind.Gte(v)) }
-func (q Query) KindLt(v int32) Query               { return q.Where(Kind.Lt(v)) }
-func (q Query) KindLte(v int32) Query              { return q.Where(Kind.Lte(v)) }
-func (q Query) KindIn(v ...int32) Query            { return q.Where(Kind.In(v...)) }
-func (q Query) KindNotIn(v ...int32) Query         { return q.Where(Kind.NotIn(v...)) }
-func (q Query) RowsEq(v int64) Query               { return q.Where(Rows.Eq(v)) }
-func (q Query) RowsNotEq(v int64) Query            { return q.Where(Rows.NotEq(v)) }
-func (q Query) RowsGt(v int64) Query               { return q.Where(Rows.Gt(v)) }
-func (q Query) RowsGte(v int64) Query              { return q.Where(Rows.Gte(v)) }
-func (q Query) RowsLt(v int64) Query               { return q.Where(Rows.Lt(v)) }
-func (q Query) RowsLte(v int64) Query              { return q.Where(Rows.Lte(v)) }
-func (q Query) RowsIn(v ...int64) Query            { return q.Where(Rows.In(v...)) }
-func (q Query) RowsNotIn(v ...int64) Query         { return q.Where(Rows.NotIn(v...)) }
-func (q Query) FeaturesEq(v string) Query          { return q.Where(Features.Eq(v)) }
-func (q Query) FeaturesNotEq(v string) Query       { return q.Where(Features.NotEq(v)) }
-func (q Query) FeaturesGt(v string) Query          { return q.Where(Features.Gt(v)) }
-func (q Query) FeaturesGte(v string) Query         { return q.Where(Features.Gte(v)) }
-func (q Query) FeaturesLt(v string) Query          { return q.Where(Features.Lt(v)) }
-func (q Query) FeaturesLte(v string) Query         { return q.Where(Features.Lte(v)) }
-func (q Query) FeaturesEqLower(v string) Query     { return q.Where(Features.EqLower(v)) }
-func (q Query) FeaturesLike(v string) Query        { return q.Where(Features.Like(v)) }
-func (q Query) FeaturesILike(v string) Query       { return q.Where(Features.ILike(v)) }
-func (q Query) FeaturesIn(v ...string) Query       { return q.Where(Features.In(v...)) }
-func (q Query) FeaturesNotIn(v ...string) Query    { return q.Where(Features.NotIn(v...)) }
-func (q Query) LabelsEq(v string) Query            { return q.Where(Labels.Eq(v)) }
-func (q Query) LabelsNotEq(v string) Query         { return q.Where(Labels.NotEq(v)) }
-func (q Query) LabelsGt(v string) Query            { return q.Where(Labels.Gt(v)) }
-func (q Query) LabelsGte(v string) Query           { return q.Where(Labels.Gte(v)) }
-func (q Query) LabelsLt(v string) Query            { return q.Where(Labels.Lt(v)) }
-func (q Query) LabelsLte(v string) Query           { return q.Where(Labels.Lte(v)) }
-func (q Query) LabelsEqLower(v string) Query       { return q.Where(Labels.EqLower(v)) }
-func (q Query) LabelsLike(v string) Query          { return q.Where(Labels.Like(v)) }
-func (q Query) LabelsILike(v string) Query         { return q.Where(Labels.ILike(v)) }
-func (q Query) LabelsIn(v ...string) Query         { return q.Where(Labels.In(v...)) }
-func (q Query) LabelsNotIn(v ...string) Query      { return q.Where(Labels.NotIn(v...)) }
-func (q Query) InputShapeEq(v string) Query        { return q.Where(InputShape.Eq(v)) }
-func (q Query) InputShapeNotEq(v string) Query     { return q.Where(InputShape.NotEq(v)) }
-func (q Query) InputShapeGt(v string) Query        { return q.Where(InputShape.Gt(v)) }
-func (q Query) InputShapeGte(v string) Query       { return q.Where(InputShape.Gte(v)) }
-func (q Query) InputShapeLt(v string) Query        { return q.Where(InputShape.Lt(v)) }
-func (q Query) InputShapeLte(v string) Query       { return q.Where(InputShape.Lte(v)) }
-func (q Query) InputShapeEqLower(v string) Query   { return q.Where(InputShape.EqLower(v)) }
-func (q Query) InputShapeLike(v string) Query      { return q.Where(InputShape.Like(v)) }
-func (q Query) InputShapeILike(v string) Query     { return q.Where(InputShape.ILike(v)) }
-func (q Query) InputShapeIn(v ...string) Query     { return q.Where(InputShape.In(v...)) }
-func (q Query) InputShapeNotIn(v ...string) Query  { return q.Where(InputShape.NotIn(v...)) }
-func (q Query) TargetEq(v string) Query            { return q.Where(Target.Eq(v)) }
-func (q Query) TargetNotEq(v string) Query         { return q.Where(Target.NotEq(v)) }
-func (q Query) TargetGt(v string) Query            { return q.Where(Target.Gt(v)) }
-func (q Query) TargetGte(v string) Query           { return q.Where(Target.Gte(v)) }
-func (q Query) TargetLt(v string) Query            { return q.Where(Target.Lt(v)) }
-func (q Query) TargetLte(v string) Query           { return q.Where(Target.Lte(v)) }
-func (q Query) TargetEqLower(v string) Query       { return q.Where(Target.EqLower(v)) }
-func (q Query) TargetLike(v string) Query          { return q.Where(Target.Like(v)) }
-func (q Query) TargetILike(v string) Query         { return q.Where(Target.ILike(v)) }
-func (q Query) TargetIn(v ...string) Query         { return q.Where(Target.In(v...)) }
-func (q Query) TargetNotIn(v ...string) Query      { return q.Where(Target.NotIn(v...)) }
-func (q Query) SizeBytesEq(v int64) Query          { return q.Where(SizeBytes.Eq(v)) }
-func (q Query) SizeBytesNotEq(v int64) Query       { return q.Where(SizeBytes.NotEq(v)) }
-func (q Query) SizeBytesGt(v int64) Query          { return q.Where(SizeBytes.Gt(v)) }
-func (q Query) SizeBytesGte(v int64) Query         { return q.Where(SizeBytes.Gte(v)) }
-func (q Query) SizeBytesLt(v int64) Query          { return q.Where(SizeBytes.Lt(v)) }
-func (q Query) SizeBytesLte(v int64) Query         { return q.Where(SizeBytes.Lte(v)) }
-func (q Query) SizeBytesIn(v ...int64) Query       { return q.Where(SizeBytes.In(v...)) }
-func (q Query) SizeBytesNotIn(v ...int64) Query    { return q.Where(SizeBytes.NotIn(v...)) }
-func (q Query) CreateTimeEq(v time.Time) Query     { return q.Where(CreateTime.Eq(v)) }
-func (q Query) CreateTimeNotEq(v time.Time) Query  { return q.Where(CreateTime.NotEq(v)) }
-func (q Query) CreateTimeGt(v time.Time) Query     { return q.Where(CreateTime.Gt(v)) }
-func (q Query) CreateTimeGte(v time.Time) Query    { return q.Where(CreateTime.Gte(v)) }
-func (q Query) CreateTimeLt(v time.Time) Query     { return q.Where(CreateTime.Lt(v)) }
-func (q Query) CreateTimeLte(v time.Time) Query    { return q.Where(CreateTime.Lte(v)) }
-func (q Query) DriverEq(v string) Query            { return q.Where(Driver.Eq(v)) }
-func (q Query) DriverNotEq(v string) Query         { return q.Where(Driver.NotEq(v)) }
-func (q Query) DriverGt(v string) Query            { return q.Where(Driver.Gt(v)) }
-func (q Query) DriverGte(v string) Query           { return q.Where(Driver.Gte(v)) }
-func (q Query) DriverLt(v string) Query            { return q.Where(Driver.Lt(v)) }
-func (q Query) DriverLte(v string) Query           { return q.Where(Driver.Lte(v)) }
-func (q Query) DriverEqLower(v string) Query       { return q.Where(Driver.EqLower(v)) }
-func (q Query) DriverLike(v string) Query          { return q.Where(Driver.Like(v)) }
-func (q Query) DriverILike(v string) Query         { return q.Where(Driver.ILike(v)) }
-func (q Query) DriverIn(v ...string) Query         { return q.Where(Driver.In(v...)) }
-func (q Query) DriverNotIn(v ...string) Query      { return q.Where(Driver.NotIn(v...)) }
-func (q Query) DsnEq(v string) Query               { return q.Where(Dsn.Eq(v)) }
-func (q Query) DsnNotEq(v string) Query            { return q.Where(Dsn.NotEq(v)) }
-func (q Query) DsnGt(v string) Query               { return q.Where(Dsn.Gt(v)) }
-func (q Query) DsnGte(v string) Query              { return q.Where(Dsn.Gte(v)) }
-func (q Query) DsnLt(v string) Query               { return q.Where(Dsn.Lt(v)) }
-func (q Query) DsnLte(v string) Query              { return q.Where(Dsn.Lte(v)) }
-func (q Query) DsnEqLower(v string) Query          { return q.Where(Dsn.EqLower(v)) }
-func (q Query) DsnLike(v string) Query             { return q.Where(Dsn.Like(v)) }
-func (q Query) DsnILike(v string) Query            { return q.Where(Dsn.ILike(v)) }
-func (q Query) DsnIn(v ...string) Query            { return q.Where(Dsn.In(v...)) }
-func (q Query) DsnNotIn(v ...string) Query         { return q.Where(Dsn.NotIn(v...)) }
-func (q Query) SourceQueryEq(v string) Query       { return q.Where(SourceQuery.Eq(v)) }
-func (q Query) SourceQueryNotEq(v string) Query    { return q.Where(SourceQuery.NotEq(v)) }
-func (q Query) SourceQueryGt(v string) Query       { return q.Where(SourceQuery.Gt(v)) }
-func (q Query) SourceQueryGte(v string) Query      { return q.Where(SourceQuery.Gte(v)) }
-func (q Query) SourceQueryLt(v string) Query       { return q.Where(SourceQuery.Lt(v)) }
-func (q Query) SourceQueryLte(v string) Query      { return q.Where(SourceQuery.Lte(v)) }
-func (q Query) SourceQueryEqLower(v string) Query  { return q.Where(SourceQuery.EqLower(v)) }
-func (q Query) SourceQueryLike(v string) Query     { return q.Where(SourceQuery.Like(v)) }
-func (q Query) SourceQueryILike(v string) Query    { return q.Where(SourceQuery.ILike(v)) }
-func (q Query) SourceQueryIn(v ...string) Query    { return q.Where(SourceQuery.In(v...)) }
-func (q Query) SourceQueryNotIn(v ...string) Query { return q.Where(SourceQuery.NotIn(v...)) }
-func (q Query) RefreshTimeEq(v time.Time) Query    { return q.Where(RefreshTime.Eq(v)) }
-func (q Query) RefreshTimeNotEq(v time.Time) Query { return q.Where(RefreshTime.NotEq(v)) }
-func (q Query) RefreshTimeGt(v time.Time) Query    { return q.Where(RefreshTime.Gt(v)) }
-func (q Query) RefreshTimeGte(v time.Time) Query   { return q.Where(RefreshTime.Gte(v)) }
-func (q Query) RefreshTimeLt(v time.Time) Query    { return q.Where(RefreshTime.Lt(v)) }
-func (q Query) RefreshTimeLte(v time.Time) Query   { return q.Where(RefreshTime.Lte(v)) }
-func (q Query) RefreshTimeIsNull() Query           { return q.Where(RefreshTime.IsNull()) }
-func (q Query) RefreshTimeIsNotNull() Query        { return q.Where(RefreshTime.IsNotNull()) }
-func (q Query) TeamIDEq(v string) Query            { return q.Where(TeamID.Eq(v)) }
-func (q Query) TeamIDNotEq(v string) Query         { return q.Where(TeamID.NotEq(v)) }
-func (q Query) TeamIDGt(v string) Query            { return q.Where(TeamID.Gt(v)) }
-func (q Query) TeamIDGte(v string) Query           { return q.Where(TeamID.Gte(v)) }
-func (q Query) TeamIDLt(v string) Query            { return q.Where(TeamID.Lt(v)) }
-func (q Query) TeamIDLte(v string) Query           { return q.Where(TeamID.Lte(v)) }
-func (q Query) TeamIDEqLower(v string) Query       { return q.Where(TeamID.EqLower(v)) }
-func (q Query) TeamIDLike(v string) Query          { return q.Where(TeamID.Like(v)) }
-func (q Query) TeamIDILike(v string) Query         { return q.Where(TeamID.ILike(v)) }
-func (q Query) TeamIDIn(v ...string) Query         { return q.Where(TeamID.In(v...)) }
-func (q Query) TeamIDNotIn(v ...string) Query      { return q.Where(TeamID.NotIn(v...)) }
-func (q Query) TeamIDIsNull() Query                { return q.Where(TeamID.IsNull()) }
-func (q Query) TeamIDIsNotNull() Query             { return q.Where(TeamID.IsNotNull()) }
-func (q Query) ColumnsEq(v string) Query           { return q.Where(Columns.Eq(v)) }
-func (q Query) ColumnsNotEq(v string) Query        { return q.Where(Columns.NotEq(v)) }
-func (q Query) ColumnsGt(v string) Query           { return q.Where(Columns.Gt(v)) }
-func (q Query) ColumnsGte(v string) Query          { return q.Where(Columns.Gte(v)) }
-func (q Query) ColumnsLt(v string) Query           { return q.Where(Columns.Lt(v)) }
-func (q Query) ColumnsLte(v string) Query          { return q.Where(Columns.Lte(v)) }
-func (q Query) ColumnsEqLower(v string) Query      { return q.Where(Columns.EqLower(v)) }
-func (q Query) ColumnsLike(v string) Query         { return q.Where(Columns.Like(v)) }
-func (q Query) ColumnsILike(v string) Query        { return q.Where(Columns.ILike(v)) }
-func (q Query) ColumnsIn(v ...string) Query        { return q.Where(Columns.In(v...)) }
-func (q Query) ColumnsNotIn(v ...string) Query     { return q.Where(Columns.NotIn(v...)) }
-func (q Query) NumberTargetEq(v bool) Query        { return q.Where(NumberTarget.Eq(v)) }
-func (q Query) NumberTargetNotEq(v bool) Query     { return q.Where(NumberTarget.NotEq(v)) }
-func (q Query) SkippedEq(v int64) Query            { return q.Where(Skipped.Eq(v)) }
-func (q Query) SkippedNotEq(v int64) Query         { return q.Where(Skipped.NotEq(v)) }
-func (q Query) SkippedGt(v int64) Query            { return q.Where(Skipped.Gt(v)) }
-func (q Query) SkippedGte(v int64) Query           { return q.Where(Skipped.Gte(v)) }
-func (q Query) SkippedLt(v int64) Query            { return q.Where(Skipped.Lt(v)) }
-func (q Query) SkippedLte(v int64) Query           { return q.Where(Skipped.Lte(v)) }
-func (q Query) SkippedIn(v ...int64) Query         { return q.Where(Skipped.In(v...)) }
-func (q Query) SkippedNotIn(v ...int64) Query      { return q.Where(Skipped.NotIn(v...)) }
+func (q Query) IDEq(v string) Query                     { return q.Where(ID.Eq(v)) }
+func (q Query) IDNotEq(v string) Query                  { return q.Where(ID.NotEq(v)) }
+func (q Query) IDGt(v string) Query                     { return q.Where(ID.Gt(v)) }
+func (q Query) IDGte(v string) Query                    { return q.Where(ID.Gte(v)) }
+func (q Query) IDLt(v string) Query                     { return q.Where(ID.Lt(v)) }
+func (q Query) IDLte(v string) Query                    { return q.Where(ID.Lte(v)) }
+func (q Query) IDEqLower(v string) Query                { return q.Where(ID.EqLower(v)) }
+func (q Query) IDLike(v string) Query                   { return q.Where(ID.Like(v)) }
+func (q Query) IDILike(v string) Query                  { return q.Where(ID.ILike(v)) }
+func (q Query) IDIn(v ...string) Query                  { return q.Where(ID.In(v...)) }
+func (q Query) IDNotIn(v ...string) Query               { return q.Where(ID.NotIn(v...)) }
+func (q Query) CreateTimeEq(v time.Time) Query          { return q.Where(CreateTime.Eq(v)) }
+func (q Query) CreateTimeNotEq(v time.Time) Query       { return q.Where(CreateTime.NotEq(v)) }
+func (q Query) CreateTimeGt(v time.Time) Query          { return q.Where(CreateTime.Gt(v)) }
+func (q Query) CreateTimeGte(v time.Time) Query         { return q.Where(CreateTime.Gte(v)) }
+func (q Query) CreateTimeLt(v time.Time) Query          { return q.Where(CreateTime.Lt(v)) }
+func (q Query) CreateTimeLte(v time.Time) Query         { return q.Where(CreateTime.Lte(v)) }
+func (q Query) NameEq(v string) Query                   { return q.Where(Name.Eq(v)) }
+func (q Query) NameNotEq(v string) Query                { return q.Where(Name.NotEq(v)) }
+func (q Query) NameGt(v string) Query                   { return q.Where(Name.Gt(v)) }
+func (q Query) NameGte(v string) Query                  { return q.Where(Name.Gte(v)) }
+func (q Query) NameLt(v string) Query                   { return q.Where(Name.Lt(v)) }
+func (q Query) NameLte(v string) Query                  { return q.Where(Name.Lte(v)) }
+func (q Query) NameEqLower(v string) Query              { return q.Where(Name.EqLower(v)) }
+func (q Query) NameLike(v string) Query                 { return q.Where(Name.Like(v)) }
+func (q Query) NameILike(v string) Query                { return q.Where(Name.ILike(v)) }
+func (q Query) NameIn(v ...string) Query                { return q.Where(Name.In(v...)) }
+func (q Query) NameNotIn(v ...string) Query             { return q.Where(Name.NotIn(v...)) }
+func (q Query) TeamIDEq(v string) Query                 { return q.Where(TeamID.Eq(v)) }
+func (q Query) TeamIDNotEq(v string) Query              { return q.Where(TeamID.NotEq(v)) }
+func (q Query) TeamIDGt(v string) Query                 { return q.Where(TeamID.Gt(v)) }
+func (q Query) TeamIDGte(v string) Query                { return q.Where(TeamID.Gte(v)) }
+func (q Query) TeamIDLt(v string) Query                 { return q.Where(TeamID.Lt(v)) }
+func (q Query) TeamIDLte(v string) Query                { return q.Where(TeamID.Lte(v)) }
+func (q Query) TeamIDEqLower(v string) Query            { return q.Where(TeamID.EqLower(v)) }
+func (q Query) TeamIDLike(v string) Query               { return q.Where(TeamID.Like(v)) }
+func (q Query) TeamIDILike(v string) Query              { return q.Where(TeamID.ILike(v)) }
+func (q Query) TeamIDIn(v ...string) Query              { return q.Where(TeamID.In(v...)) }
+func (q Query) TeamIDNotIn(v ...string) Query           { return q.Where(TeamID.NotIn(v...)) }
+func (q Query) TeamIDIsNull() Query                     { return q.Where(TeamID.IsNull()) }
+func (q Query) TeamIDIsNotNull() Query                  { return q.Where(TeamID.IsNotNull()) }
+func (q Query) KindEq(v int32) Query                    { return q.Where(Kind.Eq(v)) }
+func (q Query) KindNotEq(v int32) Query                 { return q.Where(Kind.NotEq(v)) }
+func (q Query) KindGt(v int32) Query                    { return q.Where(Kind.Gt(v)) }
+func (q Query) KindGte(v int32) Query                   { return q.Where(Kind.Gte(v)) }
+func (q Query) KindLt(v int32) Query                    { return q.Where(Kind.Lt(v)) }
+func (q Query) KindLte(v int32) Query                   { return q.Where(Kind.Lte(v)) }
+func (q Query) KindIn(v ...int32) Query                 { return q.Where(Kind.In(v...)) }
+func (q Query) KindNotIn(v ...int32) Query              { return q.Where(Kind.NotIn(v...)) }
+func (q Query) RowsEq(v int64) Query                    { return q.Where(Rows.Eq(v)) }
+func (q Query) RowsNotEq(v int64) Query                 { return q.Where(Rows.NotEq(v)) }
+func (q Query) RowsGt(v int64) Query                    { return q.Where(Rows.Gt(v)) }
+func (q Query) RowsGte(v int64) Query                   { return q.Where(Rows.Gte(v)) }
+func (q Query) RowsLt(v int64) Query                    { return q.Where(Rows.Lt(v)) }
+func (q Query) RowsLte(v int64) Query                   { return q.Where(Rows.Lte(v)) }
+func (q Query) RowsIn(v ...int64) Query                 { return q.Where(Rows.In(v...)) }
+func (q Query) RowsNotIn(v ...int64) Query              { return q.Where(Rows.NotIn(v...)) }
+func (q Query) FeaturesContains(v ...string) Query      { return q.Where(Features.Contains(v...)) }
+func (q Query) FeaturesContainedBy(v ...string) Query   { return q.Where(Features.ContainedBy(v...)) }
+func (q Query) FeaturesOverlaps(v ...string) Query      { return q.Where(Features.Overlaps(v...)) }
+func (q Query) LabelsContains(v ...string) Query        { return q.Where(Labels.Contains(v...)) }
+func (q Query) LabelsContainedBy(v ...string) Query     { return q.Where(Labels.ContainedBy(v...)) }
+func (q Query) LabelsOverlaps(v ...string) Query        { return q.Where(Labels.Overlaps(v...)) }
+func (q Query) InputShapeContains(v ...int64) Query     { return q.Where(InputShape.Contains(v...)) }
+func (q Query) InputShapeContainedBy(v ...int64) Query  { return q.Where(InputShape.ContainedBy(v...)) }
+func (q Query) InputShapeOverlaps(v ...int64) Query     { return q.Where(InputShape.Overlaps(v...)) }
+func (q Query) TargetEq(v string) Query                 { return q.Where(Target.Eq(v)) }
+func (q Query) TargetNotEq(v string) Query              { return q.Where(Target.NotEq(v)) }
+func (q Query) TargetGt(v string) Query                 { return q.Where(Target.Gt(v)) }
+func (q Query) TargetGte(v string) Query                { return q.Where(Target.Gte(v)) }
+func (q Query) TargetLt(v string) Query                 { return q.Where(Target.Lt(v)) }
+func (q Query) TargetLte(v string) Query                { return q.Where(Target.Lte(v)) }
+func (q Query) TargetEqLower(v string) Query            { return q.Where(Target.EqLower(v)) }
+func (q Query) TargetLike(v string) Query               { return q.Where(Target.Like(v)) }
+func (q Query) TargetILike(v string) Query              { return q.Where(Target.ILike(v)) }
+func (q Query) TargetIn(v ...string) Query              { return q.Where(Target.In(v...)) }
+func (q Query) TargetNotIn(v ...string) Query           { return q.Where(Target.NotIn(v...)) }
+func (q Query) SizeBytesEq(v int64) Query               { return q.Where(SizeBytes.Eq(v)) }
+func (q Query) SizeBytesNotEq(v int64) Query            { return q.Where(SizeBytes.NotEq(v)) }
+func (q Query) SizeBytesGt(v int64) Query               { return q.Where(SizeBytes.Gt(v)) }
+func (q Query) SizeBytesGte(v int64) Query              { return q.Where(SizeBytes.Gte(v)) }
+func (q Query) SizeBytesLt(v int64) Query               { return q.Where(SizeBytes.Lt(v)) }
+func (q Query) SizeBytesLte(v int64) Query              { return q.Where(SizeBytes.Lte(v)) }
+func (q Query) SizeBytesIn(v ...int64) Query            { return q.Where(SizeBytes.In(v...)) }
+func (q Query) SizeBytesNotIn(v ...int64) Query         { return q.Where(SizeBytes.NotIn(v...)) }
+func (q Query) DriverEq(v string) Query                 { return q.Where(Driver.Eq(v)) }
+func (q Query) DriverNotEq(v string) Query              { return q.Where(Driver.NotEq(v)) }
+func (q Query) DriverGt(v string) Query                 { return q.Where(Driver.Gt(v)) }
+func (q Query) DriverGte(v string) Query                { return q.Where(Driver.Gte(v)) }
+func (q Query) DriverLt(v string) Query                 { return q.Where(Driver.Lt(v)) }
+func (q Query) DriverLte(v string) Query                { return q.Where(Driver.Lte(v)) }
+func (q Query) DriverEqLower(v string) Query            { return q.Where(Driver.EqLower(v)) }
+func (q Query) DriverLike(v string) Query               { return q.Where(Driver.Like(v)) }
+func (q Query) DriverILike(v string) Query              { return q.Where(Driver.ILike(v)) }
+func (q Query) DriverIn(v ...string) Query              { return q.Where(Driver.In(v...)) }
+func (q Query) DriverNotIn(v ...string) Query           { return q.Where(Driver.NotIn(v...)) }
+func (q Query) DsnEq(v string) Query                    { return q.Where(Dsn.Eq(v)) }
+func (q Query) DsnNotEq(v string) Query                 { return q.Where(Dsn.NotEq(v)) }
+func (q Query) DsnGt(v string) Query                    { return q.Where(Dsn.Gt(v)) }
+func (q Query) DsnGte(v string) Query                   { return q.Where(Dsn.Gte(v)) }
+func (q Query) DsnLt(v string) Query                    { return q.Where(Dsn.Lt(v)) }
+func (q Query) DsnLte(v string) Query                   { return q.Where(Dsn.Lte(v)) }
+func (q Query) DsnEqLower(v string) Query               { return q.Where(Dsn.EqLower(v)) }
+func (q Query) DsnLike(v string) Query                  { return q.Where(Dsn.Like(v)) }
+func (q Query) DsnILike(v string) Query                 { return q.Where(Dsn.ILike(v)) }
+func (q Query) DsnIn(v ...string) Query                 { return q.Where(Dsn.In(v...)) }
+func (q Query) DsnNotIn(v ...string) Query              { return q.Where(Dsn.NotIn(v...)) }
+func (q Query) SourceQueryEq(v string) Query            { return q.Where(SourceQuery.Eq(v)) }
+func (q Query) SourceQueryNotEq(v string) Query         { return q.Where(SourceQuery.NotEq(v)) }
+func (q Query) SourceQueryGt(v string) Query            { return q.Where(SourceQuery.Gt(v)) }
+func (q Query) SourceQueryGte(v string) Query           { return q.Where(SourceQuery.Gte(v)) }
+func (q Query) SourceQueryLt(v string) Query            { return q.Where(SourceQuery.Lt(v)) }
+func (q Query) SourceQueryLte(v string) Query           { return q.Where(SourceQuery.Lte(v)) }
+func (q Query) SourceQueryEqLower(v string) Query       { return q.Where(SourceQuery.EqLower(v)) }
+func (q Query) SourceQueryLike(v string) Query          { return q.Where(SourceQuery.Like(v)) }
+func (q Query) SourceQueryILike(v string) Query         { return q.Where(SourceQuery.ILike(v)) }
+func (q Query) SourceQueryIn(v ...string) Query         { return q.Where(SourceQuery.In(v...)) }
+func (q Query) SourceQueryNotIn(v ...string) Query      { return q.Where(SourceQuery.NotIn(v...)) }
+func (q Query) RefreshTimeEq(v time.Time) Query         { return q.Where(RefreshTime.Eq(v)) }
+func (q Query) RefreshTimeNotEq(v time.Time) Query      { return q.Where(RefreshTime.NotEq(v)) }
+func (q Query) RefreshTimeGt(v time.Time) Query         { return q.Where(RefreshTime.Gt(v)) }
+func (q Query) RefreshTimeGte(v time.Time) Query        { return q.Where(RefreshTime.Gte(v)) }
+func (q Query) RefreshTimeLt(v time.Time) Query         { return q.Where(RefreshTime.Lt(v)) }
+func (q Query) RefreshTimeLte(v time.Time) Query        { return q.Where(RefreshTime.Lte(v)) }
+func (q Query) RefreshTimeIsNull() Query                { return q.Where(RefreshTime.IsNull()) }
+func (q Query) RefreshTimeIsNotNull() Query             { return q.Where(RefreshTime.IsNotNull()) }
+func (q Query) ColumnsContains(v runtime.JSON) Query    { return q.Where(Columns.Contains(v)) }
+func (q Query) ColumnsContainedBy(v runtime.JSON) Query { return q.Where(Columns.ContainedBy(v)) }
+func (q Query) ColumnsHasAnyKey(v ...string) Query      { return q.Where(Columns.HasAnyKey(v...)) }
+func (q Query) ColumnsHasAllKeys(v ...string) Query     { return q.Where(Columns.HasAllKeys(v...)) }
+func (q Query) NumberTargetEq(v bool) Query             { return q.Where(NumberTarget.Eq(v)) }
+func (q Query) NumberTargetNotEq(v bool) Query          { return q.Where(NumberTarget.NotEq(v)) }
+func (q Query) SkippedEq(v int64) Query                 { return q.Where(Skipped.Eq(v)) }
+func (q Query) SkippedNotEq(v int64) Query              { return q.Where(Skipped.NotEq(v)) }
+func (q Query) SkippedGt(v int64) Query                 { return q.Where(Skipped.Gt(v)) }
+func (q Query) SkippedGte(v int64) Query                { return q.Where(Skipped.Gte(v)) }
+func (q Query) SkippedLt(v int64) Query                 { return q.Where(Skipped.Lt(v)) }
+func (q Query) SkippedLte(v int64) Query                { return q.Where(Skipped.Lte(v)) }
+func (q Query) SkippedIn(v ...int64) Query              { return q.Where(Skipped.In(v...)) }
+func (q Query) SkippedNotIn(v ...int64) Query           { return q.Where(Skipped.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "name", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "create_time", "driver", "dsn", "source_query", "refresh_time", "team_id", "columns", "number_target", "skipped" FROM "datasets"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "driver", "dsn", "source_query", "refresh_time", "columns", "number_target", "skipped" FROM "datasets"`
 const countPrefix = `SELECT count(*) FROM "datasets"`
 const existsPrefix = `SELECT 1 FROM "datasets"`
 const existsSuffix = ` LIMIT 1`
@@ -1267,11 +1266,23 @@ var orderTable = [nCols][4]string{
 		"\"id\" ASC NULLS FIRST",
 		"\"id\" DESC NULLS LAST",
 	},
+	{ // create_time
+		"\"create_time\"",
+		"\"create_time\" DESC",
+		"\"create_time\" ASC NULLS FIRST",
+		"\"create_time\" DESC NULLS LAST",
+	},
 	{ // name
 		"\"name\"",
 		"\"name\" DESC",
 		"\"name\" ASC NULLS FIRST",
 		"\"name\" DESC NULLS LAST",
+	},
+	{ // team_id
+		"\"team_id\"",
+		"\"team_id\" DESC",
+		"\"team_id\" ASC NULLS FIRST",
+		"\"team_id\" DESC NULLS LAST",
 	},
 	{ // kind
 		"\"kind\"",
@@ -1315,12 +1326,6 @@ var orderTable = [nCols][4]string{
 		"\"size_bytes\" ASC NULLS FIRST",
 		"\"size_bytes\" DESC NULLS LAST",
 	},
-	{ // create_time
-		"\"create_time\"",
-		"\"create_time\" DESC",
-		"\"create_time\" ASC NULLS FIRST",
-		"\"create_time\" DESC NULLS LAST",
-	},
 	{ // driver
 		"\"driver\"",
 		"\"driver\" DESC",
@@ -1344,12 +1349,6 @@ var orderTable = [nCols][4]string{
 		"\"refresh_time\" DESC",
 		"\"refresh_time\" ASC NULLS FIRST",
 		"\"refresh_time\" DESC NULLS LAST",
-	},
-	{ // team_id
-		"\"team_id\"",
-		"\"team_id\" DESC",
-		"\"team_id\" ASC NULLS FIRST",
-		"\"team_id\" DESC NULLS LAST",
 	},
 	{ // columns
 		"\"columns\"",
@@ -1375,7 +1374,9 @@ var orderTable = [nCols][4]string{
 // row comparison.
 var identTable = [nCols]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"name\"",
+	"\"team_id\"",
 	"\"kind\"",
 	"\"rows\"",
 	"\"features\"",
@@ -1383,12 +1384,10 @@ var identTable = [nCols]string{
 	"\"input_shape\"",
 	"\"target\"",
 	"\"size_bytes\"",
-	"\"create_time\"",
 	"\"driver\"",
 	"\"dsn\"",
 	"\"source_query\"",
 	"\"refresh_time\"",
-	"\"team_id\"",
 	"\"columns\"",
 	"\"number_target\"",
 	"\"skipped\"",
@@ -1455,6 +1454,36 @@ var fragTable = [18][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // create_time
+		{}, // opNone
+		{A: "\"create_time\" = $", B: ""},
+		{A: "\"create_time\" <> $", B: ""},
+		{A: "\"create_time\" > $", B: ""},
+		{A: "\"create_time\" >= $", B: ""},
+		{A: "\"create_time\" < $", B: ""},
+		{A: "\"create_time\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 	{ // name
 		{}, // opNone
 		{A: "\"name\" = $", B: ""},
@@ -1482,6 +1511,36 @@ var fragTable = [18][28]runtime.Frag{
 		{},
 		{},
 		{},
+		{},
+		{},
+	},
+	{ // team_id
+		{}, // opNone
+		{A: "\"team_id\" = $", B: ""},
+		{A: "\"team_id\" <> $", B: ""},
+		{A: "\"team_id\" > $", B: ""},
+		{A: "\"team_id\" >= $", B: ""},
+		{A: "\"team_id\" < $", B: ""},
+		{A: "\"team_id\" <= $", B: ""},
+		{A: "lower(\"team_id\") = lower($", B: ")"},
+		{A: "\"team_id\" LIKE $", B: ""},
+		{A: "\"team_id\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"team_id\" = ANY($", B: ")"},
+		{A: "\"team_id\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"team_id\" IS NULL", B: ""},
+		{A: "\"team_id\" IS NOT NULL", B: ""},
 		{},
 		{},
 	},
@@ -1547,25 +1606,25 @@ var fragTable = [18][28]runtime.Frag{
 	},
 	{ // features
 		{}, // opNone
-		{A: "\"features\" = $", B: ""},
-		{A: "\"features\" <> $", B: ""},
-		{A: "\"features\" > $", B: ""},
-		{A: "\"features\" >= $", B: ""},
-		{A: "\"features\" < $", B: ""},
-		{A: "\"features\" <= $", B: ""},
-		{A: "lower(\"features\") = lower($", B: ")"},
-		{A: "\"features\" LIKE $", B: ""},
-		{A: "\"features\" ILIKE $", B: ""},
 		{},
 		{},
 		{},
 		{},
 		{},
-		{A: "\"features\" = ANY($", B: ")"},
-		{A: "\"features\" <> ALL($", B: ")"},
 		{},
 		{},
 		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"features\" @> $", B: ""},
+		{A: "\"features\" <@ $", B: ""},
+		{A: "\"features\" && $", B: ""},
 		{},
 		{},
 		{},
@@ -1577,25 +1636,25 @@ var fragTable = [18][28]runtime.Frag{
 	},
 	{ // labels
 		{}, // opNone
-		{A: "\"labels\" = $", B: ""},
-		{A: "\"labels\" <> $", B: ""},
-		{A: "\"labels\" > $", B: ""},
-		{A: "\"labels\" >= $", B: ""},
-		{A: "\"labels\" < $", B: ""},
-		{A: "\"labels\" <= $", B: ""},
-		{A: "lower(\"labels\") = lower($", B: ")"},
-		{A: "\"labels\" LIKE $", B: ""},
-		{A: "\"labels\" ILIKE $", B: ""},
 		{},
 		{},
 		{},
 		{},
 		{},
-		{A: "\"labels\" = ANY($", B: ")"},
-		{A: "\"labels\" <> ALL($", B: ")"},
 		{},
 		{},
 		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"labels\" @> $", B: ""},
+		{A: "\"labels\" <@ $", B: ""},
+		{A: "\"labels\" && $", B: ""},
 		{},
 		{},
 		{},
@@ -1607,25 +1666,25 @@ var fragTable = [18][28]runtime.Frag{
 	},
 	{ // input_shape
 		{}, // opNone
-		{A: "\"input_shape\" = $", B: ""},
-		{A: "\"input_shape\" <> $", B: ""},
-		{A: "\"input_shape\" > $", B: ""},
-		{A: "\"input_shape\" >= $", B: ""},
-		{A: "\"input_shape\" < $", B: ""},
-		{A: "\"input_shape\" <= $", B: ""},
-		{A: "lower(\"input_shape\") = lower($", B: ")"},
-		{A: "\"input_shape\" LIKE $", B: ""},
-		{A: "\"input_shape\" ILIKE $", B: ""},
 		{},
 		{},
 		{},
 		{},
 		{},
-		{A: "\"input_shape\" = ANY($", B: ")"},
-		{A: "\"input_shape\" <> ALL($", B: ")"},
 		{},
 		{},
 		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"input_shape\" @> $", B: ""},
+		{A: "\"input_shape\" <@ $", B: ""},
+		{A: "\"input_shape\" && $", B: ""},
 		{},
 		{},
 		{},
@@ -1683,36 +1742,6 @@ var fragTable = [18][28]runtime.Frag{
 		{},
 		{A: "\"size_bytes\" = ANY($", B: ")"},
 		{A: "\"size_bytes\" <> ALL($", B: ")"},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-	},
-	{ // create_time
-		{}, // opNone
-		{A: "\"create_time\" = $", B: ""},
-		{A: "\"create_time\" <> $", B: ""},
-		{A: "\"create_time\" > $", B: ""},
-		{A: "\"create_time\" >= $", B: ""},
-		{A: "\"create_time\" < $", B: ""},
-		{A: "\"create_time\" <= $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
 		{},
 		{},
 		{},
@@ -1845,54 +1874,8 @@ var fragTable = [18][28]runtime.Frag{
 		{},
 		{},
 	},
-	{ // team_id
-		{}, // opNone
-		{A: "\"team_id\" = $", B: ""},
-		{A: "\"team_id\" <> $", B: ""},
-		{A: "\"team_id\" > $", B: ""},
-		{A: "\"team_id\" >= $", B: ""},
-		{A: "\"team_id\" < $", B: ""},
-		{A: "\"team_id\" <= $", B: ""},
-		{A: "lower(\"team_id\") = lower($", B: ")"},
-		{A: "\"team_id\" LIKE $", B: ""},
-		{A: "\"team_id\" ILIKE $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{A: "\"team_id\" = ANY($", B: ")"},
-		{A: "\"team_id\" <> ALL($", B: ")"},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{A: "\"team_id\" IS NULL", B: ""},
-		{A: "\"team_id\" IS NOT NULL", B: ""},
-		{},
-		{},
-	},
 	{ // columns
 		{}, // opNone
-		{A: "\"columns\" = $", B: ""},
-		{A: "\"columns\" <> $", B: ""},
-		{A: "\"columns\" > $", B: ""},
-		{A: "\"columns\" >= $", B: ""},
-		{A: "\"columns\" < $", B: ""},
-		{A: "\"columns\" <= $", B: ""},
-		{A: "lower(\"columns\") = lower($", B: ")"},
-		{A: "\"columns\" LIKE $", B: ""},
-		{A: "\"columns\" ILIKE $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{A: "\"columns\" = ANY($", B: ")"},
-		{A: "\"columns\" <> ALL($", B: ")"},
 		{},
 		{},
 		{},
@@ -1900,6 +1883,22 @@ var fragTable = [18][28]runtime.Frag{
 		{},
 		{},
 		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"columns\" @> $", B: ""},
+		{A: "\"columns\" <@ $", B: ""},
+		{A: "\"columns\" ?| $", B: ""},
+		{A: "\"columns\" ?& $", B: ""},
 		{},
 		{},
 		{},
@@ -2120,25 +2119,35 @@ func Scan(rv [][]byte, r *Row, sl *runtime.Slab) error { return scan(rv, r, sl) 
 // numeric past 18 significant digits, or a NaN. Those must not become a
 // plausible zero, and a row scanner is the last place that can tell.
 func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
+	var decErr error
 	r.ID = sl.Str(rv[0])
-	r.Name = sl.Str(rv[1])
-	r.Kind = runtime.Int4(rv[2])
-	r.Rows = runtime.Int8(rv[3])
-	r.Features = sl.Str(rv[4])
-	r.Labels = sl.Str(rv[5])
-	r.InputShape = sl.Str(rv[6])
-	r.Target = sl.Str(rv[7])
-	r.SizeBytes = runtime.Int8(rv[8])
-	r.CreateTime = runtime.Timestamptz(rv[9])
-	r.Driver = sl.Str(rv[10])
-	r.Dsn = sl.Str(rv[11])
-	r.SourceQuery = sl.Str(rv[12])
-	r.RefreshTime = runtime.Nullable(rv[13], runtime.Timestamptz)
-	r.TeamID = runtime.NullText(rv[14], sl)
-	r.Columns = sl.Str(rv[15])
+	r.CreateTime = runtime.Timestamptz(rv[1])
+	r.Name = sl.Str(rv[2])
+	r.TeamID = runtime.NullText(rv[3], sl)
+	r.Kind = runtime.Int4(rv[4])
+	r.Rows = runtime.Int8(rv[5])
+	r.Features, decErr = runtime.TextArray(rv[6], sl)
+	if decErr != nil {
+		return decErr
+	}
+	r.Labels, decErr = runtime.TextArray(rv[7], sl)
+	if decErr != nil {
+		return decErr
+	}
+	r.InputShape, decErr = runtime.Int8Array(rv[8])
+	if decErr != nil {
+		return decErr
+	}
+	r.Target = sl.Str(rv[9])
+	r.SizeBytes = runtime.Int8(rv[10])
+	r.Driver = sl.Str(rv[11])
+	r.Dsn = sl.Str(rv[12])
+	r.SourceQuery = sl.Str(rv[13])
+	r.RefreshTime = runtime.Nullable(rv[14], runtime.Timestamptz)
+	r.Columns = runtime.JSON(runtime.JSONB(rv[15], sl))
 	r.NumberTarget = runtime.Bool(rv[16])
 	r.Skipped = runtime.Int8(rv[17])
-	return nil
+	return decErr
 }
 
 type binder struct {
@@ -2147,6 +2156,7 @@ type binder struct {
 	nums   [6]int64
 	tims   [4]time.Time
 	bools  [4]bool
+	jsns   [2]runtime.JSON
 	anyStr [3][]string
 	anyI32 [3][]int32
 	anyI64 [3][]int64
@@ -2191,7 +2201,7 @@ func putBinder(b *binder) {
 // Count and Exists stop here: their statements carry no LIMIT or OFFSET.
 func (q Query) bindPreds(b *binder) []any {
 	v := b.vals[:0]
-	var ns, nn, ntm, nbo, nas, nai32, nai64 uint8
+	var ns, nn, ntm, nbo, njs, nas, nai32, nai64 uint8
 	for i := uint8(0); i < q.nt; i++ {
 		t := q.toks[i]
 		// KLeaf binds a predicate's value; KCol binds a keyset cursor's.
@@ -2211,26 +2221,22 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 1:
+			case 2:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 2:
+			case 3:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
+			case 4:
 				b.anyI32[nai32] = q.anyI32[nai32]
 				v = append(v, &b.anyI32[nai32])
 				nai32++
-			case 3:
+			case 5:
 				b.anyI64[nai64] = q.anyI64[nai64]
 				v = append(v, &b.anyI64[nai64])
 				nai64++
-			case 4:
-				b.anyStr[nas] = q.anyStr[nas]
-				v = append(v, &b.anyStr[nas])
-				nas++
-			case 5:
-				b.anyStr[nas] = q.anyStr[nas]
-				v = append(v, &b.anyStr[nas])
-				nas++
 			case 6:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
@@ -2243,10 +2249,14 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyI64[nai64] = q.anyI64[nai64]
 				v = append(v, &b.anyI64[nai64])
 				nai64++
-			case 10:
+			case 9:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 10:
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
 			case 11:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
@@ -2255,7 +2265,7 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 14:
+			case 13:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
@@ -2276,45 +2286,33 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 1:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.tims[ntm] = q.tims[ntm]
+			v = append(v, &b.tims[ntm])
+			ntm++
 		case 2:
-			b.nums[nn] = q.nums[nn]
-			v = append(v, &b.nums[nn])
-			nn++
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
 		case 3:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 4:
 			b.nums[nn] = q.nums[nn]
 			v = append(v, &b.nums[nn])
 			nn++
-		case 4:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
 		case 5:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
-		case 6:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
-		case 7:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
-		case 8:
 			b.nums[nn] = q.nums[nn]
 			v = append(v, &b.nums[nn])
 			nn++
 		case 9:
-			b.tims[ntm] = q.tims[ntm]
-			v = append(v, &b.tims[ntm])
-			ntm++
-		case 10:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
+		case 10:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
 		case 11:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
@@ -2324,17 +2322,17 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 13:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 14:
 			b.tims[ntm] = q.tims[ntm]
 			v = append(v, &b.tims[ntm])
 			ntm++
-		case 14:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
 		case 15:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.jsns[njs] = q.jsns[njs]
+			v = append(v, &b.jsns[njs])
+			njs++
 		case 16:
 			b.bools[nbo] = q.bools[nbo]
 			v = append(v, &b.bools[nbo])
@@ -2564,7 +2562,7 @@ var errPerTeamOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "datasets" ("id", "name", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "create_time", "driver", "dsn", "source_query", "refresh_time", "team_id", "columns", "number_target", "skipped") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING "id", "name", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "create_time", "driver", "dsn", "source_query", "refresh_time", "team_id", "columns", "number_target", "skipped"`
+const insertSQL = `INSERT INTO "datasets" ("id", "create_time", "name", "team_id", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "driver", "dsn", "source_query", "refresh_time", "columns", "number_target", "skipped") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING "id", "create_time", "name", "team_id", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "driver", "dsn", "source_query", "refresh_time", "columns", "number_target", "skipped"`
 
 const updatePrefix = `UPDATE "datasets" SET `
 const deletePrefix = `DELETE FROM "datasets"`
@@ -2573,42 +2571,30 @@ const deletePrefix = `DELETE FROM "datasets"`
 // identity, exactly as a token stream is a SELECT's.
 const (
 	dName         uint64 = 1 << 0
-	dKind         uint64 = 1 << 1
-	dRows         uint64 = 1 << 2
-	dFeatures     uint64 = 1 << 3
-	dLabels       uint64 = 1 << 4
-	dInputShape   uint64 = 1 << 5
-	dTarget       uint64 = 1 << 6
-	dSizeBytes    uint64 = 1 << 7
-	dCreateTime   uint64 = 1 << 8
-	dDriver       uint64 = 1 << 9
-	dDsn          uint64 = 1 << 10
-	dSourceQuery  uint64 = 1 << 11
-	dRefreshTime  uint64 = 1 << 12
-	dTeamID       uint64 = 1 << 13
-	dColumns      uint64 = 1 << 14
-	dNumberTarget uint64 = 1 << 15
-	dSkipped      uint64 = 1 << 16
+	dRows         uint64 = 1 << 1
+	dFeatures     uint64 = 1 << 2
+	dLabels       uint64 = 1 << 3
+	dInputShape   uint64 = 1 << 4
+	dTarget       uint64 = 1 << 5
+	dSizeBytes    uint64 = 1 << 6
+	dRefreshTime  uint64 = 1 << 7
+	dColumns      uint64 = 1 << 8
+	dNumberTarget uint64 = 1 << 9
+	dSkipped      uint64 = 1 << 10
 )
 
-const nUpdatable = 17
+const nUpdatable = 11
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"name\" = $", B: ""},          // name
-	{A: "\"kind\" = $", B: ""},          // kind
 	{A: "\"rows\" = $", B: ""},          // rows
 	{A: "\"features\" = $", B: ""},      // features
 	{A: "\"labels\" = $", B: ""},        // labels
 	{A: "\"input_shape\" = $", B: ""},   // input_shape
 	{A: "\"target\" = $", B: ""},        // target
 	{A: "\"size_bytes\" = $", B: ""},    // size_bytes
-	{A: "\"create_time\" = $", B: ""},   // create_time
-	{A: "\"driver\" = $", B: ""},        // driver
-	{A: "\"dsn\" = $", B: ""},           // dsn
-	{A: "\"source_query\" = $", B: ""},  // source_query
 	{A: "\"refresh_time\" = $", B: ""},  // refresh_time
-	{A: "\"team_id\" = $", B: ""},       // team_id
 	{A: "\"columns\" = $", B: ""},       // columns
 	{A: "\"number_target\" = $", B: ""}, // number_target
 	{A: "\"skipped\" = $", B: ""},       // skipped
@@ -2619,19 +2605,13 @@ var setFrags = [nUpdatable]runtime.Frag{
 // these end in a placeholder sigil, so none consumes an argument slot.
 var exprFrags = [nUpdatable]runtime.Frag{
 	{},                                    // name has no server-side form
-	{A: "\"kind\" = \"kind\" + 1", B: ""}, // kind = its own value plus one
 	{A: "\"rows\" = \"rows\" + 1", B: ""}, // rows = its own value plus one
 	{},                                    // features has no server-side form
 	{},                                    // labels has no server-side form
 	{},                                    // input_shape has no server-side form
 	{},                                    // target has no server-side form
 	{A: "\"size_bytes\" = \"size_bytes\" + 1", B: ""}, // size_bytes = its own value plus one
-	{A: "\"create_time\" = now()", B: ""},             // create_time = the database's clock
-	{},                                                // driver has no server-side form
-	{},                                                // dsn has no server-side form
-	{},                                                // source_query has no server-side form
 	{A: "\"refresh_time\" = now()", B: ""},            // refresh_time = the database's clock
-	{},                                                // team_id has no server-side form
 	{},                                                // columns has no server-side form
 	{},                                                // number_target has no server-side form
 	{A: "\"skipped\" = \"skipped\" + 1", B: ""}, // skipped = its own value plus one
@@ -2647,20 +2627,20 @@ var pkFrags = [1]runtime.Frag{
 // the only way a DEFAULT gen_random_uuid() can ever fire.
 const (
 	iID           uint64 = 1 << 0
-	iName         uint64 = 1 << 1
-	iKind         uint64 = 1 << 2
-	iRows         uint64 = 1 << 3
-	iFeatures     uint64 = 1 << 4
-	iLabels       uint64 = 1 << 5
-	iInputShape   uint64 = 1 << 6
-	iTarget       uint64 = 1 << 7
-	iSizeBytes    uint64 = 1 << 8
-	iCreateTime   uint64 = 1 << 9
-	iDriver       uint64 = 1 << 10
-	iDsn          uint64 = 1 << 11
-	iSourceQuery  uint64 = 1 << 12
-	iRefreshTime  uint64 = 1 << 13
-	iTeamID       uint64 = 1 << 14
+	iCreateTime   uint64 = 1 << 1
+	iName         uint64 = 1 << 2
+	iTeamID       uint64 = 1 << 3
+	iKind         uint64 = 1 << 4
+	iRows         uint64 = 1 << 5
+	iFeatures     uint64 = 1 << 6
+	iLabels       uint64 = 1 << 7
+	iInputShape   uint64 = 1 << 8
+	iTarget       uint64 = 1 << 9
+	iSizeBytes    uint64 = 1 << 10
+	iDriver       uint64 = 1 << 11
+	iDsn          uint64 = 1 << 12
+	iSourceQuery  uint64 = 1 << 13
+	iRefreshTime  uint64 = 1 << 14
 	iColumns      uint64 = 1 << 15
 	iNumberTarget uint64 = 1 << 16
 	iSkipped      uint64 = 1 << 17
@@ -2671,7 +2651,9 @@ const nInsertable = 18
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"name\"",
+	"\"team_id\"",
 	"\"kind\"",
 	"\"rows\"",
 	"\"features\"",
@@ -2679,12 +2661,10 @@ var insCols = [nInsertable]string{
 	"\"input_shape\"",
 	"\"target\"",
 	"\"size_bytes\"",
-	"\"create_time\"",
 	"\"driver\"",
 	"\"dsn\"",
 	"\"source_query\"",
 	"\"refresh_time\"",
-	"\"team_id\"",
 	"\"columns\"",
 	"\"number_target\"",
 	"\"skipped\"",
@@ -2696,7 +2676,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"datasets\""
-const insReturning = " RETURNING \"id\", \"name\", \"kind\", \"rows\", \"features\", \"labels\", \"input_shape\", \"target\", \"size_bytes\", \"create_time\", \"driver\", \"dsn\", \"source_query\", \"refresh_time\", \"team_id\", \"columns\", \"number_target\", \"skipped\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"kind\", \"rows\", \"features\", \"labels\", \"input_shape\", \"target\", \"size_bytes\", \"driver\", \"dsn\", \"source_query\", \"refresh_time\", \"columns\", \"number_target\", \"skipped\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -2715,7 +2695,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"name\", \"kind\", \"rows\", \"features\", \"labels\", \"input_shape\", \"target\", \"size_bytes\", \"create_time\", \"driver\", \"dsn\", \"source_query\", \"refresh_time\", \"team_id\", \"columns\", \"number_target\", \"skipped\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"kind\", \"rows\", \"features\", \"labels\", \"input_shape\", \"target\", \"size_bytes\", \"driver\", \"dsn\", \"source_query\", \"refresh_time\", \"columns\", \"number_target\", \"skipped\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -2769,22 +2749,6 @@ func (m *Mut) SetName(v string) {
 	m.expr &^= dName
 }
 
-func (m *Mut) SetKind(v int32) {
-	m.row.Kind = v
-	m.dirty |= dKind
-	m.expr &^= dKind
-}
-
-// IncKind adds one to the column's OWN value, in the database.
-//
-// Computing it in Go makes it a read-modify-write: two callers
-// who both read N both write N+1, and one increment is lost
-// with nothing to show that it happened.
-func (m *Mut) IncKind() {
-	m.expr |= dKind
-	m.dirty &^= dKind
-}
-
 func (m *Mut) SetRows(v int64) {
 	m.row.Rows = v
 	m.dirty |= dRows
@@ -2801,19 +2765,19 @@ func (m *Mut) IncRows() {
 	m.dirty &^= dRows
 }
 
-func (m *Mut) SetFeatures(v string) {
+func (m *Mut) SetFeatures(v []string) {
 	m.row.Features = v
 	m.dirty |= dFeatures
 	m.expr &^= dFeatures
 }
 
-func (m *Mut) SetLabels(v string) {
+func (m *Mut) SetLabels(v []string) {
 	m.row.Labels = v
 	m.dirty |= dLabels
 	m.expr &^= dLabels
 }
 
-func (m *Mut) SetInputShape(v string) {
+func (m *Mut) SetInputShape(v []int64) {
 	m.row.InputShape = v
 	m.dirty |= dInputShape
 	m.expr &^= dInputShape
@@ -2841,41 +2805,6 @@ func (m *Mut) IncSizeBytes() {
 	m.dirty &^= dSizeBytes
 }
 
-func (m *Mut) SetCreateTime(v time.Time) {
-	m.row.CreateTime = v
-	m.dirty |= dCreateTime
-	m.expr &^= dCreateTime
-}
-
-// SetCreateTimeNow assigns the database's clock, not this process's.
-//
-// Binding time.Now() instead would record when THIS server
-// thought it was. Servers skew, so rows written seconds apart
-// can land out of order, and an event stamped by a fast clock
-// reads as preceding the thing that caused it.
-func (m *Mut) SetCreateTimeNow() {
-	m.expr |= dCreateTime
-	m.dirty &^= dCreateTime
-}
-
-func (m *Mut) SetDriver(v string) {
-	m.row.Driver = v
-	m.dirty |= dDriver
-	m.expr &^= dDriver
-}
-
-func (m *Mut) SetDsn(v string) {
-	m.row.Dsn = v
-	m.dirty |= dDsn
-	m.expr &^= dDsn
-}
-
-func (m *Mut) SetSourceQuery(v string) {
-	m.row.SourceQuery = v
-	m.dirty |= dSourceQuery
-	m.expr &^= dSourceQuery
-}
-
 func (m *Mut) SetRefreshTime(v time.Time) {
 	m.row.RefreshTime = runtime.Null[time.Time]{V: v, Valid: true}
 	m.dirty |= dRefreshTime
@@ -2901,21 +2830,7 @@ func (m *Mut) SetRefreshTimeNull() {
 	m.expr &^= dRefreshTime
 }
 
-func (m *Mut) SetTeamID(v string) {
-	m.row.TeamID = runtime.Null[string]{V: v, Valid: true}
-	m.dirty |= dTeamID
-	m.expr &^= dTeamID
-}
-
-// SetTeamIDNull writes SQL NULL. It is a separate method because a
-// zero value and an absent value are different facts.
-func (m *Mut) SetTeamIDNull() {
-	m.row.TeamID = runtime.Null[string]{}
-	m.dirty |= dTeamID
-	m.expr &^= dTeamID
-}
-
-func (m *Mut) SetColumns(v string) {
+func (m *Mut) SetColumns(v runtime.JSON) {
 	m.row.Columns = v
 	m.dirty |= dColumns
 	m.expr &^= dColumns
@@ -2973,9 +2888,26 @@ func (n *Ins) SetID(v string) {
 	n.set |= iID
 }
 
+func (n *Ins) SetCreateTime(v time.Time) {
+	n.row.CreateTime = v
+	n.set |= iCreateTime
+}
+
 func (n *Ins) SetName(v string) {
 	n.row.Name = v
 	n.set |= iName
+}
+
+func (n *Ins) SetTeamID(v string) {
+	n.row.TeamID = runtime.Null[string]{V: v, Valid: true}
+	n.set |= iTeamID
+}
+
+// SetTeamIDNull writes SQL NULL explicitly, which is not the same as
+// leaving the column unset and taking its default.
+func (n *Ins) SetTeamIDNull() {
+	n.row.TeamID = runtime.Null[string]{}
+	n.set |= iTeamID
 }
 
 func (n *Ins) SetKind(v int32) {
@@ -2988,17 +2920,17 @@ func (n *Ins) SetRows(v int64) {
 	n.set |= iRows
 }
 
-func (n *Ins) SetFeatures(v string) {
+func (n *Ins) SetFeatures(v []string) {
 	n.row.Features = v
 	n.set |= iFeatures
 }
 
-func (n *Ins) SetLabels(v string) {
+func (n *Ins) SetLabels(v []string) {
 	n.row.Labels = v
 	n.set |= iLabels
 }
 
-func (n *Ins) SetInputShape(v string) {
+func (n *Ins) SetInputShape(v []int64) {
 	n.row.InputShape = v
 	n.set |= iInputShape
 }
@@ -3011,11 +2943,6 @@ func (n *Ins) SetTarget(v string) {
 func (n *Ins) SetSizeBytes(v int64) {
 	n.row.SizeBytes = v
 	n.set |= iSizeBytes
-}
-
-func (n *Ins) SetCreateTime(v time.Time) {
-	n.row.CreateTime = v
-	n.set |= iCreateTime
 }
 
 func (n *Ins) SetDriver(v string) {
@@ -3045,19 +2972,7 @@ func (n *Ins) SetRefreshTimeNull() {
 	n.set |= iRefreshTime
 }
 
-func (n *Ins) SetTeamID(v string) {
-	n.row.TeamID = runtime.Null[string]{V: v, Valid: true}
-	n.set |= iTeamID
-}
-
-// SetTeamIDNull writes SQL NULL explicitly, which is not the same as
-// leaving the column unset and taking its default.
-func (n *Ins) SetTeamIDNull() {
-	n.row.TeamID = runtime.Null[string]{}
-	n.set |= iTeamID
-}
-
-func (n *Ins) SetColumns(v string) {
+func (n *Ins) SetColumns(v runtime.JSON) {
 	n.row.Columns = v
 	n.set |= iColumns
 }
@@ -3117,50 +3032,32 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 17)
+	set := make([]string, 0, 11)
 	switch i {
 	case 0:
-		if mask&(1<<1) != 0 {
+		if mask&(1<<2) != 0 {
 			set = append(set, "name")
 		}
-		if mask&(1<<2) != 0 {
-			set = append(set, "kind")
-		}
-		if mask&(1<<3) != 0 {
+		if mask&(1<<5) != 0 {
 			set = append(set, "rows")
 		}
-		if mask&(1<<4) != 0 {
+		if mask&(1<<6) != 0 {
 			set = append(set, "features")
 		}
-		if mask&(1<<5) != 0 {
+		if mask&(1<<7) != 0 {
 			set = append(set, "labels")
 		}
-		if mask&(1<<6) != 0 {
+		if mask&(1<<8) != 0 {
 			set = append(set, "input_shape")
 		}
-		if mask&(1<<7) != 0 {
+		if mask&(1<<9) != 0 {
 			set = append(set, "target")
 		}
-		if mask&(1<<8) != 0 {
+		if mask&(1<<10) != 0 {
 			set = append(set, "size_bytes")
 		}
-		if mask&(1<<9) != 0 {
-			set = append(set, "create_time")
-		}
-		if mask&(1<<10) != 0 {
-			set = append(set, "driver")
-		}
-		if mask&(1<<11) != 0 {
-			set = append(set, "dsn")
-		}
-		if mask&(1<<12) != 0 {
-			set = append(set, "source_query")
-		}
-		if mask&(1<<13) != 0 {
-			set = append(set, "refresh_time")
-		}
 		if mask&(1<<14) != 0 {
-			set = append(set, "team_id")
+			set = append(set, "refresh_time")
 		}
 		if mask&(1<<15) != 0 {
 			set = append(set, "columns")
@@ -3220,19 +3117,13 @@ func joinAssign(set []string) string {
 
 var assignFor = map[string]string{
 	"name":          "\"name\" = EXCLUDED.\"name\"",
-	"kind":          "\"kind\" = EXCLUDED.\"kind\"",
 	"rows":          "\"rows\" = EXCLUDED.\"rows\"",
 	"features":      "\"features\" = EXCLUDED.\"features\"",
 	"labels":        "\"labels\" = EXCLUDED.\"labels\"",
 	"input_shape":   "\"input_shape\" = EXCLUDED.\"input_shape\"",
 	"target":        "\"target\" = EXCLUDED.\"target\"",
 	"size_bytes":    "\"size_bytes\" = EXCLUDED.\"size_bytes\"",
-	"create_time":   "\"create_time\" = EXCLUDED.\"create_time\"",
-	"driver":        "\"driver\" = EXCLUDED.\"driver\"",
-	"dsn":           "\"dsn\" = EXCLUDED.\"dsn\"",
-	"source_query":  "\"source_query\" = EXCLUDED.\"source_query\"",
 	"refresh_time":  "\"refresh_time\" = EXCLUDED.\"refresh_time\"",
-	"team_id":       "\"team_id\" = EXCLUDED.\"team_id\"",
 	"columns":       "\"columns\" = EXCLUDED.\"columns\"",
 	"number_target": "\"number_target\" = EXCLUDED.\"number_target\"",
 	"skipped":       "\"skipped\" = EXCLUDED.\"skipped\"",
@@ -3282,33 +3173,33 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
-			args = append(args, n.row.Kind)
-		case 3:
-			args = append(args, n.row.Rows)
-		case 4:
-			args = append(args, n.row.Features)
-		case 5:
-			args = append(args, n.row.Labels)
-		case 6:
-			args = append(args, n.row.InputShape)
-		case 7:
-			args = append(args, n.row.Target)
-		case 8:
-			args = append(args, n.row.SizeBytes)
-		case 9:
 			args = append(args, n.row.CreateTime)
-		case 10:
-			args = append(args, n.row.Driver)
-		case 11:
-			args = append(args, n.row.Dsn)
-		case 12:
-			args = append(args, n.row.SourceQuery)
-		case 13:
-			args = append(args, n.row.RefreshTime.Arg())
-		case 14:
+		case 2:
+			args = append(args, n.row.Name)
+		case 3:
 			args = append(args, n.row.TeamID.Arg())
+		case 4:
+			args = append(args, n.row.Kind)
+		case 5:
+			args = append(args, n.row.Rows)
+		case 6:
+			args = append(args, n.row.Features)
+		case 7:
+			args = append(args, n.row.Labels)
+		case 8:
+			args = append(args, n.row.InputShape)
+		case 9:
+			args = append(args, n.row.Target)
+		case 10:
+			args = append(args, n.row.SizeBytes)
+		case 11:
+			args = append(args, n.row.Driver)
+		case 12:
+			args = append(args, n.row.Dsn)
+		case 13:
+			args = append(args, n.row.SourceQuery)
+		case 14:
+			args = append(args, n.row.RefreshTime.Arg())
 		case 15:
 			args = append(args, n.row.Columns)
 		case 16:
@@ -3354,7 +3245,9 @@ func Inserts() int { return insCache.Masks() }
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args := make([]any, 0, 18)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
+	args = append(args, r.TeamID.Arg())
 	args = append(args, r.Kind)
 	args = append(args, r.Rows)
 	args = append(args, r.Features)
@@ -3362,12 +3255,10 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.InputShape)
 	args = append(args, r.Target)
 	args = append(args, r.SizeBytes)
-	args = append(args, r.CreateTime)
 	args = append(args, r.Driver)
 	args = append(args, r.Dsn)
 	args = append(args, r.SourceQuery)
 	args = append(args, r.RefreshTime.Arg())
-	args = append(args, r.TeamID.Arg())
 	args = append(args, r.Columns)
 	args = append(args, r.NumberTarget)
 	args = append(args, r.Skipped)
@@ -3398,7 +3289,9 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 // yourself, or use Create() per row and give up the bulk path.
 var copyCols = []string{
 	"id",
+	"create_time",
 	"name",
+	"team_id",
 	"kind",
 	"rows",
 	"features",
@@ -3406,12 +3299,10 @@ var copyCols = []string{
 	"input_shape",
 	"target",
 	"size_bytes",
-	"create_time",
 	"driver",
 	"dsn",
 	"source_query",
 	"refresh_time",
-	"team_id",
 	"columns",
 	"number_target",
 	"skipped",
@@ -3440,20 +3331,20 @@ func (s *rowSource) Next() bool {
 func (s *rowSource) Values() []any {
 	r := &s.rows[s.i-1]
 	s.buf[0] = &r.ID
-	s.buf[1] = &r.Name
-	s.buf[2] = &r.Kind
-	s.buf[3] = &r.Rows
-	s.buf[4] = &r.Features
-	s.buf[5] = &r.Labels
-	s.buf[6] = &r.InputShape
-	s.buf[7] = &r.Target
-	s.buf[8] = &r.SizeBytes
-	s.buf[9] = &r.CreateTime
-	s.buf[10] = &r.Driver
-	s.buf[11] = &r.Dsn
-	s.buf[12] = &r.SourceQuery
-	s.buf[13] = r.RefreshTime.Ptr()
-	s.buf[14] = r.TeamID.Ptr()
+	s.buf[1] = &r.CreateTime
+	s.buf[2] = &r.Name
+	s.buf[3] = r.TeamID.Ptr()
+	s.buf[4] = &r.Kind
+	s.buf[5] = &r.Rows
+	s.buf[6] = &r.Features
+	s.buf[7] = &r.Labels
+	s.buf[8] = &r.InputShape
+	s.buf[9] = &r.Target
+	s.buf[10] = &r.SizeBytes
+	s.buf[11] = &r.Driver
+	s.buf[12] = &r.Dsn
+	s.buf[13] = &r.SourceQuery
+	s.buf[14] = r.RefreshTime.Ptr()
 	s.buf[15] = &r.Columns
 	s.buf[16] = &r.NumberTarget
 	s.buf[17] = &r.Skipped
@@ -3508,7 +3399,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	st := stmtForInsertNoReturn(mask, 0)
 	args := make([]any, 0, 18)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
+	args = append(args, r.TeamID.Arg())
 	args = append(args, r.Kind)
 	args = append(args, r.Rows)
 	args = append(args, r.Features)
@@ -3516,12 +3409,10 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.InputShape)
 	args = append(args, r.Target)
 	args = append(args, r.SizeBytes)
-	args = append(args, r.CreateTime)
 	args = append(args, r.Driver)
 	args = append(args, r.Dsn)
 	args = append(args, r.SourceQuery)
 	args = append(args, r.RefreshTime.Arg())
-	args = append(args, r.TeamID.Arg())
 	args = append(args, r.Columns)
 	args = append(args, r.NumberTarget)
 	args = append(args, r.Skipped)
@@ -3561,33 +3452,33 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
-			args = append(args, n.row.Kind)
-		case 3:
-			args = append(args, n.row.Rows)
-		case 4:
-			args = append(args, n.row.Features)
-		case 5:
-			args = append(args, n.row.Labels)
-		case 6:
-			args = append(args, n.row.InputShape)
-		case 7:
-			args = append(args, n.row.Target)
-		case 8:
-			args = append(args, n.row.SizeBytes)
-		case 9:
 			args = append(args, n.row.CreateTime)
-		case 10:
-			args = append(args, n.row.Driver)
-		case 11:
-			args = append(args, n.row.Dsn)
-		case 12:
-			args = append(args, n.row.SourceQuery)
-		case 13:
-			args = append(args, n.row.RefreshTime.Arg())
-		case 14:
+		case 2:
+			args = append(args, n.row.Name)
+		case 3:
 			args = append(args, n.row.TeamID.Arg())
+		case 4:
+			args = append(args, n.row.Kind)
+		case 5:
+			args = append(args, n.row.Rows)
+		case 6:
+			args = append(args, n.row.Features)
+		case 7:
+			args = append(args, n.row.Labels)
+		case 8:
+			args = append(args, n.row.InputShape)
+		case 9:
+			args = append(args, n.row.Target)
+		case 10:
+			args = append(args, n.row.SizeBytes)
+		case 11:
+			args = append(args, n.row.Driver)
+		case 12:
+			args = append(args, n.row.Dsn)
+		case 13:
+			args = append(args, n.row.SourceQuery)
+		case 14:
+			args = append(args, n.row.RefreshTime.Arg())
 		case 15:
 			args = append(args, n.row.Columns)
 		case 16:
@@ -3643,36 +3534,24 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 		case 0:
 			args = append(args, m.row.Name)
 		case 1:
-			args = append(args, m.row.Kind)
-		case 2:
 			args = append(args, m.row.Rows)
-		case 3:
+		case 2:
 			args = append(args, m.row.Features)
-		case 4:
+		case 3:
 			args = append(args, m.row.Labels)
-		case 5:
+		case 4:
 			args = append(args, m.row.InputShape)
-		case 6:
+		case 5:
 			args = append(args, m.row.Target)
-		case 7:
+		case 6:
 			args = append(args, m.row.SizeBytes)
-		case 8:
-			args = append(args, m.row.CreateTime)
-		case 9:
-			args = append(args, m.row.Driver)
-		case 10:
-			args = append(args, m.row.Dsn)
-		case 11:
-			args = append(args, m.row.SourceQuery)
-		case 12:
+		case 7:
 			args = append(args, m.row.RefreshTime.Arg())
-		case 13:
-			args = append(args, m.row.TeamID.Arg())
-		case 14:
+		case 8:
 			args = append(args, m.row.Columns)
-		case 15:
+		case 9:
 			args = append(args, m.row.NumberTarget)
-		case 16:
+		case 10:
 			args = append(args, m.row.Skipped)
 		}
 	}
@@ -3759,36 +3638,24 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 		case 0:
 			args = append(args, m.row.Name)
 		case 1:
-			args = append(args, m.row.Kind)
-		case 2:
 			args = append(args, m.row.Rows)
-		case 3:
+		case 2:
 			args = append(args, m.row.Features)
-		case 4:
+		case 3:
 			args = append(args, m.row.Labels)
-		case 5:
+		case 4:
 			args = append(args, m.row.InputShape)
-		case 6:
+		case 5:
 			args = append(args, m.row.Target)
-		case 7:
+		case 6:
 			args = append(args, m.row.SizeBytes)
-		case 8:
-			args = append(args, m.row.CreateTime)
-		case 9:
-			args = append(args, m.row.Driver)
-		case 10:
-			args = append(args, m.row.Dsn)
-		case 11:
-			args = append(args, m.row.SourceQuery)
-		case 12:
+		case 7:
 			args = append(args, m.row.RefreshTime.Arg())
-		case 13:
-			args = append(args, m.row.TeamID.Arg())
-		case 14:
+		case 8:
 			args = append(args, m.row.Columns)
-		case 15:
+		case 9:
 			args = append(args, m.row.NumberTarget)
-		case 16:
+		case 10:
 			args = append(args, m.row.Skipped)
 		}
 	}

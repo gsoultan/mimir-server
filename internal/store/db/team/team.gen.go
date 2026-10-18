@@ -21,8 +21,8 @@ var (
 // replaced by their scalar foreign keys and *T rewritten to Null[T].
 type Row struct {
 	ID         string
-	Name       string
 	CreateTime time.Time
+	Name       string
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -179,19 +179,19 @@ func (q *Query) cursor(col uint32, r Row) {
 		q.strs[q.ns] = r.ID
 		q.ns++
 	case 1:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Name
-		q.ns++
-	case 2:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.CreateTime
 		q.ntm++
+	case 2:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Name
+		q.ns++
 	}
 }
 
@@ -348,8 +348,8 @@ type Pred struct {
 // Age.Like(...) fail to compile.
 var (
 	ID         = TextCol{0}
-	Name       = TextCol{1}
-	CreateTime = TimeCol{2}
+	CreateTime = TimeCol{1}
+	Name       = TextCol{2}
 )
 
 // TextCol addresses a text column.
@@ -547,7 +547,7 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 1:
+		case 2:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
@@ -571,19 +571,19 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 1:
-		if int(q.ns) >= 6 {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = p.str
-		q.ns++
-	case 2:
 		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = p.tim
 		q.ntm++
+	case 2:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
 	}
 	q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 }
@@ -600,6 +600,12 @@ func (q Query) IDLike(v string) Query             { return q.Where(ID.Like(v)) }
 func (q Query) IDILike(v string) Query            { return q.Where(ID.ILike(v)) }
 func (q Query) IDIn(v ...string) Query            { return q.Where(ID.In(v...)) }
 func (q Query) IDNotIn(v ...string) Query         { return q.Where(ID.NotIn(v...)) }
+func (q Query) CreateTimeEq(v time.Time) Query    { return q.Where(CreateTime.Eq(v)) }
+func (q Query) CreateTimeNotEq(v time.Time) Query { return q.Where(CreateTime.NotEq(v)) }
+func (q Query) CreateTimeGt(v time.Time) Query    { return q.Where(CreateTime.Gt(v)) }
+func (q Query) CreateTimeGte(v time.Time) Query   { return q.Where(CreateTime.Gte(v)) }
+func (q Query) CreateTimeLt(v time.Time) Query    { return q.Where(CreateTime.Lt(v)) }
+func (q Query) CreateTimeLte(v time.Time) Query   { return q.Where(CreateTime.Lte(v)) }
 func (q Query) NameEq(v string) Query             { return q.Where(Name.Eq(v)) }
 func (q Query) NameNotEq(v string) Query          { return q.Where(Name.NotEq(v)) }
 func (q Query) NameGt(v string) Query             { return q.Where(Name.Gt(v)) }
@@ -611,14 +617,8 @@ func (q Query) NameLike(v string) Query           { return q.Where(Name.Like(v))
 func (q Query) NameILike(v string) Query          { return q.Where(Name.ILike(v)) }
 func (q Query) NameIn(v ...string) Query          { return q.Where(Name.In(v...)) }
 func (q Query) NameNotIn(v ...string) Query       { return q.Where(Name.NotIn(v...)) }
-func (q Query) CreateTimeEq(v time.Time) Query    { return q.Where(CreateTime.Eq(v)) }
-func (q Query) CreateTimeNotEq(v time.Time) Query { return q.Where(CreateTime.NotEq(v)) }
-func (q Query) CreateTimeGt(v time.Time) Query    { return q.Where(CreateTime.Gt(v)) }
-func (q Query) CreateTimeGte(v time.Time) Query   { return q.Where(CreateTime.Gte(v)) }
-func (q Query) CreateTimeLt(v time.Time) Query    { return q.Where(CreateTime.Lt(v)) }
-func (q Query) CreateTimeLte(v time.Time) Query   { return q.Where(CreateTime.Lte(v)) }
 
-const selectPrefix = `SELECT "id", "name", "create_time" FROM "teams"`
+const selectPrefix = `SELECT "id", "create_time", "name" FROM "teams"`
 const countPrefix = `SELECT count(*) FROM "teams"`
 const existsPrefix = `SELECT 1 FROM "teams"`
 const existsSuffix = ` LIMIT 1`
@@ -661,17 +661,17 @@ var orderTable = [nCols][4]string{
 		"\"id\" ASC NULLS FIRST",
 		"\"id\" DESC NULLS LAST",
 	},
-	{ // name
-		"\"name\"",
-		"\"name\" DESC",
-		"\"name\" ASC NULLS FIRST",
-		"\"name\" DESC NULLS LAST",
-	},
 	{ // create_time
 		"\"create_time\"",
 		"\"create_time\" DESC",
 		"\"create_time\" ASC NULLS FIRST",
 		"\"create_time\" DESC NULLS LAST",
+	},
+	{ // name
+		"\"name\"",
+		"\"name\" DESC",
+		"\"name\" ASC NULLS FIRST",
+		"\"name\" DESC NULLS LAST",
 	},
 }
 
@@ -679,8 +679,8 @@ var orderTable = [nCols][4]string{
 // row comparison.
 var identTable = [nCols]string{
 	"\"id\"",
-	"\"name\"",
 	"\"create_time\"",
+	"\"name\"",
 }
 
 var lowering = runtime.Lowering{
@@ -744,36 +744,6 @@ var fragTable = [3][28]runtime.Frag{
 		{},
 		{},
 	},
-	{ // name
-		{}, // opNone
-		{A: "\"name\" = $", B: ""},
-		{A: "\"name\" <> $", B: ""},
-		{A: "\"name\" > $", B: ""},
-		{A: "\"name\" >= $", B: ""},
-		{A: "\"name\" < $", B: ""},
-		{A: "\"name\" <= $", B: ""},
-		{A: "lower(\"name\") = lower($", B: ")"},
-		{A: "\"name\" LIKE $", B: ""},
-		{A: "\"name\" ILIKE $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{A: "\"name\" = ANY($", B: ")"},
-		{A: "\"name\" <> ALL($", B: ")"},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-	},
 	{ // create_time
 		{}, // opNone
 		{A: "\"create_time\" = $", B: ""},
@@ -792,6 +762,36 @@ var fragTable = [3][28]runtime.Frag{
 		{},
 		{},
 		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // name
+		{}, // opNone
+		{A: "\"name\" = $", B: ""},
+		{A: "\"name\" <> $", B: ""},
+		{A: "\"name\" > $", B: ""},
+		{A: "\"name\" >= $", B: ""},
+		{A: "\"name\" < $", B: ""},
+		{A: "\"name\" <= $", B: ""},
+		{A: "lower(\"name\") = lower($", B: ")"},
+		{A: "\"name\" LIKE $", B: ""},
+		{A: "\"name\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"name\" = ANY($", B: ")"},
+		{A: "\"name\" <> ALL($", B: ")"},
 		{},
 		{},
 		{},
@@ -960,8 +960,8 @@ func Scan(rv [][]byte, r *Row, sl *runtime.Slab) error { return scan(rv, r, sl) 
 // plausible zero, and a row scanner is the last place that can tell.
 func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.ID = sl.Str(rv[0])
-	r.Name = sl.Str(rv[1])
-	r.CreateTime = runtime.Timestamptz(rv[2])
+	r.CreateTime = runtime.Timestamptz(rv[1])
+	r.Name = sl.Str(rv[2])
 	return nil
 }
 
@@ -1025,7 +1025,7 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 1:
+			case 2:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
@@ -1038,13 +1038,13 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 1:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
-		case 2:
 			b.tims[ntm] = q.tims[ntm]
 			v = append(v, &b.tims[ntm])
 			ntm++
+		case 2:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
 		}
 	}
 	b.vals = v
@@ -1182,7 +1182,7 @@ func (q Query) Prepare(b *Binder) (string, []any) {
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "teams" ("id", "name", "create_time") VALUES ($1, $2, $3) RETURNING "id", "name", "create_time"`
+const insertSQL = `INSERT INTO "teams" ("id", "create_time", "name") VALUES ($1, $2, $3) RETURNING "id", "create_time", "name"`
 
 const updatePrefix = `UPDATE "teams" SET `
 const deletePrefix = `DELETE FROM "teams"`
@@ -1190,24 +1190,21 @@ const deletePrefix = `DELETE FROM "teams"`
 // Dirty bits. One per updatable column; the set of them is an UPDATE's
 // identity, exactly as a token stream is a SELECT's.
 const (
-	dName       uint64 = 1 << 0
-	dCreateTime uint64 = 1 << 1
+	dName uint64 = 1 << 0
 )
 
-const nUpdatable = 2
+const nUpdatable = 1
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
-	{A: "\"name\" = $", B: ""},        // name
-	{A: "\"create_time\" = $", B: ""}, // create_time
+	{A: "\"name\" = $", B: ""}, // name
 }
 
 // exprFrags is the SERVER-side assignment each column may take instead
 // of a bound value. A zero Frag means the column admits none. None of
 // these end in a placeholder sigil, so none consumes an argument slot.
 var exprFrags = [nUpdatable]runtime.Frag{
-	{},                                    // name has no server-side form
-	{A: "\"create_time\" = now()", B: ""}, // create_time = the database's clock
+	{}, // name has no server-side form
 }
 
 // pkFrags addresses one row.
@@ -1220,8 +1217,8 @@ var pkFrags = [1]runtime.Frag{
 // the only way a DEFAULT gen_random_uuid() can ever fire.
 const (
 	iID         uint64 = 1 << 0
-	iName       uint64 = 1 << 1
-	iCreateTime uint64 = 1 << 2
+	iCreateTime uint64 = 1 << 1
+	iName       uint64 = 1 << 2
 )
 
 const nInsertable = 3
@@ -1229,8 +1226,8 @@ const nInsertable = 3
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
 	"\"id\"",
-	"\"name\"",
 	"\"create_time\"",
+	"\"name\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -1239,7 +1236,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"teams\""
-const insReturning = " RETURNING \"id\", \"name\", \"create_time\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -1258,7 +1255,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"name\", \"create_time\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -1312,23 +1309,6 @@ func (m *Mut) SetName(v string) {
 	m.expr &^= dName
 }
 
-func (m *Mut) SetCreateTime(v time.Time) {
-	m.row.CreateTime = v
-	m.dirty |= dCreateTime
-	m.expr &^= dCreateTime
-}
-
-// SetCreateTimeNow assigns the database's clock, not this process's.
-//
-// Binding time.Now() instead would record when THIS server
-// thought it was. Servers skew, so rows written seconds apart
-// can land out of order, and an event stamped by a fast clock
-// reads as preceding the thing that caused it.
-func (m *Mut) SetCreateTimeNow() {
-	m.expr |= dCreateTime
-	m.dirty &^= dCreateTime
-}
-
 // Ins stages a new row. Unlike Mut it has a setter for every insertable
 // column including the primary key and Immutable ones — supplying your
 // own id is legitimate, changing it later is not.
@@ -1359,14 +1339,14 @@ func (n *Ins) SetID(v string) {
 	n.set |= iID
 }
 
-func (n *Ins) SetName(v string) {
-	n.row.Name = v
-	n.set |= iName
-}
-
 func (n *Ins) SetCreateTime(v time.Time) {
 	n.row.CreateTime = v
 	n.set |= iCreateTime
+}
+
+func (n *Ins) SetName(v string) {
+	n.row.Name = v
+	n.set |= iName
 }
 
 // The conflict encoding. One byte holds both which unique index an
@@ -1415,19 +1395,14 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 2)
+	set := make([]string, 0, 1)
 	switch i {
 	case 0:
-		if mask&(1<<1) != 0 {
+		if mask&(1<<2) != 0 {
 			set = append(set, "name")
 		}
-		if mask&(1<<2) != 0 {
-			set = append(set, "create_time")
-		}
 	case 1:
-		if mask&(1<<2) != 0 {
-			set = append(set, "create_time")
-		}
+		// Every updatable column is part of this key.
 	}
 	return set
 }
@@ -1486,8 +1461,7 @@ func joinAssign(set []string) string {
 }
 
 var assignFor = map[string]string{
-	"name":        "\"name\" = EXCLUDED.\"name\"",
-	"create_time": "\"create_time\" = EXCLUDED.\"create_time\"",
+	"name": "\"name\" = EXCLUDED.\"name\"",
 }
 
 func assignExcluded(c string) string { return assignFor[c] }
@@ -1534,9 +1508,9 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
 			args = append(args, n.row.CreateTime)
+		case 2:
+			args = append(args, n.row.Name)
 		}
 	}
 	var out Row
@@ -1576,8 +1550,8 @@ func Inserts() int { return insCache.Masks() }
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args := make([]any, 0, 3)
 	args = append(args, r.ID)
-	args = append(args, r.Name)
 	args = append(args, r.CreateTime)
+	args = append(args, r.Name)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -1605,8 +1579,8 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 // yourself, or use Create() per row and give up the bulk path.
 var copyCols = []string{
 	"id",
-	"name",
 	"create_time",
+	"name",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
@@ -1632,8 +1606,8 @@ func (s *rowSource) Next() bool {
 func (s *rowSource) Values() []any {
 	r := &s.rows[s.i-1]
 	s.buf[0] = &r.ID
-	s.buf[1] = &r.Name
-	s.buf[2] = &r.CreateTime
+	s.buf[1] = &r.CreateTime
+	s.buf[2] = &r.Name
 	return s.buf[:]
 }
 
@@ -1670,8 +1644,8 @@ func InsertOp(r Row) runtime.BatchOp {
 	st := stmtForInsertNoReturn(mask, 0)
 	args := make([]any, 0, 3)
 	args = append(args, r.ID)
-	args = append(args, r.Name)
 	args = append(args, r.CreateTime)
+	args = append(args, r.Name)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -1708,9 +1682,9 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
 			args = append(args, n.row.CreateTime)
+		case 2:
+			args = append(args, n.row.Name)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
@@ -1759,8 +1733,6 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 		switch i {
 		case 0:
 			args = append(args, m.row.Name)
-		case 1:
-			args = append(args, m.row.CreateTime)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -1845,8 +1817,6 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 		switch i {
 		case 0:
 			args = append(args, m.row.Name)
-		case 1:
-			args = append(args, m.row.CreateTime)
 		}
 	}
 	args = append(args, m.row.ID)
