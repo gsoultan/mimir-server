@@ -16,8 +16,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gsoultan/mim"
-	"github.com/gsoultan/mim/importer"
+	mim "github.com/gsoultan/mimir-model"
+	"github.com/gsoultan/mimir-model/importer"
 )
 
 // Format is the kind of file an upload is.
