@@ -528,7 +528,7 @@ export const GetDatabaseInfoRequestSchema: GenMessage<GetDatabaseInfoRequest> = 
  */
 export type GetDatabaseInfoResponse = Message<"mimir.v1.GetDatabaseInfoResponse"> & {
   /**
-   * Kind is the database engine, "sqlite" for now.
+   * Kind is the database engine, "postgres".
    *
    * @generated from field: string kind = 1;
    */
