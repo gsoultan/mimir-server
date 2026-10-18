@@ -446,8 +446,9 @@ export type CreateModelRequest = Message<"mimir.v1.CreateModelRequest"> & {
   architecture: string;
 
   /**
-   * Weights is a safetensors file holding every parameter of the
-   * architecture, as mimir's nn.Save writes it.
+   * Weights is a Mimir Model (.mim) file: every parameter of the
+   * architecture, as mimir's mim.Save writes it, or for the mim
+   * architecture the whole model.
    *
    * @generated from field: bytes weights = 4;
    */

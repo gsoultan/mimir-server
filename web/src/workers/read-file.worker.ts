@@ -1,6 +1,6 @@
 // Reads a picked file off the main thread, so a large model never freezes
 // the page, and takes a first look at what's inside.
-import { inspect, type Inspection } from "../lib/safetensors";
+import { inspect, type Inspection } from "../lib/inspect";
 
 export type Reply = { bytes: Uint8Array; inspection: Inspection } | { error: string };
 
