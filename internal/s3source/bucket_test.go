@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -72,6 +73,7 @@ func TestResolvePresets(t *testing.T) {
 
 // fake is a tiny S3: path-style, ListObjectsV2 with paging, and GetObject.
 type fake struct {
+	mu     sync.Mutex
 	bucket string
 	files  map[string]string
 	page   int
@@ -84,7 +86,9 @@ func (f *fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<Error><Code>InvalidAccessKeyId</Code></Error>`))
 		return
 	}
+	f.mu.Lock()
 	f.paths = append(f.paths, r.URL.EscapedPath())
+	f.mu.Unlock()
 	rest, ok := strings.CutPrefix(r.URL.Path, "/"+f.bucket)
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
