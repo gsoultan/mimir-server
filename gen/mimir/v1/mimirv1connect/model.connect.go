@@ -56,6 +56,8 @@ const (
 	ModelServiceSetModelWorkerProcedure = "/mimir.v1.ModelService/SetModelWorker"
 	// PredictServicePredictProcedure is the fully-qualified name of the PredictService's Predict RPC.
 	PredictServicePredictProcedure = "/mimir.v1.PredictService/Predict"
+	// PredictServiceGenerateProcedure is the fully-qualified name of the PredictService's Generate RPC.
+	PredictServiceGenerateProcedure = "/mimir.v1.PredictService/Generate"
 )
 
 // ModelServiceClient is a client for the mimir.v1.ModelService service.
@@ -312,6 +314,9 @@ func (UnimplementedModelServiceHandler) SetModelWorker(context.Context, *connect
 type PredictServiceClient interface {
 	// Predict runs one input through a model.
 	Predict(context.Context, *connect.Request[v1.PredictRequest]) (*connect.Response[v1.PredictResponse], error)
+	// Generate continues a prompt with a language model, such as one
+	// uploaded as a GGUF file.
+	Generate(context.Context, *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error)
 }
 
 // NewPredictServiceClient constructs a client for the mimir.v1.PredictService service. By default,
@@ -331,12 +336,19 @@ func NewPredictServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(predictServiceMethods.ByName("Predict")),
 			connect.WithClientOptions(opts...),
 		),
+		generate: connect.NewClient[v1.GenerateRequest, v1.GenerateResponse](
+			httpClient,
+			baseURL+PredictServiceGenerateProcedure,
+			connect.WithSchema(predictServiceMethods.ByName("Generate")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // predictServiceClient implements PredictServiceClient.
 type predictServiceClient struct {
-	predict *connect.Client[v1.PredictRequest, v1.PredictResponse]
+	predict  *connect.Client[v1.PredictRequest, v1.PredictResponse]
+	generate *connect.Client[v1.GenerateRequest, v1.GenerateResponse]
 }
 
 // Predict calls mimir.v1.PredictService.Predict.
@@ -344,10 +356,18 @@ func (c *predictServiceClient) Predict(ctx context.Context, req *connect.Request
 	return c.predict.CallUnary(ctx, req)
 }
 
+// Generate calls mimir.v1.PredictService.Generate.
+func (c *predictServiceClient) Generate(ctx context.Context, req *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error) {
+	return c.generate.CallUnary(ctx, req)
+}
+
 // PredictServiceHandler is an implementation of the mimir.v1.PredictService service.
 type PredictServiceHandler interface {
 	// Predict runs one input through a model.
 	Predict(context.Context, *connect.Request[v1.PredictRequest]) (*connect.Response[v1.PredictResponse], error)
+	// Generate continues a prompt with a language model, such as one
+	// uploaded as a GGUF file.
+	Generate(context.Context, *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error)
 }
 
 // NewPredictServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -363,10 +383,18 @@ func NewPredictServiceHandler(svc PredictServiceHandler, opts ...connect.Handler
 		connect.WithSchema(predictServiceMethods.ByName("Predict")),
 		connect.WithHandlerOptions(opts...),
 	)
+	predictServiceGenerateHandler := connect.NewUnaryHandler(
+		PredictServiceGenerateProcedure,
+		svc.Generate,
+		connect.WithSchema(predictServiceMethods.ByName("Generate")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.PredictService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PredictServicePredictProcedure:
 			predictServicePredictHandler.ServeHTTP(w, r)
+		case PredictServiceGenerateProcedure:
+			predictServiceGenerateHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -378,4 +406,8 @@ type UnimplementedPredictServiceHandler struct{}
 
 func (UnimplementedPredictServiceHandler) Predict(context.Context, *connect.Request[v1.PredictRequest]) (*connect.Response[v1.PredictResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.Predict is not implemented"))
+}
+
+func (UnimplementedPredictServiceHandler) Generate(context.Context, *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.Generate is not implemented"))
 }

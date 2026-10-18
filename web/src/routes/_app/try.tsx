@@ -12,6 +12,7 @@ import { listArchitectures, listModels } from "../../api/queries";
 import { DrawPad, type DrawPadHandle } from "../../components/DrawPad";
 import { ButtonLink } from "../../components/links";
 import { Page } from "../../components/Page";
+import { Writer } from "../../components/Writer";
 import { percent } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/try")({
@@ -59,6 +60,24 @@ function Try() {
     );
   }
   const arch = archs.architectures.find((a) => a.name === model.architecture);
+  const pickModel = (
+    <Select
+      label="Model"
+      className="max-w-sm"
+      data={data.models.map((m) => ({ value: m.id, label: m.name }))}
+      value={model.id}
+      allowDeselect={false}
+      onChange={(id) => { predict.reset(); pad.current?.clear(); setValues({}); setPhoto(null); void navigate({ search: { model: id ?? undefined } }); }}
+    />
+  );
+  if (arch?.output === "text") {
+    return (
+      <Page title="Try a model" intro="Start a text and see how the model carries on.">
+        {pickModel}
+        <Writer key={model.id} modelId={model.id} />
+      </Page>
+    );
+  }
   const best = predict.data?.guesses[0];
   // A digits model takes a drawing, a photo model a photo, and a table
   // model one value per column; photo-and-table models take both.
@@ -81,14 +100,7 @@ function Try() {
 
   return (
     <Page title="Try a model" intro={table ? `${wantsPhoto ? "Pick a photo" : "Fill in one example"} and see what the model answers.` : "Draw a number and see what the model thinks it is."}>
-      <Select
-        label="Model"
-        className="max-w-sm"
-        data={data.models.map((m) => ({ value: m.id, label: m.name }))}
-        value={model.id}
-        allowDeselect={false}
-        onChange={(id) => { predict.reset(); pad.current?.clear(); setValues({}); setPhoto(null); void navigate({ search: { model: id ?? undefined } }); }}
-      />
+      {pickModel}
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
         {table ? (
           <Stack>

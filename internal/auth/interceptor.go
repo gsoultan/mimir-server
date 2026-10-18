@@ -62,6 +62,7 @@ var Required = map[string]Permission{
 	"/mimir.v1.ModelService/UpdateModel":           ModelsWrite,
 	"/mimir.v1.ModelService/DeleteModel":           ModelsWrite,
 	"/mimir.v1.PredictService/Predict":             ModelsPredict,
+	"/mimir.v1.PredictService/Generate":            ModelsPredict,
 	"/mimir.v1.DatasetService/ListDatasets":        ModelsWrite,
 	"/mimir.v1.DatasetService/GetDataset":          ModelsWrite,
 	"/mimir.v1.DatasetService/CreateDataset":       ModelsWrite,
