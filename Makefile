@@ -1,6 +1,6 @@
 export GOTOOLCHAIN := auto
 
-.PHONY: all gen web build test run clean
+.PHONY: all gen web build test run dev clean
 
 all: web build
 
@@ -23,6 +23,10 @@ test:
 
 run: all
 	./bin/mimir-server
+
+# Server rebuilds on Go changes, web app hot-reloads; open :5173.
+dev:
+	./scripts/dev.sh
 
 clean:
 	rm -rf bin web/dist/assets web/dist/*.html web/dist/*.js web/dist/*.webmanifest

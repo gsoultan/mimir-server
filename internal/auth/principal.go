@@ -20,7 +20,10 @@ const (
 	AuditRead      Permission = "audit.read"
 	KeysManage     Permission = "keys.manage" // the caller's own API keys
 	WebhooksManage Permission = "webhooks.manage"
-	SettingsManage Permission = "settings.manage"
+	SettingsManage Permission = "settings.manage" // server-wide settings, for every team
+	WorkersManage  Permission = "workers.manage"  // register and remove workers
+	TeamsManage    Permission = "teams.manage"    // add teams and move people between them; see every team's people and audit log
+	DatabaseQuery  Permission = "databases.query" // teach from a database query
 )
 
 // Permissions returns what a role may do.
@@ -32,11 +35,12 @@ func Permissions(r store.Role) []Permission {
 	if r >= store.Editor {
 		ps = append(ps, ModelsWrite)
 	}
+	// Admins run their own team; owners run the server and every team.
 	if r >= store.Admin {
-		ps = append(ps, UsersRead, UsersWrite, AuditRead, WebhooksManage, SettingsManage)
+		ps = append(ps, UsersRead, UsersWrite, AuditRead, WebhooksManage, DatabaseQuery)
 	}
 	if r >= store.Owner {
-		ps = append(ps, UsersAdmin)
+		ps = append(ps, UsersAdmin, SettingsManage, WorkersManage, TeamsManage)
 	}
 	return ps
 }
@@ -58,6 +62,9 @@ func (p Principal) Can(perm Permission) bool {
 	}
 	return false
 }
+
+// Team is the team the caller acts in.
+func (p Principal) Team() string { return p.User.TeamID }
 
 // CanModel reports whether the caller has perm on one model.
 func (p Principal) CanModel(perm Permission, modelID string) bool {

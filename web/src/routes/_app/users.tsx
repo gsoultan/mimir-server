@@ -1,5 +1,5 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { ActionIcon, Alert, Badge, Button, Card, Group, Menu, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Alert, Badge, Button, Card, Group, Menu, Modal, PasswordInput, Select, Stack, Text, TextInput } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconDots, IconShieldCheck, IconUserPlus } from "@tabler/icons-react";
@@ -9,16 +9,20 @@ import { useState } from "react";
 
 import { message } from "../../api/client";
 import { Role, UserService, type User } from "../../api/gen/mimir/v1/access_pb";
-import { allUserQueries, listModels, listUsers, whoAmI } from "../../api/queries";
+import { allUserQueries, listModels, listTeams, listUsers, whoAmI } from "../../api/queries";
 import { AccessPicker, defaultAccess, describe, fromProto, type AccessValue } from "../../components/AccessPicker";
 import { Page } from "../../components/Page";
 import { ago } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/users")({
-  loader: ({ context }) => Promise.all([
-    context.queryClient.ensureQueryData(listUsers),
-    context.queryClient.ensureQueryData(listModels),
-  ]),
+  loader: async ({ context }) => {
+    const me = await context.queryClient.ensureQueryData(whoAmI);
+    return Promise.all([
+      context.queryClient.ensureQueryData(listUsers),
+      context.queryClient.ensureQueryData(listModels),
+      me.permissions.includes("teams.manage") ? context.queryClient.ensureQueryData(listTeams) : null,
+    ]);
+  },
   component: Users,
 });
 
@@ -33,6 +37,7 @@ function Users() {
   const names = new Map(models.models.map((m) => [m.id, m.name]));
   const canManageAdmins = me.permissions.includes("users.admin");
   const maxRole = canManageAdmins ? Role.OWNER : Role.EDITOR;
+  const manyTeams = me.permissions.includes("teams.manage");
   const refresh = () => queryClient.invalidateQueries({ queryKey: allUserQueries });
 
   const remove = useMutation(UserService.method.deleteUser, {
@@ -42,7 +47,7 @@ function Users() {
   return (
     <Page
       title="Users"
-      intro="Who can sign in, and which models each person can reach."
+      intro={manyTeams ? "Who can sign in, which team they're in, and which models each person can reach." : `Who in ${me.user?.teamName ?? "your team"} can sign in, and which models each person can reach.`}
       actions={<Button leftSection={<IconUserPlus size={18} />} onClick={add.open}>Add a person</Button>}
     >
       <Stack gap="sm">
@@ -58,9 +63,10 @@ function Users() {
                     {mine && <Badge variant="light" color="gray">You</Badge>}
                     {u.disabled && <Badge variant="light" color="red">Disabled</Badge>}
                     {u.twoFactor && <Badge variant="light" color="teal" leftSection={<IconShieldCheck size={12} />}>2-step</Badge>}
+                    {manyTeams && <Badge variant="outline" color="gray">{u.teamName}</Badge>}
                   </Group>
                   <Text size="sm" c="dimmed" truncate>{u.email}</Text>
-                  <Text size="sm" mt={4}>{describe(u.access, names)}</Text>
+                  <Text size="sm" mt={4}>{u.teamId === me.user?.teamId ? describe(u.access, names) : describe(u.access)}</Text>
                   <Text size="xs" c="dimmed">{u.lastSignInTime ? `Last signed in ${ago(u.lastSignInTime)}` : "Never signed in"}</Text>
                 </div>
                 {!locked && (
@@ -78,8 +84,8 @@ function Users() {
         })}
       </Stack>
 
-      <UserModal key={adding ? "add" : "closed"} opened={adding} onClose={add.close} maxRole={maxRole} onDone={refresh} />
-      <UserModal key={editing?.id ?? "none"} opened={!!editing} onClose={() => setEditing(undefined)} maxRole={maxRole} user={editing} onDone={refresh} />
+      <UserModal key={adding ? "add" : "closed"} opened={adding} onClose={add.close} maxRole={maxRole} teams={manyTeams} myTeam={me.user?.teamId ?? ""} onDone={refresh} />
+      <UserModal key={editing?.id ?? "none"} opened={!!editing} onClose={() => setEditing(undefined)} maxRole={maxRole} teams={manyTeams} myTeam={me.user?.teamId ?? ""} user={editing} onDone={refresh} />
 
       <Modal opened={!!removing} onClose={() => setRemoving(undefined)} title={`Remove ${removing?.name}?`} centered>
         <Text mb="lg">They won't be able to sign in, and their API keys stop working.</Text>
@@ -93,7 +99,8 @@ function Users() {
   );
 }
 
-function UserModal({ opened, onClose, maxRole, user, onDone }: { opened: boolean; onClose: () => void; maxRole: Role; user?: User; onDone: () => Promise<unknown> }) {
+function UserModal({ opened, onClose, maxRole, teams, myTeam, user, onDone }: { opened: boolean; onClose: () => void; maxRole: Role; teams: boolean; myTeam: string; user?: User; onDone: () => Promise<unknown> }) {
+  const [team, setTeam] = useState(user?.teamId ?? myTeam);
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [password, setPassword] = useState("");
@@ -106,9 +113,14 @@ function UserModal({ opened, onClose, maxRole, user, onDone }: { opened: boolean
   const pending = create.isPending || update.isPending;
   const error = create.error ?? update.error;
 
+  // Models listed here are the caller's team's; someone in another team
+  // gets all of that team's models, or picks are made from inside it.
+  const otherTeam = team !== myTeam;
+  const sent = otherTeam ? { ...access, allModels: true, modelIds: [] } : access;
+  const moved = !!user && team !== user.teamId;
   function submit() {
-    if (user) update.mutate({ id: user.id, name, access, disabled, newPassword: password, resetTwoFactor });
-    else create.mutate({ name, email, password, access });
+    if (user) update.mutate({ id: user.id, name, access: sent, disabled, newPassword: password, resetTwoFactor, teamId: team });
+    else create.mutate({ name, email, password, access: sent, teamId: team });
   }
 
   return (
@@ -126,7 +138,9 @@ function UserModal({ opened, onClose, maxRole, user, onDone }: { opened: boolean
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
           />
-          <AccessPicker value={access} onChange={setAccess} maxRole={maxRole} subject={name.trim() || "this person"} />
+          {teams && <TeamSelect value={team} onChange={setTeam} />}
+          {moved && <Alert color="yellow">Moving {user?.name} signs them out everywhere and revokes their API keys, since those were for their old team.</Alert>}
+          <AccessPicker value={sent} onChange={setAccess} maxRole={maxRole} subject={name.trim() || "this person"} otherTeam={otherTeam} />
           {user && (
             <Group gap="xs">
               <Button variant={disabled ? "light" : "subtle"} color={disabled ? "teal" : "red"} onClick={() => setDisabled(!disabled)}>
@@ -148,5 +162,19 @@ function UserModal({ opened, onClose, maxRole, user, onDone }: { opened: boolean
         </Stack>
       </form>
     </Modal>
+  );
+}
+
+function TeamSelect({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const { data } = useSuspenseQuery(listTeams);
+  return (
+    <Select
+      label="Team"
+      description="They'll see only this team's models and examples."
+      data={data.teams.map((t) => ({ value: t.id, label: t.name }))}
+      value={value}
+      onChange={(v) => v && onChange(v)}
+      allowDeselect={false}
+    />
   );
 }

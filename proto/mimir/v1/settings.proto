@@ -17,6 +17,12 @@ service SettingsService {
   rpc SendTestAlert(SendTestAlertRequest) returns (SendTestAlertResponse);
   rpc UpdateRetention(UpdateRetentionRequest) returns (UpdateRetentionResponse);
   rpc UpdateSecurity(UpdateSecurityRequest) returns (UpdateSecurityResponse);
+  rpc UpdateLimits(UpdateLimitsRequest) returns (UpdateLimitsResponse);
+  // GetUsage counts predictions in a month: everyone's for admins, the
+  // caller's own for everyone else.
+  rpc GetUsage(GetUsageRequest) returns (GetUsageResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
   rpc GetDatabaseInfo(GetDatabaseInfoRequest) returns (GetDatabaseInfoResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -60,6 +66,49 @@ message GetSettingsResponse {
   TelegramAlerts telegram = 2;
   Retention retention = 3;
   Security security = 4;
+  Limits limits = 5;
+}
+
+// Limits keep one person or app from using up the server. 0 means no
+// limit.
+message Limits {
+  // predictions_per_minute applies to each API key and each signed-in
+  // person on their own.
+  int32 predictions_per_minute = 1;
+  // predictions_per_month applies to each person, counting their keys.
+  int64 predictions_per_month = 2;
+  // training_runs_per_person caps runs waiting or learning at once.
+  int32 training_runs_per_person = 3;
+}
+
+message UpdateLimitsRequest {
+  Limits limits = 1;
+}
+
+message UpdateLimitsResponse {
+  Limits limits = 1;
+}
+
+message GetUsageRequest {
+  // month is "YYYY-MM"; empty means this month.
+  string month = 1;
+}
+
+message UsageRow {
+  string user_id = 1;
+  string user_name = 2;
+  string email = 3;
+  // key_name is the API key used, or empty for the web app.
+  string key_name = 4;
+  int64 predictions = 5;
+}
+
+message GetUsageResponse {
+  string month = 1;
+  repeated UsageRow rows = 2;
+  int64 total = 3;
+  // limit is the monthly limit per person, 0 for none.
+  int64 limit = 4;
 }
 
 // Security says who must use two-step verification.

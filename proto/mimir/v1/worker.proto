@@ -1,0 +1,320 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+import "google/protobuf/timestamp.proto";
+import "mimir/v1/model.proto";
+import "mimir/v1/training.proto";
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// WorkerService manages the workers that run models for this server, and
+// carries the link each worker holds open.
+service WorkerService {
+  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // CreateWorker registers a worker and returns its token, shown once.
+  rpc CreateWorker(CreateWorkerRequest) returns (CreateWorkerResponse);
+  rpc DeleteWorker(DeleteWorkerRequest) returns (DeleteWorkerResponse);
+  // GetWorker is one worker's dashboard: how it is doing now and over
+  // time, what it runs, and how it is connected.
+  rpc GetWorker(GetWorkerRequest) returns (GetWorkerResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // ReplaceWorkerToken makes a new token for a worker, shown once. The old
+  // token stops working, the worker is disconnected, and its key is
+  // forgotten so it can join again with the new token.
+  rpc ReplaceWorkerToken(ReplaceWorkerTokenRequest) returns (ReplaceWorkerTokenResponse);
+  // ListWorkerChoices lists the workers a model or training run can be
+  // placed on, for anyone who can add models. It leaves out tokens,
+  // addresses and who added them.
+  rpc ListWorkerChoices(ListWorkerChoicesRequest) returns (ListWorkerChoicesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Link is the stream a worker keeps open while it is available. The
+  // worker authenticates with "Authorization: Bearer <worker token>" and
+  // says hello with its public key. The server sends a challenge, the
+  // worker signs it with its private key, and only then is it welcomed and
+  // sent tasks. The first key a token joins with is the one it must keep
+  // using.
+  rpc Link(stream LinkRequest) returns (stream LinkResponse);
+}
+
+// Worker is a process that runs models for this server, here or elsewhere.
+message Worker {
+  string id = 1;
+  string name = 2;
+  bool online = 3;
+  google.protobuf.Timestamp last_seen = 4;
+  google.protobuf.Timestamp create_time = 5;
+  // What the worker reported when it connected.
+  string device = 6;
+  int32 cpus = 7;
+  int64 memory_bytes = 8;
+  repeated string architectures = 9;
+  bool trains = 10;
+  int32 capacity = 11;
+  int32 busy = 12;
+  string version = 13;
+  string address = 14;
+  string created_by = 15;
+  // stats is the latest the worker reported, while online.
+  Stats stats = 16;
+  // connect_time is when the current link opened.
+  google.protobuf.Timestamp connect_time = 17;
+  // key_fingerprint identifies the key the worker joined with; empty
+  // until it first joins.
+  string key_fingerprint = 18;
+  // security says how the current link is protected: "tls" when the
+  // console serves TLS itself, "proxy" when a proxy in front says it does,
+  // "local" for a worker on the same machine, "plain" otherwise.
+  string security = 19;
+  string tls_version = 20;
+  // models is how many models are set to run on it.
+  int32 models = 21;
+  // waiting is how many runs are waiting for it.
+  int32 waiting = 22;
+}
+
+// Stats is how a worker's machine is doing.
+message Stats {
+  // cpu_percent is how busy all its CPUs are together, 0 to 100.
+  double cpu_percent = 1;
+  int64 memory_used_bytes = 2;
+  int64 memory_total_bytes = 3;
+  // disk is the storage holding the worker's data folder.
+  int64 disk_used_bytes = 4;
+  int64 disk_total_bytes = 5;
+  // uptime_seconds is how long the worker process has been running.
+  int64 uptime_seconds = 6;
+  double load_average = 7;
+}
+
+// WorkerSample is a worker's stats at one moment, for charts.
+message WorkerSample {
+  google.protobuf.Timestamp time = 1;
+  double cpu_percent = 2;
+  int64 memory_used_bytes = 3;
+  int64 memory_total_bytes = 4;
+  int64 disk_used_bytes = 5;
+  int64 disk_total_bytes = 6;
+  int32 busy = 7;
+  int32 capacity = 8;
+}
+
+// WorkerTask is something a worker is doing now.
+message WorkerTask {
+  // kind is "predict" or "train".
+  string kind = 1;
+  string model_id = 2;
+  string model_name = 3;
+  string job_id = 4;
+  string job_name = 5;
+  google.protobuf.Timestamp start_time = 6;
+  // count is how many of the same are running, for predictions.
+  int32 count = 7;
+}
+
+// WorkerItem is a model, run or event that belongs to a worker.
+message WorkerItem {
+  string id = 1;
+  string name = 2;
+  string status = 3;
+  google.protobuf.Timestamp time = 4;
+}
+
+message GetWorkerRequest {
+  string id = 1;
+  // hours of history to chart: 1, 24 or 168. Defaults to 1.
+  int32 hours = 2;
+}
+
+message GetWorkerResponse {
+  Worker worker = 1;
+  repeated WorkerSample samples = 2;
+  repeated WorkerTask tasks = 3;
+  // models are the models set to run on it.
+  repeated WorkerItem models = 4;
+  // runs are recent and waiting training runs on it, newest first.
+  repeated WorkerItem runs = 5;
+  // events are recent connection events from the audit log.
+  repeated WorkerItem events = 6;
+}
+
+message ReplaceWorkerTokenRequest {
+  string id = 1;
+}
+
+message ReplaceWorkerTokenResponse {
+  string token = 1;
+}
+
+message ListWorkerChoicesRequest {}
+
+message ListWorkerChoicesResponse {
+  repeated Worker workers = 1;
+}
+
+message ListWorkersRequest {}
+
+message ListWorkersResponse {
+  repeated Worker workers = 1;
+  // secure_join says new tokens carry the console's certificate
+  // fingerprint, so workers check they reach this console.
+  bool secure_join = 2;
+}
+
+message CreateWorkerRequest {
+  string name = 1;
+}
+
+message CreateWorkerResponse {
+  Worker worker = 1;
+  // token is the secret the worker connects with. It is not stored and
+  // cannot be shown again.
+  string token = 2;
+}
+
+message DeleteWorkerRequest {
+  string id = 1;
+}
+
+message DeleteWorkerResponse {}
+
+// LinkRequest is what a worker sends on its link.
+message LinkRequest {
+  oneof body {
+    Hello hello = 1;
+    PredictResult predict_result = 2;
+    TrainProgress train_progress = 3;
+    TrainResult train_result = 4;
+    Heartbeat heartbeat = 5;
+    Proof proof = 6;
+  }
+}
+
+// LinkResponse is what the server sends down a link.
+message LinkResponse {
+  oneof body {
+    Welcome welcome = 1;
+    PredictTask predict = 2;
+    TrainTask train = 3;
+    CancelTask cancel = 4;
+    Challenge challenge = 5;
+  }
+}
+
+// Challenge asks the worker to prove it holds its key.
+message Challenge {
+  bytes nonce = 1;
+}
+
+// Proof is the worker's Ed25519 signature of "mimir-worker-link-v1\n"
+// followed by the challenge's nonce.
+message Proof {
+  bytes signature = 1;
+}
+
+// Hello is the first message on a link: what the worker can do.
+message Hello {
+  string device = 1;
+  int32 cpus = 2;
+  int64 memory_bytes = 3;
+  // architectures the worker can run predictions for.
+  repeated string architectures = 4;
+  // trains says the worker can also train those architectures.
+  bool trains = 5;
+  // capacity is how many tasks the worker takes at once.
+  int32 capacity = 6;
+  string version = 7;
+  // public_key is the worker's Ed25519 public key.
+  bytes public_key = 8;
+  Stats stats = 9;
+}
+
+// Heartbeat keeps the link alive and carries fresh stats.
+message Heartbeat {
+  Stats stats = 1;
+}
+
+message Welcome {
+  string worker_id = 1;
+  string name = 2;
+}
+
+// ModelSpec is what a model reads and answers.
+message ModelSpec {
+  repeated int64 input_shape = 1;
+  repeated string labels = 2;
+  repeated string features = 3;
+  repeated Column columns = 4;
+}
+
+// PredictTask asks for one prediction. weights travel only the first time
+// a link sees a model; the worker keeps them.
+message PredictTask {
+  string task_id = 1;
+  string model_id = 2;
+  string architecture = 3;
+  ModelSpec spec = 4;
+  bytes weights = 5;
+  Tensor input = 6;
+}
+
+message PredictResult {
+  string task_id = 1;
+  Tensor output = 2;
+  Tensor probabilities = 3;
+  string error = 4;
+  // need_weights asks the server to send the task again with the weights.
+  bool need_weights = 5;
+}
+
+// TrainTask asks the worker to train a model from the examples it carries.
+message TrainTask {
+  string task_id = 1;
+  string job_id = 2;
+  string architecture = 3;
+  TrainingSettings settings = 4;
+  DatasetKind dataset_kind = 5;
+  // csv holds the table for DATASET_KIND_TABLE, with target naming the
+  // answer column.
+  bytes csv = 6;
+  string target = 7;
+  // history is what earlier attempts already finished, for a resumed job.
+  repeated EpochResult history = 8;
+  // base_weights, when set, are a model to continue training from.
+  bytes base_weights = 9;
+  // base_labels and base_features are what the base model answers and
+  // reads; its weights carry over only while they still match.
+  repeated string base_labels = 10;
+  repeated string base_features = 11;
+  // archive holds the ZIP for DATASET_KIND_PHOTOS and PHOTO_TABLE.
+  bytes archive = 12;
+  // columns are the dataset's columns as first read; their kinds are kept.
+  repeated Column columns = 13;
+}
+
+message TrainProgress {
+  string task_id = 1;
+  int32 epoch = 2;
+  int32 step = 3;
+  int32 steps_per_epoch = 4;
+  repeated EpochResult history = 5;
+}
+
+message TrainResult {
+  string task_id = 1;
+  bytes weights = 2;
+  repeated EpochResult history = 3;
+  ModelSpec spec = 4;
+  string error = 5;
+  bool cancelled = 6;
+  // fresh says the base weights didn't fit and it learned from scratch.
+  bool fresh = 7;
+}
+
+message CancelTask {
+  string task_id = 1;
+}

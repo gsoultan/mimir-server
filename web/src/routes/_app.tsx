@@ -101,6 +101,7 @@ function Layout() {
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Label>{me.user?.email}</Menu.Label>
+              {me.user?.teamName && <Menu.Label>Team: {me.user.teamName}</Menu.Label>}
               <Menu.Item leftSection={<IconKey size={16} />} onClick={change.open}>Change password</Menu.Item>
               <Menu.Item component={Link} to="/security" leftSection={<IconShieldLock size={16} />}>Security</Menu.Item>
               <Menu.Item leftSection={<IconLogout size={16} />} onClick={() => signOut.mutate({})}>Sign out</Menu.Item>

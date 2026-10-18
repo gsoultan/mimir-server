@@ -155,7 +155,11 @@ type User struct {
 	CreateTime     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
 	LastSignInTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_sign_in_time,json=lastSignInTime,proto3" json:"last_sign_in_time,omitempty"`
 	// TwoFactor is true once the person confirmed an authenticator app.
-	TwoFactor     bool `protobuf:"varint,8,opt,name=two_factor,json=twoFactor,proto3" json:"two_factor,omitempty"`
+	TwoFactor bool `protobuf:"varint,8,opt,name=two_factor,json=twoFactor,proto3" json:"two_factor,omitempty"`
+	// The team the person belongs to. They see only its models, examples,
+	// training runs, webhooks and audit events.
+	TeamId        string `protobuf:"bytes,9,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	TeamName      string `protobuf:"bytes,10,opt,name=team_name,json=teamName,proto3" json:"team_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -244,6 +248,20 @@ func (x *User) GetTwoFactor() bool {
 		return x.TwoFactor
 	}
 	return false
+}
+
+func (x *User) GetTeamId() string {
+	if x != nil {
+		return x.TeamId
+	}
+	return ""
+}
+
+func (x *User) GetTeamName() string {
+	if x != nil {
+		return x.TeamName
+	}
+	return ""
 }
 
 type GetSetupStateRequest struct {
@@ -1519,8 +1537,11 @@ type CreateUserRequest struct {
 	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Password is the first password; tell it to the person, who can change
 	// it after signing in.
-	Password      string  `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
-	Access        *Access `protobuf:"bytes,4,opt,name=access,proto3" json:"access,omitempty"`
+	Password string  `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	Access   *Access `protobuf:"bytes,4,opt,name=access,proto3" json:"access,omitempty"`
+	// team_id puts the person in a team; only owners may pick one other than
+	// their own. Empty means the caller's team.
+	TeamId        string `protobuf:"bytes,5,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1583,6 +1604,13 @@ func (x *CreateUserRequest) GetAccess() *Access {
 	return nil
 }
 
+func (x *CreateUserRequest) GetTeamId() string {
+	if x != nil {
+		return x.TeamId
+	}
+	return ""
+}
+
 type CreateUserResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
@@ -1639,8 +1667,11 @@ type UpdateUserRequest struct {
 	// ResetTwoFactor turns off the user's authenticator so they can sign in
 	// with their password alone, for when they lost their phone.
 	ResetTwoFactor bool `protobuf:"varint,6,opt,name=reset_two_factor,json=resetTwoFactor,proto3" json:"reset_two_factor,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// team_id, when set and different, moves the person to that team (owners
+	// only). It signs them out and revokes their API keys.
+	TeamId        string `protobuf:"bytes,7,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateUserRequest) Reset() {
@@ -1713,6 +1744,13 @@ func (x *UpdateUserRequest) GetResetTwoFactor() bool {
 		return x.ResetTwoFactor
 	}
 	return false
+}
+
+func (x *UpdateUserRequest) GetTeamId() string {
+	if x != nil {
+		return x.TeamId
+	}
+	return ""
 }
 
 type UpdateUserResponse struct {
@@ -2200,8 +2238,10 @@ type AuditEvent struct {
 	// Action is what happened, such as "model.create".
 	Action string `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`
 	// Target is what it happened to, such as a model's name.
-	Target        string `protobuf:"bytes,5,opt,name=target,proto3" json:"target,omitempty"`
-	Detail        string `protobuf:"bytes,6,opt,name=detail,proto3" json:"detail,omitempty"`
+	Target string `protobuf:"bytes,5,opt,name=target,proto3" json:"target,omitempty"`
+	Detail string `protobuf:"bytes,6,opt,name=detail,proto3" json:"detail,omitempty"`
+	// team_name is the team it happened in; owners see every team's events.
+	TeamName      string `protobuf:"bytes,7,opt,name=team_name,json=teamName,proto3" json:"team_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2274,6 +2314,13 @@ func (x *AuditEvent) GetTarget() string {
 func (x *AuditEvent) GetDetail() string {
 	if x != nil {
 		return x.Detail
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetTeamName() string {
+	if x != nil {
+		return x.TeamName
 	}
 	return ""
 }
@@ -2391,7 +2438,7 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\x04role\x18\x01 \x01(\x0e2\x0e.mimir.v1.RoleR\x04role\x12\x1d\n" +
 	"\n" +
 	"all_models\x18\x02 \x01(\bR\tallModels\x12\x1b\n" +
-	"\tmodel_ids\x18\x03 \x03(\tR\bmodelIds\"\xa9\x02\n" +
+	"\tmodel_ids\x18\x03 \x03(\tR\bmodelIds\"\xdf\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x12\n" +
@@ -2402,7 +2449,10 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"createTime\x12E\n" +
 	"\x11last_sign_in_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x0elastSignInTime\x12\x1d\n" +
 	"\n" +
-	"two_factor\x18\b \x01(\bR\ttwoFactor\"\x16\n" +
+	"two_factor\x18\b \x01(\bR\ttwoFactor\x12\x17\n" +
+	"\ateam_id\x18\t \x01(\tR\x06teamId\x12\x1b\n" +
+	"\tteam_name\x18\n" +
+	" \x01(\tR\bteamName\"\x16\n" +
 	"\x14GetSetupStateRequest\"8\n" +
 	"\x15GetSetupStateResponse\x12\x1f\n" +
 	"\vneeds_setup\x18\x01 \x01(\bR\n" +
@@ -2468,21 +2518,23 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\arevoked\x18\x01 \x01(\x05R\arevoked\"\x12\n" +
 	"\x10ListUsersRequest\"9\n" +
 	"\x11ListUsersResponse\x12$\n" +
-	"\x05users\x18\x01 \x03(\v2\x0e.mimir.v1.UserR\x05users\"\x83\x01\n" +
+	"\x05users\x18\x01 \x03(\v2\x0e.mimir.v1.UserR\x05users\"\x9c\x01\n" +
 	"\x11CreateUserRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\x12(\n" +
-	"\x06access\x18\x04 \x01(\v2\x10.mimir.v1.AccessR\x06access\"8\n" +
+	"\x06access\x18\x04 \x01(\v2\x10.mimir.v1.AccessR\x06access\x12\x17\n" +
+	"\ateam_id\x18\x05 \x01(\tR\x06teamId\"8\n" +
 	"\x12CreateUserResponse\x12\"\n" +
-	"\x04user\x18\x01 \x01(\v2\x0e.mimir.v1.UserR\x04user\"\xca\x01\n" +
+	"\x04user\x18\x01 \x01(\v2\x0e.mimir.v1.UserR\x04user\"\xe3\x01\n" +
 	"\x11UpdateUserRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
 	"\x06access\x18\x03 \x01(\v2\x10.mimir.v1.AccessR\x06access\x12\x1a\n" +
 	"\bdisabled\x18\x04 \x01(\bR\bdisabled\x12!\n" +
 	"\fnew_password\x18\x05 \x01(\tR\vnewPassword\x12(\n" +
-	"\x10reset_two_factor\x18\x06 \x01(\bR\x0eresetTwoFactor\"8\n" +
+	"\x10reset_two_factor\x18\x06 \x01(\bR\x0eresetTwoFactor\x12\x17\n" +
+	"\ateam_id\x18\a \x01(\tR\x06teamId\"8\n" +
 	"\x12UpdateUserResponse\x12\"\n" +
 	"\x04user\x18\x01 \x01(\v2\x0e.mimir.v1.UserR\x04user\"#\n" +
 	"\x11DeleteUserRequest\x12\x0e\n" +
@@ -2507,7 +2559,7 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\x06secret\x18\x02 \x01(\tR\x06secret\"%\n" +
 	"\x13RevokeApiKeyRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x16\n" +
-	"\x14RevokeApiKeyResponse\"\xaa\x01\n" +
+	"\x14RevokeApiKeyResponse\"\xc7\x01\n" +
 	"\n" +
 	"AuditEvent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12.\n" +
@@ -2515,7 +2567,8 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\x05actor\x18\x03 \x01(\tR\x05actor\x12\x16\n" +
 	"\x06action\x18\x04 \x01(\tR\x06action\x12\x16\n" +
 	"\x06target\x18\x05 \x01(\tR\x06target\x12\x16\n" +
-	"\x06detail\x18\x06 \x01(\tR\x06detail\"T\n" +
+	"\x06detail\x18\x06 \x01(\tR\x06detail\x12\x1b\n" +
+	"\tteam_name\x18\a \x01(\tR\bteamName\"T\n" +
 	"\x16ListAuditEventsRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +

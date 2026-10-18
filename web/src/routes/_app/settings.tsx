@@ -10,39 +10,63 @@ import { z } from "zod";
 
 import { message } from "../../api/client";
 import { SettingsService, TwoFactorPolicy } from "../../api/gen/mimir/v1/settings_pb";
-import { allSettingsQueries, auditLog, databaseInfo, settings, whoAmI } from "../../api/queries";
+import { allSettingsQueries, auditLog, databaseInfo, listTeams, settings, whoAmI } from "../../api/queries";
 import { AnchorLink } from "../../components/links";
 import { Page } from "../../components/Page";
+import { Teams } from "../../components/Teams";
+import { Limits, Usage } from "../../components/Usage";
+import { Workers } from "../../components/Workers";
 import { ago, bytes } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/settings")({
-  validateSearch: z.object({ tab: z.enum(["audit", "database", "alerts", "retention", "security"]).optional() }),
-  loader: ({ context }) => Promise.all([
-    context.queryClient.ensureInfiniteQueryData(auditLog),
-    context.queryClient.ensureQueryData(settings),
-    context.queryClient.ensureQueryData(databaseInfo),
-  ]),
+  validateSearch: z.object({ tab: z.enum(["audit", "teams", "database", "alerts", "retention", "security", "workers", "limits", "usage"]).optional() }),
+  loader: async ({ context }) => {
+    const me = await context.queryClient.ensureQueryData(whoAmI);
+    // Admins run their team; the server-wide tabs are the owners'.
+    const owner = me.permissions.includes("settings.manage");
+    return Promise.all([
+      context.queryClient.ensureInfiniteQueryData(auditLog),
+      owner ? context.queryClient.ensureQueryData(settings) : null,
+      owner ? context.queryClient.ensureQueryData(databaseInfo) : null,
+      owner ? context.queryClient.ensureQueryData(listTeams) : null,
+    ]);
+  },
   component: Settings,
 });
 
 function Settings() {
   const { tab } = Route.useSearch();
   const navigate = Route.useNavigate();
+  const { data: me } = useSuspenseQuery(whoAmI);
+  const owner = me.permissions.includes("settings.manage");
+  const shown = owner || tab === "audit" || tab === "usage" ? tab ?? "audit" : "audit";
   return (
-    <Page title="Settings" intro="How this server stores data and keeps you informed.">
-      <Tabs value={tab ?? "audit"} onChange={(t) => navigate({ search: { tab: (t ?? "audit") as "audit" }, replace: true })}>
+    <Page title="Settings" intro={owner ? "How this server stores data and keeps you informed." : `What's happening in ${me.user?.teamName ?? "your team"}.`}>
+      <Tabs value={shown} onChange={(t) => navigate({ search: { tab: (t ?? "audit") as "audit" }, replace: true })}>
         <Tabs.List>
           <Tabs.Tab value="audit">Audit log</Tabs.Tab>
-          <Tabs.Tab value="database">Database</Tabs.Tab>
-          <Tabs.Tab value="alerts">Alerts</Tabs.Tab>
-          <Tabs.Tab value="retention">Log retention</Tabs.Tab>
-          <Tabs.Tab value="security">Security</Tabs.Tab>
+          {owner && <>
+            <Tabs.Tab value="teams">Teams</Tabs.Tab>
+            <Tabs.Tab value="database">Database</Tabs.Tab>
+            <Tabs.Tab value="alerts">Alerts</Tabs.Tab>
+            <Tabs.Tab value="retention">Log retention</Tabs.Tab>
+            <Tabs.Tab value="security">Security</Tabs.Tab>
+            <Tabs.Tab value="workers">Workers</Tabs.Tab>
+            <Tabs.Tab value="limits">Limits</Tabs.Tab>
+          </>}
+          <Tabs.Tab value="usage">Usage</Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="audit" pt="md"><AuditLog /></Tabs.Panel>
-        <Tabs.Panel value="database" pt="md"><Database /></Tabs.Panel>
-        <Tabs.Panel value="alerts" pt="md"><Alerts /></Tabs.Panel>
-        <Tabs.Panel value="retention" pt="md"><Retention /></Tabs.Panel>
-        <Tabs.Panel value="security" pt="md"><SecurityPolicy /></Tabs.Panel>
+        <Tabs.Panel value="audit" pt="md"><AuditLog showTeam={owner} /></Tabs.Panel>
+        {owner && <>
+          <Tabs.Panel value="teams" pt="md"><Teams /></Tabs.Panel>
+          <Tabs.Panel value="database" pt="md"><Database /></Tabs.Panel>
+          <Tabs.Panel value="alerts" pt="md"><Alerts /></Tabs.Panel>
+          <Tabs.Panel value="retention" pt="md"><Retention /></Tabs.Panel>
+          <Tabs.Panel value="security" pt="md"><SecurityPolicy /></Tabs.Panel>
+          <Tabs.Panel value="workers" pt="md"><Workers /></Tabs.Panel>
+          <Tabs.Panel value="limits" pt="md"><Limits /></Tabs.Panel>
+        </>}
+        <Tabs.Panel value="usage" pt="md"><Usage /></Tabs.Panel>
       </Tabs>
     </Page>
   );
@@ -219,6 +243,28 @@ const actions: Record<string, string> = {
   "settings.alerts": "changed alert settings",
   "settings.retention": "changed log retention",
   "settings.security": "changed security settings",
+  "dataset.create": "added the examples",
+  "dataset.delete": "removed the examples",
+  "dataset.refresh": "fetched the examples again",
+  "settings.limits": "changed the limits",
+  "team.create": "added the team",
+  "team.rename": "renamed the team",
+  "team.delete": "removed the team",
+  "user.move": "moved to another team",
+  "training.repeat": "changed how often it keeps learning",
+  "training.create": "started teaching",
+  "training.cancel": "stopped teaching",
+  "training.resume": "resumed teaching",
+  "training.delete": "deleted the training run",
+  "training.succeeded": "finished teaching",
+  "training.failed": "failed to teach",
+  "worker.create": "added the worker",
+  "worker.delete": "removed the worker",
+  "worker.join": "first connected as",
+  "worker.refused": "was refused as",
+  "worker.address": "connected from a new address as",
+  "worker.token": "made a new token for the worker",
+  "model.worker": "moved the model",
   "user.code_failed": "entered a wrong code for",
   "user.two_factor_on": "turned on two-step verification",
   "user.two_factor_off": "turned off two-step verification",
@@ -228,7 +274,7 @@ const actions: Record<string, string> = {
 
 const when = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
-function AuditLog() {
+function AuditLog({ showTeam }: { showTeam: boolean }) {
   const { data, hasNextPage, fetchNextPage, isFetchingNextPage } = useSuspenseInfiniteQuery(auditLog);
   const events = data.pages.flatMap((p) => p.events);
 
@@ -237,11 +283,12 @@ function AuditLog() {
     <Stack>
       <Table.ScrollContainer minWidth={560}>
         <Table verticalSpacing="sm">
-          <Table.Thead><Table.Tr><Table.Th>When</Table.Th><Table.Th>Who</Table.Th><Table.Th>What</Table.Th></Table.Tr></Table.Thead>
+          <Table.Thead><Table.Tr><Table.Th>When</Table.Th>{showTeam && <Table.Th>Team</Table.Th>}<Table.Th>Who</Table.Th><Table.Th>What</Table.Th></Table.Tr></Table.Thead>
           <Table.Tbody>
             {events.map((e) => (
               <Table.Tr key={e.id}>
                 <Table.Td className="whitespace-nowrap">{e.time ? when.format(timestampDate(e.time)) : ""}</Table.Td>
+                {showTeam && <Table.Td>{e.teamName || <Text span c="dimmed">None</Text>}</Table.Td>}
                 <Table.Td>{e.actor}</Table.Td>
                 <Table.Td>
                   {actions[e.action] ?? e.action} {e.target !== e.actor && <Text span fw={600}>{e.target}</Text>}

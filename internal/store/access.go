@@ -59,6 +59,8 @@ type User struct {
 	TOTPSecret   string
 	TOTPPending  string
 	TOTPLastStep int64
+	// TeamID is the team the person belongs to; they see only its things.
+	TeamID string
 }
 
 // TwoFactor reports whether sign-in needs a code from an authenticator.
@@ -95,6 +97,9 @@ type AuditEvent struct {
 	Action string
 	Target string
 	Detail string
+	// TeamID is the team the event happened in, "" for none.
+	TeamID   string
+	TeamName string // filled in by ListAuditEvents
 }
 
 // ErrEmailTaken reports a second user with the same email.
@@ -125,13 +130,15 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	return n, err
 }
 
-const userColumns = "id, email, name, password_hash, role, all_models, disabled, create_time, last_sign_in, totp_secret, totp_pending, totp_last_step"
+const userColumns = "id, email, name, password_hash, role, all_models, disabled, create_time, last_sign_in, totp_secret, totp_pending, totp_last_step, team_id"
 
 func scanUser(row scanner) (User, error) {
 	var u User
 	var created int64
 	var signIn sql.NullInt64
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Access.Role, &u.Access.AllModels, &u.Disabled, &created, &signIn, &u.TOTPSecret, &u.TOTPPending, &u.TOTPLastStep)
+	var team sql.NullString
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Access.Role, &u.Access.AllModels, &u.Disabled, &created, &signIn, &u.TOTPSecret, &u.TOTPPending, &u.TOTPLastStep, &team)
+	u.TeamID = team.String
 	u.Created = time.UnixMilli(created).UTC()
 	u.LastSignIn = fromMillis(signIn)
 	return u, err
@@ -145,13 +152,16 @@ func (s *Store) CreateUser(ctx context.Context, u User) (User, error) {
 	}
 	u.ID, u.Created = id, time.Now().UTC().Truncate(time.Millisecond)
 	u.Access = normalize(u.Access)
+	if u.TeamID == "" {
+		u.TeamID = DefaultTeam
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return User{}, err
 	}
 	defer tx.Rollback()
-	_, err = tx.ExecContext(ctx, "INSERT INTO users ("+userColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, '', '', 0)",
-		u.ID, u.Email, u.Name, u.PasswordHash, u.Access.Role, u.Access.AllModels, u.Disabled, millis(u.Created))
+	_, err = tx.ExecContext(ctx, "INSERT INTO users ("+userColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, '', '', 0, ?)",
+		u.ID, u.Email, u.Name, u.PasswordHash, u.Access.Role, u.Access.AllModels, u.Disabled, millis(u.Created), u.TeamID)
 	if isUnique(err) {
 		return User{}, ErrEmailTaken
 	}
@@ -193,9 +203,10 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (User, error) 
 	return u, err
 }
 
-// ListUsers returns every user, oldest first.
-func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+userColumns+" FROM users ORDER BY create_time, id LIMIT 1000")
+// ListUsers returns a team's users, or everyone's when team is "", oldest
+// first.
+func (s *Store) ListUsers(ctx context.Context, team string) ([]User, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT "+userColumns+" FROM users WHERE (? = '' OR team_id = ?) ORDER BY create_time, id LIMIT 1000", team, team)
 	if err != nil {
 		return nil, fmt.Errorf("store: list users: %w", err)
 	}
@@ -217,6 +228,36 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 		}
 	}
 	return out, nil
+}
+
+// MoveUser puts a user in another team. Their model grants go, their API
+// keys are revoked and their sessions end except keepSession, since all
+// were for the old team's models.
+func (s *Store) MoveUser(ctx context.Context, id, team, keepSession string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, "UPDATE users SET team_id = ? WHERE id = ?", team, id)
+	if err != nil {
+		return fmt.Errorf("store: move user: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	for _, q := range []string{
+		"DELETE FROM user_models WHERE user_id = ?",
+		"DELETE FROM api_keys WHERE user_id = ?",
+	} {
+		if _, err := tx.ExecContext(ctx, q, id); err != nil {
+			return fmt.Errorf("store: move user: %w", err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ? AND id <> ?", id, keepSession); err != nil {
+		return fmt.Errorf("store: move user: %w", err)
+	}
+	return tx.Commit()
 }
 
 // UpdateUser changes a user's name, access and disabled flag.
@@ -600,20 +641,23 @@ func (s *Store) Audit(ctx context.Context, e AuditEvent) error {
 	if e.Time.IsZero() {
 		e.Time = time.Now()
 	}
-	_, err = s.db.ExecContext(ctx, "INSERT INTO audit_events (id, time, actor, action, target, detail) VALUES (?, ?, ?, ?, ?, ?)",
-		id, millis(e.Time), e.Actor, e.Action, e.Target, e.Detail)
+	_, err = s.db.ExecContext(ctx, "INSERT INTO audit_events (id, time, actor, action, target, detail, team_id) VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''))",
+		id, millis(e.Time), e.Actor, e.Action, e.Target, e.Detail, e.TeamID)
 	if err != nil {
 		return fmt.Errorf("store: audit: %w", err)
 	}
 	return nil
 }
 
-// ListAuditEvents returns up to limit events older than the one with
-// beforeID (every event when empty), newest first.
-func (s *Store) ListAuditEvents(ctx context.Context, beforeID string, limit int) ([]AuditEvent, error) {
+// ListAuditEvents returns up to limit of a team's events (every team's
+// when team is "") older than the one with beforeID (every event when
+// empty), newest first.
+func (s *Store) ListAuditEvents(ctx context.Context, team, beforeID string, limit int) ([]AuditEvent, error) {
 	rows, err := s.db.QueryContext(ctx,
-		"SELECT id, time, actor, action, target, detail FROM audit_events WHERE (? = '' OR id < ?) ORDER BY id DESC LIMIT ?",
-		beforeID, beforeID, limit)
+		`SELECT e.id, e.time, e.actor, e.action, e.target, e.detail, COALESCE(e.team_id, ''), COALESCE(t.name, '')
+		FROM audit_events e LEFT JOIN teams t ON t.id = e.team_id
+		WHERE (? = '' OR e.team_id = ?) AND (? = '' OR e.id < ?) ORDER BY e.id DESC LIMIT ?`,
+		team, team, beforeID, beforeID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("store: list audit: %w", err)
 	}
@@ -622,7 +666,7 @@ func (s *Store) ListAuditEvents(ctx context.Context, beforeID string, limit int)
 	for rows.Next() {
 		var e AuditEvent
 		var t int64
-		if err := rows.Scan(&e.ID, &t, &e.Actor, &e.Action, &e.Target, &e.Detail); err != nil {
+		if err := rows.Scan(&e.ID, &t, &e.Actor, &e.Action, &e.Target, &e.Detail, &e.TeamID, &e.TeamName); err != nil {
 			return nil, fmt.Errorf("store: list audit: %w", err)
 		}
 		e.Time = time.UnixMilli(t).UTC()

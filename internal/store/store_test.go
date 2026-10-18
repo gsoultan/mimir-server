@@ -36,7 +36,7 @@ func TestRoundTrip(t *testing.T) {
 	if _, err := s.Update(ctx, m.ID, "digits v2", "better"); err != nil {
 		t.Fatal(err)
 	}
-	list, err := s.List(ctx)
+	list, err := s.List(ctx, DefaultTeam)
 	if err != nil || len(list) != 1 || list[0].Name != "digits v2" || list[0].Description != "better" {
 		t.Fatalf("List = %+v, %v", list, err)
 	}
