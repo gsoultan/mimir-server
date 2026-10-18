@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir/io/mim"
 	"github.com/gsoultan/mimir/io/safetensors"
 	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/tensor"
@@ -63,6 +64,79 @@ func Build(a arch.Architecture, spec arch.Spec, weights []byte) (nn.Module, erro
 	return m, nil
 }
 
+// LabelsKey is the metadata key of a Mimir Model file that holds the
+// labels of its outputs, as strings, one per output value.
+const LabelsKey = "mimir.labels"
+
+// File is a loaded Mimir Model (.mim) file, which runs as a model of one
+// input.
+type File struct {
+	m     *mim.Model
+	input mim.ValueInfo
+	shape []int // the input's declared shape
+	// Spec is what the file reads and answers: the shape of its input,
+	// without a leading batch dimension of 1, and the labels its metadata
+	// holds under LabelsKey, if any.
+	Spec arch.Spec
+}
+
+// OpenFile loads a Mimir Model file. It fails with ErrBadWeights for a
+// file that mimir cannot run, or that is not a model of one float input
+// of a fixed shape with at least one output.
+func OpenFile(b []byte) (*File, error) {
+	m, err := mim.Parse(b)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+	}
+	f, err := newFile(m)
+	if err != nil {
+		m.Close()
+		return nil, err
+	}
+	return f, nil
+}
+
+func newFile(m *mim.Model) (*File, error) {
+	ins, outs := m.Inputs(), m.Outputs()
+	if len(ins) != 1 || len(outs) == 0 {
+		return nil, fmt.Errorf("%w: the model has %d inputs and %d outputs, want one input and an output", ErrBadWeights, len(ins), len(outs))
+	}
+	in := ins[0]
+	if !in.DType().IsFloat() {
+		return nil, fmt.Errorf("%w: input %s does not read numbers", ErrBadWeights, in)
+	}
+	shape := make([]int, len(in.Shape))
+	for i, d := range in.Shape {
+		if d.Size < 0 {
+			return nil, fmt.Errorf("%w: input %s has a dimension of variable size", ErrBadWeights, in)
+		}
+		shape[i] = d.Size
+	}
+	md, err := m.Metadata()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+	}
+	labels, _ := md[LabelsKey].([]string)
+	spec := arch.Spec{InputShape: shape, Labels: labels}
+	if len(shape) > 1 && shape[0] == 1 {
+		spec.InputShape = shape[1:]
+	}
+	return &File{m: m, input: in, shape: shape, Spec: spec}, nil
+}
+
+// Forward runs the file on x, reshaped to its input's shape, and returns
+// its first output.
+func (f *File) Forward(ctx context.Context, x *tensor.Tensor) *tensor.Tensor {
+	out, err := f.m.Run(ctx, map[string]*tensor.Tensor{f.input.Name: x.Reshape(f.shape...).Cast(f.input.DType())})
+	if err != nil {
+		return tensor.Failed(err)
+	}
+	return out[f.m.Outputs()[0].Name]
+}
+
+// Close releases the file.
+func (f *File) Close() error { return f.m.Close() }
+
 // Cache keeps loaded models in memory by model id. It is safe for
 // concurrent use; mimir tensors are immutable, so one module serves many
 // requests at once.
@@ -73,8 +147,33 @@ type Cache struct {
 
 type entry struct {
 	once sync.Once
-	mod  nn.Module
+	run  func(ctx context.Context, x *tensor.Tensor) *tensor.Tensor
 	err  error
+}
+
+// load builds the model of architecture a from weights, a weights file
+// or, for a File architecture, a Mimir Model file.
+func (e *entry) load(a arch.Architecture, spec arch.Spec, weights []byte) {
+	if a.File {
+		f, err := OpenFile(weights)
+		if err != nil {
+			e.err = err
+			return
+		}
+		if !slices.Equal(f.Spec.InputShape, spec.InputShape) {
+			f.Close()
+			e.err = fmt.Errorf("%w: the file reads shape %v, the model %v", ErrBadWeights, f.Spec.InputShape, spec.InputShape)
+			return
+		}
+		e.run = f.Forward
+		return
+	}
+	mod, err := Build(a, spec, weights)
+	if err != nil {
+		e.err = err
+		return
+	}
+	e.run = func(_ context.Context, x *tensor.Tensor) *tensor.Tensor { return mod.Forward(x) }
 }
 
 // NewCache returns an empty cache.
@@ -94,7 +193,7 @@ func (c *Cache) Predict(ctx context.Context, id string, a arch.Architecture, spe
 	e.once.Do(func() {
 		var w []byte
 		if w, e.err = load(); e.err == nil {
-			e.mod, e.err = Build(a, spec, w)
+			e.load(a, spec, w)
 		}
 	})
 	if e.err != nil {
@@ -102,7 +201,7 @@ func (c *Cache) Predict(ctx context.Context, id string, a arch.Architecture, spe
 		return Result{}, e.err
 	}
 	shape := append([]int{1}, spec.InputShape...)
-	logits := e.mod.Forward(tensor.FromSlice(input, shape...)).Reshape(-1)
+	logits := e.run(ctx, tensor.FromSlice(input, shape...)).Reshape(-1)
 	probs := logits.Softmax(-1)
 	if err := tensor.Realize(ctx, logits, probs); err != nil { // one schedule for both
 		return Result{}, fmt.Errorf("runtime: run model %s: %w", id, err)
