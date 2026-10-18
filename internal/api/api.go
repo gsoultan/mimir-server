@@ -128,20 +128,29 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if !ok {
 		return nil, invalid("Unknown model type %q. Pick one from the list of model types.", msg.GetArchitecture())
 	}
-	if !a.Fixed() {
+	if !a.Fixed() && !a.File {
 		return nil, invalid("%s models are taught from a dataset here rather than uploaded. Choose Teach a new model.", a.Title)
 	}
 	if len(msg.GetWeights()) == 0 {
 		return nil, invalid("The model file is empty.")
 	}
-	// Load the weights once before storing them, so a file that doesn't fit
-	// is rejected now rather than on the first question.
-	if _, err := runtime.Build(a, a.Spec, msg.GetWeights()); err != nil {
+	p, _ := auth.From(ctx)
+	m := store.Model{Name: name, Description: desc, Architecture: a.Name, TeamID: p.Team()}
+	// Load the file once before storing it, so one that doesn't fit is
+	// rejected now rather than on the first question.
+	if a.File {
+		f, err := runtime.OpenFile(msg.GetWeights())
+		if err != nil {
+			s.log.InfoContext(ctx, "model file rejected", "architecture", a.Name, "error", err)
+			return nil, invalid("This .mim file can't run here: %s.", strings.TrimPrefix(err.Error(), runtime.ErrBadWeights.Error()+": "))
+		}
+		m.InputShape, m.Labels = f.Spec.InputShape, f.Spec.Labels
+		f.Close()
+	} else if _, err := runtime.Build(a, a.Spec, msg.GetWeights()); err != nil {
 		s.log.InfoContext(ctx, "weights rejected", "architecture", a.Name, "error", err)
 		return nil, invalid("This file doesn't fit the %q model type. Check that you picked the kind of model the file was saved from.", a.Title)
 	}
-	p, _ := auth.From(ctx)
-	m, err := s.store.Create(ctx, store.Model{Name: name, Description: desc, Architecture: a.Name, TeamID: p.Team()}, msg.GetWeights())
+	m, err = s.store.Create(ctx, m, msg.GetWeights())
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -281,7 +290,7 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 // numbers model m reads, the same way its examples were.
 func encode(m store.Model, a arch.Architecture, fields map[string]string, photo []byte) ([]float32, error) {
 	var out []float32
-	if a.Input == arch.Image && a.Fixed() {
+	if a.Input == arch.Image && a.Fixed() || a.Input == arch.Tensor {
 		return nil, invalid("This model reads numbers; send them as input.")
 	}
 	if a.Input == arch.Image || a.Input == arch.PhotoTable {
