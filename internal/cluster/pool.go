@@ -111,7 +111,7 @@ type link struct {
 	mu      sync.Mutex
 	busy    int
 	seq     int64
-	sent    map[string]bool // model ids whose weights went down this link
+	sent    map[string]string // model id to the version of its weights sent down this link
 	pending map[string]chan *mimirv1.LinkRequest
 	tasks   map[string]Task
 	stats   *mimirv1.Stats
@@ -155,7 +155,7 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 		}
 	}
 
-	l := &link{worker: w, hello: hello, join: j, since: time.Now(), stream: stream, sent: map[string]bool{}, pending: map[string]chan *mimirv1.LinkRequest{}, tasks: map[string]Task{}, closed: make(chan struct{}), dropped: make(chan struct{})}
+	l := &link{worker: w, hello: hello, join: j, since: time.Now(), stream: stream, sent: map[string]string{}, pending: map[string]chan *mimirv1.LinkRequest{}, tasks: map[string]Task{}, closed: make(chan struct{}), dropped: make(chan struct{})}
 	l.note(p, hello.Stats)
 	p.mu.Lock()
 	p.seq++
@@ -399,9 +399,9 @@ func (p *Pool) Statuses() []Status {
 	return out
 }
 
-// Predict runs input through a model on a worker. ran is false when no
-// worker can run the architecture.
-func (p *Pool) Predict(ctx context.Context, modelID, workerID string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (res runtime.Result, worker string, ran bool, err error) {
+// Predict runs input through version ver of a model on a worker. ran is
+// false when no worker can run the architecture.
+func (p *Pool) Predict(ctx context.Context, modelID, ver, workerID string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (res runtime.Result, worker string, ran bool, err error) {
 	l := p.pick(a.Name, false, workerID)
 	if l == nil {
 		return res, "", false, nil
@@ -414,7 +414,7 @@ func (p *Pool) Predict(ctx context.Context, modelID, workerID string, a arch.Arc
 		Input: &mimirv1.Tensor{Shape: int64s(spec.InputShape), Values: input},
 	}
 	l.mu.Lock()
-	need := !l.sent[modelID]
+	need := l.sent[modelID] != ver
 	l.mu.Unlock()
 	for attempt := 0; attempt < 2; attempt++ {
 		if need {
@@ -427,7 +427,7 @@ func (p *Pool) Predict(ctx context.Context, modelID, workerID string, a arch.Arc
 		}
 		if need {
 			l.mu.Lock()
-			l.sent[modelID] = true
+			l.sent[modelID] = ver
 			l.mu.Unlock()
 		}
 		msg, err := wait(ctx, replies, l.closed)

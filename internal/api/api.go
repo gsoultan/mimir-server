@@ -303,7 +303,7 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	// A model placed on one worker only runs there.
 	if s.Pool != nil && (!s.Local || m.WorkerID != "") {
 		var worker string
-		r, worker, ran, err2 = s.Pool.Predict(ctx, m.ID, m.WorkerID, a, spec, load, input)
+		r, worker, ran, err2 = s.Pool.Predict(ctx, m.ID, m.SHA256, m.WorkerID, a, spec, load, input)
 		if ran && err2 != nil {
 			s.log.WarnContext(ctx, "predict: worker failed", "worker", worker, "model_id", m.ID, "error", err2)
 		}
@@ -315,7 +315,7 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		if !s.Local {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
 		}
-		r, err2 = s.cache.Predict(ctx, m.ID, a, spec, load, input)
+		r, err2 = s.cache.Predict(ctx, m.ID, m.SHA256, a, spec, load, input)
 	}
 	switch {
 	case errors.Is(err2, runtime.ErrBadInput):

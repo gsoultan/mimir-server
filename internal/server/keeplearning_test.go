@@ -120,6 +120,13 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 		t.Fatalf("model accuracy %v", m1.Msg.GetModel().GetAccuracy())
 	}
 
+	// Answer once so the first version is loaded; the second pass must
+	// replace it rather than keep serving it.
+	if _, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: modelID, Input: &mimirv1.Tensor{Values: []float32{-1, -1}}})); err != nil {
+		t.Fatal(err)
+	}
+	before := m1.Msg.GetModel().GetUpdateTime().AsTime()
+
 	// Nothing is due yet.
 	runner.Tick(ctx)
 	if ls, _ := own.training.ListJobs(ctx, connect.NewRequest(&mimirv1.ListJobsRequest{})); len(ls.Msg.GetJobs()) != 1 {
@@ -149,6 +156,9 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 	}
 	if ms, _ := own.models.ListModels(ctx, connect.NewRequest(&mimirv1.ListModelsRequest{})); len(ms.Msg.GetModels()) != 1 {
 		t.Fatalf("models after second pass: %d", len(ms.Msg.GetModels()))
+	}
+	if m2, _ := own.models.GetModel(ctx, connect.NewRequest(&mimirv1.GetModelRequest{Id: modelID})); !m2.Msg.GetModel().GetUpdateTime().AsTime().After(before) {
+		t.Fatal("the second pass left the weights unchanged")
 	}
 	p, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: modelID, Input: &mimirv1.Tensor{Values: []float32{-1, -1}}}))
 	if err != nil || p.Msg.GetGuesses()[0].GetLabel() != "pear" {

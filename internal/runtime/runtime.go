@@ -145,13 +145,15 @@ func (f *File) Close() error { return f.m.Close() }
 
 // Cache keeps loaded models in memory by model id. It is safe for
 // concurrent use; mimir tensors are immutable, so one module serves many
-// requests at once.
+// requests at once. Each entry remembers the version of the weights it
+// loaded, so a model retrained in place is loaded again on its next use.
 type Cache struct {
 	mu     sync.Mutex
 	loaded map[string]*entry
 }
 
 type entry struct {
+	ver  string // the weights' version, such as their SHA-256
 	once sync.Once
 	run  func(ctx context.Context, x *tensor.Tensor) *tensor.Tensor
 	lm   *LanguageModel // for a language model, instead of run
@@ -190,9 +192,9 @@ func (e *entry) load(a arch.Architecture, spec arch.Spec, weights []byte) {
 // NewCache returns an empty cache.
 func NewCache() *Cache { return &Cache{loaded: map[string]*entry{}} }
 
-// Predict runs input, shaped like spec's InputShape, through the model
-// with id, loading it with load on first use.
-func (c *Cache) Predict(ctx context.Context, id string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (Result, error) {
+// Predict runs input, shaped like spec's InputShape, through version ver
+// of the model with id, loading it with load on first use.
+func (c *Cache) Predict(ctx context.Context, id, ver string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (Result, error) {
 	want := 1
 	for _, d := range spec.InputShape {
 		want *= d
@@ -200,7 +202,7 @@ func (c *Cache) Predict(ctx context.Context, id string, a arch.Architecture, spe
 	if len(input) != want {
 		return Result{}, fmt.Errorf("%w: got %d values, want %d (shape %v)", ErrBadInput, len(input), want, spec.InputShape)
 	}
-	e, err := c.ready(id, a, spec, load)
+	e, err := c.ready(id, ver, a, spec, load)
 	if err != nil {
 		return Result{}, err
 	}
@@ -224,10 +226,10 @@ func (c *Cache) Predict(ctx context.Context, id string, a arch.Architecture, spe
 	return Result{Output: out, Probability: p}, nil
 }
 
-// Generate continues prompt with the language model with id, loading it
-// with load on first use.
-func (c *Cache) Generate(ctx context.Context, id string, a arch.Architecture, load func() ([]byte, error), prompt string, s Sampling) (Generation, error) {
-	e, err := c.ready(id, a, arch.Spec{}, load)
+// Generate continues prompt with version ver of the language model with
+// id, loading it with load on first use.
+func (c *Cache) Generate(ctx context.Context, id, ver string, a arch.Architecture, load func() ([]byte, error), prompt string, s Sampling) (Generation, error) {
+	e, err := c.ready(id, ver, a, arch.Spec{}, load)
 	if err != nil {
 		return Generation{}, err
 	}
@@ -237,10 +239,10 @@ func (c *Cache) Generate(ctx context.Context, id string, a arch.Architecture, lo
 	return e.lm.Generate(ctx, prompt, s)
 }
 
-// ready returns the entry of the model with id, loading it with load on
-// first use.
-func (c *Cache) ready(id string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error)) (*entry, error) {
-	e := c.entry(id)
+// ready returns the entry of version ver of the model with id, loading it
+// with load on first use.
+func (c *Cache) ready(id, ver string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error)) (*entry, error) {
+	e := c.entry(id, ver)
 	e.once.Do(func() {
 		var w []byte
 		if w, e.err = load(); e.err == nil {
@@ -248,21 +250,32 @@ func (c *Cache) ready(id string, a arch.Architecture, spec arch.Spec, load func(
 		}
 	})
 	if e.err != nil {
-		c.Forget(id) // let the next request try again
+		c.forget(id, e) // let the next request try again
 		return nil, e.err
 	}
 	return e, nil
 }
 
-func (c *Cache) entry(id string) *entry {
+// entry returns the entry for version ver of the model with id, replacing
+// one that holds another version.
+func (c *Cache) entry(id, ver string) *entry {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	e, ok := c.loaded[id]
-	if !ok {
-		e = &entry{}
+	if !ok || e.ver != ver {
+		e = &entry{ver: ver}
 		c.loaded[id] = e
 	}
 	return e
+}
+
+// forget drops e if it is still the entry for id.
+func (c *Cache) forget(id string, e *entry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.loaded[id] == e {
+		delete(c.loaded, id)
+	}
 }
 
 // Forget drops a model from memory, for example after it is deleted.

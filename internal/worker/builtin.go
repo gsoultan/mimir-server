@@ -36,7 +36,7 @@ type handler struct {
 
 func (h *handler) Predict(ctx context.Context, m *worker.Model, input []float32) (worker.Prediction, error) {
 	spec := arch.Resolve(h.a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
-	r, err := h.cache.Predict(ctx, m.ID, h.a, spec, func() ([]byte, error) { return m.Weights, nil }, input)
+	r, err := h.cache.Predict(ctx, m.ID, m.Version, h.a, spec, func() ([]byte, error) { return m.Weights, nil }, input)
 	if err != nil {
 		return worker.Prediction{}, err
 	}
