@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
+	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/store"
@@ -31,6 +32,9 @@ func (s *Service) SetModelWorker(ctx context.Context, req *connect.Request[mimir
 	}
 	wid := req.Msg.GetWorkerId()
 	where := "any worker"
+	if a, _ := arch.Lookup(m.Architecture); wid != "" && a.Answers() == arch.Written {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("Language models run on the console itself, not on workers."))
+	}
 	if wid != "" {
 		w, err := s.worker(ctx, wid)
 		if err != nil {

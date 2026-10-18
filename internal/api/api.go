@@ -21,6 +21,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
+	"github.com/gsoultan/mimir-server/internal/convert"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
@@ -66,6 +67,9 @@ type Service struct {
 	// Local says predictions run in this process when no worker is
 	// preferred. Off for a server that only coordinates workers.
 	Local bool
+	// MaxModelBytes is the largest model file an upload may be; 0 means
+	// the server's default.
+	MaxModelBytes int
 }
 
 var (
@@ -131,33 +135,83 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if !a.Fixed() && !a.File {
 		return nil, invalid("%s models are taught from a dataset here rather than uploaded. Choose Teach a new model.", a.Title)
 	}
-	if len(msg.GetWeights()) == 0 {
+	weights := msg.GetWeights()
+	if len(weights) == 0 {
 		return nil, invalid("The model file is empty.")
 	}
 	p, _ := auth.From(ctx)
 	m := store.Model{Name: name, Description: desc, Architecture: a.Name, TeamID: p.Team()}
+	detail := a.Title
 	// Load the file once before storing it, so one that doesn't fit is
 	// rejected now rather than on the first question.
 	if a.File {
-		f, err := runtime.OpenFile(msg.GetWeights())
-		if err != nil {
-			s.log.InfoContext(ctx, "model file rejected", "architecture", a.Name, "error", err)
-			return nil, invalid("This .mim file can't run here: %s.", strings.TrimPrefix(err.Error(), runtime.ErrBadWeights.Error()+": "))
+		var from convert.Format
+		if weights, from, err = convert.ToMim(weights); err != nil {
+			s.log.InfoContext(ctx, "model file not converted", "format", from, "error", err)
+			if !errors.Is(err, convert.ErrUnsupported) {
+				return nil, s.internal(ctx, err)
+			}
+			return nil, invalid("This %s can't be used here: %s.", fileName(from), strings.TrimPrefix(err.Error(), convert.ErrUnsupported.Error()+": "))
 		}
-		m.InputShape, m.Labels = f.Spec.InputShape, f.Spec.Labels
-		f.Close()
-	} else if _, err := runtime.Build(a, a.Spec, msg.GetWeights()); err != nil {
+		// The file says itself whether it holds a language model; one
+		// from GGUF always does.
+		kind := "mim"
+		if from == convert.GGUF || runtime.IsLanguageModel(weights) {
+			kind = arch.LanguageModel
+		}
+		a, _ = arch.Lookup(kind)
+		m.Architecture, detail = a.Name, a.Title
+		if from != convert.Mim {
+			detail += ", converted from " + strings.ToUpper(string(from))
+		}
+		if err := checkFile(&m, a, weights); err != nil {
+			s.log.InfoContext(ctx, "model file rejected", "architecture", a.Name, "format", from, "error", err)
+			return nil, invalid("This %s can't run here: %s.", fileName(from), strings.TrimPrefix(err.Error(), runtime.ErrBadWeights.Error()+": "))
+		}
+	} else if _, err := runtime.Build(a, a.Spec, weights); err != nil {
 		s.log.InfoContext(ctx, "weights rejected", "architecture", a.Name, "error", err)
 		return nil, invalid("This file doesn't fit the %q model type. Check that you picked the kind of model the file was saved from.", a.Title)
 	}
-	m, err = s.store.Create(ctx, m, msg.GetWeights())
+	m, err = s.store.Create(ctx, m, weights)
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	s.audit(ctx, p.Actor(), "model.create", m.Name, a.Title)
+	s.audit(ctx, p.Actor(), "model.create", m.Name, detail)
 	s.emit(ctx, "model.created", modelEvent(m, p))
 	s.log.InfoContext(ctx, "model created", "model_id", m.ID, "architecture", m.Architecture, "size_bytes", m.SizeBytes)
 	return connect.NewResponse(&mimirv1.CreateModelResponse{Model: toProto(m)}), nil
+}
+
+// checkFile loads a whole-model file of architecture a, a Mimir Model file
+// of a language model or of a model that reads numbers, and fills in what
+// m reads and answers from it.
+func checkFile(m *store.Model, a arch.Architecture, weights []byte) error {
+	if a.Answers() == arch.Written {
+		lm, err := runtime.OpenLanguageModel(weights)
+		if err != nil {
+			return err
+		}
+		return lm.Close()
+	}
+	f, err := runtime.OpenFile(weights)
+	if err != nil {
+		return err
+	}
+	m.InputShape, m.Labels = f.Spec.InputShape, f.Spec.Labels
+	return f.Close()
+}
+
+// fileName names an uploaded model file of format f in an error message.
+func fileName(f convert.Format) string {
+	switch f {
+	case convert.ONNX, convert.GGUF:
+		return strings.ToUpper(string(f)) + " model"
+	case convert.Safetensors:
+		return "safetensors file"
+	case convert.Mim:
+		return ".mim file"
+	}
+	return "file"
 }
 
 func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.UpdateModelRequest]) (*connect.Response[mimirv1.UpdateModelResponse], error) {
@@ -213,6 +267,9 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	if !ok {
 		return nil, connect.NewError(connect.CodeFailedPrecondition,
 			fmt.Errorf("This model's type (%s) isn't available on this server anymore.", m.Architecture))
+	}
+	if a.Answers() == arch.Written {
+		return nil, invalid("%s is a language model: send it a prompt to continue with Generate.", m.Name)
 	}
 	topK := int(msg.GetTopK())
 	switch {

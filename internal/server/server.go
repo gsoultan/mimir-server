@@ -22,7 +22,8 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
-// Request size limits. Models can be large; predictions are small.
+// Request size limits. Models can be large; predictions are small. A
+// server can take larger models (see api.Service.MaxModelBytes).
 const (
 	maxModelBytes   = 256 << 20
 	maxPredictBytes = 16 << 20
@@ -35,7 +36,8 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	// Every RPC goes through the auth interceptor, which signs callers in
 	// from their cookie or API key and checks the procedure's permission.
 	guard := connect.WithInterceptors(auth.Interceptor(st, svc.MustEnroll))
-	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
+	modelBytes := max(svc.MaxModelBytes, maxModelBytes)
+	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, guard, connect.WithReadMaxBytes(modelBytes)))
 	mux.Handle(mimirv1connect.NewPredictServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewAuthServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewUserServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
@@ -49,7 +51,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	mux.Handle(mimirv1connect.NewTeamServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	// Workers authenticate inside Link with their token; the interceptor
 	// guards the unary calls as usual.
-	mux.Handle(mimirv1connect.NewWorkerServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes), connect.WithSendMaxBytes(maxModelBytes)))
+	mux.Handle(mimirv1connect.NewWorkerServiceHandler(svc, guard, connect.WithReadMaxBytes(modelBytes), connect.WithSendMaxBytes(modelBytes)))
 	mux.Handle("GET /api/backup", backupHandler(st, log))
 	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(
 		mimirv1connect.ModelServiceName,
