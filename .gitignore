@@ -8,3 +8,6 @@ coverage.out
 
 # Code graph, rebuilt by .claude/hooks/session-start.sh
 graphify-out/
+
+# Left behind when a storm command is interrupted
+.storm-bootstrap-*/

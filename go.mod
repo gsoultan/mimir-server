@@ -8,6 +8,7 @@ require (
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/gsoultan/mimir v0.0.0-20261018061854-f40544ba8372
+	github.com/gsoultan/storm v1.2.0
 	github.com/jackc/pgx/v5 v5.11.0
 	golang.org/x/crypto v0.58.0
 	google.golang.org/protobuf v1.36.12
