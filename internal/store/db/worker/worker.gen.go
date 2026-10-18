@@ -21,10 +21,10 @@ var (
 // replaced by their scalar foreign keys and *T rewritten to Null[T].
 type Row struct {
 	ID          string
+	CreateTime  time.Time
 	Name        string
 	TokenHash   string
 	CreatedBy   string
-	CreateTime  time.Time
 	LastSeen    runtime.Null[time.Time]
 	PublicKey   []byte
 	LastAddress string
@@ -185,33 +185,33 @@ func (q *Query) cursor(col uint32, r Row) {
 		q.strs[q.ns] = r.ID
 		q.ns++
 	case 1:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Name
-		q.ns++
-	case 2:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.TokenHash
-		q.ns++
-	case 3:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.CreatedBy
-		q.ns++
-	case 4:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.CreateTime
 		q.ntm++
+	case 2:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Name
+		q.ns++
+	case 3:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.TokenHash
+		q.ns++
+	case 4:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.CreatedBy
+		q.ns++
 	case 5:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
@@ -390,10 +390,10 @@ type Pred struct {
 // Age.Like(...) fail to compile.
 var (
 	ID          = TextCol{0}
-	Name        = TextCol{1}
-	TokenHash   = TextCol{2}
-	CreatedBy   = TextCol{3}
-	CreateTime  = TimeCol{4}
+	CreateTime  = TimeCol{1}
+	Name        = TextCol{2}
+	TokenHash   = TextCol{3}
+	CreatedBy   = TextCol{4}
 	LastSeen    = NullTimeCol{5}
 	PublicKey   = NullBytesCol{6}
 	LastAddress = TextCol{7}
@@ -632,13 +632,6 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 1:
-			if int(q.nas) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyStr[q.nas] = p.anyStr
-			q.nas++
 		case 2:
 			if int(q.nas) >= 3 {
 				q.over = true
@@ -647,6 +640,13 @@ func (q *Query) leaf(p Pred) {
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
 		case 3:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
+		case 4:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
@@ -677,12 +677,12 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 1:
-		if int(q.ns) >= 6 {
+		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.tims[q.ntm] = p.tim
+		q.ntm++
 	case 2:
 		if int(q.ns) >= 6 {
 			q.over = true
@@ -698,12 +698,12 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 4:
-		if int(q.ntm) >= 4 {
+		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
-		q.tims[q.ntm] = p.tim
-		q.ntm++
+		q.strs[q.ns] = p.str
+		q.ns++
 	case 5:
 		if int(q.ntm) >= 4 {
 			q.over = true
@@ -741,6 +741,12 @@ func (q Query) IDLike(v string) Query              { return q.Where(ID.Like(v)) 
 func (q Query) IDILike(v string) Query             { return q.Where(ID.ILike(v)) }
 func (q Query) IDIn(v ...string) Query             { return q.Where(ID.In(v...)) }
 func (q Query) IDNotIn(v ...string) Query          { return q.Where(ID.NotIn(v...)) }
+func (q Query) CreateTimeEq(v time.Time) Query     { return q.Where(CreateTime.Eq(v)) }
+func (q Query) CreateTimeNotEq(v time.Time) Query  { return q.Where(CreateTime.NotEq(v)) }
+func (q Query) CreateTimeGt(v time.Time) Query     { return q.Where(CreateTime.Gt(v)) }
+func (q Query) CreateTimeGte(v time.Time) Query    { return q.Where(CreateTime.Gte(v)) }
+func (q Query) CreateTimeLt(v time.Time) Query     { return q.Where(CreateTime.Lt(v)) }
+func (q Query) CreateTimeLte(v time.Time) Query    { return q.Where(CreateTime.Lte(v)) }
 func (q Query) NameEq(v string) Query              { return q.Where(Name.Eq(v)) }
 func (q Query) NameNotEq(v string) Query           { return q.Where(Name.NotEq(v)) }
 func (q Query) NameGt(v string) Query              { return q.Where(Name.Gt(v)) }
@@ -774,12 +780,6 @@ func (q Query) CreatedByLike(v string) Query       { return q.Where(CreatedBy.Li
 func (q Query) CreatedByILike(v string) Query      { return q.Where(CreatedBy.ILike(v)) }
 func (q Query) CreatedByIn(v ...string) Query      { return q.Where(CreatedBy.In(v...)) }
 func (q Query) CreatedByNotIn(v ...string) Query   { return q.Where(CreatedBy.NotIn(v...)) }
-func (q Query) CreateTimeEq(v time.Time) Query     { return q.Where(CreateTime.Eq(v)) }
-func (q Query) CreateTimeNotEq(v time.Time) Query  { return q.Where(CreateTime.NotEq(v)) }
-func (q Query) CreateTimeGt(v time.Time) Query     { return q.Where(CreateTime.Gt(v)) }
-func (q Query) CreateTimeGte(v time.Time) Query    { return q.Where(CreateTime.Gte(v)) }
-func (q Query) CreateTimeLt(v time.Time) Query     { return q.Where(CreateTime.Lt(v)) }
-func (q Query) CreateTimeLte(v time.Time) Query    { return q.Where(CreateTime.Lte(v)) }
 func (q Query) LastSeenEq(v time.Time) Query       { return q.Where(LastSeen.Eq(v)) }
 func (q Query) LastSeenNotEq(v time.Time) Query    { return q.Where(LastSeen.NotEq(v)) }
 func (q Query) LastSeenGt(v time.Time) Query       { return q.Where(LastSeen.Gt(v)) }
@@ -804,7 +804,7 @@ func (q Query) LastAddressILike(v string) Query    { return q.Where(LastAddress.
 func (q Query) LastAddressIn(v ...string) Query    { return q.Where(LastAddress.In(v...)) }
 func (q Query) LastAddressNotIn(v ...string) Query { return q.Where(LastAddress.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "name", "token_hash", "created_by", "create_time", "last_seen", "public_key", "last_address" FROM "workers"`
+const selectPrefix = `SELECT "id", "create_time", "name", "token_hash", "created_by", "last_seen", "public_key", "last_address" FROM "workers"`
 const countPrefix = `SELECT count(*) FROM "workers"`
 const existsPrefix = `SELECT 1 FROM "workers"`
 const existsSuffix = ` LIMIT 1`
@@ -847,6 +847,12 @@ var orderTable = [nCols][4]string{
 		"\"id\" ASC NULLS FIRST",
 		"\"id\" DESC NULLS LAST",
 	},
+	{ // create_time
+		"\"create_time\"",
+		"\"create_time\" DESC",
+		"\"create_time\" ASC NULLS FIRST",
+		"\"create_time\" DESC NULLS LAST",
+	},
 	{ // name
 		"\"name\"",
 		"\"name\" DESC",
@@ -864,12 +870,6 @@ var orderTable = [nCols][4]string{
 		"\"created_by\" DESC",
 		"\"created_by\" ASC NULLS FIRST",
 		"\"created_by\" DESC NULLS LAST",
-	},
-	{ // create_time
-		"\"create_time\"",
-		"\"create_time\" DESC",
-		"\"create_time\" ASC NULLS FIRST",
-		"\"create_time\" DESC NULLS LAST",
 	},
 	{ // last_seen
 		"\"last_seen\"",
@@ -895,10 +895,10 @@ var orderTable = [nCols][4]string{
 // row comparison.
 var identTable = [nCols]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"name\"",
 	"\"token_hash\"",
 	"\"created_by\"",
-	"\"create_time\"",
 	"\"last_seen\"",
 	"\"public_key\"",
 	"\"last_address\"",
@@ -953,6 +953,36 @@ var fragTable = [8][28]runtime.Frag{
 		{},
 		{A: "\"id\" = ANY($", B: ")"},
 		{A: "\"id\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // create_time
+		{}, // opNone
+		{A: "\"create_time\" = $", B: ""},
+		{A: "\"create_time\" <> $", B: ""},
+		{A: "\"create_time\" > $", B: ""},
+		{A: "\"create_time\" >= $", B: ""},
+		{A: "\"create_time\" < $", B: ""},
+		{A: "\"create_time\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
 		{},
 		{},
 		{},
@@ -1043,36 +1073,6 @@ var fragTable = [8][28]runtime.Frag{
 		{},
 		{A: "\"created_by\" = ANY($", B: ")"},
 		{A: "\"created_by\" <> ALL($", B: ")"},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-	},
-	{ // create_time
-		{}, // opNone
-		{A: "\"create_time\" = $", B: ""},
-		{A: "\"create_time\" <> $", B: ""},
-		{A: "\"create_time\" > $", B: ""},
-		{A: "\"create_time\" >= $", B: ""},
-		{A: "\"create_time\" < $", B: ""},
-		{A: "\"create_time\" <= $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
 		{},
 		{},
 		{},
@@ -1331,10 +1331,10 @@ func Scan(rv [][]byte, r *Row, sl *runtime.Slab) error { return scan(rv, r, sl) 
 // plausible zero, and a row scanner is the last place that can tell.
 func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.ID = sl.Str(rv[0])
-	r.Name = sl.Str(rv[1])
-	r.TokenHash = sl.Str(rv[2])
-	r.CreatedBy = sl.Str(rv[3])
-	r.CreateTime = runtime.Timestamptz(rv[4])
+	r.CreateTime = runtime.Timestamptz(rv[1])
+	r.Name = sl.Str(rv[2])
+	r.TokenHash = sl.Str(rv[3])
+	r.CreatedBy = sl.Str(rv[4])
 	r.LastSeen = runtime.Nullable(rv[5], runtime.Timestamptz)
 	r.PublicKey = runtime.Bytes(rv[6])
 	r.LastAddress = sl.Str(rv[7])
@@ -1402,15 +1402,15 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 1:
-				b.anyStr[nas] = q.anyStr[nas]
-				v = append(v, &b.anyStr[nas])
-				nas++
 			case 2:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
 			case 3:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
+			case 4:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
@@ -1427,9 +1427,9 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 1:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.tims[ntm] = q.tims[ntm]
+			v = append(v, &b.tims[ntm])
+			ntm++
 		case 2:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
@@ -1439,9 +1439,9 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 4:
-			b.tims[ntm] = q.tims[ntm]
-			v = append(v, &b.tims[ntm])
-			ntm++
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
 		case 5:
 			b.tims[ntm] = q.tims[ntm]
 			v = append(v, &b.tims[ntm])
@@ -1591,7 +1591,7 @@ func (q Query) Prepare(b *Binder) (string, []any) {
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "workers" ("id", "name", "token_hash", "created_by", "create_time", "last_seen", "public_key", "last_address") VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "id", "name", "token_hash", "created_by", "create_time", "last_seen", "public_key", "last_address"`
+const insertSQL = `INSERT INTO "workers" ("id", "create_time", "name", "token_hash", "created_by", "last_seen", "public_key", "last_address") VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "id", "create_time", "name", "token_hash", "created_by", "last_seen", "public_key", "last_address"`
 
 const updatePrefix = `UPDATE "workers" SET `
 const deletePrefix = `DELETE FROM "workers"`
@@ -1601,21 +1601,17 @@ const deletePrefix = `DELETE FROM "workers"`
 const (
 	dName        uint64 = 1 << 0
 	dTokenHash   uint64 = 1 << 1
-	dCreatedBy   uint64 = 1 << 2
-	dCreateTime  uint64 = 1 << 3
-	dLastSeen    uint64 = 1 << 4
-	dPublicKey   uint64 = 1 << 5
-	dLastAddress uint64 = 1 << 6
+	dLastSeen    uint64 = 1 << 2
+	dPublicKey   uint64 = 1 << 3
+	dLastAddress uint64 = 1 << 4
 )
 
-const nUpdatable = 7
+const nUpdatable = 5
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"name\" = $", B: ""},         // name
 	{A: "\"token_hash\" = $", B: ""},   // token_hash
-	{A: "\"created_by\" = $", B: ""},   // created_by
-	{A: "\"create_time\" = $", B: ""},  // create_time
 	{A: "\"last_seen\" = $", B: ""},    // last_seen
 	{A: "\"public_key\" = $", B: ""},   // public_key
 	{A: "\"last_address\" = $", B: ""}, // last_address
@@ -1625,13 +1621,11 @@ var setFrags = [nUpdatable]runtime.Frag{
 // of a bound value. A zero Frag means the column admits none. None of
 // these end in a placeholder sigil, so none consumes an argument slot.
 var exprFrags = [nUpdatable]runtime.Frag{
-	{},                                    // name has no server-side form
-	{},                                    // token_hash has no server-side form
-	{},                                    // created_by has no server-side form
-	{A: "\"create_time\" = now()", B: ""}, // create_time = the database's clock
-	{A: "\"last_seen\" = now()", B: ""},   // last_seen = the database's clock
-	{},                                    // public_key has no server-side form
-	{},                                    // last_address has no server-side form
+	{},                                  // name has no server-side form
+	{},                                  // token_hash has no server-side form
+	{A: "\"last_seen\" = now()", B: ""}, // last_seen = the database's clock
+	{},                                  // public_key has no server-side form
+	{},                                  // last_address has no server-side form
 }
 
 // pkFrags addresses one row.
@@ -1644,10 +1638,10 @@ var pkFrags = [1]runtime.Frag{
 // the only way a DEFAULT gen_random_uuid() can ever fire.
 const (
 	iID          uint64 = 1 << 0
-	iName        uint64 = 1 << 1
-	iTokenHash   uint64 = 1 << 2
-	iCreatedBy   uint64 = 1 << 3
-	iCreateTime  uint64 = 1 << 4
+	iCreateTime  uint64 = 1 << 1
+	iName        uint64 = 1 << 2
+	iTokenHash   uint64 = 1 << 3
+	iCreatedBy   uint64 = 1 << 4
 	iLastSeen    uint64 = 1 << 5
 	iPublicKey   uint64 = 1 << 6
 	iLastAddress uint64 = 1 << 7
@@ -1658,10 +1652,10 @@ const nInsertable = 8
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"name\"",
 	"\"token_hash\"",
 	"\"created_by\"",
-	"\"create_time\"",
 	"\"last_seen\"",
 	"\"public_key\"",
 	"\"last_address\"",
@@ -1673,7 +1667,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"workers\""
-const insReturning = " RETURNING \"id\", \"name\", \"token_hash\", \"created_by\", \"create_time\", \"last_seen\", \"public_key\", \"last_address\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"token_hash\", \"created_by\", \"last_seen\", \"public_key\", \"last_address\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -1692,7 +1686,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"name\", \"token_hash\", \"created_by\", \"create_time\", \"last_seen\", \"public_key\", \"last_address\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"token_hash\", \"created_by\", \"last_seen\", \"public_key\", \"last_address\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -1750,29 +1744,6 @@ func (m *Mut) SetTokenHash(v string) {
 	m.row.TokenHash = v
 	m.dirty |= dTokenHash
 	m.expr &^= dTokenHash
-}
-
-func (m *Mut) SetCreatedBy(v string) {
-	m.row.CreatedBy = v
-	m.dirty |= dCreatedBy
-	m.expr &^= dCreatedBy
-}
-
-func (m *Mut) SetCreateTime(v time.Time) {
-	m.row.CreateTime = v
-	m.dirty |= dCreateTime
-	m.expr &^= dCreateTime
-}
-
-// SetCreateTimeNow assigns the database's clock, not this process's.
-//
-// Binding time.Now() instead would record when THIS server
-// thought it was. Servers skew, so rows written seconds apart
-// can land out of order, and an event stamped by a fast clock
-// reads as preceding the thing that caused it.
-func (m *Mut) SetCreateTimeNow() {
-	m.expr |= dCreateTime
-	m.dirty &^= dCreateTime
 }
 
 func (m *Mut) SetLastSeen(v time.Time) {
@@ -1842,6 +1813,11 @@ func (n *Ins) SetID(v string) {
 	n.set |= iID
 }
 
+func (n *Ins) SetCreateTime(v time.Time) {
+	n.row.CreateTime = v
+	n.set |= iCreateTime
+}
+
 func (n *Ins) SetName(v string) {
 	n.row.Name = v
 	n.set |= iName
@@ -1855,11 +1831,6 @@ func (n *Ins) SetTokenHash(v string) {
 func (n *Ins) SetCreatedBy(v string) {
 	n.row.CreatedBy = v
 	n.set |= iCreatedBy
-}
-
-func (n *Ins) SetCreateTime(v time.Time) {
-	n.row.CreateTime = v
-	n.set |= iCreateTime
 }
 
 func (n *Ins) SetLastSeen(v time.Time) {
@@ -1930,20 +1901,14 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 7)
+	set := make([]string, 0, 5)
 	switch i {
 	case 0:
-		if mask&(1<<1) != 0 {
+		if mask&(1<<2) != 0 {
 			set = append(set, "name")
 		}
-		if mask&(1<<2) != 0 {
-			set = append(set, "token_hash")
-		}
 		if mask&(1<<3) != 0 {
-			set = append(set, "created_by")
-		}
-		if mask&(1<<4) != 0 {
-			set = append(set, "create_time")
+			set = append(set, "token_hash")
 		}
 		if mask&(1<<5) != 0 {
 			set = append(set, "last_seen")
@@ -1955,14 +1920,8 @@ func assignable(i uint8, mask uint64) []string {
 			set = append(set, "last_address")
 		}
 	case 1:
-		if mask&(1<<1) != 0 {
+		if mask&(1<<2) != 0 {
 			set = append(set, "name")
-		}
-		if mask&(1<<3) != 0 {
-			set = append(set, "created_by")
-		}
-		if mask&(1<<4) != 0 {
-			set = append(set, "create_time")
 		}
 		if mask&(1<<5) != 0 {
 			set = append(set, "last_seen")
@@ -2033,8 +1992,6 @@ func joinAssign(set []string) string {
 var assignFor = map[string]string{
 	"name":         "\"name\" = EXCLUDED.\"name\"",
 	"token_hash":   "\"token_hash\" = EXCLUDED.\"token_hash\"",
-	"created_by":   "\"created_by\" = EXCLUDED.\"created_by\"",
-	"create_time":  "\"create_time\" = EXCLUDED.\"create_time\"",
 	"last_seen":    "\"last_seen\" = EXCLUDED.\"last_seen\"",
 	"public_key":   "\"public_key\" = EXCLUDED.\"public_key\"",
 	"last_address": "\"last_address\" = EXCLUDED.\"last_address\"",
@@ -2084,13 +2041,13 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
-			args = append(args, n.row.TokenHash)
-		case 3:
-			args = append(args, n.row.CreatedBy)
-		case 4:
 			args = append(args, n.row.CreateTime)
+		case 2:
+			args = append(args, n.row.Name)
+		case 3:
+			args = append(args, n.row.TokenHash)
+		case 4:
+			args = append(args, n.row.CreatedBy)
 		case 5:
 			args = append(args, n.row.LastSeen.Arg())
 		case 6:
@@ -2136,10 +2093,10 @@ func Inserts() int { return insCache.Masks() }
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args := make([]any, 0, 8)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
 	args = append(args, r.TokenHash)
 	args = append(args, r.CreatedBy)
-	args = append(args, r.CreateTime)
 	args = append(args, r.LastSeen.Arg())
 	args = append(args, r.PublicKey)
 	args = append(args, r.LastAddress)
@@ -2170,10 +2127,10 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 // yourself, or use Create() per row and give up the bulk path.
 var copyCols = []string{
 	"id",
+	"create_time",
 	"name",
 	"token_hash",
 	"created_by",
-	"create_time",
 	"last_seen",
 	"public_key",
 	"last_address",
@@ -2202,10 +2159,10 @@ func (s *rowSource) Next() bool {
 func (s *rowSource) Values() []any {
 	r := &s.rows[s.i-1]
 	s.buf[0] = &r.ID
-	s.buf[1] = &r.Name
-	s.buf[2] = &r.TokenHash
-	s.buf[3] = &r.CreatedBy
-	s.buf[4] = &r.CreateTime
+	s.buf[1] = &r.CreateTime
+	s.buf[2] = &r.Name
+	s.buf[3] = &r.TokenHash
+	s.buf[4] = &r.CreatedBy
 	s.buf[5] = r.LastSeen.Ptr()
 	s.buf[6] = &r.PublicKey
 	s.buf[7] = &r.LastAddress
@@ -2250,10 +2207,10 @@ func InsertOp(r Row) runtime.BatchOp {
 	st := stmtForInsertNoReturn(mask, 0)
 	args := make([]any, 0, 8)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
 	args = append(args, r.TokenHash)
 	args = append(args, r.CreatedBy)
-	args = append(args, r.CreateTime)
 	args = append(args, r.LastSeen.Arg())
 	args = append(args, r.PublicKey)
 	args = append(args, r.LastAddress)
@@ -2293,13 +2250,13 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
-			args = append(args, n.row.TokenHash)
-		case 3:
-			args = append(args, n.row.CreatedBy)
-		case 4:
 			args = append(args, n.row.CreateTime)
+		case 2:
+			args = append(args, n.row.Name)
+		case 3:
+			args = append(args, n.row.TokenHash)
+		case 4:
+			args = append(args, n.row.CreatedBy)
 		case 5:
 			args = append(args, n.row.LastSeen.Arg())
 		case 6:
@@ -2357,14 +2314,10 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 		case 1:
 			args = append(args, m.row.TokenHash)
 		case 2:
-			args = append(args, m.row.CreatedBy)
-		case 3:
-			args = append(args, m.row.CreateTime)
-		case 4:
 			args = append(args, m.row.LastSeen.Arg())
-		case 5:
+		case 3:
 			args = append(args, m.row.PublicKey)
-		case 6:
+		case 4:
 			args = append(args, m.row.LastAddress)
 		}
 	}
@@ -2453,14 +2406,10 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 		case 1:
 			args = append(args, m.row.TokenHash)
 		case 2:
-			args = append(args, m.row.CreatedBy)
-		case 3:
-			args = append(args, m.row.CreateTime)
-		case 4:
 			args = append(args, m.row.LastSeen.Arg())
-		case 5:
+		case 3:
 			args = append(args, m.row.PublicKey)
-		case 6:
+		case 4:
 			args = append(args, m.row.LastAddress)
 		}
 	}

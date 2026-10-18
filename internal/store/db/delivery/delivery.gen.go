@@ -21,6 +21,7 @@ var (
 // replaced by their scalar foreign keys and *T rewritten to Null[T].
 type Row struct {
 	ID           string
+	CreateTime   time.Time
 	WebhookID    string
 	EventID      string
 	EventType    string
@@ -29,7 +30,6 @@ type Row struct {
 	Attempts     int64
 	ResponseCode int64
 	Error        string
-	CreateTime   time.Time
 	LastAttempt  runtime.Null[time.Time]
 	NextAttempt  runtime.Null[time.Time]
 }
@@ -191,68 +191,68 @@ func (q *Query) cursor(col uint32, r Row) {
 		q.strs[q.ns] = r.ID
 		q.ns++
 	case 1:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.WebhookID
-		q.ns++
-	case 2:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.EventID
-		q.ns++
-	case 3:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.EventType
-		q.ns++
-	case 4:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Payload
-		q.ns++
-	case 5:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.Status)
-		q.nn++
-	case 6:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.Attempts)
-		q.nn++
-	case 7:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.ResponseCode)
-		q.nn++
-	case 8:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Error
-		q.ns++
-	case 9:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.CreateTime
 		q.ntm++
+	case 2:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.WebhookID
+		q.ns++
+	case 3:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.EventID
+		q.ns++
+	case 4:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.EventType
+		q.ns++
+	case 5:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Payload
+		q.ns++
+	case 6:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.Status)
+		q.nn++
+	case 7:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.Attempts)
+		q.nn++
+	case 8:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.ResponseCode)
+		q.nn++
+	case 9:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Error
+		q.ns++
 	case 10:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
@@ -426,15 +426,15 @@ type Pred struct {
 // Age.Like(...) fail to compile.
 var (
 	ID           = TextCol{0}
-	WebhookID    = TextCol{1}
-	EventID      = TextCol{2}
-	EventType    = TextCol{3}
-	Payload      = TextCol{4}
-	Status       = Int32Col{5}
-	Attempts     = Int64Col{6}
-	ResponseCode = Int64Col{7}
-	Error        = TextCol{8}
-	CreateTime   = TimeCol{9}
+	CreateTime   = TimeCol{1}
+	WebhookID    = TextCol{2}
+	EventID      = TextCol{3}
+	EventType    = TextCol{4}
+	Payload      = TextCol{5}
+	Status       = Int32Col{6}
+	Attempts     = Int64Col{7}
+	ResponseCode = Int64Col{8}
+	Error        = TextCol{9}
 	LastAttempt  = NullTimeCol{10}
 	NextAttempt  = NullTimeCol{11}
 )
@@ -466,6 +466,25 @@ func (h TextCol) In(v ...string) Pred   { return Pred{col: h.c, op: opIn, anyStr
 // comparison NULL for every row and the result empty —
 // PostgreSQL's rule for NOT IN, not storm's.
 func (h TextCol) NotIn(v ...string) Pred { return Pred{col: h.c, op: opNotIn, anyStr: v} }
+
+// TimeCol addresses a timestamptz column.
+type TimeCol struct{ c uint8 }
+
+func (h TimeCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h TimeCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h TimeCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h TimeCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+func (h TimeCol) Eq(v time.Time) Pred    { return Pred{col: h.c, op: opEq, tim: v} }
+func (h TimeCol) NotEq(v time.Time) Pred { return Pred{col: h.c, op: opNotEq, tim: v} }
+func (h TimeCol) Gt(v time.Time) Pred    { return Pred{col: h.c, op: opGt, tim: v} }
+func (h TimeCol) Gte(v time.Time) Pred   { return Pred{col: h.c, op: opGte, tim: v} }
+func (h TimeCol) Lt(v time.Time) Pred    { return Pred{col: h.c, op: opLt, tim: v} }
+func (h TimeCol) Lte(v time.Time) Pred   { return Pred{col: h.c, op: opLte, tim: v} }
 
 // Int32Col addresses a int4 column.
 type Int32Col struct{ c uint8 }
@@ -516,25 +535,6 @@ func (h Int64Col) In(v ...int64) Pred { return Pred{col: h.c, op: opIn, anyI64: 
 // comparison NULL for every row and the result empty —
 // PostgreSQL's rule for NOT IN, not storm's.
 func (h Int64Col) NotIn(v ...int64) Pred { return Pred{col: h.c, op: opNotIn, anyI64: v} }
-
-// TimeCol addresses a timestamptz column.
-type TimeCol struct{ c uint8 }
-
-func (h TimeCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
-func (h TimeCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
-func (h TimeCol) AscNullsFirst() Sort {
-	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
-}
-func (h TimeCol) DescNullsLast() Sort {
-	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
-}
-
-func (h TimeCol) Eq(v time.Time) Pred    { return Pred{col: h.c, op: opEq, tim: v} }
-func (h TimeCol) NotEq(v time.Time) Pred { return Pred{col: h.c, op: opNotEq, tim: v} }
-func (h TimeCol) Gt(v time.Time) Pred    { return Pred{col: h.c, op: opGt, tim: v} }
-func (h TimeCol) Gte(v time.Time) Pred   { return Pred{col: h.c, op: opGte, tim: v} }
-func (h TimeCol) Lt(v time.Time) Pred    { return Pred{col: h.c, op: opLt, tim: v} }
-func (h TimeCol) Lte(v time.Time) Pred   { return Pred{col: h.c, op: opLte, tim: v} }
 
 // NullTimeCol addresses a timestamptz column.
 type NullTimeCol struct{ c uint8 }
@@ -705,13 +705,6 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 1:
-			if int(q.nas) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyStr[q.nas] = p.anyStr
-			q.nas++
 		case 2:
 			if int(q.nas) >= 3 {
 				q.over = true
@@ -734,19 +727,19 @@ func (q *Query) leaf(p Pred) {
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
 		case 5:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
+		case 6:
 			if int(q.nai32) >= 3 {
 				q.over = true
 				return
 			}
 			q.anyI32[q.nai32] = p.anyI32
 			q.nai32++
-		case 6:
-			if int(q.nai64) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyI64[q.nai64] = p.anyI64
-			q.nai64++
 		case 7:
 			if int(q.nai64) >= 3 {
 				q.over = true
@@ -755,6 +748,13 @@ func (q *Query) leaf(p Pred) {
 			q.anyI64[q.nai64] = p.anyI64
 			q.nai64++
 		case 8:
+			if int(q.nai64) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
+		case 9:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
@@ -778,12 +778,12 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 1:
-		if int(q.ns) >= 6 {
+		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.tims[q.ntm] = p.tim
+		q.ntm++
 	case 2:
 		if int(q.ns) >= 6 {
 			q.over = true
@@ -806,12 +806,12 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 5:
-		if int(q.nn) >= 6 {
+		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
-		q.nums[q.nn] = p.num
-		q.nn++
+		q.strs[q.ns] = p.str
+		q.ns++
 	case 6:
 		if int(q.nn) >= 6 {
 			q.over = true
@@ -827,19 +827,19 @@ func (q *Query) leaf(p Pred) {
 		q.nums[q.nn] = p.num
 		q.nn++
 	case 8:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
+	case 9:
 		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
 		q.strs[q.ns] = p.str
 		q.ns++
-	case 9:
-		if int(q.ntm) >= 4 {
-			q.over = true
-			return
-		}
-		q.tims[q.ntm] = p.tim
-		q.ntm++
 	case 10:
 		if int(q.ntm) >= 4 {
 			q.over = true
@@ -870,6 +870,12 @@ func (q Query) IDLike(v string) Query              { return q.Where(ID.Like(v)) 
 func (q Query) IDILike(v string) Query             { return q.Where(ID.ILike(v)) }
 func (q Query) IDIn(v ...string) Query             { return q.Where(ID.In(v...)) }
 func (q Query) IDNotIn(v ...string) Query          { return q.Where(ID.NotIn(v...)) }
+func (q Query) CreateTimeEq(v time.Time) Query     { return q.Where(CreateTime.Eq(v)) }
+func (q Query) CreateTimeNotEq(v time.Time) Query  { return q.Where(CreateTime.NotEq(v)) }
+func (q Query) CreateTimeGt(v time.Time) Query     { return q.Where(CreateTime.Gt(v)) }
+func (q Query) CreateTimeGte(v time.Time) Query    { return q.Where(CreateTime.Gte(v)) }
+func (q Query) CreateTimeLt(v time.Time) Query     { return q.Where(CreateTime.Lt(v)) }
+func (q Query) CreateTimeLte(v time.Time) Query    { return q.Where(CreateTime.Lte(v)) }
 func (q Query) WebhookIDEq(v string) Query         { return q.Where(WebhookID.Eq(v)) }
 func (q Query) WebhookIDNotEq(v string) Query      { return q.Where(WebhookID.NotEq(v)) }
 func (q Query) WebhookIDGt(v string) Query         { return q.Where(WebhookID.Gt(v)) }
@@ -949,12 +955,6 @@ func (q Query) ErrorLike(v string) Query           { return q.Where(Error.Like(v
 func (q Query) ErrorILike(v string) Query          { return q.Where(Error.ILike(v)) }
 func (q Query) ErrorIn(v ...string) Query          { return q.Where(Error.In(v...)) }
 func (q Query) ErrorNotIn(v ...string) Query       { return q.Where(Error.NotIn(v...)) }
-func (q Query) CreateTimeEq(v time.Time) Query     { return q.Where(CreateTime.Eq(v)) }
-func (q Query) CreateTimeNotEq(v time.Time) Query  { return q.Where(CreateTime.NotEq(v)) }
-func (q Query) CreateTimeGt(v time.Time) Query     { return q.Where(CreateTime.Gt(v)) }
-func (q Query) CreateTimeGte(v time.Time) Query    { return q.Where(CreateTime.Gte(v)) }
-func (q Query) CreateTimeLt(v time.Time) Query     { return q.Where(CreateTime.Lt(v)) }
-func (q Query) CreateTimeLte(v time.Time) Query    { return q.Where(CreateTime.Lte(v)) }
 func (q Query) LastAttemptEq(v time.Time) Query    { return q.Where(LastAttempt.Eq(v)) }
 func (q Query) LastAttemptNotEq(v time.Time) Query { return q.Where(LastAttempt.NotEq(v)) }
 func (q Query) LastAttemptGt(v time.Time) Query    { return q.Where(LastAttempt.Gt(v)) }
@@ -972,7 +972,7 @@ func (q Query) NextAttemptLte(v time.Time) Query   { return q.Where(NextAttempt.
 func (q Query) NextAttemptIsNull() Query           { return q.Where(NextAttempt.IsNull()) }
 func (q Query) NextAttemptIsNotNull() Query        { return q.Where(NextAttempt.IsNotNull()) }
 
-const selectPrefix = `SELECT "id", "webhook_id", "event_id", "event_type", "payload", "status", "attempts", "response_code", "error", "create_time", "last_attempt", "next_attempt" FROM "deliveries"`
+const selectPrefix = `SELECT "id", "create_time", "webhook_id", "event_id", "event_type", "payload", "status", "attempts", "response_code", "error", "last_attempt", "next_attempt" FROM "deliveries"`
 const countPrefix = `SELECT count(*) FROM "deliveries"`
 const existsPrefix = `SELECT 1 FROM "deliveries"`
 const existsSuffix = ` LIMIT 1`
@@ -1014,6 +1014,12 @@ var orderTable = [nCols][4]string{
 		"\"id\" DESC",
 		"\"id\" ASC NULLS FIRST",
 		"\"id\" DESC NULLS LAST",
+	},
+	{ // create_time
+		"\"create_time\"",
+		"\"create_time\" DESC",
+		"\"create_time\" ASC NULLS FIRST",
+		"\"create_time\" DESC NULLS LAST",
 	},
 	{ // webhook_id
 		"\"webhook_id\"",
@@ -1063,12 +1069,6 @@ var orderTable = [nCols][4]string{
 		"\"error\" ASC NULLS FIRST",
 		"\"error\" DESC NULLS LAST",
 	},
-	{ // create_time
-		"\"create_time\"",
-		"\"create_time\" DESC",
-		"\"create_time\" ASC NULLS FIRST",
-		"\"create_time\" DESC NULLS LAST",
-	},
 	{ // last_attempt
 		"\"last_attempt\"",
 		"\"last_attempt\" DESC",
@@ -1087,6 +1087,7 @@ var orderTable = [nCols][4]string{
 // row comparison.
 var identTable = [nCols]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"webhook_id\"",
 	"\"event_id\"",
 	"\"event_type\"",
@@ -1095,7 +1096,6 @@ var identTable = [nCols]string{
 	"\"attempts\"",
 	"\"response_code\"",
 	"\"error\"",
-	"\"create_time\"",
 	"\"last_attempt\"",
 	"\"next_attempt\"",
 }
@@ -1149,6 +1149,36 @@ var fragTable = [12][28]runtime.Frag{
 		{},
 		{A: "\"id\" = ANY($", B: ")"},
 		{A: "\"id\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // create_time
+		{}, // opNone
+		{A: "\"create_time\" = $", B: ""},
+		{A: "\"create_time\" <> $", B: ""},
+		{A: "\"create_time\" > $", B: ""},
+		{A: "\"create_time\" >= $", B: ""},
+		{A: "\"create_time\" < $", B: ""},
+		{A: "\"create_time\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
 		{},
 		{},
 		{},
@@ -1401,36 +1431,6 @@ var fragTable = [12][28]runtime.Frag{
 		{},
 		{},
 	},
-	{ // create_time
-		{}, // opNone
-		{A: "\"create_time\" = $", B: ""},
-		{A: "\"create_time\" <> $", B: ""},
-		{A: "\"create_time\" > $", B: ""},
-		{A: "\"create_time\" >= $", B: ""},
-		{A: "\"create_time\" < $", B: ""},
-		{A: "\"create_time\" <= $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-	},
 	{ // last_attempt
 		{}, // opNone
 		{A: "\"last_attempt\" = $", B: ""},
@@ -1647,15 +1647,15 @@ func Scan(rv [][]byte, r *Row, sl *runtime.Slab) error { return scan(rv, r, sl) 
 // plausible zero, and a row scanner is the last place that can tell.
 func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.ID = sl.Str(rv[0])
-	r.WebhookID = sl.Str(rv[1])
-	r.EventID = sl.Str(rv[2])
-	r.EventType = sl.Str(rv[3])
-	r.Payload = sl.Str(rv[4])
-	r.Status = runtime.Int4(rv[5])
-	r.Attempts = runtime.Int8(rv[6])
-	r.ResponseCode = runtime.Int8(rv[7])
-	r.Error = sl.Str(rv[8])
-	r.CreateTime = runtime.Timestamptz(rv[9])
+	r.CreateTime = runtime.Timestamptz(rv[1])
+	r.WebhookID = sl.Str(rv[2])
+	r.EventID = sl.Str(rv[3])
+	r.EventType = sl.Str(rv[4])
+	r.Payload = sl.Str(rv[5])
+	r.Status = runtime.Int4(rv[6])
+	r.Attempts = runtime.Int8(rv[7])
+	r.ResponseCode = runtime.Int8(rv[8])
+	r.Error = sl.Str(rv[9])
 	r.LastAttempt = runtime.Nullable(rv[10], runtime.Timestamptz)
 	r.NextAttempt = runtime.Nullable(rv[11], runtime.Timestamptz)
 	return nil
@@ -1730,10 +1730,6 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 1:
-				b.anyStr[nas] = q.anyStr[nas]
-				v = append(v, &b.anyStr[nas])
-				nas++
 			case 2:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
@@ -1747,18 +1743,22 @@ func (q Query) bindPreds(b *binder) []any {
 				v = append(v, &b.anyStr[nas])
 				nas++
 			case 5:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
+			case 6:
 				b.anyI32[nai32] = q.anyI32[nai32]
 				v = append(v, &b.anyI32[nai32])
 				nai32++
-			case 6:
-				b.anyI64[nai64] = q.anyI64[nai64]
-				v = append(v, &b.anyI64[nai64])
-				nai64++
 			case 7:
 				b.anyI64[nai64] = q.anyI64[nai64]
 				v = append(v, &b.anyI64[nai64])
 				nai64++
 			case 8:
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
+			case 9:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
@@ -1771,9 +1771,9 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 1:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.tims[ntm] = q.tims[ntm]
+			v = append(v, &b.tims[ntm])
+			ntm++
 		case 2:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
@@ -1787,9 +1787,9 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 5:
-			b.nums[nn] = q.nums[nn]
-			v = append(v, &b.nums[nn])
-			nn++
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
 		case 6:
 			b.nums[nn] = q.nums[nn]
 			v = append(v, &b.nums[nn])
@@ -1799,13 +1799,13 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.nums[nn])
 			nn++
 		case 8:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
+		case 9:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
-		case 9:
-			b.tims[ntm] = q.tims[ntm]
-			v = append(v, &b.tims[ntm])
-			ntm++
 		case 10:
 			b.tims[ntm] = q.tims[ntm]
 			v = append(v, &b.tims[ntm])
@@ -1951,7 +1951,7 @@ func (q Query) Prepare(b *Binder) (string, []any) {
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "deliveries" ("id", "webhook_id", "event_id", "event_type", "payload", "status", "attempts", "response_code", "error", "create_time", "last_attempt", "next_attempt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING "id", "webhook_id", "event_id", "event_type", "payload", "status", "attempts", "response_code", "error", "create_time", "last_attempt", "next_attempt"`
+const insertSQL = `INSERT INTO "deliveries" ("id", "create_time", "webhook_id", "event_id", "event_type", "payload", "status", "attempts", "response_code", "error", "last_attempt", "next_attempt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING "id", "create_time", "webhook_id", "event_id", "event_type", "payload", "status", "attempts", "response_code", "error", "last_attempt", "next_attempt"`
 
 const updatePrefix = `UPDATE "deliveries" SET `
 const deletePrefix = `DELETE FROM "deliveries"`
@@ -1959,32 +1959,22 @@ const deletePrefix = `DELETE FROM "deliveries"`
 // Dirty bits. One per updatable column; the set of them is an UPDATE's
 // identity, exactly as a token stream is a SELECT's.
 const (
-	dWebhookID    uint64 = 1 << 0
-	dEventID      uint64 = 1 << 1
-	dEventType    uint64 = 1 << 2
-	dPayload      uint64 = 1 << 3
-	dStatus       uint64 = 1 << 4
-	dAttempts     uint64 = 1 << 5
-	dResponseCode uint64 = 1 << 6
-	dError        uint64 = 1 << 7
-	dCreateTime   uint64 = 1 << 8
-	dLastAttempt  uint64 = 1 << 9
-	dNextAttempt  uint64 = 1 << 10
+	dStatus       uint64 = 1 << 0
+	dAttempts     uint64 = 1 << 1
+	dResponseCode uint64 = 1 << 2
+	dError        uint64 = 1 << 3
+	dLastAttempt  uint64 = 1 << 4
+	dNextAttempt  uint64 = 1 << 5
 )
 
-const nUpdatable = 11
+const nUpdatable = 6
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
-	{A: "\"webhook_id\" = $", B: ""},    // webhook_id
-	{A: "\"event_id\" = $", B: ""},      // event_id
-	{A: "\"event_type\" = $", B: ""},    // event_type
-	{A: "\"payload\" = $", B: ""},       // payload
 	{A: "\"status\" = $", B: ""},        // status
 	{A: "\"attempts\" = $", B: ""},      // attempts
 	{A: "\"response_code\" = $", B: ""}, // response_code
 	{A: "\"error\" = $", B: ""},         // error
-	{A: "\"create_time\" = $", B: ""},   // create_time
 	{A: "\"last_attempt\" = $", B: ""},  // last_attempt
 	{A: "\"next_attempt\" = $", B: ""},  // next_attempt
 }
@@ -1993,15 +1983,10 @@ var setFrags = [nUpdatable]runtime.Frag{
 // of a bound value. A zero Frag means the column admits none. None of
 // these end in a placeholder sigil, so none consumes an argument slot.
 var exprFrags = [nUpdatable]runtime.Frag{
-	{}, // webhook_id has no server-side form
-	{}, // event_id has no server-side form
-	{}, // event_type has no server-side form
-	{}, // payload has no server-side form
 	{A: "\"status\" = \"status\" + 1", B: ""},               // status = its own value plus one
 	{A: "\"attempts\" = \"attempts\" + 1", B: ""},           // attempts = its own value plus one
 	{A: "\"response_code\" = \"response_code\" + 1", B: ""}, // response_code = its own value plus one
 	{},                                     // error has no server-side form
-	{A: "\"create_time\" = now()", B: ""},  // create_time = the database's clock
 	{A: "\"last_attempt\" = now()", B: ""}, // last_attempt = the database's clock
 	{A: "\"next_attempt\" = now()", B: ""}, // next_attempt = the database's clock
 }
@@ -2016,15 +2001,15 @@ var pkFrags = [1]runtime.Frag{
 // the only way a DEFAULT gen_random_uuid() can ever fire.
 const (
 	iID           uint64 = 1 << 0
-	iWebhookID    uint64 = 1 << 1
-	iEventID      uint64 = 1 << 2
-	iEventType    uint64 = 1 << 3
-	iPayload      uint64 = 1 << 4
-	iStatus       uint64 = 1 << 5
-	iAttempts     uint64 = 1 << 6
-	iResponseCode uint64 = 1 << 7
-	iError        uint64 = 1 << 8
-	iCreateTime   uint64 = 1 << 9
+	iCreateTime   uint64 = 1 << 1
+	iWebhookID    uint64 = 1 << 2
+	iEventID      uint64 = 1 << 3
+	iEventType    uint64 = 1 << 4
+	iPayload      uint64 = 1 << 5
+	iStatus       uint64 = 1 << 6
+	iAttempts     uint64 = 1 << 7
+	iResponseCode uint64 = 1 << 8
+	iError        uint64 = 1 << 9
 	iLastAttempt  uint64 = 1 << 10
 	iNextAttempt  uint64 = 1 << 11
 )
@@ -2034,6 +2019,7 @@ const nInsertable = 12
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"webhook_id\"",
 	"\"event_id\"",
 	"\"event_type\"",
@@ -2042,7 +2028,6 @@ var insCols = [nInsertable]string{
 	"\"attempts\"",
 	"\"response_code\"",
 	"\"error\"",
-	"\"create_time\"",
 	"\"last_attempt\"",
 	"\"next_attempt\"",
 }
@@ -2053,7 +2038,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"deliveries\""
-const insReturning = " RETURNING \"id\", \"webhook_id\", \"event_id\", \"event_type\", \"payload\", \"status\", \"attempts\", \"response_code\", \"error\", \"create_time\", \"last_attempt\", \"next_attempt\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"webhook_id\", \"event_id\", \"event_type\", \"payload\", \"status\", \"attempts\", \"response_code\", \"error\", \"last_attempt\", \"next_attempt\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -2072,7 +2057,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"webhook_id\", \"event_id\", \"event_type\", \"payload\", \"status\", \"attempts\", \"response_code\", \"error\", \"create_time\", \"last_attempt\", \"next_attempt\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"webhook_id\", \"event_id\", \"event_type\", \"payload\", \"status\", \"attempts\", \"response_code\", \"error\", \"last_attempt\", \"next_attempt\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -2120,30 +2105,6 @@ func (m Mut) key() runtime.MaskKey {
 // Setters. There is deliberately no setter for the primary key, for an
 // Immutable column, or for the version column: the absence of a method is
 // the enforcement, so misuse does not compile rather than failing later.
-func (m *Mut) SetWebhookID(v string) {
-	m.row.WebhookID = v
-	m.dirty |= dWebhookID
-	m.expr &^= dWebhookID
-}
-
-func (m *Mut) SetEventID(v string) {
-	m.row.EventID = v
-	m.dirty |= dEventID
-	m.expr &^= dEventID
-}
-
-func (m *Mut) SetEventType(v string) {
-	m.row.EventType = v
-	m.dirty |= dEventType
-	m.expr &^= dEventType
-}
-
-func (m *Mut) SetPayload(v string) {
-	m.row.Payload = v
-	m.dirty |= dPayload
-	m.expr &^= dPayload
-}
-
 func (m *Mut) SetStatus(v int32) {
 	m.row.Status = v
 	m.dirty |= dStatus
@@ -2196,23 +2157,6 @@ func (m *Mut) SetError(v string) {
 	m.row.Error = v
 	m.dirty |= dError
 	m.expr &^= dError
-}
-
-func (m *Mut) SetCreateTime(v time.Time) {
-	m.row.CreateTime = v
-	m.dirty |= dCreateTime
-	m.expr &^= dCreateTime
-}
-
-// SetCreateTimeNow assigns the database's clock, not this process's.
-//
-// Binding time.Now() instead would record when THIS server
-// thought it was. Servers skew, so rows written seconds apart
-// can land out of order, and an event stamped by a fast clock
-// reads as preceding the thing that caused it.
-func (m *Mut) SetCreateTimeNow() {
-	m.expr |= dCreateTime
-	m.dirty &^= dCreateTime
 }
 
 func (m *Mut) SetLastAttempt(v time.Time) {
@@ -2295,6 +2239,11 @@ func (n *Ins) SetID(v string) {
 	n.set |= iID
 }
 
+func (n *Ins) SetCreateTime(v time.Time) {
+	n.row.CreateTime = v
+	n.set |= iCreateTime
+}
+
 func (n *Ins) SetWebhookID(v string) {
 	n.row.WebhookID = v
 	n.set |= iWebhookID
@@ -2333,11 +2282,6 @@ func (n *Ins) SetResponseCode(v int64) {
 func (n *Ins) SetError(v string) {
 	n.row.Error = v
 	n.set |= iError
-}
-
-func (n *Ins) SetCreateTime(v time.Time) {
-	n.row.CreateTime = v
-	n.set |= iCreateTime
 }
 
 func (n *Ins) SetLastAttempt(v time.Time) {
@@ -2409,35 +2353,20 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 11)
+	set := make([]string, 0, 6)
 	switch i {
 	case 0:
-		if mask&(1<<1) != 0 {
-			set = append(set, "webhook_id")
-		}
-		if mask&(1<<2) != 0 {
-			set = append(set, "event_id")
-		}
-		if mask&(1<<3) != 0 {
-			set = append(set, "event_type")
-		}
-		if mask&(1<<4) != 0 {
-			set = append(set, "payload")
-		}
-		if mask&(1<<5) != 0 {
+		if mask&(1<<6) != 0 {
 			set = append(set, "status")
 		}
-		if mask&(1<<6) != 0 {
+		if mask&(1<<7) != 0 {
 			set = append(set, "attempts")
 		}
-		if mask&(1<<7) != 0 {
+		if mask&(1<<8) != 0 {
 			set = append(set, "response_code")
 		}
-		if mask&(1<<8) != 0 {
-			set = append(set, "error")
-		}
 		if mask&(1<<9) != 0 {
-			set = append(set, "create_time")
+			set = append(set, "error")
 		}
 		if mask&(1<<10) != 0 {
 			set = append(set, "last_attempt")
@@ -2493,15 +2422,10 @@ func joinAssign(set []string) string {
 }
 
 var assignFor = map[string]string{
-	"webhook_id":    "\"webhook_id\" = EXCLUDED.\"webhook_id\"",
-	"event_id":      "\"event_id\" = EXCLUDED.\"event_id\"",
-	"event_type":    "\"event_type\" = EXCLUDED.\"event_type\"",
-	"payload":       "\"payload\" = EXCLUDED.\"payload\"",
 	"status":        "\"status\" = EXCLUDED.\"status\"",
 	"attempts":      "\"attempts\" = EXCLUDED.\"attempts\"",
 	"response_code": "\"response_code\" = EXCLUDED.\"response_code\"",
 	"error":         "\"error\" = EXCLUDED.\"error\"",
-	"create_time":   "\"create_time\" = EXCLUDED.\"create_time\"",
 	"last_attempt":  "\"last_attempt\" = EXCLUDED.\"last_attempt\"",
 	"next_attempt":  "\"next_attempt\" = EXCLUDED.\"next_attempt\"",
 }
@@ -2550,23 +2474,23 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.WebhookID)
-		case 2:
-			args = append(args, n.row.EventID)
-		case 3:
-			args = append(args, n.row.EventType)
-		case 4:
-			args = append(args, n.row.Payload)
-		case 5:
-			args = append(args, n.row.Status)
-		case 6:
-			args = append(args, n.row.Attempts)
-		case 7:
-			args = append(args, n.row.ResponseCode)
-		case 8:
-			args = append(args, n.row.Error)
-		case 9:
 			args = append(args, n.row.CreateTime)
+		case 2:
+			args = append(args, n.row.WebhookID)
+		case 3:
+			args = append(args, n.row.EventID)
+		case 4:
+			args = append(args, n.row.EventType)
+		case 5:
+			args = append(args, n.row.Payload)
+		case 6:
+			args = append(args, n.row.Status)
+		case 7:
+			args = append(args, n.row.Attempts)
+		case 8:
+			args = append(args, n.row.ResponseCode)
+		case 9:
+			args = append(args, n.row.Error)
 		case 10:
 			args = append(args, n.row.LastAttempt.Arg())
 		case 11:
@@ -2610,6 +2534,7 @@ func Inserts() int { return insCache.Masks() }
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args := make([]any, 0, 12)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.WebhookID)
 	args = append(args, r.EventID)
 	args = append(args, r.EventType)
@@ -2618,7 +2543,6 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.Attempts)
 	args = append(args, r.ResponseCode)
 	args = append(args, r.Error)
-	args = append(args, r.CreateTime)
 	args = append(args, r.LastAttempt.Arg())
 	args = append(args, r.NextAttempt.Arg())
 	rows, err := ex.Query(ctx, insertSQL, args)
@@ -2648,6 +2572,7 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 // yourself, or use Create() per row and give up the bulk path.
 var copyCols = []string{
 	"id",
+	"create_time",
 	"webhook_id",
 	"event_id",
 	"event_type",
@@ -2656,7 +2581,6 @@ var copyCols = []string{
 	"attempts",
 	"response_code",
 	"error",
-	"create_time",
 	"last_attempt",
 	"next_attempt",
 }
@@ -2684,15 +2608,15 @@ func (s *rowSource) Next() bool {
 func (s *rowSource) Values() []any {
 	r := &s.rows[s.i-1]
 	s.buf[0] = &r.ID
-	s.buf[1] = &r.WebhookID
-	s.buf[2] = &r.EventID
-	s.buf[3] = &r.EventType
-	s.buf[4] = &r.Payload
-	s.buf[5] = &r.Status
-	s.buf[6] = &r.Attempts
-	s.buf[7] = &r.ResponseCode
-	s.buf[8] = &r.Error
-	s.buf[9] = &r.CreateTime
+	s.buf[1] = &r.CreateTime
+	s.buf[2] = &r.WebhookID
+	s.buf[3] = &r.EventID
+	s.buf[4] = &r.EventType
+	s.buf[5] = &r.Payload
+	s.buf[6] = &r.Status
+	s.buf[7] = &r.Attempts
+	s.buf[8] = &r.ResponseCode
+	s.buf[9] = &r.Error
 	s.buf[10] = r.LastAttempt.Ptr()
 	s.buf[11] = r.NextAttempt.Ptr()
 	return s.buf[:]
@@ -2740,6 +2664,7 @@ func InsertOp(r Row) runtime.BatchOp {
 	st := stmtForInsertNoReturn(mask, 0)
 	args := make([]any, 0, 12)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.WebhookID)
 	args = append(args, r.EventID)
 	args = append(args, r.EventType)
@@ -2748,7 +2673,6 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.Attempts)
 	args = append(args, r.ResponseCode)
 	args = append(args, r.Error)
-	args = append(args, r.CreateTime)
 	args = append(args, r.LastAttempt.Arg())
 	args = append(args, r.NextAttempt.Arg())
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
@@ -2787,23 +2711,23 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.WebhookID)
-		case 2:
-			args = append(args, n.row.EventID)
-		case 3:
-			args = append(args, n.row.EventType)
-		case 4:
-			args = append(args, n.row.Payload)
-		case 5:
-			args = append(args, n.row.Status)
-		case 6:
-			args = append(args, n.row.Attempts)
-		case 7:
-			args = append(args, n.row.ResponseCode)
-		case 8:
-			args = append(args, n.row.Error)
-		case 9:
 			args = append(args, n.row.CreateTime)
+		case 2:
+			args = append(args, n.row.WebhookID)
+		case 3:
+			args = append(args, n.row.EventID)
+		case 4:
+			args = append(args, n.row.EventType)
+		case 5:
+			args = append(args, n.row.Payload)
+		case 6:
+			args = append(args, n.row.Status)
+		case 7:
+			args = append(args, n.row.Attempts)
+		case 8:
+			args = append(args, n.row.ResponseCode)
+		case 9:
+			args = append(args, n.row.Error)
 		case 10:
 			args = append(args, n.row.LastAttempt.Arg())
 		case 11:
@@ -2855,26 +2779,16 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 		}
 		switch i {
 		case 0:
-			args = append(args, m.row.WebhookID)
-		case 1:
-			args = append(args, m.row.EventID)
-		case 2:
-			args = append(args, m.row.EventType)
-		case 3:
-			args = append(args, m.row.Payload)
-		case 4:
 			args = append(args, m.row.Status)
-		case 5:
+		case 1:
 			args = append(args, m.row.Attempts)
-		case 6:
+		case 2:
 			args = append(args, m.row.ResponseCode)
-		case 7:
+		case 3:
 			args = append(args, m.row.Error)
-		case 8:
-			args = append(args, m.row.CreateTime)
-		case 9:
+		case 4:
 			args = append(args, m.row.LastAttempt.Arg())
-		case 10:
+		case 5:
 			args = append(args, m.row.NextAttempt.Arg())
 		}
 	}
@@ -2959,26 +2873,16 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 		}
 		switch i {
 		case 0:
-			args = append(args, m.row.WebhookID)
-		case 1:
-			args = append(args, m.row.EventID)
-		case 2:
-			args = append(args, m.row.EventType)
-		case 3:
-			args = append(args, m.row.Payload)
-		case 4:
 			args = append(args, m.row.Status)
-		case 5:
+		case 1:
 			args = append(args, m.row.Attempts)
-		case 6:
+		case 2:
 			args = append(args, m.row.ResponseCode)
-		case 7:
+		case 3:
 			args = append(args, m.row.Error)
-		case 8:
-			args = append(args, m.row.CreateTime)
-		case 9:
+		case 4:
 			args = append(args, m.row.LastAttempt.Arg())
-		case 10:
+		case 5:
 			args = append(args, m.row.NextAttempt.Arg())
 		}
 	}

@@ -17,20 +17,16 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/tables"
 )
 
-// DatasetKind says where a dataset's examples come from.
-type DatasetKind int
+// DatasetKind says where a dataset's examples come from. It is the
+// column's own type, declared with the schema.
+type DatasetKind = tables.DatasetKind
 
 const (
-	DatasetTable DatasetKind = 1 // a CSV someone uploaded
-	DatasetMNIST DatasetKind = 2 // the built-in handwritten digits
-	// DatasetPhotos is a ZIP of photos, one folder per answer.
-	DatasetPhotos DatasetKind = 3
-	// DatasetPhotoTable is a ZIP of a data.csv and the photos it names.
-	DatasetPhotoTable DatasetKind = 4
+	DatasetTable      = tables.DatasetTable      // a CSV someone uploaded
+	DatasetMNIST      = tables.DatasetMNIST      // the built-in handwritten digits
+	DatasetPhotos     = tables.DatasetPhotos     // a ZIP of photos, one folder per answer
+	DatasetPhotoTable = tables.DatasetPhotoTable // a ZIP of a data.csv and the photos it names
 )
-
-// Archive reports whether the dataset's file is a ZIP.
-func (k DatasetKind) Archive() bool { return k == DatasetPhotos || k == DatasetPhotoTable }
 
 // Dataset is a set of examples models learn from.
 type Dataset struct {
@@ -66,19 +62,17 @@ type Dataset struct {
 // from storage, so they can be fetched again.
 func (d Dataset) FromQuery() bool { return d.Driver != "" }
 
-// JobStatus is where a training job is in its life.
-type JobStatus int
+// JobStatus is where a training job is in its life. It is the column's
+// own type, declared with the schema.
+type JobStatus = tables.JobStatus
 
 const (
-	JobQueued    JobStatus = 1
-	JobRunning   JobStatus = 2
-	JobSucceeded JobStatus = 3
-	JobFailed    JobStatus = 4
-	JobCancelled JobStatus = 5
+	JobQueued    = tables.JobQueued
+	JobRunning   = tables.JobRunning
+	JobSucceeded = tables.JobSucceeded
+	JobFailed    = tables.JobFailed
+	JobCancelled = tables.JobCancelled
 )
-
-// Done reports whether the job is over, whichever way.
-func (s JobStatus) Done() bool { return s >= JobSucceeded }
 
 // Settings are a job's training knobs.
 type Settings struct {
@@ -175,9 +169,9 @@ func fromDataset(r dataset.Row) Dataset {
 		Name:         r.Name,
 		Kind:         DatasetKind(r.Kind),
 		Rows:         r.Rows,
-		Features:     fromJSON[[]string](r.Features),
-		Labels:       fromJSON[[]string](r.Labels),
-		InputShape:   fromJSON[[]int](r.InputShape),
+		Features:     fromStrs(r.Features),
+		Labels:       fromStrs(r.Labels),
+		InputShape:   fromInt64s(r.InputShape),
 		Target:       r.Target,
 		SizeBytes:    r.SizeBytes,
 		Created:      r.CreateTime.UTC(),
@@ -186,7 +180,7 @@ func fromDataset(r dataset.Row) Dataset {
 		Query:        r.SourceQuery,
 		Refreshed:    timeOf(r.RefreshTime),
 		TeamID:       r.TeamID.V,
-		Columns:      fromJSON[[]schema.Column](r.Columns),
+		Columns:      fromDoc[schema.Column](r.Columns),
 		NumberTarget: r.NumberTarget,
 		Skipped:      r.Skipped,
 	}
@@ -220,9 +214,9 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 	n.SetName(d.Name)
 	n.SetKind(int32(d.Kind))
 	n.SetRows(d.Rows)
-	n.SetFeatures(toJSON(d.Features))
-	n.SetLabels(toJSON(d.Labels))
-	n.SetInputShape(toJSON(d.InputShape))
+	n.SetFeatures(strs(d.Features))
+	n.SetLabels(strs(d.Labels))
+	n.SetInputShape(int64s(d.InputShape))
 	n.SetTarget(d.Target)
 	n.SetSizeBytes(d.SizeBytes)
 	n.SetCreateTime(d.Created)
@@ -230,7 +224,7 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 	n.SetDsn(d.DSN)
 	n.SetSourceQuery(d.Query)
 	n.SetTeamID(d.TeamID)
-	n.SetColumns(toJSON(d.Columns))
+	n.SetColumns(doc(d.Columns))
 	n.SetNumberTarget(d.NumberTarget)
 	n.SetSkipped(d.Skipped)
 	if _, err := n.Insert(ctx, s.ex); err != nil {
@@ -248,12 +242,12 @@ func (s *Store) RefreshDataset(ctx context.Context, d Dataset, csv []byte) (Data
 	d.SizeBytes, d.Refreshed = int64(len(csv)), now()
 	m := dataset.MutateKey(d.ID)
 	m.SetRows(d.Rows)
-	m.SetFeatures(toJSON(d.Features))
-	m.SetLabels(toJSON(d.Labels))
-	m.SetInputShape(toJSON(d.InputShape))
+	m.SetFeatures(strs(d.Features))
+	m.SetLabels(strs(d.Labels))
+	m.SetInputShape(int64s(d.InputShape))
 	m.SetSizeBytes(d.SizeBytes)
 	m.SetRefreshTime(d.Refreshed)
-	m.SetColumns(toJSON(d.Columns))
+	m.SetColumns(doc(d.Columns))
 	m.SetNumberTarget(d.NumberTarget)
 	m.SetSkipped(d.Skipped)
 	if err := m.Update(ctx, s.ex); err != nil && !errors.Is(err, runtime.ErrNoRow) {
@@ -268,10 +262,10 @@ func (s *Store) UpdateDatasetColumns(ctx context.Context, d Dataset) (Dataset, e
 	m := dataset.MutateKey(d.ID)
 	m.SetTarget(d.Target)
 	m.SetRows(d.Rows)
-	m.SetFeatures(toJSON(d.Features))
-	m.SetLabels(toJSON(d.Labels))
-	m.SetInputShape(toJSON(d.InputShape))
-	m.SetColumns(toJSON(d.Columns))
+	m.SetFeatures(strs(d.Features))
+	m.SetLabels(strs(d.Labels))
+	m.SetInputShape(int64s(d.InputShape))
+	m.SetColumns(doc(d.Columns))
 	m.SetNumberTarget(d.NumberTarget)
 	m.SetSkipped(d.Skipped)
 	if err := m.Update(ctx, s.ex); err != nil && !errors.Is(err, runtime.ErrNoRow) {
@@ -354,7 +348,7 @@ func fromJob(r trainingjob.Row) Job {
 		Epoch:         int(r.Epoch),
 		Step:          int(r.Step),
 		StepsPerEpoch: int(r.StepsPerEpoch),
-		History:       fromJSON[[]Epoch](r.History),
+		History:       fromDoc[Epoch](r.History),
 		ModelID:       r.ModelID,
 		Worker:        r.Worker,
 		RepeatSeconds: r.RepeatSeconds,
@@ -590,15 +584,11 @@ func (s *Store) RequeueJob(ctx context.Context, id string) (bool, error) {
 
 // JobProgress records where a running job is.
 func (s *Store) JobProgress(ctx context.Context, id string, epoch, step, stepsPerEpoch int, history []Epoch) error {
-	h := toJSON(history)
-	if h == "" {
-		h = "[]"
-	}
 	m := trainingjob.MutateKey(id)
 	m.SetEpoch(int64(epoch))
 	m.SetStep(int64(step))
 	m.SetStepsPerEpoch(int64(stepsPerEpoch))
-	m.SetHistory(h)
+	m.SetHistory(doc(history))
 	return s.updateJob(ctx, m)
 }
 

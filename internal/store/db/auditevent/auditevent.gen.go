@@ -1542,23 +1542,13 @@ const deletePrefix = `DELETE FROM "audit_events"`
 // Dirty bits. One per updatable column; the set of them is an UPDATE's
 // identity, exactly as a token stream is a SELECT's.
 const (
-	dTime   uint64 = 1 << 0
-	dActor  uint64 = 1 << 1
-	dAction uint64 = 1 << 2
-	dTarget uint64 = 1 << 3
-	dDetail uint64 = 1 << 4
-	dTeamID uint64 = 1 << 5
+	dTeamID uint64 = 1 << 0
 )
 
-const nUpdatable = 6
+const nUpdatable = 1
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
-	{A: "\"time\" = $", B: ""},    // time
-	{A: "\"actor\" = $", B: ""},   // actor
-	{A: "\"action\" = $", B: ""},  // action
-	{A: "\"target\" = $", B: ""},  // target
-	{A: "\"detail\" = $", B: ""},  // detail
 	{A: "\"team_id\" = $", B: ""}, // team_id
 }
 
@@ -1566,12 +1556,7 @@ var setFrags = [nUpdatable]runtime.Frag{
 // of a bound value. A zero Frag means the column admits none. None of
 // these end in a placeholder sigil, so none consumes an argument slot.
 var exprFrags = [nUpdatable]runtime.Frag{
-	{A: "\"time\" = now()", B: ""}, // time = the database's clock
-	{},                             // actor has no server-side form
-	{},                             // action has no server-side form
-	{},                             // target has no server-side form
-	{},                             // detail has no server-side form
-	{},                             // team_id has no server-side form
+	{}, // team_id has no server-side form
 }
 
 // pkFrags addresses one row.
@@ -1678,47 +1663,6 @@ func (m Mut) key() runtime.MaskKey {
 // Setters. There is deliberately no setter for the primary key, for an
 // Immutable column, or for the version column: the absence of a method is
 // the enforcement, so misuse does not compile rather than failing later.
-func (m *Mut) SetTime(v time.Time) {
-	m.row.Time = v
-	m.dirty |= dTime
-	m.expr &^= dTime
-}
-
-// SetTimeNow assigns the database's clock, not this process's.
-//
-// Binding time.Now() instead would record when THIS server
-// thought it was. Servers skew, so rows written seconds apart
-// can land out of order, and an event stamped by a fast clock
-// reads as preceding the thing that caused it.
-func (m *Mut) SetTimeNow() {
-	m.expr |= dTime
-	m.dirty &^= dTime
-}
-
-func (m *Mut) SetActor(v string) {
-	m.row.Actor = v
-	m.dirty |= dActor
-	m.expr &^= dActor
-}
-
-func (m *Mut) SetAction(v string) {
-	m.row.Action = v
-	m.dirty |= dAction
-	m.expr &^= dAction
-}
-
-func (m *Mut) SetTarget(v string) {
-	m.row.Target = v
-	m.dirty |= dTarget
-	m.expr &^= dTarget
-}
-
-func (m *Mut) SetDetail(v string) {
-	m.row.Detail = v
-	m.dirty |= dDetail
-	m.expr &^= dDetail
-}
-
 func (m *Mut) SetTeamID(v string) {
 	m.row.TeamID = runtime.Null[string]{V: v, Valid: true}
 	m.dirty |= dTeamID
@@ -1845,24 +1789,9 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 6)
+	set := make([]string, 0, 1)
 	switch i {
 	case 0:
-		if mask&(1<<1) != 0 {
-			set = append(set, "time")
-		}
-		if mask&(1<<2) != 0 {
-			set = append(set, "actor")
-		}
-		if mask&(1<<3) != 0 {
-			set = append(set, "action")
-		}
-		if mask&(1<<4) != 0 {
-			set = append(set, "target")
-		}
-		if mask&(1<<5) != 0 {
-			set = append(set, "detail")
-		}
 		if mask&(1<<6) != 0 {
 			set = append(set, "team_id")
 		}
@@ -1914,11 +1843,6 @@ func joinAssign(set []string) string {
 }
 
 var assignFor = map[string]string{
-	"time":    "\"time\" = EXCLUDED.\"time\"",
-	"actor":   "\"actor\" = EXCLUDED.\"actor\"",
-	"action":  "\"action\" = EXCLUDED.\"action\"",
-	"target":  "\"target\" = EXCLUDED.\"target\"",
-	"detail":  "\"detail\" = EXCLUDED.\"detail\"",
 	"team_id": "\"team_id\" = EXCLUDED.\"team_id\"",
 }
 
@@ -2226,16 +2150,6 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 		}
 		switch i {
 		case 0:
-			args = append(args, m.row.Time)
-		case 1:
-			args = append(args, m.row.Actor)
-		case 2:
-			args = append(args, m.row.Action)
-		case 3:
-			args = append(args, m.row.Target)
-		case 4:
-			args = append(args, m.row.Detail)
-		case 5:
 			args = append(args, m.row.TeamID.Arg())
 		}
 	}
@@ -2320,16 +2234,6 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 		}
 		switch i {
 		case 0:
-			args = append(args, m.row.Time)
-		case 1:
-			args = append(args, m.row.Actor)
-		case 2:
-			args = append(args, m.row.Action)
-		case 3:
-			args = append(args, m.row.Target)
-		case 4:
-			args = append(args, m.row.Detail)
-		case 5:
 			args = append(args, m.row.TeamID.Arg())
 		}
 	}

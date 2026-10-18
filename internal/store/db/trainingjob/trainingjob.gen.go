@@ -21,7 +21,9 @@ var (
 // replaced by their scalar foreign keys and *T rewritten to Null[T].
 type Row struct {
 	ID            string
+	CreateTime    time.Time
 	Name          string
+	TeamID        runtime.Null[string]
 	Description   string
 	Architecture  string
 	DatasetID     string
@@ -34,11 +36,10 @@ type Row struct {
 	Epoch         int64
 	Step          int64
 	StepsPerEpoch int64
-	History       string
+	History       runtime.JSON
 	ModelID       string
 	Worker        string
 	CreatedBy     string
-	CreateTime    time.Time
 	StartTime     runtime.Null[time.Time]
 	EndTime       runtime.Null[time.Time]
 	RepeatSeconds int64
@@ -46,7 +47,6 @@ type Row struct {
 	ParentID      string
 	BaseModelID   string
 	Note          string
-	TeamID        runtime.Null[string]
 	RunOn         string
 }
 
@@ -96,11 +96,12 @@ type Query struct {
 	nt   uint8
 	top  uint8 // top-level conjuncts, ANDed at compile time
 
-	strs            [6]string
-	nums            [6]int64
-	tims            [4]time.Time
-	f64s            [4]float64
-	ns, nn, ntm, nf uint8
+	strs                 [6]string
+	nums                 [6]int64
+	tims                 [4]time.Time
+	f64s                 [4]float64
+	jsns                 [2]runtime.JSON
+	ns, nn, ntm, nf, njs uint8
 
 	anyStr            [3][]string
 	anyI32            [3][]int32
@@ -208,186 +209,179 @@ func (q *Query) cursor(col uint32, r Row) {
 		q.strs[q.ns] = r.ID
 		q.ns++
 	case 1:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Name
-		q.ns++
-	case 2:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Description
-		q.ns++
-	case 3:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Architecture
-		q.ns++
-	case 4:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.DatasetID
-		q.ns++
-	case 5:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.Epochs)
-		q.nn++
-	case 6:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.BatchSize)
-		q.nn++
-	case 7:
-		if int(q.nf) >= len(q.f64s) {
-			q.over = true
-			return
-		}
-		q.f64s[q.nf] = float64(r.LearningRate)
-		q.nf++
-	case 8:
-		if int(q.nf) >= len(q.f64s) {
-			q.over = true
-			return
-		}
-		q.f64s[q.nf] = float64(r.HoldOut)
-		q.nf++
-	case 9:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.Status)
-		q.nn++
-	case 10:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Error
-		q.ns++
-	case 11:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.Epoch)
-		q.nn++
-	case 12:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.Step)
-		q.nn++
-	case 13:
-		if int(q.nn) >= len(q.nums) {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = int64(r.StepsPerEpoch)
-		q.nn++
-	case 14:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.History
-		q.ns++
-	case 15:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.ModelID
-		q.ns++
-	case 16:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Worker
-		q.ns++
-	case 17:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.CreatedBy
-		q.ns++
-	case 18:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.CreateTime
 		q.ntm++
+	case 2:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Name
+		q.ns++
+	case 3:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.TeamID.V
+		q.ns++
+	case 4:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Description
+		q.ns++
+	case 5:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Architecture
+		q.ns++
+	case 6:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.DatasetID
+		q.ns++
+	case 7:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.Epochs)
+		q.nn++
+	case 8:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.BatchSize)
+		q.nn++
+	case 9:
+		if int(q.nf) >= len(q.f64s) {
+			q.over = true
+			return
+		}
+		q.f64s[q.nf] = float64(r.LearningRate)
+		q.nf++
+	case 10:
+		if int(q.nf) >= len(q.f64s) {
+			q.over = true
+			return
+		}
+		q.f64s[q.nf] = float64(r.HoldOut)
+		q.nf++
+	case 11:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.Status)
+		q.nn++
+	case 12:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Error
+		q.ns++
+	case 13:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.Epoch)
+		q.nn++
+	case 14:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.Step)
+		q.nn++
+	case 15:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.StepsPerEpoch)
+		q.nn++
+	case 17:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.ModelID
+		q.ns++
+	case 18:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Worker
+		q.ns++
 	case 19:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.CreatedBy
+		q.ns++
+	case 20:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.StartTime.V
 		q.ntm++
-	case 20:
+	case 21:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.EndTime.V
 		q.ntm++
-	case 21:
+	case 22:
 		if int(q.nn) >= len(q.nums) {
 			q.over = true
 			return
 		}
 		q.nums[q.nn] = int64(r.RepeatSeconds)
 		q.nn++
-	case 22:
+	case 23:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.NextRun.V
 		q.ntm++
-	case 23:
+	case 24:
 		if int(q.ns) >= len(q.strs) {
 			q.over = true
 			return
 		}
 		q.strs[q.ns] = r.ParentID
 		q.ns++
-	case 24:
+	case 25:
 		if int(q.ns) >= len(q.strs) {
 			q.over = true
 			return
 		}
 		q.strs[q.ns] = r.BaseModelID
 		q.ns++
-	case 25:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Note
-		q.ns++
 	case 26:
 		if int(q.ns) >= len(q.strs) {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = r.TeamID.V
+		q.strs[q.ns] = r.Note
 		q.ns++
 	case 27:
 		if int(q.ns) >= len(q.strs) {
@@ -547,6 +541,7 @@ type Pred struct {
 	str    string
 	tim    time.Time
 	f64    float64
+	jsn    runtime.JSON
 	anyStr []string
 	anyI32 []int32
 	anyI64 []int64
@@ -556,32 +551,32 @@ type Pred struct {
 // Age.Like(...) fail to compile.
 var (
 	ID            = TextCol{0}
-	Name          = TextCol{1}
-	Description   = TextCol{2}
-	Architecture  = TextCol{3}
-	DatasetID     = TextCol{4}
-	Epochs        = Int64Col{5}
-	BatchSize     = Int64Col{6}
-	LearningRate  = Float64Col{7}
-	HoldOut       = Float64Col{8}
-	Status        = Int32Col{9}
-	Error         = TextCol{10}
-	Epoch         = Int64Col{11}
-	Step          = Int64Col{12}
-	StepsPerEpoch = Int64Col{13}
-	History       = TextCol{14}
-	ModelID       = TextCol{15}
-	Worker        = TextCol{16}
-	CreatedBy     = TextCol{17}
-	CreateTime    = TimeCol{18}
-	StartTime     = NullTimeCol{19}
-	EndTime       = NullTimeCol{20}
-	RepeatSeconds = Int64Col{21}
-	NextRun       = NullTimeCol{22}
-	ParentID      = TextCol{23}
-	BaseModelID   = TextCol{24}
-	Note          = TextCol{25}
-	TeamID        = NullTextCol{26}
+	CreateTime    = TimeCol{1}
+	Name          = TextCol{2}
+	TeamID        = NullTextCol{3}
+	Description   = TextCol{4}
+	Architecture  = TextCol{5}
+	DatasetID     = TextCol{6}
+	Epochs        = Int64Col{7}
+	BatchSize     = Int64Col{8}
+	LearningRate  = Float64Col{9}
+	HoldOut       = Float64Col{10}
+	Status        = Int32Col{11}
+	Error         = TextCol{12}
+	Epoch         = Int64Col{13}
+	Step          = Int64Col{14}
+	StepsPerEpoch = Int64Col{15}
+	History       = JSONCol{16}
+	ModelID       = TextCol{17}
+	Worker        = TextCol{18}
+	CreatedBy     = TextCol{19}
+	StartTime     = NullTimeCol{20}
+	EndTime       = NullTimeCol{21}
+	RepeatSeconds = Int64Col{22}
+	NextRun       = NullTimeCol{23}
+	ParentID      = TextCol{24}
+	BaseModelID   = TextCol{25}
+	Note          = TextCol{26}
 	RunOn         = TextCol{27}
 )
 
@@ -612,6 +607,55 @@ func (h TextCol) In(v ...string) Pred   { return Pred{col: h.c, op: opIn, anyStr
 // comparison NULL for every row and the result empty —
 // PostgreSQL's rule for NOT IN, not storm's.
 func (h TextCol) NotIn(v ...string) Pred { return Pred{col: h.c, op: opNotIn, anyStr: v} }
+
+// TimeCol addresses a timestamptz column.
+type TimeCol struct{ c uint8 }
+
+func (h TimeCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h TimeCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h TimeCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h TimeCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+func (h TimeCol) Eq(v time.Time) Pred    { return Pred{col: h.c, op: opEq, tim: v} }
+func (h TimeCol) NotEq(v time.Time) Pred { return Pred{col: h.c, op: opNotEq, tim: v} }
+func (h TimeCol) Gt(v time.Time) Pred    { return Pred{col: h.c, op: opGt, tim: v} }
+func (h TimeCol) Gte(v time.Time) Pred   { return Pred{col: h.c, op: opGte, tim: v} }
+func (h TimeCol) Lt(v time.Time) Pred    { return Pred{col: h.c, op: opLt, tim: v} }
+func (h TimeCol) Lte(v time.Time) Pred   { return Pred{col: h.c, op: opLte, tim: v} }
+
+// NullTextCol addresses a text column.
+type NullTextCol struct{ c uint8 }
+
+func (h NullTextCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h NullTextCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h NullTextCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h NullTextCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+func (h NullTextCol) Eq(v string) Pred      { return Pred{col: h.c, op: opEq, str: v} }
+func (h NullTextCol) NotEq(v string) Pred   { return Pred{col: h.c, op: opNotEq, str: v} }
+func (h NullTextCol) Gt(v string) Pred      { return Pred{col: h.c, op: opGt, str: v} }
+func (h NullTextCol) Gte(v string) Pred     { return Pred{col: h.c, op: opGte, str: v} }
+func (h NullTextCol) Lt(v string) Pred      { return Pred{col: h.c, op: opLt, str: v} }
+func (h NullTextCol) Lte(v string) Pred     { return Pred{col: h.c, op: opLte, str: v} }
+func (h NullTextCol) EqLower(v string) Pred { return Pred{col: h.c, op: opEqLower, str: v} }
+func (h NullTextCol) Like(v string) Pred    { return Pred{col: h.c, op: opLike, str: v} }
+func (h NullTextCol) ILike(v string) Pred   { return Pred{col: h.c, op: opILike, str: v} }
+func (h NullTextCol) In(v ...string) Pred   { return Pred{col: h.c, op: opIn, anyStr: v} }
+
+// NotIn is `<> ALL($1)`. A NULL anywhere in v makes the
+// comparison NULL for every row and the result empty —
+// PostgreSQL's rule for NOT IN, not storm's.
+func (h NullTextCol) NotIn(v ...string) Pred { return Pred{col: h.c, op: opNotIn, anyStr: v} }
+func (h NullTextCol) IsNull() Pred           { return Pred{col: h.c, op: opIsNull} }
+func (h NullTextCol) IsNotNull() Pred        { return Pred{col: h.c, op: opIsNotNull} }
 
 // Int64Col addresses a int8 column.
 type Int64Col struct{ c uint8 }
@@ -682,24 +726,24 @@ func (h Int32Col) In(v ...int32) Pred { return Pred{col: h.c, op: opIn, anyI32: 
 // PostgreSQL's rule for NOT IN, not storm's.
 func (h Int32Col) NotIn(v ...int32) Pred { return Pred{col: h.c, op: opNotIn, anyI32: v} }
 
-// TimeCol addresses a timestamptz column.
-type TimeCol struct{ c uint8 }
+// JSONCol addresses a jsonb column.
+type JSONCol struct{ c uint8 }
 
-func (h TimeCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
-func (h TimeCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
-func (h TimeCol) AscNullsFirst() Sort {
+func (h JSONCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h JSONCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h JSONCol) AscNullsFirst() Sort {
 	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
 }
-func (h TimeCol) DescNullsLast() Sort {
+func (h JSONCol) DescNullsLast() Sort {
 	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
 }
 
-func (h TimeCol) Eq(v time.Time) Pred    { return Pred{col: h.c, op: opEq, tim: v} }
-func (h TimeCol) NotEq(v time.Time) Pred { return Pred{col: h.c, op: opNotEq, tim: v} }
-func (h TimeCol) Gt(v time.Time) Pred    { return Pred{col: h.c, op: opGt, tim: v} }
-func (h TimeCol) Gte(v time.Time) Pred   { return Pred{col: h.c, op: opGte, tim: v} }
-func (h TimeCol) Lt(v time.Time) Pred    { return Pred{col: h.c, op: opLt, tim: v} }
-func (h TimeCol) Lte(v time.Time) Pred   { return Pred{col: h.c, op: opLte, tim: v} }
+func (h JSONCol) Contains(v runtime.JSON) Pred { return Pred{col: h.c, op: opJSONContains, jsn: v} }
+func (h JSONCol) ContainedBy(v runtime.JSON) Pred {
+	return Pred{col: h.c, op: opJSONContainedBy, jsn: v}
+}
+func (h JSONCol) HasAnyKey(v ...string) Pred  { return Pred{col: h.c, op: opHasAnyKey, anyStr: v} }
+func (h JSONCol) HasAllKeys(v ...string) Pred { return Pred{col: h.c, op: opHasAllKeys, anyStr: v} }
 
 // NullTimeCol addresses a timestamptz column.
 type NullTimeCol struct{ c uint8 }
@@ -721,36 +765,6 @@ func (h NullTimeCol) Lt(v time.Time) Pred    { return Pred{col: h.c, op: opLt, t
 func (h NullTimeCol) Lte(v time.Time) Pred   { return Pred{col: h.c, op: opLte, tim: v} }
 func (h NullTimeCol) IsNull() Pred           { return Pred{col: h.c, op: opIsNull} }
 func (h NullTimeCol) IsNotNull() Pred        { return Pred{col: h.c, op: opIsNotNull} }
-
-// NullTextCol addresses a text column.
-type NullTextCol struct{ c uint8 }
-
-func (h NullTextCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
-func (h NullTextCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
-func (h NullTextCol) AscNullsFirst() Sort {
-	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
-}
-func (h NullTextCol) DescNullsLast() Sort {
-	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
-}
-
-func (h NullTextCol) Eq(v string) Pred      { return Pred{col: h.c, op: opEq, str: v} }
-func (h NullTextCol) NotEq(v string) Pred   { return Pred{col: h.c, op: opNotEq, str: v} }
-func (h NullTextCol) Gt(v string) Pred      { return Pred{col: h.c, op: opGt, str: v} }
-func (h NullTextCol) Gte(v string) Pred     { return Pred{col: h.c, op: opGte, str: v} }
-func (h NullTextCol) Lt(v string) Pred      { return Pred{col: h.c, op: opLt, str: v} }
-func (h NullTextCol) Lte(v string) Pred     { return Pred{col: h.c, op: opLte, str: v} }
-func (h NullTextCol) EqLower(v string) Pred { return Pred{col: h.c, op: opEqLower, str: v} }
-func (h NullTextCol) Like(v string) Pred    { return Pred{col: h.c, op: opLike, str: v} }
-func (h NullTextCol) ILike(v string) Pred   { return Pred{col: h.c, op: opILike, str: v} }
-func (h NullTextCol) In(v ...string) Pred   { return Pred{col: h.c, op: opIn, anyStr: v} }
-
-// NotIn is `<> ALL($1)`. A NULL anywhere in v makes the
-// comparison NULL for every row and the result empty —
-// PostgreSQL's rule for NOT IN, not storm's.
-func (h NullTextCol) NotIn(v ...string) Pred { return Pred{col: h.c, op: opNotIn, anyStr: v} }
-func (h NullTextCol) IsNull() Pred           { return Pred{col: h.c, op: opIsNull} }
-func (h NullTextCol) IsNotNull() Pred        { return Pred{col: h.c, op: opIsNotNull} }
 
 // Where applies predicates, ANDed together.
 func (q Query) Where(ps ...Pred) Query {
@@ -900,13 +914,6 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 1:
-			if int(q.nas) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyStr[q.nas] = p.anyStr
-			q.nas++
 		case 2:
 			if int(q.nas) >= 3 {
 				q.over = true
@@ -929,47 +936,47 @@ func (q *Query) leaf(p Pred) {
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
 		case 5:
-			if int(q.nai64) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyI64[q.nai64] = p.anyI64
-			q.nai64++
-		case 6:
-			if int(q.nai64) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyI64[q.nai64] = p.anyI64
-			q.nai64++
-		case 9:
-			if int(q.nai32) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyI32[q.nai32] = p.anyI32
-			q.nai32++
-		case 10:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 6:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
+		case 7:
+			if int(q.nai64) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
+		case 8:
+			if int(q.nai64) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
 		case 11:
-			if int(q.nai64) >= 3 {
+			if int(q.nai32) >= 3 {
 				q.over = true
 				return
 			}
-			q.anyI64[q.nai64] = p.anyI64
-			q.nai64++
+			q.anyI32[q.nai32] = p.anyI32
+			q.nai32++
 		case 12:
-			if int(q.nai64) >= 3 {
+			if int(q.nas) >= 3 {
 				q.over = true
 				return
 			}
-			q.anyI64[q.nai64] = p.anyI64
-			q.nai64++
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
 		case 13:
 			if int(q.nai64) >= 3 {
 				q.over = true
@@ -978,19 +985,19 @@ func (q *Query) leaf(p Pred) {
 			q.anyI64[q.nai64] = p.anyI64
 			q.nai64++
 		case 14:
-			if int(q.nas) >= 3 {
+			if int(q.nai64) >= 3 {
 				q.over = true
 				return
 			}
-			q.anyStr[q.nas] = p.anyStr
-			q.nas++
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
 		case 15:
-			if int(q.nas) >= 3 {
+			if int(q.nai64) >= 3 {
 				q.over = true
 				return
 			}
-			q.anyStr[q.nas] = p.anyStr
-			q.nas++
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
 		case 16:
 			if int(q.nas) >= 3 {
 				q.over = true
@@ -1005,20 +1012,27 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 21:
-			if int(q.nai64) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyI64[q.nai64] = p.anyI64
-			q.nai64++
-		case 23:
+		case 18:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 19:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
+		case 22:
+			if int(q.nai64) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
 		case 24:
 			if int(q.nas) >= 3 {
 				q.over = true
@@ -1064,12 +1078,12 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 1:
-		if int(q.ns) >= 6 {
+		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.tims[q.ntm] = p.tim
+		q.ntm++
 	case 2:
 		if int(q.ns) >= 6 {
 			q.over = true
@@ -1092,47 +1106,47 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 5:
-		if int(q.nn) >= 6 {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = p.num
-		q.nn++
-	case 6:
-		if int(q.nn) >= 6 {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = p.num
-		q.nn++
-	case 7:
-		if int(q.nf) >= 4 {
-			q.over = true
-			return
-		}
-		q.f64s[q.nf] = p.f64
-		q.nf++
-	case 8:
-		if int(q.nf) >= 4 {
-			q.over = true
-			return
-		}
-		q.f64s[q.nf] = p.f64
-		q.nf++
-	case 9:
-		if int(q.nn) >= 6 {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = p.num
-		q.nn++
-	case 10:
 		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
 		q.strs[q.ns] = p.str
 		q.ns++
+	case 6:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 7:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
+	case 8:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
+	case 9:
+		if int(q.nf) >= 4 {
+			q.over = true
+			return
+		}
+		q.f64s[q.nf] = p.f64
+		q.nf++
+	case 10:
+		if int(q.nf) >= 4 {
+			q.over = true
+			return
+		}
+		q.f64s[q.nf] = p.f64
+		q.nf++
 	case 11:
 		if int(q.nn) >= 6 {
 			q.over = true
@@ -1141,12 +1155,12 @@ func (q *Query) leaf(p Pred) {
 		q.nums[q.nn] = p.num
 		q.nn++
 	case 12:
-		if int(q.nn) >= 6 {
+		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
-		q.nums[q.nn] = p.num
-		q.nn++
+		q.strs[q.ns] = p.str
+		q.ns++
 	case 13:
 		if int(q.nn) >= 6 {
 			q.over = true
@@ -1155,26 +1169,26 @@ func (q *Query) leaf(p Pred) {
 		q.nums[q.nn] = p.num
 		q.nn++
 	case 14:
-		if int(q.ns) >= 6 {
+		if int(q.nn) >= 6 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.nums[q.nn] = p.num
+		q.nn++
 	case 15:
-		if int(q.ns) >= 6 {
+		if int(q.nn) >= 6 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.nums[q.nn] = p.num
+		q.nn++
 	case 16:
-		if int(q.ns) >= 6 {
+		if int(q.njs) >= 2 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.jsns[q.njs] = p.jsn
+		q.njs++
 	case 17:
 		if int(q.ns) >= 6 {
 			q.over = true
@@ -1183,19 +1197,19 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 18:
-		if int(q.ntm) >= 4 {
+		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
-		q.tims[q.ntm] = p.tim
-		q.ntm++
+		q.strs[q.ns] = p.str
+		q.ns++
 	case 19:
-		if int(q.ntm) >= 4 {
+		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
-		q.tims[q.ntm] = p.tim
-		q.ntm++
+		q.strs[q.ns] = p.str
+		q.ns++
 	case 20:
 		if int(q.ntm) >= 4 {
 			q.over = true
@@ -1204,26 +1218,26 @@ func (q *Query) leaf(p Pred) {
 		q.tims[q.ntm] = p.tim
 		q.ntm++
 	case 21:
-		if int(q.nn) >= 6 {
-			q.over = true
-			return
-		}
-		q.nums[q.nn] = p.num
-		q.nn++
-	case 22:
 		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = p.tim
 		q.ntm++
-	case 23:
-		if int(q.ns) >= 6 {
+	case 22:
+		if int(q.nn) >= 6 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.nums[q.nn] = p.num
+		q.nn++
+	case 23:
+		if int(q.ntm) >= 4 {
+			q.over = true
+			return
+		}
+		q.tims[q.ntm] = p.tim
+		q.ntm++
 	case 24:
 		if int(q.ns) >= 6 {
 			q.over = true
@@ -1257,273 +1271,266 @@ func (q *Query) leaf(p Pred) {
 }
 
 // Chained predicate sugar. Identical to Where(Col.Op(v)).
-func (q Query) IDEq(v string) Query                 { return q.Where(ID.Eq(v)) }
-func (q Query) IDNotEq(v string) Query              { return q.Where(ID.NotEq(v)) }
-func (q Query) IDGt(v string) Query                 { return q.Where(ID.Gt(v)) }
-func (q Query) IDGte(v string) Query                { return q.Where(ID.Gte(v)) }
-func (q Query) IDLt(v string) Query                 { return q.Where(ID.Lt(v)) }
-func (q Query) IDLte(v string) Query                { return q.Where(ID.Lte(v)) }
-func (q Query) IDEqLower(v string) Query            { return q.Where(ID.EqLower(v)) }
-func (q Query) IDLike(v string) Query               { return q.Where(ID.Like(v)) }
-func (q Query) IDILike(v string) Query              { return q.Where(ID.ILike(v)) }
-func (q Query) IDIn(v ...string) Query              { return q.Where(ID.In(v...)) }
-func (q Query) IDNotIn(v ...string) Query           { return q.Where(ID.NotIn(v...)) }
-func (q Query) NameEq(v string) Query               { return q.Where(Name.Eq(v)) }
-func (q Query) NameNotEq(v string) Query            { return q.Where(Name.NotEq(v)) }
-func (q Query) NameGt(v string) Query               { return q.Where(Name.Gt(v)) }
-func (q Query) NameGte(v string) Query              { return q.Where(Name.Gte(v)) }
-func (q Query) NameLt(v string) Query               { return q.Where(Name.Lt(v)) }
-func (q Query) NameLte(v string) Query              { return q.Where(Name.Lte(v)) }
-func (q Query) NameEqLower(v string) Query          { return q.Where(Name.EqLower(v)) }
-func (q Query) NameLike(v string) Query             { return q.Where(Name.Like(v)) }
-func (q Query) NameILike(v string) Query            { return q.Where(Name.ILike(v)) }
-func (q Query) NameIn(v ...string) Query            { return q.Where(Name.In(v...)) }
-func (q Query) NameNotIn(v ...string) Query         { return q.Where(Name.NotIn(v...)) }
-func (q Query) DescriptionEq(v string) Query        { return q.Where(Description.Eq(v)) }
-func (q Query) DescriptionNotEq(v string) Query     { return q.Where(Description.NotEq(v)) }
-func (q Query) DescriptionGt(v string) Query        { return q.Where(Description.Gt(v)) }
-func (q Query) DescriptionGte(v string) Query       { return q.Where(Description.Gte(v)) }
-func (q Query) DescriptionLt(v string) Query        { return q.Where(Description.Lt(v)) }
-func (q Query) DescriptionLte(v string) Query       { return q.Where(Description.Lte(v)) }
-func (q Query) DescriptionEqLower(v string) Query   { return q.Where(Description.EqLower(v)) }
-func (q Query) DescriptionLike(v string) Query      { return q.Where(Description.Like(v)) }
-func (q Query) DescriptionILike(v string) Query     { return q.Where(Description.ILike(v)) }
-func (q Query) DescriptionIn(v ...string) Query     { return q.Where(Description.In(v...)) }
-func (q Query) DescriptionNotIn(v ...string) Query  { return q.Where(Description.NotIn(v...)) }
-func (q Query) ArchitectureEq(v string) Query       { return q.Where(Architecture.Eq(v)) }
-func (q Query) ArchitectureNotEq(v string) Query    { return q.Where(Architecture.NotEq(v)) }
-func (q Query) ArchitectureGt(v string) Query       { return q.Where(Architecture.Gt(v)) }
-func (q Query) ArchitectureGte(v string) Query      { return q.Where(Architecture.Gte(v)) }
-func (q Query) ArchitectureLt(v string) Query       { return q.Where(Architecture.Lt(v)) }
-func (q Query) ArchitectureLte(v string) Query      { return q.Where(Architecture.Lte(v)) }
-func (q Query) ArchitectureEqLower(v string) Query  { return q.Where(Architecture.EqLower(v)) }
-func (q Query) ArchitectureLike(v string) Query     { return q.Where(Architecture.Like(v)) }
-func (q Query) ArchitectureILike(v string) Query    { return q.Where(Architecture.ILike(v)) }
-func (q Query) ArchitectureIn(v ...string) Query    { return q.Where(Architecture.In(v...)) }
-func (q Query) ArchitectureNotIn(v ...string) Query { return q.Where(Architecture.NotIn(v...)) }
-func (q Query) DatasetIDEq(v string) Query          { return q.Where(DatasetID.Eq(v)) }
-func (q Query) DatasetIDNotEq(v string) Query       { return q.Where(DatasetID.NotEq(v)) }
-func (q Query) DatasetIDGt(v string) Query          { return q.Where(DatasetID.Gt(v)) }
-func (q Query) DatasetIDGte(v string) Query         { return q.Where(DatasetID.Gte(v)) }
-func (q Query) DatasetIDLt(v string) Query          { return q.Where(DatasetID.Lt(v)) }
-func (q Query) DatasetIDLte(v string) Query         { return q.Where(DatasetID.Lte(v)) }
-func (q Query) DatasetIDEqLower(v string) Query     { return q.Where(DatasetID.EqLower(v)) }
-func (q Query) DatasetIDLike(v string) Query        { return q.Where(DatasetID.Like(v)) }
-func (q Query) DatasetIDILike(v string) Query       { return q.Where(DatasetID.ILike(v)) }
-func (q Query) DatasetIDIn(v ...string) Query       { return q.Where(DatasetID.In(v...)) }
-func (q Query) DatasetIDNotIn(v ...string) Query    { return q.Where(DatasetID.NotIn(v...)) }
-func (q Query) EpochsEq(v int64) Query              { return q.Where(Epochs.Eq(v)) }
-func (q Query) EpochsNotEq(v int64) Query           { return q.Where(Epochs.NotEq(v)) }
-func (q Query) EpochsGt(v int64) Query              { return q.Where(Epochs.Gt(v)) }
-func (q Query) EpochsGte(v int64) Query             { return q.Where(Epochs.Gte(v)) }
-func (q Query) EpochsLt(v int64) Query              { return q.Where(Epochs.Lt(v)) }
-func (q Query) EpochsLte(v int64) Query             { return q.Where(Epochs.Lte(v)) }
-func (q Query) EpochsIn(v ...int64) Query           { return q.Where(Epochs.In(v...)) }
-func (q Query) EpochsNotIn(v ...int64) Query        { return q.Where(Epochs.NotIn(v...)) }
-func (q Query) BatchSizeEq(v int64) Query           { return q.Where(BatchSize.Eq(v)) }
-func (q Query) BatchSizeNotEq(v int64) Query        { return q.Where(BatchSize.NotEq(v)) }
-func (q Query) BatchSizeGt(v int64) Query           { return q.Where(BatchSize.Gt(v)) }
-func (q Query) BatchSizeGte(v int64) Query          { return q.Where(BatchSize.Gte(v)) }
-func (q Query) BatchSizeLt(v int64) Query           { return q.Where(BatchSize.Lt(v)) }
-func (q Query) BatchSizeLte(v int64) Query          { return q.Where(BatchSize.Lte(v)) }
-func (q Query) BatchSizeIn(v ...int64) Query        { return q.Where(BatchSize.In(v...)) }
-func (q Query) BatchSizeNotIn(v ...int64) Query     { return q.Where(BatchSize.NotIn(v...)) }
-func (q Query) LearningRateEq(v float64) Query      { return q.Where(LearningRate.Eq(v)) }
-func (q Query) LearningRateNotEq(v float64) Query   { return q.Where(LearningRate.NotEq(v)) }
-func (q Query) LearningRateGt(v float64) Query      { return q.Where(LearningRate.Gt(v)) }
-func (q Query) LearningRateGte(v float64) Query     { return q.Where(LearningRate.Gte(v)) }
-func (q Query) LearningRateLt(v float64) Query      { return q.Where(LearningRate.Lt(v)) }
-func (q Query) LearningRateLte(v float64) Query     { return q.Where(LearningRate.Lte(v)) }
-func (q Query) HoldOutEq(v float64) Query           { return q.Where(HoldOut.Eq(v)) }
-func (q Query) HoldOutNotEq(v float64) Query        { return q.Where(HoldOut.NotEq(v)) }
-func (q Query) HoldOutGt(v float64) Query           { return q.Where(HoldOut.Gt(v)) }
-func (q Query) HoldOutGte(v float64) Query          { return q.Where(HoldOut.Gte(v)) }
-func (q Query) HoldOutLt(v float64) Query           { return q.Where(HoldOut.Lt(v)) }
-func (q Query) HoldOutLte(v float64) Query          { return q.Where(HoldOut.Lte(v)) }
-func (q Query) StatusEq(v int32) Query              { return q.Where(Status.Eq(v)) }
-func (q Query) StatusNotEq(v int32) Query           { return q.Where(Status.NotEq(v)) }
-func (q Query) StatusGt(v int32) Query              { return q.Where(Status.Gt(v)) }
-func (q Query) StatusGte(v int32) Query             { return q.Where(Status.Gte(v)) }
-func (q Query) StatusLt(v int32) Query              { return q.Where(Status.Lt(v)) }
-func (q Query) StatusLte(v int32) Query             { return q.Where(Status.Lte(v)) }
-func (q Query) StatusIn(v ...int32) Query           { return q.Where(Status.In(v...)) }
-func (q Query) StatusNotIn(v ...int32) Query        { return q.Where(Status.NotIn(v...)) }
-func (q Query) ErrorEq(v string) Query              { return q.Where(Error.Eq(v)) }
-func (q Query) ErrorNotEq(v string) Query           { return q.Where(Error.NotEq(v)) }
-func (q Query) ErrorGt(v string) Query              { return q.Where(Error.Gt(v)) }
-func (q Query) ErrorGte(v string) Query             { return q.Where(Error.Gte(v)) }
-func (q Query) ErrorLt(v string) Query              { return q.Where(Error.Lt(v)) }
-func (q Query) ErrorLte(v string) Query             { return q.Where(Error.Lte(v)) }
-func (q Query) ErrorEqLower(v string) Query         { return q.Where(Error.EqLower(v)) }
-func (q Query) ErrorLike(v string) Query            { return q.Where(Error.Like(v)) }
-func (q Query) ErrorILike(v string) Query           { return q.Where(Error.ILike(v)) }
-func (q Query) ErrorIn(v ...string) Query           { return q.Where(Error.In(v...)) }
-func (q Query) ErrorNotIn(v ...string) Query        { return q.Where(Error.NotIn(v...)) }
-func (q Query) EpochEq(v int64) Query               { return q.Where(Epoch.Eq(v)) }
-func (q Query) EpochNotEq(v int64) Query            { return q.Where(Epoch.NotEq(v)) }
-func (q Query) EpochGt(v int64) Query               { return q.Where(Epoch.Gt(v)) }
-func (q Query) EpochGte(v int64) Query              { return q.Where(Epoch.Gte(v)) }
-func (q Query) EpochLt(v int64) Query               { return q.Where(Epoch.Lt(v)) }
-func (q Query) EpochLte(v int64) Query              { return q.Where(Epoch.Lte(v)) }
-func (q Query) EpochIn(v ...int64) Query            { return q.Where(Epoch.In(v...)) }
-func (q Query) EpochNotIn(v ...int64) Query         { return q.Where(Epoch.NotIn(v...)) }
-func (q Query) StepEq(v int64) Query                { return q.Where(Step.Eq(v)) }
-func (q Query) StepNotEq(v int64) Query             { return q.Where(Step.NotEq(v)) }
-func (q Query) StepGt(v int64) Query                { return q.Where(Step.Gt(v)) }
-func (q Query) StepGte(v int64) Query               { return q.Where(Step.Gte(v)) }
-func (q Query) StepLt(v int64) Query                { return q.Where(Step.Lt(v)) }
-func (q Query) StepLte(v int64) Query               { return q.Where(Step.Lte(v)) }
-func (q Query) StepIn(v ...int64) Query             { return q.Where(Step.In(v...)) }
-func (q Query) StepNotIn(v ...int64) Query          { return q.Where(Step.NotIn(v...)) }
-func (q Query) StepsPerEpochEq(v int64) Query       { return q.Where(StepsPerEpoch.Eq(v)) }
-func (q Query) StepsPerEpochNotEq(v int64) Query    { return q.Where(StepsPerEpoch.NotEq(v)) }
-func (q Query) StepsPerEpochGt(v int64) Query       { return q.Where(StepsPerEpoch.Gt(v)) }
-func (q Query) StepsPerEpochGte(v int64) Query      { return q.Where(StepsPerEpoch.Gte(v)) }
-func (q Query) StepsPerEpochLt(v int64) Query       { return q.Where(StepsPerEpoch.Lt(v)) }
-func (q Query) StepsPerEpochLte(v int64) Query      { return q.Where(StepsPerEpoch.Lte(v)) }
-func (q Query) StepsPerEpochIn(v ...int64) Query    { return q.Where(StepsPerEpoch.In(v...)) }
-func (q Query) StepsPerEpochNotIn(v ...int64) Query { return q.Where(StepsPerEpoch.NotIn(v...)) }
-func (q Query) HistoryEq(v string) Query            { return q.Where(History.Eq(v)) }
-func (q Query) HistoryNotEq(v string) Query         { return q.Where(History.NotEq(v)) }
-func (q Query) HistoryGt(v string) Query            { return q.Where(History.Gt(v)) }
-func (q Query) HistoryGte(v string) Query           { return q.Where(History.Gte(v)) }
-func (q Query) HistoryLt(v string) Query            { return q.Where(History.Lt(v)) }
-func (q Query) HistoryLte(v string) Query           { return q.Where(History.Lte(v)) }
-func (q Query) HistoryEqLower(v string) Query       { return q.Where(History.EqLower(v)) }
-func (q Query) HistoryLike(v string) Query          { return q.Where(History.Like(v)) }
-func (q Query) HistoryILike(v string) Query         { return q.Where(History.ILike(v)) }
-func (q Query) HistoryIn(v ...string) Query         { return q.Where(History.In(v...)) }
-func (q Query) HistoryNotIn(v ...string) Query      { return q.Where(History.NotIn(v...)) }
-func (q Query) ModelIDEq(v string) Query            { return q.Where(ModelID.Eq(v)) }
-func (q Query) ModelIDNotEq(v string) Query         { return q.Where(ModelID.NotEq(v)) }
-func (q Query) ModelIDGt(v string) Query            { return q.Where(ModelID.Gt(v)) }
-func (q Query) ModelIDGte(v string) Query           { return q.Where(ModelID.Gte(v)) }
-func (q Query) ModelIDLt(v string) Query            { return q.Where(ModelID.Lt(v)) }
-func (q Query) ModelIDLte(v string) Query           { return q.Where(ModelID.Lte(v)) }
-func (q Query) ModelIDEqLower(v string) Query       { return q.Where(ModelID.EqLower(v)) }
-func (q Query) ModelIDLike(v string) Query          { return q.Where(ModelID.Like(v)) }
-func (q Query) ModelIDILike(v string) Query         { return q.Where(ModelID.ILike(v)) }
-func (q Query) ModelIDIn(v ...string) Query         { return q.Where(ModelID.In(v...)) }
-func (q Query) ModelIDNotIn(v ...string) Query      { return q.Where(ModelID.NotIn(v...)) }
-func (q Query) WorkerEq(v string) Query             { return q.Where(Worker.Eq(v)) }
-func (q Query) WorkerNotEq(v string) Query          { return q.Where(Worker.NotEq(v)) }
-func (q Query) WorkerGt(v string) Query             { return q.Where(Worker.Gt(v)) }
-func (q Query) WorkerGte(v string) Query            { return q.Where(Worker.Gte(v)) }
-func (q Query) WorkerLt(v string) Query             { return q.Where(Worker.Lt(v)) }
-func (q Query) WorkerLte(v string) Query            { return q.Where(Worker.Lte(v)) }
-func (q Query) WorkerEqLower(v string) Query        { return q.Where(Worker.EqLower(v)) }
-func (q Query) WorkerLike(v string) Query           { return q.Where(Worker.Like(v)) }
-func (q Query) WorkerILike(v string) Query          { return q.Where(Worker.ILike(v)) }
-func (q Query) WorkerIn(v ...string) Query          { return q.Where(Worker.In(v...)) }
-func (q Query) WorkerNotIn(v ...string) Query       { return q.Where(Worker.NotIn(v...)) }
-func (q Query) CreatedByEq(v string) Query          { return q.Where(CreatedBy.Eq(v)) }
-func (q Query) CreatedByNotEq(v string) Query       { return q.Where(CreatedBy.NotEq(v)) }
-func (q Query) CreatedByGt(v string) Query          { return q.Where(CreatedBy.Gt(v)) }
-func (q Query) CreatedByGte(v string) Query         { return q.Where(CreatedBy.Gte(v)) }
-func (q Query) CreatedByLt(v string) Query          { return q.Where(CreatedBy.Lt(v)) }
-func (q Query) CreatedByLte(v string) Query         { return q.Where(CreatedBy.Lte(v)) }
-func (q Query) CreatedByEqLower(v string) Query     { return q.Where(CreatedBy.EqLower(v)) }
-func (q Query) CreatedByLike(v string) Query        { return q.Where(CreatedBy.Like(v)) }
-func (q Query) CreatedByILike(v string) Query       { return q.Where(CreatedBy.ILike(v)) }
-func (q Query) CreatedByIn(v ...string) Query       { return q.Where(CreatedBy.In(v...)) }
-func (q Query) CreatedByNotIn(v ...string) Query    { return q.Where(CreatedBy.NotIn(v...)) }
-func (q Query) CreateTimeEq(v time.Time) Query      { return q.Where(CreateTime.Eq(v)) }
-func (q Query) CreateTimeNotEq(v time.Time) Query   { return q.Where(CreateTime.NotEq(v)) }
-func (q Query) CreateTimeGt(v time.Time) Query      { return q.Where(CreateTime.Gt(v)) }
-func (q Query) CreateTimeGte(v time.Time) Query     { return q.Where(CreateTime.Gte(v)) }
-func (q Query) CreateTimeLt(v time.Time) Query      { return q.Where(CreateTime.Lt(v)) }
-func (q Query) CreateTimeLte(v time.Time) Query     { return q.Where(CreateTime.Lte(v)) }
-func (q Query) StartTimeEq(v time.Time) Query       { return q.Where(StartTime.Eq(v)) }
-func (q Query) StartTimeNotEq(v time.Time) Query    { return q.Where(StartTime.NotEq(v)) }
-func (q Query) StartTimeGt(v time.Time) Query       { return q.Where(StartTime.Gt(v)) }
-func (q Query) StartTimeGte(v time.Time) Query      { return q.Where(StartTime.Gte(v)) }
-func (q Query) StartTimeLt(v time.Time) Query       { return q.Where(StartTime.Lt(v)) }
-func (q Query) StartTimeLte(v time.Time) Query      { return q.Where(StartTime.Lte(v)) }
-func (q Query) StartTimeIsNull() Query              { return q.Where(StartTime.IsNull()) }
-func (q Query) StartTimeIsNotNull() Query           { return q.Where(StartTime.IsNotNull()) }
-func (q Query) EndTimeEq(v time.Time) Query         { return q.Where(EndTime.Eq(v)) }
-func (q Query) EndTimeNotEq(v time.Time) Query      { return q.Where(EndTime.NotEq(v)) }
-func (q Query) EndTimeGt(v time.Time) Query         { return q.Where(EndTime.Gt(v)) }
-func (q Query) EndTimeGte(v time.Time) Query        { return q.Where(EndTime.Gte(v)) }
-func (q Query) EndTimeLt(v time.Time) Query         { return q.Where(EndTime.Lt(v)) }
-func (q Query) EndTimeLte(v time.Time) Query        { return q.Where(EndTime.Lte(v)) }
-func (q Query) EndTimeIsNull() Query                { return q.Where(EndTime.IsNull()) }
-func (q Query) EndTimeIsNotNull() Query             { return q.Where(EndTime.IsNotNull()) }
-func (q Query) RepeatSecondsEq(v int64) Query       { return q.Where(RepeatSeconds.Eq(v)) }
-func (q Query) RepeatSecondsNotEq(v int64) Query    { return q.Where(RepeatSeconds.NotEq(v)) }
-func (q Query) RepeatSecondsGt(v int64) Query       { return q.Where(RepeatSeconds.Gt(v)) }
-func (q Query) RepeatSecondsGte(v int64) Query      { return q.Where(RepeatSeconds.Gte(v)) }
-func (q Query) RepeatSecondsLt(v int64) Query       { return q.Where(RepeatSeconds.Lt(v)) }
-func (q Query) RepeatSecondsLte(v int64) Query      { return q.Where(RepeatSeconds.Lte(v)) }
-func (q Query) RepeatSecondsIn(v ...int64) Query    { return q.Where(RepeatSeconds.In(v...)) }
-func (q Query) RepeatSecondsNotIn(v ...int64) Query { return q.Where(RepeatSeconds.NotIn(v...)) }
-func (q Query) NextRunEq(v time.Time) Query         { return q.Where(NextRun.Eq(v)) }
-func (q Query) NextRunNotEq(v time.Time) Query      { return q.Where(NextRun.NotEq(v)) }
-func (q Query) NextRunGt(v time.Time) Query         { return q.Where(NextRun.Gt(v)) }
-func (q Query) NextRunGte(v time.Time) Query        { return q.Where(NextRun.Gte(v)) }
-func (q Query) NextRunLt(v time.Time) Query         { return q.Where(NextRun.Lt(v)) }
-func (q Query) NextRunLte(v time.Time) Query        { return q.Where(NextRun.Lte(v)) }
-func (q Query) NextRunIsNull() Query                { return q.Where(NextRun.IsNull()) }
-func (q Query) NextRunIsNotNull() Query             { return q.Where(NextRun.IsNotNull()) }
-func (q Query) ParentIDEq(v string) Query           { return q.Where(ParentID.Eq(v)) }
-func (q Query) ParentIDNotEq(v string) Query        { return q.Where(ParentID.NotEq(v)) }
-func (q Query) ParentIDGt(v string) Query           { return q.Where(ParentID.Gt(v)) }
-func (q Query) ParentIDGte(v string) Query          { return q.Where(ParentID.Gte(v)) }
-func (q Query) ParentIDLt(v string) Query           { return q.Where(ParentID.Lt(v)) }
-func (q Query) ParentIDLte(v string) Query          { return q.Where(ParentID.Lte(v)) }
-func (q Query) ParentIDEqLower(v string) Query      { return q.Where(ParentID.EqLower(v)) }
-func (q Query) ParentIDLike(v string) Query         { return q.Where(ParentID.Like(v)) }
-func (q Query) ParentIDILike(v string) Query        { return q.Where(ParentID.ILike(v)) }
-func (q Query) ParentIDIn(v ...string) Query        { return q.Where(ParentID.In(v...)) }
-func (q Query) ParentIDNotIn(v ...string) Query     { return q.Where(ParentID.NotIn(v...)) }
-func (q Query) BaseModelIDEq(v string) Query        { return q.Where(BaseModelID.Eq(v)) }
-func (q Query) BaseModelIDNotEq(v string) Query     { return q.Where(BaseModelID.NotEq(v)) }
-func (q Query) BaseModelIDGt(v string) Query        { return q.Where(BaseModelID.Gt(v)) }
-func (q Query) BaseModelIDGte(v string) Query       { return q.Where(BaseModelID.Gte(v)) }
-func (q Query) BaseModelIDLt(v string) Query        { return q.Where(BaseModelID.Lt(v)) }
-func (q Query) BaseModelIDLte(v string) Query       { return q.Where(BaseModelID.Lte(v)) }
-func (q Query) BaseModelIDEqLower(v string) Query   { return q.Where(BaseModelID.EqLower(v)) }
-func (q Query) BaseModelIDLike(v string) Query      { return q.Where(BaseModelID.Like(v)) }
-func (q Query) BaseModelIDILike(v string) Query     { return q.Where(BaseModelID.ILike(v)) }
-func (q Query) BaseModelIDIn(v ...string) Query     { return q.Where(BaseModelID.In(v...)) }
-func (q Query) BaseModelIDNotIn(v ...string) Query  { return q.Where(BaseModelID.NotIn(v...)) }
-func (q Query) NoteEq(v string) Query               { return q.Where(Note.Eq(v)) }
-func (q Query) NoteNotEq(v string) Query            { return q.Where(Note.NotEq(v)) }
-func (q Query) NoteGt(v string) Query               { return q.Where(Note.Gt(v)) }
-func (q Query) NoteGte(v string) Query              { return q.Where(Note.Gte(v)) }
-func (q Query) NoteLt(v string) Query               { return q.Where(Note.Lt(v)) }
-func (q Query) NoteLte(v string) Query              { return q.Where(Note.Lte(v)) }
-func (q Query) NoteEqLower(v string) Query          { return q.Where(Note.EqLower(v)) }
-func (q Query) NoteLike(v string) Query             { return q.Where(Note.Like(v)) }
-func (q Query) NoteILike(v string) Query            { return q.Where(Note.ILike(v)) }
-func (q Query) NoteIn(v ...string) Query            { return q.Where(Note.In(v...)) }
-func (q Query) NoteNotIn(v ...string) Query         { return q.Where(Note.NotIn(v...)) }
-func (q Query) TeamIDEq(v string) Query             { return q.Where(TeamID.Eq(v)) }
-func (q Query) TeamIDNotEq(v string) Query          { return q.Where(TeamID.NotEq(v)) }
-func (q Query) TeamIDGt(v string) Query             { return q.Where(TeamID.Gt(v)) }
-func (q Query) TeamIDGte(v string) Query            { return q.Where(TeamID.Gte(v)) }
-func (q Query) TeamIDLt(v string) Query             { return q.Where(TeamID.Lt(v)) }
-func (q Query) TeamIDLte(v string) Query            { return q.Where(TeamID.Lte(v)) }
-func (q Query) TeamIDEqLower(v string) Query        { return q.Where(TeamID.EqLower(v)) }
-func (q Query) TeamIDLike(v string) Query           { return q.Where(TeamID.Like(v)) }
-func (q Query) TeamIDILike(v string) Query          { return q.Where(TeamID.ILike(v)) }
-func (q Query) TeamIDIn(v ...string) Query          { return q.Where(TeamID.In(v...)) }
-func (q Query) TeamIDNotIn(v ...string) Query       { return q.Where(TeamID.NotIn(v...)) }
-func (q Query) TeamIDIsNull() Query                 { return q.Where(TeamID.IsNull()) }
-func (q Query) TeamIDIsNotNull() Query              { return q.Where(TeamID.IsNotNull()) }
-func (q Query) RunOnEq(v string) Query              { return q.Where(RunOn.Eq(v)) }
-func (q Query) RunOnNotEq(v string) Query           { return q.Where(RunOn.NotEq(v)) }
-func (q Query) RunOnGt(v string) Query              { return q.Where(RunOn.Gt(v)) }
-func (q Query) RunOnGte(v string) Query             { return q.Where(RunOn.Gte(v)) }
-func (q Query) RunOnLt(v string) Query              { return q.Where(RunOn.Lt(v)) }
-func (q Query) RunOnLte(v string) Query             { return q.Where(RunOn.Lte(v)) }
-func (q Query) RunOnEqLower(v string) Query         { return q.Where(RunOn.EqLower(v)) }
-func (q Query) RunOnLike(v string) Query            { return q.Where(RunOn.Like(v)) }
-func (q Query) RunOnILike(v string) Query           { return q.Where(RunOn.ILike(v)) }
-func (q Query) RunOnIn(v ...string) Query           { return q.Where(RunOn.In(v...)) }
-func (q Query) RunOnNotIn(v ...string) Query        { return q.Where(RunOn.NotIn(v...)) }
+func (q Query) IDEq(v string) Query                     { return q.Where(ID.Eq(v)) }
+func (q Query) IDNotEq(v string) Query                  { return q.Where(ID.NotEq(v)) }
+func (q Query) IDGt(v string) Query                     { return q.Where(ID.Gt(v)) }
+func (q Query) IDGte(v string) Query                    { return q.Where(ID.Gte(v)) }
+func (q Query) IDLt(v string) Query                     { return q.Where(ID.Lt(v)) }
+func (q Query) IDLte(v string) Query                    { return q.Where(ID.Lte(v)) }
+func (q Query) IDEqLower(v string) Query                { return q.Where(ID.EqLower(v)) }
+func (q Query) IDLike(v string) Query                   { return q.Where(ID.Like(v)) }
+func (q Query) IDILike(v string) Query                  { return q.Where(ID.ILike(v)) }
+func (q Query) IDIn(v ...string) Query                  { return q.Where(ID.In(v...)) }
+func (q Query) IDNotIn(v ...string) Query               { return q.Where(ID.NotIn(v...)) }
+func (q Query) CreateTimeEq(v time.Time) Query          { return q.Where(CreateTime.Eq(v)) }
+func (q Query) CreateTimeNotEq(v time.Time) Query       { return q.Where(CreateTime.NotEq(v)) }
+func (q Query) CreateTimeGt(v time.Time) Query          { return q.Where(CreateTime.Gt(v)) }
+func (q Query) CreateTimeGte(v time.Time) Query         { return q.Where(CreateTime.Gte(v)) }
+func (q Query) CreateTimeLt(v time.Time) Query          { return q.Where(CreateTime.Lt(v)) }
+func (q Query) CreateTimeLte(v time.Time) Query         { return q.Where(CreateTime.Lte(v)) }
+func (q Query) NameEq(v string) Query                   { return q.Where(Name.Eq(v)) }
+func (q Query) NameNotEq(v string) Query                { return q.Where(Name.NotEq(v)) }
+func (q Query) NameGt(v string) Query                   { return q.Where(Name.Gt(v)) }
+func (q Query) NameGte(v string) Query                  { return q.Where(Name.Gte(v)) }
+func (q Query) NameLt(v string) Query                   { return q.Where(Name.Lt(v)) }
+func (q Query) NameLte(v string) Query                  { return q.Where(Name.Lte(v)) }
+func (q Query) NameEqLower(v string) Query              { return q.Where(Name.EqLower(v)) }
+func (q Query) NameLike(v string) Query                 { return q.Where(Name.Like(v)) }
+func (q Query) NameILike(v string) Query                { return q.Where(Name.ILike(v)) }
+func (q Query) NameIn(v ...string) Query                { return q.Where(Name.In(v...)) }
+func (q Query) NameNotIn(v ...string) Query             { return q.Where(Name.NotIn(v...)) }
+func (q Query) TeamIDEq(v string) Query                 { return q.Where(TeamID.Eq(v)) }
+func (q Query) TeamIDNotEq(v string) Query              { return q.Where(TeamID.NotEq(v)) }
+func (q Query) TeamIDGt(v string) Query                 { return q.Where(TeamID.Gt(v)) }
+func (q Query) TeamIDGte(v string) Query                { return q.Where(TeamID.Gte(v)) }
+func (q Query) TeamIDLt(v string) Query                 { return q.Where(TeamID.Lt(v)) }
+func (q Query) TeamIDLte(v string) Query                { return q.Where(TeamID.Lte(v)) }
+func (q Query) TeamIDEqLower(v string) Query            { return q.Where(TeamID.EqLower(v)) }
+func (q Query) TeamIDLike(v string) Query               { return q.Where(TeamID.Like(v)) }
+func (q Query) TeamIDILike(v string) Query              { return q.Where(TeamID.ILike(v)) }
+func (q Query) TeamIDIn(v ...string) Query              { return q.Where(TeamID.In(v...)) }
+func (q Query) TeamIDNotIn(v ...string) Query           { return q.Where(TeamID.NotIn(v...)) }
+func (q Query) TeamIDIsNull() Query                     { return q.Where(TeamID.IsNull()) }
+func (q Query) TeamIDIsNotNull() Query                  { return q.Where(TeamID.IsNotNull()) }
+func (q Query) DescriptionEq(v string) Query            { return q.Where(Description.Eq(v)) }
+func (q Query) DescriptionNotEq(v string) Query         { return q.Where(Description.NotEq(v)) }
+func (q Query) DescriptionGt(v string) Query            { return q.Where(Description.Gt(v)) }
+func (q Query) DescriptionGte(v string) Query           { return q.Where(Description.Gte(v)) }
+func (q Query) DescriptionLt(v string) Query            { return q.Where(Description.Lt(v)) }
+func (q Query) DescriptionLte(v string) Query           { return q.Where(Description.Lte(v)) }
+func (q Query) DescriptionEqLower(v string) Query       { return q.Where(Description.EqLower(v)) }
+func (q Query) DescriptionLike(v string) Query          { return q.Where(Description.Like(v)) }
+func (q Query) DescriptionILike(v string) Query         { return q.Where(Description.ILike(v)) }
+func (q Query) DescriptionIn(v ...string) Query         { return q.Where(Description.In(v...)) }
+func (q Query) DescriptionNotIn(v ...string) Query      { return q.Where(Description.NotIn(v...)) }
+func (q Query) ArchitectureEq(v string) Query           { return q.Where(Architecture.Eq(v)) }
+func (q Query) ArchitectureNotEq(v string) Query        { return q.Where(Architecture.NotEq(v)) }
+func (q Query) ArchitectureGt(v string) Query           { return q.Where(Architecture.Gt(v)) }
+func (q Query) ArchitectureGte(v string) Query          { return q.Where(Architecture.Gte(v)) }
+func (q Query) ArchitectureLt(v string) Query           { return q.Where(Architecture.Lt(v)) }
+func (q Query) ArchitectureLte(v string) Query          { return q.Where(Architecture.Lte(v)) }
+func (q Query) ArchitectureEqLower(v string) Query      { return q.Where(Architecture.EqLower(v)) }
+func (q Query) ArchitectureLike(v string) Query         { return q.Where(Architecture.Like(v)) }
+func (q Query) ArchitectureILike(v string) Query        { return q.Where(Architecture.ILike(v)) }
+func (q Query) ArchitectureIn(v ...string) Query        { return q.Where(Architecture.In(v...)) }
+func (q Query) ArchitectureNotIn(v ...string) Query     { return q.Where(Architecture.NotIn(v...)) }
+func (q Query) DatasetIDEq(v string) Query              { return q.Where(DatasetID.Eq(v)) }
+func (q Query) DatasetIDNotEq(v string) Query           { return q.Where(DatasetID.NotEq(v)) }
+func (q Query) DatasetIDGt(v string) Query              { return q.Where(DatasetID.Gt(v)) }
+func (q Query) DatasetIDGte(v string) Query             { return q.Where(DatasetID.Gte(v)) }
+func (q Query) DatasetIDLt(v string) Query              { return q.Where(DatasetID.Lt(v)) }
+func (q Query) DatasetIDLte(v string) Query             { return q.Where(DatasetID.Lte(v)) }
+func (q Query) DatasetIDEqLower(v string) Query         { return q.Where(DatasetID.EqLower(v)) }
+func (q Query) DatasetIDLike(v string) Query            { return q.Where(DatasetID.Like(v)) }
+func (q Query) DatasetIDILike(v string) Query           { return q.Where(DatasetID.ILike(v)) }
+func (q Query) DatasetIDIn(v ...string) Query           { return q.Where(DatasetID.In(v...)) }
+func (q Query) DatasetIDNotIn(v ...string) Query        { return q.Where(DatasetID.NotIn(v...)) }
+func (q Query) EpochsEq(v int64) Query                  { return q.Where(Epochs.Eq(v)) }
+func (q Query) EpochsNotEq(v int64) Query               { return q.Where(Epochs.NotEq(v)) }
+func (q Query) EpochsGt(v int64) Query                  { return q.Where(Epochs.Gt(v)) }
+func (q Query) EpochsGte(v int64) Query                 { return q.Where(Epochs.Gte(v)) }
+func (q Query) EpochsLt(v int64) Query                  { return q.Where(Epochs.Lt(v)) }
+func (q Query) EpochsLte(v int64) Query                 { return q.Where(Epochs.Lte(v)) }
+func (q Query) EpochsIn(v ...int64) Query               { return q.Where(Epochs.In(v...)) }
+func (q Query) EpochsNotIn(v ...int64) Query            { return q.Where(Epochs.NotIn(v...)) }
+func (q Query) BatchSizeEq(v int64) Query               { return q.Where(BatchSize.Eq(v)) }
+func (q Query) BatchSizeNotEq(v int64) Query            { return q.Where(BatchSize.NotEq(v)) }
+func (q Query) BatchSizeGt(v int64) Query               { return q.Where(BatchSize.Gt(v)) }
+func (q Query) BatchSizeGte(v int64) Query              { return q.Where(BatchSize.Gte(v)) }
+func (q Query) BatchSizeLt(v int64) Query               { return q.Where(BatchSize.Lt(v)) }
+func (q Query) BatchSizeLte(v int64) Query              { return q.Where(BatchSize.Lte(v)) }
+func (q Query) BatchSizeIn(v ...int64) Query            { return q.Where(BatchSize.In(v...)) }
+func (q Query) BatchSizeNotIn(v ...int64) Query         { return q.Where(BatchSize.NotIn(v...)) }
+func (q Query) LearningRateEq(v float64) Query          { return q.Where(LearningRate.Eq(v)) }
+func (q Query) LearningRateNotEq(v float64) Query       { return q.Where(LearningRate.NotEq(v)) }
+func (q Query) LearningRateGt(v float64) Query          { return q.Where(LearningRate.Gt(v)) }
+func (q Query) LearningRateGte(v float64) Query         { return q.Where(LearningRate.Gte(v)) }
+func (q Query) LearningRateLt(v float64) Query          { return q.Where(LearningRate.Lt(v)) }
+func (q Query) LearningRateLte(v float64) Query         { return q.Where(LearningRate.Lte(v)) }
+func (q Query) HoldOutEq(v float64) Query               { return q.Where(HoldOut.Eq(v)) }
+func (q Query) HoldOutNotEq(v float64) Query            { return q.Where(HoldOut.NotEq(v)) }
+func (q Query) HoldOutGt(v float64) Query               { return q.Where(HoldOut.Gt(v)) }
+func (q Query) HoldOutGte(v float64) Query              { return q.Where(HoldOut.Gte(v)) }
+func (q Query) HoldOutLt(v float64) Query               { return q.Where(HoldOut.Lt(v)) }
+func (q Query) HoldOutLte(v float64) Query              { return q.Where(HoldOut.Lte(v)) }
+func (q Query) StatusEq(v int32) Query                  { return q.Where(Status.Eq(v)) }
+func (q Query) StatusNotEq(v int32) Query               { return q.Where(Status.NotEq(v)) }
+func (q Query) StatusGt(v int32) Query                  { return q.Where(Status.Gt(v)) }
+func (q Query) StatusGte(v int32) Query                 { return q.Where(Status.Gte(v)) }
+func (q Query) StatusLt(v int32) Query                  { return q.Where(Status.Lt(v)) }
+func (q Query) StatusLte(v int32) Query                 { return q.Where(Status.Lte(v)) }
+func (q Query) StatusIn(v ...int32) Query               { return q.Where(Status.In(v...)) }
+func (q Query) StatusNotIn(v ...int32) Query            { return q.Where(Status.NotIn(v...)) }
+func (q Query) ErrorEq(v string) Query                  { return q.Where(Error.Eq(v)) }
+func (q Query) ErrorNotEq(v string) Query               { return q.Where(Error.NotEq(v)) }
+func (q Query) ErrorGt(v string) Query                  { return q.Where(Error.Gt(v)) }
+func (q Query) ErrorGte(v string) Query                 { return q.Where(Error.Gte(v)) }
+func (q Query) ErrorLt(v string) Query                  { return q.Where(Error.Lt(v)) }
+func (q Query) ErrorLte(v string) Query                 { return q.Where(Error.Lte(v)) }
+func (q Query) ErrorEqLower(v string) Query             { return q.Where(Error.EqLower(v)) }
+func (q Query) ErrorLike(v string) Query                { return q.Where(Error.Like(v)) }
+func (q Query) ErrorILike(v string) Query               { return q.Where(Error.ILike(v)) }
+func (q Query) ErrorIn(v ...string) Query               { return q.Where(Error.In(v...)) }
+func (q Query) ErrorNotIn(v ...string) Query            { return q.Where(Error.NotIn(v...)) }
+func (q Query) EpochEq(v int64) Query                   { return q.Where(Epoch.Eq(v)) }
+func (q Query) EpochNotEq(v int64) Query                { return q.Where(Epoch.NotEq(v)) }
+func (q Query) EpochGt(v int64) Query                   { return q.Where(Epoch.Gt(v)) }
+func (q Query) EpochGte(v int64) Query                  { return q.Where(Epoch.Gte(v)) }
+func (q Query) EpochLt(v int64) Query                   { return q.Where(Epoch.Lt(v)) }
+func (q Query) EpochLte(v int64) Query                  { return q.Where(Epoch.Lte(v)) }
+func (q Query) EpochIn(v ...int64) Query                { return q.Where(Epoch.In(v...)) }
+func (q Query) EpochNotIn(v ...int64) Query             { return q.Where(Epoch.NotIn(v...)) }
+func (q Query) StepEq(v int64) Query                    { return q.Where(Step.Eq(v)) }
+func (q Query) StepNotEq(v int64) Query                 { return q.Where(Step.NotEq(v)) }
+func (q Query) StepGt(v int64) Query                    { return q.Where(Step.Gt(v)) }
+func (q Query) StepGte(v int64) Query                   { return q.Where(Step.Gte(v)) }
+func (q Query) StepLt(v int64) Query                    { return q.Where(Step.Lt(v)) }
+func (q Query) StepLte(v int64) Query                   { return q.Where(Step.Lte(v)) }
+func (q Query) StepIn(v ...int64) Query                 { return q.Where(Step.In(v...)) }
+func (q Query) StepNotIn(v ...int64) Query              { return q.Where(Step.NotIn(v...)) }
+func (q Query) StepsPerEpochEq(v int64) Query           { return q.Where(StepsPerEpoch.Eq(v)) }
+func (q Query) StepsPerEpochNotEq(v int64) Query        { return q.Where(StepsPerEpoch.NotEq(v)) }
+func (q Query) StepsPerEpochGt(v int64) Query           { return q.Where(StepsPerEpoch.Gt(v)) }
+func (q Query) StepsPerEpochGte(v int64) Query          { return q.Where(StepsPerEpoch.Gte(v)) }
+func (q Query) StepsPerEpochLt(v int64) Query           { return q.Where(StepsPerEpoch.Lt(v)) }
+func (q Query) StepsPerEpochLte(v int64) Query          { return q.Where(StepsPerEpoch.Lte(v)) }
+func (q Query) StepsPerEpochIn(v ...int64) Query        { return q.Where(StepsPerEpoch.In(v...)) }
+func (q Query) StepsPerEpochNotIn(v ...int64) Query     { return q.Where(StepsPerEpoch.NotIn(v...)) }
+func (q Query) HistoryContains(v runtime.JSON) Query    { return q.Where(History.Contains(v)) }
+func (q Query) HistoryContainedBy(v runtime.JSON) Query { return q.Where(History.ContainedBy(v)) }
+func (q Query) HistoryHasAnyKey(v ...string) Query      { return q.Where(History.HasAnyKey(v...)) }
+func (q Query) HistoryHasAllKeys(v ...string) Query     { return q.Where(History.HasAllKeys(v...)) }
+func (q Query) ModelIDEq(v string) Query                { return q.Where(ModelID.Eq(v)) }
+func (q Query) ModelIDNotEq(v string) Query             { return q.Where(ModelID.NotEq(v)) }
+func (q Query) ModelIDGt(v string) Query                { return q.Where(ModelID.Gt(v)) }
+func (q Query) ModelIDGte(v string) Query               { return q.Where(ModelID.Gte(v)) }
+func (q Query) ModelIDLt(v string) Query                { return q.Where(ModelID.Lt(v)) }
+func (q Query) ModelIDLte(v string) Query               { return q.Where(ModelID.Lte(v)) }
+func (q Query) ModelIDEqLower(v string) Query           { return q.Where(ModelID.EqLower(v)) }
+func (q Query) ModelIDLike(v string) Query              { return q.Where(ModelID.Like(v)) }
+func (q Query) ModelIDILike(v string) Query             { return q.Where(ModelID.ILike(v)) }
+func (q Query) ModelIDIn(v ...string) Query             { return q.Where(ModelID.In(v...)) }
+func (q Query) ModelIDNotIn(v ...string) Query          { return q.Where(ModelID.NotIn(v...)) }
+func (q Query) WorkerEq(v string) Query                 { return q.Where(Worker.Eq(v)) }
+func (q Query) WorkerNotEq(v string) Query              { return q.Where(Worker.NotEq(v)) }
+func (q Query) WorkerGt(v string) Query                 { return q.Where(Worker.Gt(v)) }
+func (q Query) WorkerGte(v string) Query                { return q.Where(Worker.Gte(v)) }
+func (q Query) WorkerLt(v string) Query                 { return q.Where(Worker.Lt(v)) }
+func (q Query) WorkerLte(v string) Query                { return q.Where(Worker.Lte(v)) }
+func (q Query) WorkerEqLower(v string) Query            { return q.Where(Worker.EqLower(v)) }
+func (q Query) WorkerLike(v string) Query               { return q.Where(Worker.Like(v)) }
+func (q Query) WorkerILike(v string) Query              { return q.Where(Worker.ILike(v)) }
+func (q Query) WorkerIn(v ...string) Query              { return q.Where(Worker.In(v...)) }
+func (q Query) WorkerNotIn(v ...string) Query           { return q.Where(Worker.NotIn(v...)) }
+func (q Query) CreatedByEq(v string) Query              { return q.Where(CreatedBy.Eq(v)) }
+func (q Query) CreatedByNotEq(v string) Query           { return q.Where(CreatedBy.NotEq(v)) }
+func (q Query) CreatedByGt(v string) Query              { return q.Where(CreatedBy.Gt(v)) }
+func (q Query) CreatedByGte(v string) Query             { return q.Where(CreatedBy.Gte(v)) }
+func (q Query) CreatedByLt(v string) Query              { return q.Where(CreatedBy.Lt(v)) }
+func (q Query) CreatedByLte(v string) Query             { return q.Where(CreatedBy.Lte(v)) }
+func (q Query) CreatedByEqLower(v string) Query         { return q.Where(CreatedBy.EqLower(v)) }
+func (q Query) CreatedByLike(v string) Query            { return q.Where(CreatedBy.Like(v)) }
+func (q Query) CreatedByILike(v string) Query           { return q.Where(CreatedBy.ILike(v)) }
+func (q Query) CreatedByIn(v ...string) Query           { return q.Where(CreatedBy.In(v...)) }
+func (q Query) CreatedByNotIn(v ...string) Query        { return q.Where(CreatedBy.NotIn(v...)) }
+func (q Query) StartTimeEq(v time.Time) Query           { return q.Where(StartTime.Eq(v)) }
+func (q Query) StartTimeNotEq(v time.Time) Query        { return q.Where(StartTime.NotEq(v)) }
+func (q Query) StartTimeGt(v time.Time) Query           { return q.Where(StartTime.Gt(v)) }
+func (q Query) StartTimeGte(v time.Time) Query          { return q.Where(StartTime.Gte(v)) }
+func (q Query) StartTimeLt(v time.Time) Query           { return q.Where(StartTime.Lt(v)) }
+func (q Query) StartTimeLte(v time.Time) Query          { return q.Where(StartTime.Lte(v)) }
+func (q Query) StartTimeIsNull() Query                  { return q.Where(StartTime.IsNull()) }
+func (q Query) StartTimeIsNotNull() Query               { return q.Where(StartTime.IsNotNull()) }
+func (q Query) EndTimeEq(v time.Time) Query             { return q.Where(EndTime.Eq(v)) }
+func (q Query) EndTimeNotEq(v time.Time) Query          { return q.Where(EndTime.NotEq(v)) }
+func (q Query) EndTimeGt(v time.Time) Query             { return q.Where(EndTime.Gt(v)) }
+func (q Query) EndTimeGte(v time.Time) Query            { return q.Where(EndTime.Gte(v)) }
+func (q Query) EndTimeLt(v time.Time) Query             { return q.Where(EndTime.Lt(v)) }
+func (q Query) EndTimeLte(v time.Time) Query            { return q.Where(EndTime.Lte(v)) }
+func (q Query) EndTimeIsNull() Query                    { return q.Where(EndTime.IsNull()) }
+func (q Query) EndTimeIsNotNull() Query                 { return q.Where(EndTime.IsNotNull()) }
+func (q Query) RepeatSecondsEq(v int64) Query           { return q.Where(RepeatSeconds.Eq(v)) }
+func (q Query) RepeatSecondsNotEq(v int64) Query        { return q.Where(RepeatSeconds.NotEq(v)) }
+func (q Query) RepeatSecondsGt(v int64) Query           { return q.Where(RepeatSeconds.Gt(v)) }
+func (q Query) RepeatSecondsGte(v int64) Query          { return q.Where(RepeatSeconds.Gte(v)) }
+func (q Query) RepeatSecondsLt(v int64) Query           { return q.Where(RepeatSeconds.Lt(v)) }
+func (q Query) RepeatSecondsLte(v int64) Query          { return q.Where(RepeatSeconds.Lte(v)) }
+func (q Query) RepeatSecondsIn(v ...int64) Query        { return q.Where(RepeatSeconds.In(v...)) }
+func (q Query) RepeatSecondsNotIn(v ...int64) Query     { return q.Where(RepeatSeconds.NotIn(v...)) }
+func (q Query) NextRunEq(v time.Time) Query             { return q.Where(NextRun.Eq(v)) }
+func (q Query) NextRunNotEq(v time.Time) Query          { return q.Where(NextRun.NotEq(v)) }
+func (q Query) NextRunGt(v time.Time) Query             { return q.Where(NextRun.Gt(v)) }
+func (q Query) NextRunGte(v time.Time) Query            { return q.Where(NextRun.Gte(v)) }
+func (q Query) NextRunLt(v time.Time) Query             { return q.Where(NextRun.Lt(v)) }
+func (q Query) NextRunLte(v time.Time) Query            { return q.Where(NextRun.Lte(v)) }
+func (q Query) NextRunIsNull() Query                    { return q.Where(NextRun.IsNull()) }
+func (q Query) NextRunIsNotNull() Query                 { return q.Where(NextRun.IsNotNull()) }
+func (q Query) ParentIDEq(v string) Query               { return q.Where(ParentID.Eq(v)) }
+func (q Query) ParentIDNotEq(v string) Query            { return q.Where(ParentID.NotEq(v)) }
+func (q Query) ParentIDGt(v string) Query               { return q.Where(ParentID.Gt(v)) }
+func (q Query) ParentIDGte(v string) Query              { return q.Where(ParentID.Gte(v)) }
+func (q Query) ParentIDLt(v string) Query               { return q.Where(ParentID.Lt(v)) }
+func (q Query) ParentIDLte(v string) Query              { return q.Where(ParentID.Lte(v)) }
+func (q Query) ParentIDEqLower(v string) Query          { return q.Where(ParentID.EqLower(v)) }
+func (q Query) ParentIDLike(v string) Query             { return q.Where(ParentID.Like(v)) }
+func (q Query) ParentIDILike(v string) Query            { return q.Where(ParentID.ILike(v)) }
+func (q Query) ParentIDIn(v ...string) Query            { return q.Where(ParentID.In(v...)) }
+func (q Query) ParentIDNotIn(v ...string) Query         { return q.Where(ParentID.NotIn(v...)) }
+func (q Query) BaseModelIDEq(v string) Query            { return q.Where(BaseModelID.Eq(v)) }
+func (q Query) BaseModelIDNotEq(v string) Query         { return q.Where(BaseModelID.NotEq(v)) }
+func (q Query) BaseModelIDGt(v string) Query            { return q.Where(BaseModelID.Gt(v)) }
+func (q Query) BaseModelIDGte(v string) Query           { return q.Where(BaseModelID.Gte(v)) }
+func (q Query) BaseModelIDLt(v string) Query            { return q.Where(BaseModelID.Lt(v)) }
+func (q Query) BaseModelIDLte(v string) Query           { return q.Where(BaseModelID.Lte(v)) }
+func (q Query) BaseModelIDEqLower(v string) Query       { return q.Where(BaseModelID.EqLower(v)) }
+func (q Query) BaseModelIDLike(v string) Query          { return q.Where(BaseModelID.Like(v)) }
+func (q Query) BaseModelIDILike(v string) Query         { return q.Where(BaseModelID.ILike(v)) }
+func (q Query) BaseModelIDIn(v ...string) Query         { return q.Where(BaseModelID.In(v...)) }
+func (q Query) BaseModelIDNotIn(v ...string) Query      { return q.Where(BaseModelID.NotIn(v...)) }
+func (q Query) NoteEq(v string) Query                   { return q.Where(Note.Eq(v)) }
+func (q Query) NoteNotEq(v string) Query                { return q.Where(Note.NotEq(v)) }
+func (q Query) NoteGt(v string) Query                   { return q.Where(Note.Gt(v)) }
+func (q Query) NoteGte(v string) Query                  { return q.Where(Note.Gte(v)) }
+func (q Query) NoteLt(v string) Query                   { return q.Where(Note.Lt(v)) }
+func (q Query) NoteLte(v string) Query                  { return q.Where(Note.Lte(v)) }
+func (q Query) NoteEqLower(v string) Query              { return q.Where(Note.EqLower(v)) }
+func (q Query) NoteLike(v string) Query                 { return q.Where(Note.Like(v)) }
+func (q Query) NoteILike(v string) Query                { return q.Where(Note.ILike(v)) }
+func (q Query) NoteIn(v ...string) Query                { return q.Where(Note.In(v...)) }
+func (q Query) NoteNotIn(v ...string) Query             { return q.Where(Note.NotIn(v...)) }
+func (q Query) RunOnEq(v string) Query                  { return q.Where(RunOn.Eq(v)) }
+func (q Query) RunOnNotEq(v string) Query               { return q.Where(RunOn.NotEq(v)) }
+func (q Query) RunOnGt(v string) Query                  { return q.Where(RunOn.Gt(v)) }
+func (q Query) RunOnGte(v string) Query                 { return q.Where(RunOn.Gte(v)) }
+func (q Query) RunOnLt(v string) Query                  { return q.Where(RunOn.Lt(v)) }
+func (q Query) RunOnLte(v string) Query                 { return q.Where(RunOn.Lte(v)) }
+func (q Query) RunOnEqLower(v string) Query             { return q.Where(RunOn.EqLower(v)) }
+func (q Query) RunOnLike(v string) Query                { return q.Where(RunOn.Like(v)) }
+func (q Query) RunOnILike(v string) Query               { return q.Where(RunOn.ILike(v)) }
+func (q Query) RunOnIn(v ...string) Query               { return q.Where(RunOn.In(v...)) }
+func (q Query) RunOnNotIn(v ...string) Query            { return q.Where(RunOn.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "name", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "create_time", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "team_id", "run_on" FROM "training_jobs"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on" FROM "training_jobs"`
 const countPrefix = `SELECT count(*) FROM "training_jobs"`
 const existsPrefix = `SELECT 1 FROM "training_jobs"`
 const existsSuffix = ` LIMIT 1`
@@ -1566,11 +1573,23 @@ var orderTable = [nCols][4]string{
 		"\"id\" ASC NULLS FIRST",
 		"\"id\" DESC NULLS LAST",
 	},
+	{ // create_time
+		"\"create_time\"",
+		"\"create_time\" DESC",
+		"\"create_time\" ASC NULLS FIRST",
+		"\"create_time\" DESC NULLS LAST",
+	},
 	{ // name
 		"\"name\"",
 		"\"name\" DESC",
 		"\"name\" ASC NULLS FIRST",
 		"\"name\" DESC NULLS LAST",
+	},
+	{ // team_id
+		"\"team_id\"",
+		"\"team_id\" DESC",
+		"\"team_id\" ASC NULLS FIRST",
+		"\"team_id\" DESC NULLS LAST",
 	},
 	{ // description
 		"\"description\"",
@@ -1668,12 +1687,6 @@ var orderTable = [nCols][4]string{
 		"\"created_by\" ASC NULLS FIRST",
 		"\"created_by\" DESC NULLS LAST",
 	},
-	{ // create_time
-		"\"create_time\"",
-		"\"create_time\" DESC",
-		"\"create_time\" ASC NULLS FIRST",
-		"\"create_time\" DESC NULLS LAST",
-	},
 	{ // start_time
 		"\"start_time\"",
 		"\"start_time\" DESC",
@@ -1716,12 +1729,6 @@ var orderTable = [nCols][4]string{
 		"\"note\" ASC NULLS FIRST",
 		"\"note\" DESC NULLS LAST",
 	},
-	{ // team_id
-		"\"team_id\"",
-		"\"team_id\" DESC",
-		"\"team_id\" ASC NULLS FIRST",
-		"\"team_id\" DESC NULLS LAST",
-	},
 	{ // run_on
 		"\"run_on\"",
 		"\"run_on\" DESC",
@@ -1734,7 +1741,9 @@ var orderTable = [nCols][4]string{
 // row comparison.
 var identTable = [nCols]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"name\"",
+	"\"team_id\"",
 	"\"description\"",
 	"\"architecture\"",
 	"\"dataset_id\"",
@@ -1751,7 +1760,6 @@ var identTable = [nCols]string{
 	"\"model_id\"",
 	"\"worker\"",
 	"\"created_by\"",
-	"\"create_time\"",
 	"\"start_time\"",
 	"\"end_time\"",
 	"\"repeat_seconds\"",
@@ -1759,7 +1767,6 @@ var identTable = [nCols]string{
 	"\"parent_id\"",
 	"\"base_model_id\"",
 	"\"note\"",
-	"\"team_id\"",
 	"\"run_on\"",
 }
 
@@ -1824,6 +1831,36 @@ var fragTable = [28][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // create_time
+		{}, // opNone
+		{A: "\"create_time\" = $", B: ""},
+		{A: "\"create_time\" <> $", B: ""},
+		{A: "\"create_time\" > $", B: ""},
+		{A: "\"create_time\" >= $", B: ""},
+		{A: "\"create_time\" < $", B: ""},
+		{A: "\"create_time\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 	{ // name
 		{}, // opNone
 		{A: "\"name\" = $", B: ""},
@@ -1851,6 +1888,36 @@ var fragTable = [28][28]runtime.Frag{
 		{},
 		{},
 		{},
+		{},
+		{},
+	},
+	{ // team_id
+		{}, // opNone
+		{A: "\"team_id\" = $", B: ""},
+		{A: "\"team_id\" <> $", B: ""},
+		{A: "\"team_id\" > $", B: ""},
+		{A: "\"team_id\" >= $", B: ""},
+		{A: "\"team_id\" < $", B: ""},
+		{A: "\"team_id\" <= $", B: ""},
+		{A: "lower(\"team_id\") = lower($", B: ")"},
+		{A: "\"team_id\" LIKE $", B: ""},
+		{A: "\"team_id\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"team_id\" = ANY($", B: ")"},
+		{A: "\"team_id\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"team_id\" IS NULL", B: ""},
+		{A: "\"team_id\" IS NOT NULL", B: ""},
 		{},
 		{},
 	},
@@ -2216,22 +2283,6 @@ var fragTable = [28][28]runtime.Frag{
 	},
 	{ // history
 		{}, // opNone
-		{A: "\"history\" = $", B: ""},
-		{A: "\"history\" <> $", B: ""},
-		{A: "\"history\" > $", B: ""},
-		{A: "\"history\" >= $", B: ""},
-		{A: "\"history\" < $", B: ""},
-		{A: "\"history\" <= $", B: ""},
-		{A: "lower(\"history\") = lower($", B: ")"},
-		{A: "\"history\" LIKE $", B: ""},
-		{A: "\"history\" ILIKE $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{A: "\"history\" = ANY($", B: ")"},
-		{A: "\"history\" <> ALL($", B: ")"},
 		{},
 		{},
 		{},
@@ -2239,6 +2290,22 @@ var fragTable = [28][28]runtime.Frag{
 		{},
 		{},
 		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"history\" @> $", B: ""},
+		{A: "\"history\" <@ $", B: ""},
+		{A: "\"history\" ?| $", B: ""},
+		{A: "\"history\" ?& $", B: ""},
 		{},
 		{},
 		{},
@@ -2322,36 +2389,6 @@ var fragTable = [28][28]runtime.Frag{
 		{},
 		{A: "\"created_by\" = ANY($", B: ")"},
 		{A: "\"created_by\" <> ALL($", B: ")"},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-	},
-	{ // create_time
-		{}, // opNone
-		{A: "\"create_time\" = $", B: ""},
-		{A: "\"create_time\" <> $", B: ""},
-		{A: "\"create_time\" > $", B: ""},
-		{A: "\"create_time\" >= $", B: ""},
-		{A: "\"create_time\" < $", B: ""},
-		{A: "\"create_time\" <= $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
 		{},
 		{},
 		{},
@@ -2574,36 +2611,6 @@ var fragTable = [28][28]runtime.Frag{
 		{},
 		{},
 	},
-	{ // team_id
-		{}, // opNone
-		{A: "\"team_id\" = $", B: ""},
-		{A: "\"team_id\" <> $", B: ""},
-		{A: "\"team_id\" > $", B: ""},
-		{A: "\"team_id\" >= $", B: ""},
-		{A: "\"team_id\" < $", B: ""},
-		{A: "\"team_id\" <= $", B: ""},
-		{A: "lower(\"team_id\") = lower($", B: ")"},
-		{A: "\"team_id\" LIKE $", B: ""},
-		{A: "\"team_id\" ILIKE $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{A: "\"team_id\" = ANY($", B: ")"},
-		{A: "\"team_id\" <> ALL($", B: ")"},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{A: "\"team_id\" IS NULL", B: ""},
-		{A: "\"team_id\" IS NOT NULL", B: ""},
-		{},
-		{},
-	},
 	{ // run_on
 		{}, // opNone
 		{A: "\"run_on\" = $", B: ""},
@@ -2790,32 +2797,32 @@ func Scan(rv [][]byte, r *Row, sl *runtime.Slab) error { return scan(rv, r, sl) 
 // plausible zero, and a row scanner is the last place that can tell.
 func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.ID = sl.Str(rv[0])
-	r.Name = sl.Str(rv[1])
-	r.Description = sl.Str(rv[2])
-	r.Architecture = sl.Str(rv[3])
-	r.DatasetID = sl.Str(rv[4])
-	r.Epochs = runtime.Int8(rv[5])
-	r.BatchSize = runtime.Int8(rv[6])
-	r.LearningRate = runtime.Float8(rv[7])
-	r.HoldOut = runtime.Float8(rv[8])
-	r.Status = runtime.Int4(rv[9])
-	r.Error = sl.Str(rv[10])
-	r.Epoch = runtime.Int8(rv[11])
-	r.Step = runtime.Int8(rv[12])
-	r.StepsPerEpoch = runtime.Int8(rv[13])
-	r.History = sl.Str(rv[14])
-	r.ModelID = sl.Str(rv[15])
-	r.Worker = sl.Str(rv[16])
-	r.CreatedBy = sl.Str(rv[17])
-	r.CreateTime = runtime.Timestamptz(rv[18])
-	r.StartTime = runtime.Nullable(rv[19], runtime.Timestamptz)
-	r.EndTime = runtime.Nullable(rv[20], runtime.Timestamptz)
-	r.RepeatSeconds = runtime.Int8(rv[21])
-	r.NextRun = runtime.Nullable(rv[22], runtime.Timestamptz)
-	r.ParentID = sl.Str(rv[23])
-	r.BaseModelID = sl.Str(rv[24])
-	r.Note = sl.Str(rv[25])
-	r.TeamID = runtime.NullText(rv[26], sl)
+	r.CreateTime = runtime.Timestamptz(rv[1])
+	r.Name = sl.Str(rv[2])
+	r.TeamID = runtime.NullText(rv[3], sl)
+	r.Description = sl.Str(rv[4])
+	r.Architecture = sl.Str(rv[5])
+	r.DatasetID = sl.Str(rv[6])
+	r.Epochs = runtime.Int8(rv[7])
+	r.BatchSize = runtime.Int8(rv[8])
+	r.LearningRate = runtime.Float8(rv[9])
+	r.HoldOut = runtime.Float8(rv[10])
+	r.Status = runtime.Int4(rv[11])
+	r.Error = sl.Str(rv[12])
+	r.Epoch = runtime.Int8(rv[13])
+	r.Step = runtime.Int8(rv[14])
+	r.StepsPerEpoch = runtime.Int8(rv[15])
+	r.History = runtime.JSON(runtime.JSONB(rv[16], sl))
+	r.ModelID = sl.Str(rv[17])
+	r.Worker = sl.Str(rv[18])
+	r.CreatedBy = sl.Str(rv[19])
+	r.StartTime = runtime.Nullable(rv[20], runtime.Timestamptz)
+	r.EndTime = runtime.Nullable(rv[21], runtime.Timestamptz)
+	r.RepeatSeconds = runtime.Int8(rv[22])
+	r.NextRun = runtime.Nullable(rv[23], runtime.Timestamptz)
+	r.ParentID = sl.Str(rv[24])
+	r.BaseModelID = sl.Str(rv[25])
+	r.Note = sl.Str(rv[26])
 	r.RunOn = sl.Str(rv[27])
 	return nil
 }
@@ -2826,6 +2833,7 @@ type binder struct {
 	nums   [6]int64
 	tims   [4]time.Time
 	f64s   [4]float64
+	jsns   [2]runtime.JSON
 	anyStr [3][]string
 	anyI32 [3][]int32
 	anyI64 [3][]int64
@@ -2870,7 +2878,7 @@ func putBinder(b *binder) {
 // Count and Exists stop here: their statements carry no LIMIT or OFFSET.
 func (q Query) bindPreds(b *binder) []any {
 	v := b.vals[:0]
-	var ns, nn, ntm, nf, nas, nai32, nai64 uint8
+	var ns, nn, ntm, nf, njs, nas, nai32, nai64 uint8
 	for i := uint8(0); i < q.nt; i++ {
 		t := q.toks[i]
 		// KLeaf binds a predicate's value; KCol binds a keyset cursor's.
@@ -2890,10 +2898,6 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 1:
-				b.anyStr[nas] = q.anyStr[nas]
-				v = append(v, &b.anyStr[nas])
-				nas++
 			case 2:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
@@ -2907,41 +2911,41 @@ func (q Query) bindPreds(b *binder) []any {
 				v = append(v, &b.anyStr[nas])
 				nas++
 			case 5:
-				b.anyI64[nai64] = q.anyI64[nai64]
-				v = append(v, &b.anyI64[nai64])
-				nai64++
-			case 6:
-				b.anyI64[nai64] = q.anyI64[nai64]
-				v = append(v, &b.anyI64[nai64])
-				nai64++
-			case 9:
-				b.anyI32[nai32] = q.anyI32[nai32]
-				v = append(v, &b.anyI32[nai32])
-				nai32++
-			case 10:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 6:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
+			case 7:
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
+			case 8:
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
 			case 11:
-				b.anyI64[nai64] = q.anyI64[nai64]
-				v = append(v, &b.anyI64[nai64])
-				nai64++
+				b.anyI32[nai32] = q.anyI32[nai32]
+				v = append(v, &b.anyI32[nai32])
+				nai32++
 			case 12:
-				b.anyI64[nai64] = q.anyI64[nai64]
-				v = append(v, &b.anyI64[nai64])
-				nai64++
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
 			case 13:
 				b.anyI64[nai64] = q.anyI64[nai64]
 				v = append(v, &b.anyI64[nai64])
 				nai64++
 			case 14:
-				b.anyStr[nas] = q.anyStr[nas]
-				v = append(v, &b.anyStr[nas])
-				nas++
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
 			case 15:
-				b.anyStr[nas] = q.anyStr[nas]
-				v = append(v, &b.anyStr[nas])
-				nas++
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
 			case 16:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
@@ -2950,14 +2954,18 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 21:
-				b.anyI64[nai64] = q.anyI64[nai64]
-				v = append(v, &b.anyI64[nai64])
-				nai64++
-			case 23:
+			case 18:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 19:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
+			case 22:
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
 			case 24:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
@@ -2983,9 +2991,9 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 1:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.tims[ntm] = q.tims[ntm]
+			v = append(v, &b.tims[ntm])
+			ntm++
 		case 2:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
@@ -2999,81 +3007,81 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 5:
-			b.nums[nn] = q.nums[nn]
-			v = append(v, &b.nums[nn])
-			nn++
-		case 6:
-			b.nums[nn] = q.nums[nn]
-			v = append(v, &b.nums[nn])
-			nn++
-		case 7:
-			b.f64s[nf] = q.f64s[nf]
-			v = append(v, &b.f64s[nf])
-			nf++
-		case 8:
-			b.f64s[nf] = q.f64s[nf]
-			v = append(v, &b.f64s[nf])
-			nf++
-		case 9:
-			b.nums[nn] = q.nums[nn]
-			v = append(v, &b.nums[nn])
-			nn++
-		case 10:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
+		case 6:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 7:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
+		case 8:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
+		case 9:
+			b.f64s[nf] = q.f64s[nf]
+			v = append(v, &b.f64s[nf])
+			nf++
+		case 10:
+			b.f64s[nf] = q.f64s[nf]
+			v = append(v, &b.f64s[nf])
+			nf++
 		case 11:
 			b.nums[nn] = q.nums[nn]
 			v = append(v, &b.nums[nn])
 			nn++
 		case 12:
-			b.nums[nn] = q.nums[nn]
-			v = append(v, &b.nums[nn])
-			nn++
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
 		case 13:
 			b.nums[nn] = q.nums[nn]
 			v = append(v, &b.nums[nn])
 			nn++
 		case 14:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
 		case 15:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
 		case 16:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.jsns[njs] = q.jsns[njs]
+			v = append(v, &b.jsns[njs])
+			njs++
 		case 17:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
 		case 18:
-			b.tims[ntm] = q.tims[ntm]
-			v = append(v, &b.tims[ntm])
-			ntm++
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
 		case 19:
-			b.tims[ntm] = q.tims[ntm]
-			v = append(v, &b.tims[ntm])
-			ntm++
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
 		case 20:
 			b.tims[ntm] = q.tims[ntm]
 			v = append(v, &b.tims[ntm])
 			ntm++
 		case 21:
-			b.nums[nn] = q.nums[nn]
-			v = append(v, &b.nums[nn])
-			nn++
-		case 22:
 			b.tims[ntm] = q.tims[ntm]
 			v = append(v, &b.tims[ntm])
 			ntm++
+		case 22:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
 		case 23:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.tims[ntm] = q.tims[ntm]
+			v = append(v, &b.tims[ntm])
+			ntm++
 		case 24:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
@@ -3311,7 +3319,7 @@ var errPerRunOnOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "training_jobs" ("id", "name", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "create_time", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "team_id", "run_on") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28) RETURNING "id", "name", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "create_time", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "team_id", "run_on"`
+const insertSQL = `INSERT INTO "training_jobs" ("id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on"`
 
 const updatePrefix = `UPDATE "training_jobs" SET `
 const deletePrefix = `DELETE FROM "training_jobs"`
@@ -3321,41 +3329,32 @@ const deletePrefix = `DELETE FROM "training_jobs"`
 const (
 	dName          uint64 = 1 << 0
 	dDescription   uint64 = 1 << 1
-	dArchitecture  uint64 = 1 << 2
-	dDatasetID     uint64 = 1 << 3
-	dEpochs        uint64 = 1 << 4
-	dBatchSize     uint64 = 1 << 5
-	dLearningRate  uint64 = 1 << 6
-	dHoldOut       uint64 = 1 << 7
-	dStatus        uint64 = 1 << 8
-	dError         uint64 = 1 << 9
-	dEpoch         uint64 = 1 << 10
-	dStep          uint64 = 1 << 11
-	dStepsPerEpoch uint64 = 1 << 12
-	dHistory       uint64 = 1 << 13
-	dModelID       uint64 = 1 << 14
-	dWorker        uint64 = 1 << 15
-	dCreatedBy     uint64 = 1 << 16
-	dCreateTime    uint64 = 1 << 17
-	dStartTime     uint64 = 1 << 18
-	dEndTime       uint64 = 1 << 19
-	dRepeatSeconds uint64 = 1 << 20
-	dNextRun       uint64 = 1 << 21
-	dParentID      uint64 = 1 << 22
-	dBaseModelID   uint64 = 1 << 23
-	dNote          uint64 = 1 << 24
-	dTeamID        uint64 = 1 << 25
-	dRunOn         uint64 = 1 << 26
+	dEpochs        uint64 = 1 << 2
+	dBatchSize     uint64 = 1 << 3
+	dLearningRate  uint64 = 1 << 4
+	dHoldOut       uint64 = 1 << 5
+	dStatus        uint64 = 1 << 6
+	dError         uint64 = 1 << 7
+	dEpoch         uint64 = 1 << 8
+	dStep          uint64 = 1 << 9
+	dStepsPerEpoch uint64 = 1 << 10
+	dHistory       uint64 = 1 << 11
+	dModelID       uint64 = 1 << 12
+	dWorker        uint64 = 1 << 13
+	dStartTime     uint64 = 1 << 14
+	dEndTime       uint64 = 1 << 15
+	dRepeatSeconds uint64 = 1 << 16
+	dNextRun       uint64 = 1 << 17
+	dNote          uint64 = 1 << 18
+	dRunOn         uint64 = 1 << 19
 )
 
-const nUpdatable = 27
+const nUpdatable = 20
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"name\" = $", B: ""},            // name
 	{A: "\"description\" = $", B: ""},     // description
-	{A: "\"architecture\" = $", B: ""},    // architecture
-	{A: "\"dataset_id\" = $", B: ""},      // dataset_id
 	{A: "\"epochs\" = $", B: ""},          // epochs
 	{A: "\"batch_size\" = $", B: ""},      // batch_size
 	{A: "\"learning_rate\" = $", B: ""},   // learning_rate
@@ -3368,16 +3367,11 @@ var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"history\" = $", B: ""},         // history
 	{A: "\"model_id\" = $", B: ""},        // model_id
 	{A: "\"worker\" = $", B: ""},          // worker
-	{A: "\"created_by\" = $", B: ""},      // created_by
-	{A: "\"create_time\" = $", B: ""},     // create_time
 	{A: "\"start_time\" = $", B: ""},      // start_time
 	{A: "\"end_time\" = $", B: ""},        // end_time
 	{A: "\"repeat_seconds\" = $", B: ""},  // repeat_seconds
 	{A: "\"next_run\" = $", B: ""},        // next_run
-	{A: "\"parent_id\" = $", B: ""},       // parent_id
-	{A: "\"base_model_id\" = $", B: ""},   // base_model_id
 	{A: "\"note\" = $", B: ""},            // note
-	{A: "\"team_id\" = $", B: ""},         // team_id
 	{A: "\"run_on\" = $", B: ""},          // run_on
 }
 
@@ -3387,8 +3381,6 @@ var setFrags = [nUpdatable]runtime.Frag{
 var exprFrags = [nUpdatable]runtime.Frag{
 	{}, // name has no server-side form
 	{}, // description has no server-side form
-	{}, // architecture has no server-side form
-	{}, // dataset_id has no server-side form
 	{A: "\"epochs\" = \"epochs\" + 1", B: ""},         // epochs = its own value plus one
 	{A: "\"batch_size\" = \"batch_size\" + 1", B: ""}, // batch_size = its own value plus one
 	{}, // learning_rate has no server-side form
@@ -3398,19 +3390,14 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{A: "\"epoch\" = \"epoch\" + 1", B: ""}, // epoch = its own value plus one
 	{A: "\"step\" = \"step\" + 1", B: ""},   // step = its own value plus one
 	{A: "\"steps_per_epoch\" = \"steps_per_epoch\" + 1", B: ""}, // steps_per_epoch = its own value plus one
-	{},                                    // history has no server-side form
-	{},                                    // model_id has no server-side form
-	{},                                    // worker has no server-side form
-	{},                                    // created_by has no server-side form
-	{A: "\"create_time\" = now()", B: ""}, // create_time = the database's clock
-	{A: "\"start_time\" = now()", B: ""},  // start_time = the database's clock
-	{A: "\"end_time\" = now()", B: ""},    // end_time = the database's clock
+	{},                                   // history has no server-side form
+	{},                                   // model_id has no server-side form
+	{},                                   // worker has no server-side form
+	{A: "\"start_time\" = now()", B: ""}, // start_time = the database's clock
+	{A: "\"end_time\" = now()", B: ""},   // end_time = the database's clock
 	{A: "\"repeat_seconds\" = \"repeat_seconds\" + 1", B: ""}, // repeat_seconds = its own value plus one
 	{A: "\"next_run\" = now()", B: ""},                        // next_run = the database's clock
-	{},                                                        // parent_id has no server-side form
-	{},                                                        // base_model_id has no server-side form
 	{},                                                        // note has no server-side form
-	{},                                                        // team_id has no server-side form
 	{},                                                        // run_on has no server-side form
 }
 
@@ -3424,32 +3411,32 @@ var pkFrags = [1]runtime.Frag{
 // the only way a DEFAULT gen_random_uuid() can ever fire.
 const (
 	iID            uint64 = 1 << 0
-	iName          uint64 = 1 << 1
-	iDescription   uint64 = 1 << 2
-	iArchitecture  uint64 = 1 << 3
-	iDatasetID     uint64 = 1 << 4
-	iEpochs        uint64 = 1 << 5
-	iBatchSize     uint64 = 1 << 6
-	iLearningRate  uint64 = 1 << 7
-	iHoldOut       uint64 = 1 << 8
-	iStatus        uint64 = 1 << 9
-	iError         uint64 = 1 << 10
-	iEpoch         uint64 = 1 << 11
-	iStep          uint64 = 1 << 12
-	iStepsPerEpoch uint64 = 1 << 13
-	iHistory       uint64 = 1 << 14
-	iModelID       uint64 = 1 << 15
-	iWorker        uint64 = 1 << 16
-	iCreatedBy     uint64 = 1 << 17
-	iCreateTime    uint64 = 1 << 18
-	iStartTime     uint64 = 1 << 19
-	iEndTime       uint64 = 1 << 20
-	iRepeatSeconds uint64 = 1 << 21
-	iNextRun       uint64 = 1 << 22
-	iParentID      uint64 = 1 << 23
-	iBaseModelID   uint64 = 1 << 24
-	iNote          uint64 = 1 << 25
-	iTeamID        uint64 = 1 << 26
+	iCreateTime    uint64 = 1 << 1
+	iName          uint64 = 1 << 2
+	iTeamID        uint64 = 1 << 3
+	iDescription   uint64 = 1 << 4
+	iArchitecture  uint64 = 1 << 5
+	iDatasetID     uint64 = 1 << 6
+	iEpochs        uint64 = 1 << 7
+	iBatchSize     uint64 = 1 << 8
+	iLearningRate  uint64 = 1 << 9
+	iHoldOut       uint64 = 1 << 10
+	iStatus        uint64 = 1 << 11
+	iError         uint64 = 1 << 12
+	iEpoch         uint64 = 1 << 13
+	iStep          uint64 = 1 << 14
+	iStepsPerEpoch uint64 = 1 << 15
+	iHistory       uint64 = 1 << 16
+	iModelID       uint64 = 1 << 17
+	iWorker        uint64 = 1 << 18
+	iCreatedBy     uint64 = 1 << 19
+	iStartTime     uint64 = 1 << 20
+	iEndTime       uint64 = 1 << 21
+	iRepeatSeconds uint64 = 1 << 22
+	iNextRun       uint64 = 1 << 23
+	iParentID      uint64 = 1 << 24
+	iBaseModelID   uint64 = 1 << 25
+	iNote          uint64 = 1 << 26
 	iRunOn         uint64 = 1 << 27
 )
 
@@ -3458,7 +3445,9 @@ const nInsertable = 28
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"name\"",
+	"\"team_id\"",
 	"\"description\"",
 	"\"architecture\"",
 	"\"dataset_id\"",
@@ -3475,7 +3464,6 @@ var insCols = [nInsertable]string{
 	"\"model_id\"",
 	"\"worker\"",
 	"\"created_by\"",
-	"\"create_time\"",
 	"\"start_time\"",
 	"\"end_time\"",
 	"\"repeat_seconds\"",
@@ -3483,7 +3471,6 @@ var insCols = [nInsertable]string{
 	"\"parent_id\"",
 	"\"base_model_id\"",
 	"\"note\"",
-	"\"team_id\"",
 	"\"run_on\"",
 }
 
@@ -3493,7 +3480,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"training_jobs\""
-const insReturning = " RETURNING \"id\", \"name\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"create_time\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"team_id\", \"run_on\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -3512,7 +3499,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"name\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"create_time\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"team_id\", \"run_on\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -3570,18 +3557,6 @@ func (m *Mut) SetDescription(v string) {
 	m.row.Description = v
 	m.dirty |= dDescription
 	m.expr &^= dDescription
-}
-
-func (m *Mut) SetArchitecture(v string) {
-	m.row.Architecture = v
-	m.dirty |= dArchitecture
-	m.expr &^= dArchitecture
-}
-
-func (m *Mut) SetDatasetID(v string) {
-	m.row.DatasetID = v
-	m.dirty |= dDatasetID
-	m.expr &^= dDatasetID
 }
 
 func (m *Mut) SetEpochs(v int64) {
@@ -3698,7 +3673,7 @@ func (m *Mut) IncStepsPerEpoch() {
 	m.dirty &^= dStepsPerEpoch
 }
 
-func (m *Mut) SetHistory(v string) {
+func (m *Mut) SetHistory(v runtime.JSON) {
 	m.row.History = v
 	m.dirty |= dHistory
 	m.expr &^= dHistory
@@ -3714,29 +3689,6 @@ func (m *Mut) SetWorker(v string) {
 	m.row.Worker = v
 	m.dirty |= dWorker
 	m.expr &^= dWorker
-}
-
-func (m *Mut) SetCreatedBy(v string) {
-	m.row.CreatedBy = v
-	m.dirty |= dCreatedBy
-	m.expr &^= dCreatedBy
-}
-
-func (m *Mut) SetCreateTime(v time.Time) {
-	m.row.CreateTime = v
-	m.dirty |= dCreateTime
-	m.expr &^= dCreateTime
-}
-
-// SetCreateTimeNow assigns the database's clock, not this process's.
-//
-// Binding time.Now() instead would record when THIS server
-// thought it was. Servers skew, so rows written seconds apart
-// can land out of order, and an event stamped by a fast clock
-// reads as preceding the thing that caused it.
-func (m *Mut) SetCreateTimeNow() {
-	m.expr |= dCreateTime
-	m.dirty &^= dCreateTime
 }
 
 func (m *Mut) SetStartTime(v time.Time) {
@@ -3830,36 +3782,10 @@ func (m *Mut) SetNextRunNull() {
 	m.expr &^= dNextRun
 }
 
-func (m *Mut) SetParentID(v string) {
-	m.row.ParentID = v
-	m.dirty |= dParentID
-	m.expr &^= dParentID
-}
-
-func (m *Mut) SetBaseModelID(v string) {
-	m.row.BaseModelID = v
-	m.dirty |= dBaseModelID
-	m.expr &^= dBaseModelID
-}
-
 func (m *Mut) SetNote(v string) {
 	m.row.Note = v
 	m.dirty |= dNote
 	m.expr &^= dNote
-}
-
-func (m *Mut) SetTeamID(v string) {
-	m.row.TeamID = runtime.Null[string]{V: v, Valid: true}
-	m.dirty |= dTeamID
-	m.expr &^= dTeamID
-}
-
-// SetTeamIDNull writes SQL NULL. It is a separate method because a
-// zero value and an absent value are different facts.
-func (m *Mut) SetTeamIDNull() {
-	m.row.TeamID = runtime.Null[string]{}
-	m.dirty |= dTeamID
-	m.expr &^= dTeamID
 }
 
 func (m *Mut) SetRunOn(v string) {
@@ -3898,9 +3824,26 @@ func (n *Ins) SetID(v string) {
 	n.set |= iID
 }
 
+func (n *Ins) SetCreateTime(v time.Time) {
+	n.row.CreateTime = v
+	n.set |= iCreateTime
+}
+
 func (n *Ins) SetName(v string) {
 	n.row.Name = v
 	n.set |= iName
+}
+
+func (n *Ins) SetTeamID(v string) {
+	n.row.TeamID = runtime.Null[string]{V: v, Valid: true}
+	n.set |= iTeamID
+}
+
+// SetTeamIDNull writes SQL NULL explicitly, which is not the same as
+// leaving the column unset and taking its default.
+func (n *Ins) SetTeamIDNull() {
+	n.row.TeamID = runtime.Null[string]{}
+	n.set |= iTeamID
 }
 
 func (n *Ins) SetDescription(v string) {
@@ -3963,7 +3906,7 @@ func (n *Ins) SetStepsPerEpoch(v int64) {
 	n.set |= iStepsPerEpoch
 }
 
-func (n *Ins) SetHistory(v string) {
+func (n *Ins) SetHistory(v runtime.JSON) {
 	n.row.History = v
 	n.set |= iHistory
 }
@@ -3981,11 +3924,6 @@ func (n *Ins) SetWorker(v string) {
 func (n *Ins) SetCreatedBy(v string) {
 	n.row.CreatedBy = v
 	n.set |= iCreatedBy
-}
-
-func (n *Ins) SetCreateTime(v time.Time) {
-	n.row.CreateTime = v
-	n.set |= iCreateTime
 }
 
 func (n *Ins) SetStartTime(v time.Time) {
@@ -4044,18 +3982,6 @@ func (n *Ins) SetNote(v string) {
 	n.set |= iNote
 }
 
-func (n *Ins) SetTeamID(v string) {
-	n.row.TeamID = runtime.Null[string]{V: v, Valid: true}
-	n.set |= iTeamID
-}
-
-// SetTeamIDNull writes SQL NULL explicitly, which is not the same as
-// leaving the column unset and taking its default.
-func (n *Ins) SetTeamIDNull() {
-	n.row.TeamID = runtime.Null[string]{}
-	n.set |= iTeamID
-}
-
 func (n *Ins) SetRunOn(v string) {
 	n.row.RunOn = v
 	n.set |= iRunOn
@@ -4106,86 +4032,65 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 27)
+	set := make([]string, 0, 20)
 	switch i {
 	case 0:
-		if mask&(1<<1) != 0 {
+		if mask&(1<<2) != 0 {
 			set = append(set, "name")
 		}
-		if mask&(1<<2) != 0 {
+		if mask&(1<<4) != 0 {
 			set = append(set, "description")
 		}
-		if mask&(1<<3) != 0 {
-			set = append(set, "architecture")
-		}
-		if mask&(1<<4) != 0 {
-			set = append(set, "dataset_id")
-		}
-		if mask&(1<<5) != 0 {
+		if mask&(1<<7) != 0 {
 			set = append(set, "epochs")
 		}
-		if mask&(1<<6) != 0 {
+		if mask&(1<<8) != 0 {
 			set = append(set, "batch_size")
 		}
-		if mask&(1<<7) != 0 {
+		if mask&(1<<9) != 0 {
 			set = append(set, "learning_rate")
 		}
-		if mask&(1<<8) != 0 {
+		if mask&(1<<10) != 0 {
 			set = append(set, "hold_out")
 		}
-		if mask&(1<<9) != 0 {
+		if mask&(1<<11) != 0 {
 			set = append(set, "status")
 		}
-		if mask&(1<<10) != 0 {
+		if mask&(1<<12) != 0 {
 			set = append(set, "error")
 		}
-		if mask&(1<<11) != 0 {
+		if mask&(1<<13) != 0 {
 			set = append(set, "epoch")
 		}
-		if mask&(1<<12) != 0 {
+		if mask&(1<<14) != 0 {
 			set = append(set, "step")
 		}
-		if mask&(1<<13) != 0 {
+		if mask&(1<<15) != 0 {
 			set = append(set, "steps_per_epoch")
 		}
-		if mask&(1<<14) != 0 {
+		if mask&(1<<16) != 0 {
 			set = append(set, "history")
 		}
-		if mask&(1<<15) != 0 {
+		if mask&(1<<17) != 0 {
 			set = append(set, "model_id")
 		}
-		if mask&(1<<16) != 0 {
+		if mask&(1<<18) != 0 {
 			set = append(set, "worker")
 		}
-		if mask&(1<<17) != 0 {
-			set = append(set, "created_by")
-		}
-		if mask&(1<<18) != 0 {
-			set = append(set, "create_time")
-		}
-		if mask&(1<<19) != 0 {
+		if mask&(1<<20) != 0 {
 			set = append(set, "start_time")
 		}
-		if mask&(1<<20) != 0 {
+		if mask&(1<<21) != 0 {
 			set = append(set, "end_time")
 		}
-		if mask&(1<<21) != 0 {
+		if mask&(1<<22) != 0 {
 			set = append(set, "repeat_seconds")
 		}
-		if mask&(1<<22) != 0 {
+		if mask&(1<<23) != 0 {
 			set = append(set, "next_run")
 		}
-		if mask&(1<<23) != 0 {
-			set = append(set, "parent_id")
-		}
-		if mask&(1<<24) != 0 {
-			set = append(set, "base_model_id")
-		}
-		if mask&(1<<25) != 0 {
-			set = append(set, "note")
-		}
 		if mask&(1<<26) != 0 {
-			set = append(set, "team_id")
+			set = append(set, "note")
 		}
 		if mask&(1<<27) != 0 {
 			set = append(set, "run_on")
@@ -4240,8 +4145,6 @@ func joinAssign(set []string) string {
 var assignFor = map[string]string{
 	"name":            "\"name\" = EXCLUDED.\"name\"",
 	"description":     "\"description\" = EXCLUDED.\"description\"",
-	"architecture":    "\"architecture\" = EXCLUDED.\"architecture\"",
-	"dataset_id":      "\"dataset_id\" = EXCLUDED.\"dataset_id\"",
 	"epochs":          "\"epochs\" = EXCLUDED.\"epochs\"",
 	"batch_size":      "\"batch_size\" = EXCLUDED.\"batch_size\"",
 	"learning_rate":   "\"learning_rate\" = EXCLUDED.\"learning_rate\"",
@@ -4254,16 +4157,11 @@ var assignFor = map[string]string{
 	"history":         "\"history\" = EXCLUDED.\"history\"",
 	"model_id":        "\"model_id\" = EXCLUDED.\"model_id\"",
 	"worker":          "\"worker\" = EXCLUDED.\"worker\"",
-	"created_by":      "\"created_by\" = EXCLUDED.\"created_by\"",
-	"create_time":     "\"create_time\" = EXCLUDED.\"create_time\"",
 	"start_time":      "\"start_time\" = EXCLUDED.\"start_time\"",
 	"end_time":        "\"end_time\" = EXCLUDED.\"end_time\"",
 	"repeat_seconds":  "\"repeat_seconds\" = EXCLUDED.\"repeat_seconds\"",
 	"next_run":        "\"next_run\" = EXCLUDED.\"next_run\"",
-	"parent_id":       "\"parent_id\" = EXCLUDED.\"parent_id\"",
-	"base_model_id":   "\"base_model_id\" = EXCLUDED.\"base_model_id\"",
 	"note":            "\"note\" = EXCLUDED.\"note\"",
-	"team_id":         "\"team_id\" = EXCLUDED.\"team_id\"",
 	"run_on":          "\"run_on\" = EXCLUDED.\"run_on\"",
 }
 
@@ -4311,57 +4209,57 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
-			args = append(args, n.row.Description)
-		case 3:
-			args = append(args, n.row.Architecture)
-		case 4:
-			args = append(args, n.row.DatasetID)
-		case 5:
-			args = append(args, n.row.Epochs)
-		case 6:
-			args = append(args, n.row.BatchSize)
-		case 7:
-			args = append(args, n.row.LearningRate)
-		case 8:
-			args = append(args, n.row.HoldOut)
-		case 9:
-			args = append(args, n.row.Status)
-		case 10:
-			args = append(args, n.row.Error)
-		case 11:
-			args = append(args, n.row.Epoch)
-		case 12:
-			args = append(args, n.row.Step)
-		case 13:
-			args = append(args, n.row.StepsPerEpoch)
-		case 14:
-			args = append(args, n.row.History)
-		case 15:
-			args = append(args, n.row.ModelID)
-		case 16:
-			args = append(args, n.row.Worker)
-		case 17:
-			args = append(args, n.row.CreatedBy)
-		case 18:
 			args = append(args, n.row.CreateTime)
-		case 19:
-			args = append(args, n.row.StartTime.Arg())
-		case 20:
-			args = append(args, n.row.EndTime.Arg())
-		case 21:
-			args = append(args, n.row.RepeatSeconds)
-		case 22:
-			args = append(args, n.row.NextRun.Arg())
-		case 23:
-			args = append(args, n.row.ParentID)
-		case 24:
-			args = append(args, n.row.BaseModelID)
-		case 25:
-			args = append(args, n.row.Note)
-		case 26:
+		case 2:
+			args = append(args, n.row.Name)
+		case 3:
 			args = append(args, n.row.TeamID.Arg())
+		case 4:
+			args = append(args, n.row.Description)
+		case 5:
+			args = append(args, n.row.Architecture)
+		case 6:
+			args = append(args, n.row.DatasetID)
+		case 7:
+			args = append(args, n.row.Epochs)
+		case 8:
+			args = append(args, n.row.BatchSize)
+		case 9:
+			args = append(args, n.row.LearningRate)
+		case 10:
+			args = append(args, n.row.HoldOut)
+		case 11:
+			args = append(args, n.row.Status)
+		case 12:
+			args = append(args, n.row.Error)
+		case 13:
+			args = append(args, n.row.Epoch)
+		case 14:
+			args = append(args, n.row.Step)
+		case 15:
+			args = append(args, n.row.StepsPerEpoch)
+		case 16:
+			args = append(args, n.row.History)
+		case 17:
+			args = append(args, n.row.ModelID)
+		case 18:
+			args = append(args, n.row.Worker)
+		case 19:
+			args = append(args, n.row.CreatedBy)
+		case 20:
+			args = append(args, n.row.StartTime.Arg())
+		case 21:
+			args = append(args, n.row.EndTime.Arg())
+		case 22:
+			args = append(args, n.row.RepeatSeconds)
+		case 23:
+			args = append(args, n.row.NextRun.Arg())
+		case 24:
+			args = append(args, n.row.ParentID)
+		case 25:
+			args = append(args, n.row.BaseModelID)
+		case 26:
+			args = append(args, n.row.Note)
 		case 27:
 			args = append(args, n.row.RunOn)
 		}
@@ -4403,7 +4301,9 @@ func Inserts() int { return insCache.Masks() }
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args := make([]any, 0, 28)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
+	args = append(args, r.TeamID.Arg())
 	args = append(args, r.Description)
 	args = append(args, r.Architecture)
 	args = append(args, r.DatasetID)
@@ -4420,7 +4320,6 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.ModelID)
 	args = append(args, r.Worker)
 	args = append(args, r.CreatedBy)
-	args = append(args, r.CreateTime)
 	args = append(args, r.StartTime.Arg())
 	args = append(args, r.EndTime.Arg())
 	args = append(args, r.RepeatSeconds)
@@ -4428,7 +4327,6 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.ParentID)
 	args = append(args, r.BaseModelID)
 	args = append(args, r.Note)
-	args = append(args, r.TeamID.Arg())
 	args = append(args, r.RunOn)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
@@ -4457,7 +4355,9 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 // yourself, or use Create() per row and give up the bulk path.
 var copyCols = []string{
 	"id",
+	"create_time",
 	"name",
+	"team_id",
 	"description",
 	"architecture",
 	"dataset_id",
@@ -4474,7 +4374,6 @@ var copyCols = []string{
 	"model_id",
 	"worker",
 	"created_by",
-	"create_time",
 	"start_time",
 	"end_time",
 	"repeat_seconds",
@@ -4482,7 +4381,6 @@ var copyCols = []string{
 	"parent_id",
 	"base_model_id",
 	"note",
-	"team_id",
 	"run_on",
 }
 
@@ -4509,32 +4407,32 @@ func (s *rowSource) Next() bool {
 func (s *rowSource) Values() []any {
 	r := &s.rows[s.i-1]
 	s.buf[0] = &r.ID
-	s.buf[1] = &r.Name
-	s.buf[2] = &r.Description
-	s.buf[3] = &r.Architecture
-	s.buf[4] = &r.DatasetID
-	s.buf[5] = &r.Epochs
-	s.buf[6] = &r.BatchSize
-	s.buf[7] = &r.LearningRate
-	s.buf[8] = &r.HoldOut
-	s.buf[9] = &r.Status
-	s.buf[10] = &r.Error
-	s.buf[11] = &r.Epoch
-	s.buf[12] = &r.Step
-	s.buf[13] = &r.StepsPerEpoch
-	s.buf[14] = &r.History
-	s.buf[15] = &r.ModelID
-	s.buf[16] = &r.Worker
-	s.buf[17] = &r.CreatedBy
-	s.buf[18] = &r.CreateTime
-	s.buf[19] = r.StartTime.Ptr()
-	s.buf[20] = r.EndTime.Ptr()
-	s.buf[21] = &r.RepeatSeconds
-	s.buf[22] = r.NextRun.Ptr()
-	s.buf[23] = &r.ParentID
-	s.buf[24] = &r.BaseModelID
-	s.buf[25] = &r.Note
-	s.buf[26] = r.TeamID.Ptr()
+	s.buf[1] = &r.CreateTime
+	s.buf[2] = &r.Name
+	s.buf[3] = r.TeamID.Ptr()
+	s.buf[4] = &r.Description
+	s.buf[5] = &r.Architecture
+	s.buf[6] = &r.DatasetID
+	s.buf[7] = &r.Epochs
+	s.buf[8] = &r.BatchSize
+	s.buf[9] = &r.LearningRate
+	s.buf[10] = &r.HoldOut
+	s.buf[11] = &r.Status
+	s.buf[12] = &r.Error
+	s.buf[13] = &r.Epoch
+	s.buf[14] = &r.Step
+	s.buf[15] = &r.StepsPerEpoch
+	s.buf[16] = &r.History
+	s.buf[17] = &r.ModelID
+	s.buf[18] = &r.Worker
+	s.buf[19] = &r.CreatedBy
+	s.buf[20] = r.StartTime.Ptr()
+	s.buf[21] = r.EndTime.Ptr()
+	s.buf[22] = &r.RepeatSeconds
+	s.buf[23] = r.NextRun.Ptr()
+	s.buf[24] = &r.ParentID
+	s.buf[25] = &r.BaseModelID
+	s.buf[26] = &r.Note
 	s.buf[27] = &r.RunOn
 	return s.buf[:]
 }
@@ -4597,7 +4495,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	st := stmtForInsertNoReturn(mask, 0)
 	args := make([]any, 0, 28)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
+	args = append(args, r.TeamID.Arg())
 	args = append(args, r.Description)
 	args = append(args, r.Architecture)
 	args = append(args, r.DatasetID)
@@ -4614,7 +4514,6 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.ModelID)
 	args = append(args, r.Worker)
 	args = append(args, r.CreatedBy)
-	args = append(args, r.CreateTime)
 	args = append(args, r.StartTime.Arg())
 	args = append(args, r.EndTime.Arg())
 	args = append(args, r.RepeatSeconds)
@@ -4622,7 +4521,6 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.ParentID)
 	args = append(args, r.BaseModelID)
 	args = append(args, r.Note)
-	args = append(args, r.TeamID.Arg())
 	args = append(args, r.RunOn)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
@@ -4660,57 +4558,57 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
-			args = append(args, n.row.Description)
-		case 3:
-			args = append(args, n.row.Architecture)
-		case 4:
-			args = append(args, n.row.DatasetID)
-		case 5:
-			args = append(args, n.row.Epochs)
-		case 6:
-			args = append(args, n.row.BatchSize)
-		case 7:
-			args = append(args, n.row.LearningRate)
-		case 8:
-			args = append(args, n.row.HoldOut)
-		case 9:
-			args = append(args, n.row.Status)
-		case 10:
-			args = append(args, n.row.Error)
-		case 11:
-			args = append(args, n.row.Epoch)
-		case 12:
-			args = append(args, n.row.Step)
-		case 13:
-			args = append(args, n.row.StepsPerEpoch)
-		case 14:
-			args = append(args, n.row.History)
-		case 15:
-			args = append(args, n.row.ModelID)
-		case 16:
-			args = append(args, n.row.Worker)
-		case 17:
-			args = append(args, n.row.CreatedBy)
-		case 18:
 			args = append(args, n.row.CreateTime)
-		case 19:
-			args = append(args, n.row.StartTime.Arg())
-		case 20:
-			args = append(args, n.row.EndTime.Arg())
-		case 21:
-			args = append(args, n.row.RepeatSeconds)
-		case 22:
-			args = append(args, n.row.NextRun.Arg())
-		case 23:
-			args = append(args, n.row.ParentID)
-		case 24:
-			args = append(args, n.row.BaseModelID)
-		case 25:
-			args = append(args, n.row.Note)
-		case 26:
+		case 2:
+			args = append(args, n.row.Name)
+		case 3:
 			args = append(args, n.row.TeamID.Arg())
+		case 4:
+			args = append(args, n.row.Description)
+		case 5:
+			args = append(args, n.row.Architecture)
+		case 6:
+			args = append(args, n.row.DatasetID)
+		case 7:
+			args = append(args, n.row.Epochs)
+		case 8:
+			args = append(args, n.row.BatchSize)
+		case 9:
+			args = append(args, n.row.LearningRate)
+		case 10:
+			args = append(args, n.row.HoldOut)
+		case 11:
+			args = append(args, n.row.Status)
+		case 12:
+			args = append(args, n.row.Error)
+		case 13:
+			args = append(args, n.row.Epoch)
+		case 14:
+			args = append(args, n.row.Step)
+		case 15:
+			args = append(args, n.row.StepsPerEpoch)
+		case 16:
+			args = append(args, n.row.History)
+		case 17:
+			args = append(args, n.row.ModelID)
+		case 18:
+			args = append(args, n.row.Worker)
+		case 19:
+			args = append(args, n.row.CreatedBy)
+		case 20:
+			args = append(args, n.row.StartTime.Arg())
+		case 21:
+			args = append(args, n.row.EndTime.Arg())
+		case 22:
+			args = append(args, n.row.RepeatSeconds)
+		case 23:
+			args = append(args, n.row.NextRun.Arg())
+		case 24:
+			args = append(args, n.row.ParentID)
+		case 25:
+			args = append(args, n.row.BaseModelID)
+		case 26:
+			args = append(args, n.row.Note)
 		case 27:
 			args = append(args, n.row.RunOn)
 		}
@@ -4764,54 +4662,40 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 		case 1:
 			args = append(args, m.row.Description)
 		case 2:
-			args = append(args, m.row.Architecture)
-		case 3:
-			args = append(args, m.row.DatasetID)
-		case 4:
 			args = append(args, m.row.Epochs)
-		case 5:
+		case 3:
 			args = append(args, m.row.BatchSize)
-		case 6:
+		case 4:
 			args = append(args, m.row.LearningRate)
-		case 7:
+		case 5:
 			args = append(args, m.row.HoldOut)
-		case 8:
+		case 6:
 			args = append(args, m.row.Status)
-		case 9:
+		case 7:
 			args = append(args, m.row.Error)
-		case 10:
+		case 8:
 			args = append(args, m.row.Epoch)
-		case 11:
+		case 9:
 			args = append(args, m.row.Step)
-		case 12:
+		case 10:
 			args = append(args, m.row.StepsPerEpoch)
-		case 13:
+		case 11:
 			args = append(args, m.row.History)
-		case 14:
+		case 12:
 			args = append(args, m.row.ModelID)
-		case 15:
+		case 13:
 			args = append(args, m.row.Worker)
-		case 16:
-			args = append(args, m.row.CreatedBy)
-		case 17:
-			args = append(args, m.row.CreateTime)
-		case 18:
+		case 14:
 			args = append(args, m.row.StartTime.Arg())
-		case 19:
+		case 15:
 			args = append(args, m.row.EndTime.Arg())
-		case 20:
+		case 16:
 			args = append(args, m.row.RepeatSeconds)
-		case 21:
+		case 17:
 			args = append(args, m.row.NextRun.Arg())
-		case 22:
-			args = append(args, m.row.ParentID)
-		case 23:
-			args = append(args, m.row.BaseModelID)
-		case 24:
+		case 18:
 			args = append(args, m.row.Note)
-		case 25:
-			args = append(args, m.row.TeamID.Arg())
-		case 26:
+		case 19:
 			args = append(args, m.row.RunOn)
 		}
 	}
@@ -4900,54 +4784,40 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 		case 1:
 			args = append(args, m.row.Description)
 		case 2:
-			args = append(args, m.row.Architecture)
-		case 3:
-			args = append(args, m.row.DatasetID)
-		case 4:
 			args = append(args, m.row.Epochs)
-		case 5:
+		case 3:
 			args = append(args, m.row.BatchSize)
-		case 6:
+		case 4:
 			args = append(args, m.row.LearningRate)
-		case 7:
+		case 5:
 			args = append(args, m.row.HoldOut)
-		case 8:
+		case 6:
 			args = append(args, m.row.Status)
-		case 9:
+		case 7:
 			args = append(args, m.row.Error)
-		case 10:
+		case 8:
 			args = append(args, m.row.Epoch)
-		case 11:
+		case 9:
 			args = append(args, m.row.Step)
-		case 12:
+		case 10:
 			args = append(args, m.row.StepsPerEpoch)
-		case 13:
+		case 11:
 			args = append(args, m.row.History)
-		case 14:
+		case 12:
 			args = append(args, m.row.ModelID)
-		case 15:
+		case 13:
 			args = append(args, m.row.Worker)
-		case 16:
-			args = append(args, m.row.CreatedBy)
-		case 17:
-			args = append(args, m.row.CreateTime)
-		case 18:
+		case 14:
 			args = append(args, m.row.StartTime.Arg())
-		case 19:
+		case 15:
 			args = append(args, m.row.EndTime.Arg())
-		case 20:
+		case 16:
 			args = append(args, m.row.RepeatSeconds)
-		case 21:
+		case 17:
 			args = append(args, m.row.NextRun.Arg())
-		case 22:
-			args = append(args, m.row.ParentID)
-		case 23:
-			args = append(args, m.row.BaseModelID)
-		case 24:
+		case 18:
 			args = append(args, m.row.Note)
-		case 25:
-			args = append(args, m.row.TeamID.Arg())
-		case 26:
+		case 19:
 			args = append(args, m.row.RunOn)
 		}
 	}
