@@ -5,3 +5,6 @@ web/dist/*
 !web/dist/.gitkeep
 *.test
 coverage.out
+
+# Code graph, rebuilt by .claude/hooks/session-start.sh
+graphify-out/
