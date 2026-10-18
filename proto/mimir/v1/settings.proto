@@ -162,7 +162,7 @@ message UpdateRetentionResponse {
 message GetDatabaseInfoRequest {}
 
 message GetDatabaseInfoResponse {
-  // Kind is the database engine, "sqlite" for now.
+  // Kind is the database engine, "postgres".
   string kind = 1;
   string path = 2;
   int64 size_bytes = 3;

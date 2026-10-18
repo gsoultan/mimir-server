@@ -1206,7 +1206,7 @@ func (*GetDatabaseInfoRequest) Descriptor() ([]byte, []int) {
 
 type GetDatabaseInfoResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Kind is the database engine, "sqlite" for now.
+	// Kind is the database engine, "postgres".
 	Kind      string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
 	Path      string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	SizeBytes int64  `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
