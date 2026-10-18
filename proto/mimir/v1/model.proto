@@ -159,8 +159,9 @@ message CreateModelRequest {
   string name = 1;
   string description = 2;
   string architecture = 3;
-  // Weights is a safetensors file holding every parameter of the
-  // architecture, as mimir's nn.Save writes it.
+  // Weights is a Mimir Model (.mim) file: every parameter of the
+  // architecture, as mimir's mim.Save writes it, or for the mim
+  // architecture the whole model.
   bytes weights = 4;
 }
 

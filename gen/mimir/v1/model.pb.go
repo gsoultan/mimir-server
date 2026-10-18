@@ -891,8 +891,9 @@ type CreateModelRequest struct {
 	Name         string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Description  string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	Architecture string                 `protobuf:"bytes,3,opt,name=architecture,proto3" json:"architecture,omitempty"`
-	// Weights is a safetensors file holding every parameter of the
-	// architecture, as mimir's nn.Save writes it.
+	// Weights is a Mimir Model (.mim) file: every parameter of the
+	// architecture, as mimir's mim.Save writes it, or for the mim
+	// architecture the whole model.
 	Weights       []byte `protobuf:"bytes,4,opt,name=weights,proto3" json:"weights,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

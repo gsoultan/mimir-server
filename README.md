@@ -20,12 +20,14 @@ make            # builds the web UI, then bin/mimir-server with it embedded
 
 Open http://localhost:8080. The first visit asks you to make the owner
 account. Then choose **Add a model**, pick the model type and upload a
-`.safetensors` file saved with `nn.Save` from mimir.
+`.mim` file of its weights, saved with `mim.Save` from mimir. Models the
+server trains are stored the same way; the Mimir Model file is the only
+format it reads or writes.
 
-A model of any other shape can come as a Mimir Model file: choose the
-**Mimir Model file** type and upload a `.mim` file, written by mimir's
-`mim.Export` or converted from PyTorch, ONNX, GGUF or safetensors with the
-`mim` tool. The file holds the whole model, so the server and its workers
+A model of any other shape can come as a whole Mimir Model file: choose the
+**Mimir Model file** type and upload a `.mim` file written by mimir's
+`mim.Export`, or converted once from PyTorch, ONNX, GGUF or safetensors with
+`mim-import`. The file holds the whole model, so the server and its workers
 run it as it is. It must take one fixed-shape float input; its first output
 is the answer, and a `mimir.labels` list in its metadata names the classes.
 

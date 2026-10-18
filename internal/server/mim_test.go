@@ -124,8 +124,9 @@ func TestMimUploadErrors(t *testing.T) {
 		name, arch string
 		file       []byte
 	}{
-		{"weights as a .mim file", "mim", weights(t, "mnist-mlp")},
-		{"a .mim file as weights", "mnist-cnn", file},
+		{"weights without a graph", "mim", weights(t, "mnist-mlp")},
+		{"weights of another architecture", "mnist-cnn", weights(t, "mnist-mlp")},
+		{"not a .mim file", "mnist-cnn", []byte("not a model")},
 		{"two inputs", "mim", pair.Bytes()},
 		{"an input of integers", "mim", ints.Bytes()},
 		{"a cut-off file", "mim", file[:len(file)/2]},

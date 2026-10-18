@@ -49,7 +49,7 @@ function AddModel() {
     if ("error" in r) return setFileError(r.error);
     if (!r.inspection.ok) return setFileError(r.inspection.reason);
     setPicked({ file, bytes: r.bytes, parameters: r.inspection.parameters });
-    if (!name) setName(file.name.replace(/\.(safetensors|mim)$/i, ""));
+    if (!name) setName(file.name.replace(/\.mim$/i, ""));
   }
 
   return (
@@ -78,7 +78,7 @@ function AddModel() {
             <Dropzone
               mt="md"
               onDrop={(files) => files[0] && pick(files[0])}
-              onReject={() => setFileError("Pick a single .safetensors or .mim file.")}
+              onReject={() => setFileError("Pick a single .mim file.")}
               maxFiles={1}
               multiple={false}
               loading={reading}
@@ -86,7 +86,7 @@ function AddModel() {
             >
               <Stack align="center" gap={4} py="xl" className="pointer-events-none">
                 <IconFileUpload size={40} stroke={1.5} />
-                <Text fw={600}>Drop your .safetensors or .mim file here</Text>
+                <Text fw={600}>Drop your .mim file here</Text>
                 <Text size="sm" c="dimmed">or click to choose one</Text>
               </Stack>
             </Dropzone>
