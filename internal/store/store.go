@@ -62,7 +62,7 @@ type Model struct {
 type Store struct {
 	db      *sql.DB
 	dbPath  string
-	weights string // directory holding <id>.safetensors files
+	weights string // directory holding <id>.mim files
 }
 
 // Open opens or creates the store in dir and brings its schema up to date.
@@ -332,7 +332,7 @@ func (s *Store) Weights(id string) ([]byte, error) {
 // and callers' ids are checked by uuid.Parse first, so they never hold a
 // path separator.
 func (s *Store) path(id string) string {
-	return filepath.Join(s.weights, id+".safetensors")
+	return filepath.Join(s.weights, id+".mim")
 }
 
 // ValidID reports whether id has the shape of a model id.

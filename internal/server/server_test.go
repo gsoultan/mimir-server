@@ -24,7 +24,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
 	"github.com/gsoultan/mimir-server/internal/webhook"
-	"github.com/gsoultan/mimir/nn"
+	"github.com/gsoultan/mimir/io/mim"
 )
 
 const password = "correct horse battery"
@@ -168,7 +168,7 @@ func weights(t *testing.T, name string) []byte {
 		t.Fatalf("no architecture %q", name)
 	}
 	var buf bytes.Buffer
-	if err := nn.Save(context.Background(), &buf, a.New(a.Spec)); err != nil {
+	if err := mim.Save(context.Background(), &buf, a.New(a.Spec), nil); err != nil {
 		t.Fatal(err)
 	}
 	return buf.Bytes()

@@ -5,27 +5,46 @@ import (
 	"context"
 
 	"github.com/gsoultan/mimir-server/internal/dbsource"
+	"github.com/gsoultan/mimir-server/internal/s3source"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
-// Refresh runs a query dataset's query again and stores the new rows. It
-// checks them the same way an upload is checked, so a broken query leaves
-// the old rows in place.
+// Refresh runs a query dataset's query again, or reads its files from
+// storage again, and stores the new rows. It checks them the same way an
+// upload is checked, so a broken query leaves the old rows in place.
 func Refresh(ctx context.Context, st *store.Store, d store.Dataset) (store.Dataset, error) {
 	if !d.FromQuery() {
 		return d, nil
 	}
-	r, err := dbsource.Fetch(ctx, d.Driver, d.DSN, d.Query, MaxRows)
+	b, err := fetch(ctx, d)
 	if err != nil {
 		return d, err
 	}
-	b := r.CSV()
 	t, err := ParseTable(bytes.NewReader(b), d.Target, Source{Columns: d.Columns}.Hints())
 	if err != nil {
 		return d, err
 	}
 	t.Describe(&d)
 	return st.RefreshDataset(ctx, d, b)
+}
+
+func fetch(ctx context.Context, d store.Dataset) ([]byte, error) {
+	if d.Driver == s3source.Driver {
+		c, err := s3source.Parse(d.DSN)
+		if err != nil {
+			return nil, err
+		}
+		cl, err := s3source.New(c)
+		if err != nil {
+			return nil, err
+		}
+		return cl.Table(ctx, d.Query, MaxTableBytes)
+	}
+	r, err := dbsource.Fetch(ctx, d.Driver, d.DSN, d.Query, MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	return r.CSV(), nil
 }
 
 // schedule starts the keep-learning passes that are due: it fetches each

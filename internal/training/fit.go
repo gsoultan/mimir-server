@@ -8,7 +8,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/gsoultan/mimir/io/safetensors"
+	"github.com/gsoultan/mimir/io/mim"
 	"github.com/gsoultan/mimir/metrics"
 	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/nn/loss"
@@ -77,9 +77,10 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	} else if len(t.BaseWeights) > 0 {
 		// Continue from the earlier model. Its column statistics come with
 		// it, so the inputs it already understands keep meaning the same.
-		f, err := safetensors.Parse(t.BaseWeights)
+		f, err := mim.Parse(t.BaseWeights)
 		if err == nil {
-			err = nn.Load(f, model)
+			err = f.Load(model)
+			f.Close()
 		}
 		if err != nil {
 			model, fresh = t.Arch.New(spec), true
@@ -137,7 +138,7 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 
 	nn.Eval(model)
 	var buf bytes.Buffer
-	if err := nn.Save(ctx, &buf, model); err != nil {
+	if err := mim.Save(ctx, &buf, model, nil); err != nil {
 		return Result{}, fmt.Errorf("couldn't save the model: %w", err)
 	}
 	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features, Columns: l.Columns, Fresh: fresh}, nil
