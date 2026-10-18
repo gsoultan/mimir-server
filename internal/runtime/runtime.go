@@ -107,10 +107,16 @@ func newFile(m *mim.Model) (*File, error) {
 	}
 	shape := make([]int, len(in.Shape))
 	for i, d := range in.Shape {
-		if d.Size < 0 {
+		switch {
+		case d.Size >= 0:
+			shape[i] = d.Size
+		case i == 0 && len(in.Shape) > 1:
+			// A free batch size, as most ONNX models declare: one
+			// question at a time.
+			shape[i] = 1
+		default:
 			return nil, fmt.Errorf("%w: input %s has a dimension of variable size", ErrBadWeights, in)
 		}
-		shape[i] = d.Size
 	}
 	md, err := m.Metadata()
 	if err != nil {
@@ -148,12 +154,17 @@ type Cache struct {
 type entry struct {
 	once sync.Once
 	run  func(ctx context.Context, x *tensor.Tensor) *tensor.Tensor
+	lm   *LanguageModel // for a language model, instead of run
 	err  error
 }
 
 // load builds the model of architecture a from weights, a weights file
 // or, for a File architecture, a Mimir Model file.
 func (e *entry) load(a arch.Architecture, spec arch.Spec, weights []byte) {
+	if a.Answers() == arch.Written {
+		e.lm, e.err = OpenLanguageModel(weights)
+		return
+	}
 	if a.File {
 		f, err := OpenFile(weights)
 		if err != nil {
@@ -189,16 +200,12 @@ func (c *Cache) Predict(ctx context.Context, id string, a arch.Architecture, spe
 	if len(input) != want {
 		return Result{}, fmt.Errorf("%w: got %d values, want %d (shape %v)", ErrBadInput, len(input), want, spec.InputShape)
 	}
-	e := c.entry(id)
-	e.once.Do(func() {
-		var w []byte
-		if w, e.err = load(); e.err == nil {
-			e.load(a, spec, w)
-		}
-	})
-	if e.err != nil {
-		c.Forget(id) // let the next request try again
-		return Result{}, e.err
+	e, err := c.ready(id, a, spec, load)
+	if err != nil {
+		return Result{}, err
+	}
+	if e.run == nil {
+		return Result{}, fmt.Errorf("%w: a language model writes text; send it a prompt", ErrBadInput)
 	}
 	shape := append([]int{1}, spec.InputShape...)
 	logits := e.run(ctx, tensor.FromSlice(input, shape...)).Reshape(-1)
@@ -215,6 +222,36 @@ func (c *Cache) Predict(ctx context.Context, id string, a arch.Architecture, spe
 		return Result{}, fmt.Errorf("runtime: run model %s: %w", id, err)
 	}
 	return Result{Output: out, Probability: p}, nil
+}
+
+// Generate continues prompt with the language model with id, loading it
+// with load on first use.
+func (c *Cache) Generate(ctx context.Context, id string, a arch.Architecture, load func() ([]byte, error), prompt string, s Sampling) (Generation, error) {
+	e, err := c.ready(id, a, arch.Spec{}, load)
+	if err != nil {
+		return Generation{}, err
+	}
+	if e.lm == nil {
+		return Generation{}, fmt.Errorf("%w: only a language model writes text", ErrBadInput)
+	}
+	return e.lm.Generate(ctx, prompt, s)
+}
+
+// ready returns the entry of the model with id, loading it with load on
+// first use.
+func (c *Cache) ready(id string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error)) (*entry, error) {
+	e := c.entry(id)
+	e.once.Do(func() {
+		var w []byte
+		if w, e.err = load(); e.err == nil {
+			e.load(a, spec, w)
+		}
+	})
+	if e.err != nil {
+		c.Forget(id) // let the next request try again
+		return nil, e.err
+	}
+	return e, nil
 }
 
 func (c *Cache) entry(id string) *entry {
