@@ -25,6 +25,10 @@ service DatasetService {
   rpc TestQuery(TestQueryRequest) returns (TestQueryResponse);
   // RefreshDataset runs a dataset's query again and replaces its rows.
   rpc RefreshDataset(RefreshDatasetRequest) returns (RefreshDatasetResponse);
+  // TestBucket reads a file or folder from S3-compatible storage and says
+  // what is there, so the answer column can be picked before anything is
+  // saved.
+  rpc TestBucket(TestBucketRequest) returns (TestBucketResponse);
   // CheckDataset checks a dataset against a template, with the columns
   // matched as given, and can keep that match.
   rpc CheckDataset(CheckDatasetRequest) returns (CheckDatasetResponse);
@@ -120,6 +124,17 @@ message Dataset {
   bool number_target = 16;
   // skipped counts rows left out: no answer, or no photo.
   int64 skipped = 17;
+  // storage is set when the rows come from S3-compatible storage, so they
+  // can be fetched again; the keys are never returned.
+  StorageSource storage = 18;
+}
+
+// StorageSource says where in a bucket a dataset's rows come from.
+message StorageSource {
+  string provider = 1;
+  string endpoint = 2;
+  string bucket = 3;
+  string path = 4;
 }
 
 message ListDatasetsRequest {}
@@ -161,6 +176,50 @@ message CreateDatasetRequest {
   // example makes the dataset from the template's made-up example data,
   // instead of csv, archive or a query.
   bool example = 9;
+  // bucket and path read the examples from S3-compatible storage instead:
+  // a .csv (or a folder of them) for a table, a .zip or a folder for
+  // photos.
+  Bucket bucket = 10;
+  string path = 11;
+}
+
+// Bucket is how to reach S3-compatible storage.
+message Bucket {
+  // provider is "s3" (AWS), "r2" (Cloudflare) or "other". AWS and R2 fill
+  // in the endpoint.
+  string provider = 1;
+  // endpoint is the storage address, like https://minio.example.com, for
+  // "other".
+  string endpoint = 2;
+  // region is the AWS region; "auto" for R2. Empty means us-east-1.
+  string region = 3;
+  // account_id is the Cloudflare account ID, for R2.
+  string account_id = 4;
+  string bucket = 5;
+  string access_key_id = 6;
+  // secret_access_key is kept on the server and never returned.
+  string secret_access_key = 7;
+}
+
+message TestBucketRequest {
+  Bucket bucket = 1;
+  // path is a file, or a folder ending in a slash; empty is the whole
+  // bucket.
+  string path = 2;
+  // kind is what the files should make: a table reads the CSVs.
+  DatasetKind kind = 3;
+}
+
+message TestBucketResponse {
+  // files counts the files found, and size_bytes their total size.
+  int64 files = 1;
+  int64 size_bytes = 2;
+  // names lists the first few, relative to the folder.
+  repeated string names = 3;
+  // For a table: its columns, a few rows and how many rows in all.
+  repeated string columns = 4;
+  repeated Row sample = 5;
+  int64 rows = 6;
 }
 
 // Connection is how to reach a database.

@@ -23,7 +23,7 @@ const (
 	SettingsManage Permission = "settings.manage" // server-wide settings, for every team
 	WorkersManage  Permission = "workers.manage"  // register and remove workers
 	TeamsManage    Permission = "teams.manage"    // add teams and move people between them; see every team's people and audit log
-	DatabaseQuery  Permission = "databases.query" // teach from a database query
+	DatabaseQuery  Permission = "databases.query" // teach from a database query or storage
 )
 
 // Permissions returns what a role may do.

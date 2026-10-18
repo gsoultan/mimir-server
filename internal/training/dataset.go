@@ -34,6 +34,8 @@ const (
 	MaxFeatures = 1000
 	MaxClasses  = 1000
 	MinRows     = 10
+	// MaxTableBytes bounds one table's CSV.
+	MaxTableBytes = 64 << 20
 )
 
 // Table is a parsed CSV: input columns of any kind, and one answer column.
