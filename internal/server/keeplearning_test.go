@@ -69,9 +69,15 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 	if b, err := os.ReadFile(path); err != nil || os.WriteFile(ownFile, b, 0o600) != nil {
 		t.Fatal(err)
 	}
-	mine := &mimirv1.Connection{Driver: "sqlite", Dsn: ownFile}
-	if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: mine, Query: "SELECT width, height, kind FROM fruit"})); code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "own data") {
-		t.Fatalf("own data folder: %v", err)
+	// SQLite decodes a URI's path, so a percent-encoded spelling of the
+	// same file is refused too.
+	dir, base := filepath.Split(ownFile)
+	encoded := "file:" + strings.Replace(dir, "/", "%2F", 1) + strings.Replace(base, ".", "%2e", 1)
+	for _, dsn := range []string{ownFile, "file:" + ownFile, encoded, "file://localhost" + ownFile} {
+		mine := &mimirv1.Connection{Driver: "sqlite", Dsn: dsn}
+		if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: mine, Query: "SELECT width, height, kind FROM fruit"})); code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "own data") {
+			t.Fatalf("own data folder %s: %v", dsn, err)
+		}
 	}
 	// So is its own PostgreSQL database, which holds password hashes and
 	// sessions, however the URL is spelled.
