@@ -22,6 +22,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir-server/internal/testdb"
 	"github.com/gsoultan/mimir-server/internal/training"
 	"github.com/gsoultan/mimir-server/internal/webhook"
 	"github.com/gsoultan/mimir/io/mim"
@@ -34,6 +35,7 @@ const password = "correct horse battery"
 var (
 	svc        *api.Service
 	dispatcher *webhook.Dispatcher
+	dbURL      string // the test server's own database
 	runner     *training.Runner
 )
 
@@ -46,7 +48,8 @@ func newServer(t *testing.T) *httptest.Server {
 // httptest's own when tls is set.
 func startServer(t *testing.T, tls bool) *httptest.Server {
 	t.Helper()
-	st, err := store.Open(context.Background(), t.TempDir())
+	dbURL = testdb.URL(t)
+	st, err := store.Open(context.Background(), dbURL, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

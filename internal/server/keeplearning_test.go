@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -62,11 +63,23 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 	if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: conn, Query: "SELECT * FROM nothing"})); code(err) != connect.CodeInvalidArgument {
 		t.Fatalf("bad query: %v", err)
 	}
-	// The server's own database is off limits.
-	own.models.ListModels(ctx, connect.NewRequest(&mimirv1.ListModelsRequest{}))
-	mine := &mimirv1.Connection{Driver: "sqlite", Dsn: filepath.Join(svc.DataDir(), "mimir.db")}
-	if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: mine, Query: "SELECT email, password_hash FROM users"})); code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "own data") {
-		t.Fatalf("own database: %v", err)
+	// The server's own files are off limits: a SQLite file in its data
+	// folder is refused before it is opened.
+	ownFile := filepath.Join(svc.DataDir(), "copy.db")
+	if b, err := os.ReadFile(path); err != nil || os.WriteFile(ownFile, b, 0o600) != nil {
+		t.Fatal(err)
+	}
+	mine := &mimirv1.Connection{Driver: "sqlite", Dsn: ownFile}
+	if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: mine, Query: "SELECT width, height, kind FROM fruit"})); code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "own data") {
+		t.Fatalf("own data folder: %v", err)
+	}
+	// So is its own PostgreSQL database, which holds password hashes and
+	// sessions, however the URL is spelled.
+	for _, dsn := range []string{dbURL, strings.Replace(dbURL, "127.0.0.1", "localhost", 1)} {
+		ours := &mimirv1.Connection{Driver: "postgres", Dsn: dsn}
+		if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: ours, Query: "SELECT email, password_hash FROM users"})); code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "own database") {
+			t.Fatalf("own database %s: %v", dsn, err)
+		}
 	}
 	// Only admins connect databases.
 	own.users.CreateUser(ctx, connect.NewRequest(&mimirv1.CreateUserRequest{Email: "e@example.com", Name: "E", Password: password, Access: &mimirv1.Access{Role: mimirv1.Role_ROLE_EDITOR, AllModels: true}}))
