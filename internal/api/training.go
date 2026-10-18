@@ -167,6 +167,9 @@ func (s *Service) fetch(ctx context.Context, conn *mimirv1.Connection, query str
 			return dbsource.Result{}, invalid("That file is part of this server's own data. Point at another database.")
 		}
 	}
+	if driver == "postgres" && s.store.IsOwnDatabase(dsn) {
+		return dbsource.Result{}, invalid("That is this server's own database. Point at another database.")
+	}
 	r, err := dbsource.Fetch(ctx, driver, dsn, query, training.MaxRows)
 	if errors.Is(err, dbsource.ErrBadQuery) {
 		return dbsource.Result{}, invalid("%s", strings.TrimPrefix(err.Error(), "dbsource: bad query: "))
