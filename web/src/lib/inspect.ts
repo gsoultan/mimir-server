@@ -24,7 +24,7 @@ export function inspect(bytes: Uint8Array, name = ""): Inspection {
 
 // A Mimir Model file starts with "MIM\0", or "MMF\0" from before the
 // format's rename, and lists its tensors in an index (spec/container.md
-// in github.com/gsoultan/mmf).
+// in github.com/gsoultan/mimir-model).
 function isMim(bytes: Uint8Array): boolean {
   return (bytes[0] === 0x4d && bytes[1] === 0x49 && bytes[2] === 0x4d && bytes[3] === 0)
     || (bytes[0] === 0x4d && bytes[1] === 0x4d && bytes[2] === 0x46 && bytes[3] === 0);

@@ -12,7 +12,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/gsoultan/mim/tokenizer"
+	"github.com/gsoultan/mimir-model/tokenizer"
 	"github.com/gsoultan/mimir/io/mim"
 	"github.com/gsoultan/mimir/tensor"
 )
