@@ -19,8 +19,8 @@ github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3 h1:LMLX+LgTNWpfvCBdFe
 github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3/go.mod h1:jl5iWTm0/hd5PjEYEOuwAJ57L/CibdZfrqZ5XA5GrCk=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/gsoultan/mimir v0.0.0-20261018050605-1b2bb4b52bdc h1:1iUesa2yaDHmYTMX2Y72fZJhPrMxWfzY5k9I1heNJgA=
-github.com/gsoultan/mimir v0.0.0-20261018050605-1b2bb4b52bdc/go.mod h1:a439ZGvgt+bh1UGSdAwkwOGx1v5xJfQ4y2WCURQfFDA=
+github.com/gsoultan/mimir v0.0.0-20261018052618-3226b6f10272 h1:w6nObGEJVrE+pveKjmoXGAp2jJtN+HciANmRfxL7oFg=
+github.com/gsoultan/mimir v0.0.0-20261018052618-3226b6f10272/go.mod h1:a439ZGvgt+bh1UGSdAwkwOGx1v5xJfQ4y2WCURQfFDA=
 github.com/gsoultan/mmf v0.0.0-20261018040759-70ce158f529a h1:6ZgR3bKkmRTbKc1nSgUspfFFvW2AgKznIqzDvXMeyhc=
 github.com/gsoultan/mmf v0.0.0-20261018040759-70ce158f529a/go.mod h1:fYpHB4ObPhDZ+hjNNnzFxkJY2uW83TtF/6KPrgWLJAg=
 github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k=
