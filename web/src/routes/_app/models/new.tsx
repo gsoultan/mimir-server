@@ -12,6 +12,7 @@ import { ModelService } from "../../../api/gen/mimir/v1/model_pb";
 import { allModelQueries, listArchitectures } from "../../../api/queries";
 import { Page } from "../../../components/Page";
 import { bytes } from "../../../lib/format";
+import type { Format } from "../../../lib/inspect";
 import { readFile } from "../../../lib/read-file";
 
 export const Route = createFileRoute("/_app/models/new")({
@@ -19,7 +20,11 @@ export const Route = createFileRoute("/_app/models/new")({
   component: AddModel,
 });
 
-type Picked = { file: File; bytes: Uint8Array; parameters: number };
+type Picked = { file: File; bytes: Uint8Array; format: Format; tensors?: number; parameters?: number };
+
+// Model types that take a whole model, rather than the weights of one the
+// server builds, also take ONNX and GGUF files and convert them.
+const takes = (whole: boolean) => whole ? ".mim, ONNX or GGUF" : ".mim";
 
 function AddModel() {
   const { data } = useSuspenseQuery(listArchitectures);
@@ -32,6 +37,7 @@ function AddModel() {
   const [reading, setReading] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const whole = !data.architectures.find((a) => a.name === arch)?.trainable;
 
   const create = useMutation(ModelService.method.createModel, {
     onSuccess: async (res) => {
@@ -48,8 +54,11 @@ function AddModel() {
     setReading(false);
     if ("error" in r) return setFileError(r.error);
     if (!r.inspection.ok) return setFileError(r.inspection.reason);
-    setPicked({ file, bytes: r.bytes, parameters: r.inspection.parameters });
-    if (!name) setName(file.name.replace(/\.mim$/i, ""));
+    if (r.inspection.format !== "mim" && !whole) {
+      return setFileError(`This model type takes a .mim file. To add ${r.inspection.format === "gguf" ? "a GGUF language model, go back and pick Language model" : "an ONNX model, go back and pick Mimir Model file"}.`);
+    }
+    setPicked({ file, bytes: r.bytes, ...r.inspection });
+    if (!name) setName(file.name.replace(/\.(mim|onnx|gguf)$/i, ""));
   }
 
   return (
@@ -74,11 +83,11 @@ function AddModel() {
             </Radio.Group>
           </Stepper.Step>
 
-          <Stepper.Step label="The file" description="Upload the weights">
+          <Stepper.Step label="The file" description={whole ? "Upload the model" : "Upload the weights"}>
             <Dropzone
               mt="md"
               onDrop={(files) => files[0] && pick(files[0])}
-              onReject={() => setFileError("Pick a single .mim file.")}
+              onReject={() => setFileError(`Pick a single ${takes(whole)} file.`)}
               maxFiles={1}
               multiple={false}
               loading={reading}
@@ -86,14 +95,18 @@ function AddModel() {
             >
               <Stack align="center" gap={4} py="xl" className="pointer-events-none">
                 <IconFileUpload size={40} stroke={1.5} />
-                <Text fw={600}>Drop your .mim file here</Text>
-                <Text size="sm" c="dimmed">or click to choose one</Text>
+                <Text fw={600}>Drop your {takes(whole)} file here</Text>
+                <Text size="sm" c="dimmed">or click to choose one{whole && ". ONNX and GGUF models become .mim files when you add them."}</Text>
               </Stack>
             </Dropzone>
             {fileError && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{fileError}</Alert>}
             {picked && (
               <Alert mt="md" color="teal" icon={<IconCheck />}>
-                {picked.file.name} · {bytes(picked.file.size)} · {picked.parameters.toLocaleString()} numbers learned
+                {picked.file.name} · {bytes(picked.file.size)}
+                {picked.parameters !== undefined
+                  ? ` · ${picked.parameters.toLocaleString()} numbers learned`
+                  : picked.tensors !== undefined ? ` · ${picked.tensors.toLocaleString()} weight tables` : ""}
+                {picked.format !== "mim" && ` · becomes a .mim file when you add it`}
               </Alert>
             )}
           </Stepper.Step>

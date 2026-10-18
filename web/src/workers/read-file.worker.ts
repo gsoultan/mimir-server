@@ -7,7 +7,7 @@ export type Reply = { bytes: Uint8Array; inspection: Inspection } | { error: str
 self.onmessage = async (e: MessageEvent<File>) => {
   try {
     const bytes = new Uint8Array(await e.data.arrayBuffer());
-    const reply: Reply = { bytes, inspection: inspect(bytes) };
+    const reply: Reply = { bytes, inspection: inspect(bytes, e.data.name) };
     self.postMessage(reply, { transfer: [bytes.buffer] });
   } catch {
     self.postMessage({ error: "Couldn't read that file." } satisfies Reply);
