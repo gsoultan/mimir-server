@@ -5,6 +5,7 @@ import (
 	"context"
 	"math"
 	"slices"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -135,5 +136,27 @@ func TestMimUploadErrors(t *testing.T) {
 		if code(err) != connect.CodeInvalidArgument {
 			t.Errorf("%s: %v", tc.name, err)
 		}
+	}
+}
+
+// TestPredictOverMemoryBudget asks a model that cannot run in the memory
+// mimir may take: the caller is told so, rather than "something went
+// wrong".
+func TestPredictOverMemoryBudget(t *testing.T) {
+	ctx := context.Background()
+	srv := newServer(t)
+	c := owner(t, srv)
+	_, file := digits(t)
+	res, err := c.models.CreateModel(ctx, connect.NewRequest(&mimirv1.CreateModelRequest{Name: "Digits", Architecture: "mim", Weights: file}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev := tensor.DefaultDevice()
+	prev := tensor.MemoryBudget(dev)
+	tensor.SetMemoryBudget(dev, 1)
+	defer tensor.SetMemoryBudget(dev, prev)
+	_, err = c.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: res.Msg.GetModel().GetId(), Input: &mimirv1.Tensor{Values: make([]float32, 784)}}))
+	if code(err) != connect.CodeResourceExhausted || !strings.Contains(err.Error(), "memory") {
+		t.Fatalf("predict over the memory budget: %v, want ResourceExhausted naming memory", err)
 	}
 }
