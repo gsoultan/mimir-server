@@ -138,8 +138,9 @@ server-wide settings are theirs alone.
   otherwise every request seems to come from the proxy.
 - **Storage.** Passwords are hashed with argon2id; session tokens, API
   keys and recovery codes are stored only as hashes. The cookie is
-  HttpOnly and SameSite=Lax, and becomes `__Host-` prefixed and Secure
-  behind an HTTPS proxy that sets `X-Forwarded-Proto`.
+  HttpOnly and SameSite=Lax, and becomes `__Host-` prefixed and Secure,
+  with HSTS on every response, over HTTPS: when the console serves TLS
+  itself, or behind a trusted proxy that sets `X-Forwarded-Proto: https`.
 
 ## How models load
 

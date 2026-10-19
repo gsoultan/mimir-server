@@ -69,14 +69,17 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	)))
 	mux.Handle("/", uiHandler(ui))
 
-	return logRequests(harden(svc.WithConn(mux)), log)
+	return logRequests(harden(svc.WithConn(mux), svc), log)
 }
 
 // harden refuses cross-site requests that carry a session cookie and adds
 // the response headers that keep the UI from being framed or sniffed.
 // Connect's JSON calls already need a CORS preflight that no other site
 // passes; this is the second lock on the same door.
-func harden(next http.Handler) http.Handler {
+//
+// HSTS goes out whenever the request came over HTTPS: TLS served here, or
+// a trusted proxy's X-Forwarded-Proto.
+func harden(next http.Handler, svc *api.Service) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("X-Content-Type-Options", "nosniff")
@@ -84,7 +87,7 @@ func harden(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
-		if strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		if svc.Proxies.HTTPS(r) {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 		if auth.SessionToken(r.Header) != "" && !auth.SameOrigin(r.Header, r.Host) {

@@ -443,10 +443,9 @@ func (s *Service) signIn(ctx context.Context, req connect.AnyRequest, resHeader 
 	if err != nil {
 		return store.Session{}, err
 	}
-	// Mark the cookie Secure when the browser reached us over HTTPS, which
-	// in production means through a TLS proxy.
-	secure := strings.EqualFold(h.Get("X-Forwarded-Proto"), "https")
-	auth.SetSessionCookie(resHeader, token, secure, ttl)
+	// Mark the cookie Secure when the browser reached us over HTTPS: TLS
+	// served here, or a trusted proxy that says so.
+	auth.SetSessionCookie(resHeader, token, s.https(ctx, req), ttl)
 	return se, nil
 }
 
