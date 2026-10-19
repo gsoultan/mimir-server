@@ -128,6 +128,14 @@ server-wide settings are theirs alone.
   (and the address they came from) for 15 minutes. Cross-site requests
   that carry the session cookie are refused, and the UI ships with a
   Content-Security-Policy, `X-Frame-Options: DENY` and friends.
+- **Behind a proxy.** The console believes `X-Forwarded-For` and
+  `X-Forwarded-Proto` only from the proxies you list with
+  `-trusted-proxies` (or `$MIMIR_TRUSTED_PROXIES`), a comma-separated list
+  of addresses and CIDR ranges such as `127.0.0.1,10.0.0.0/8`. By default
+  it trusts none and uses the address of the connection itself, so a
+  client can't pick the address that keys rate limits and goes in the
+  audit log, or claim it used HTTPS. Behind a reverse proxy, list it:
+  otherwise every request seems to come from the proxy.
 - **Storage.** Passwords are hashed with argon2id; session tokens, API
   keys and recovery codes are stored only as hashes. The cookie is
   HttpOnly and SameSite=Lax, and becomes `__Host-` prefixed and Secure
@@ -334,7 +342,7 @@ it is connected.
   machine, and the console refuses unencrypted workers from other
   machines. Serve the console with TLS (`-tls-cert` and `-tls-key`, or
   `-tls-auto` to make a certificate in the data folder) or put it behind an
-  https proxy. For a private network you trust, `-insecure` on the worker
+  https proxy listed in `-trusted-proxies`. For a private network you trust, `-insecure` on the worker
   and `-allow-plain-workers` on the console turn this off.
 - **The worker checks the console.** When the console serves a
   certificate nobody vouches for (such as `-tls-auto`), tokens carry its

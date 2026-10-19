@@ -98,10 +98,4 @@ func TestDeviceAndOrigin(t *testing.T) {
 	if SameOrigin(h, "example.com") {
 		t.Fatal("cross-site")
 	}
-	if ip := ClientIP(http.Header{"X-Forwarded-For": {"1.2.3.4, 10.0.0.1"}}, "127.0.0.1:1"); ip != "1.2.3.4" {
-		t.Fatal(ip)
-	}
-	if ip := ClientIP(http.Header{}, "[::1]:443"); ip != "::1" {
-		t.Fatal(ip)
-	}
 }

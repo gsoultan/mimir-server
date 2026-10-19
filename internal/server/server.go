@@ -69,7 +69,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	)))
 	mux.Handle("/", uiHandler(ui))
 
-	return logRequests(harden(api.WithConn(mux)), log)
+	return logRequests(harden(svc.WithConn(mux)), log)
 }
 
 // harden refuses cross-site requests that carry a session cookie and adds

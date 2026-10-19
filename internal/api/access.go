@@ -71,7 +71,7 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 
 func (s *Service) SignIn(ctx context.Context, req *connect.Request[mimirv1.SignInRequest]) (*connect.Response[mimirv1.SignInResponse], error) {
 	email := auth.NormalizeEmail(req.Msg.GetEmail())
-	keys := []string{"email:" + email, "ip:" + auth.ClientIP(req.Header(), req.Peer().Addr)}
+	keys := []string{"email:" + email, "ip:" + s.Proxies.ClientIP(req.Header(), req.Peer().Addr)}
 	if wait := s.Limiter.Wait(keys...); wait > 0 {
 		return nil, tooMany(wait)
 	}
@@ -437,7 +437,7 @@ func (s *Service) signIn(ctx context.Context, req connect.AnyRequest, resHeader 
 	}
 	h := req.Header()
 	se, err := s.store.CreateSession(ctx, hash, store.Session{
-		UserID: u.ID, Device: auth.Device(h.Get("User-Agent")), IP: auth.ClientIP(h, req.Peer().Addr),
+		UserID: u.ID, Device: auth.Device(h.Get("User-Agent")), IP: s.Proxies.ClientIP(h, req.Peer().Addr),
 		Pending: pending, Expires: time.Now().Add(ttl),
 	})
 	if err != nil {

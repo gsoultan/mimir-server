@@ -51,6 +51,10 @@ type Service struct {
 	AllowPrivateWebhooks bool
 	// Limiter holds back password and code guessing.
 	Limiter *auth.Limiter
+	// Proxies are the reverse proxies whose X-Forwarded-* headers count.
+	// The zero value trusts none, so a client can't choose its own address
+	// or claim it used HTTPS.
+	Proxies auth.Proxies
 	// KickTraining asks the training runner to look at the queue now, and
 	// CancelTraining stops a running job; either may be nil.
 	KickTraining   func()
