@@ -81,6 +81,10 @@ type Service struct {
 	// MaxModelBytes is the largest model file an upload may be; 0 means
 	// the server's default.
 	MaxModelBytes int
+	// MaxUploads is how many model and dataset uploads the server reads
+	// and handles at once; more are refused with ResourceExhausted. 0
+	// means the server's default.
+	MaxUploads int
 	// PredictTimeout bounds one prediction, here or on a worker, on top
 	// of the caller's own deadline; 0 means DefaultPredictTimeout.
 	PredictTimeout time.Duration
