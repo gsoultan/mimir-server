@@ -78,3 +78,83 @@ func (l *Limiter) Clear(keys ...string) {
 		delete(l.hits, k)
 	}
 }
+
+// Backoff slows down guessing without locking anyone out. Each key gets a
+// few free failures; after that every failure doubles how long the key
+// must wait before its next try, up to a cap. Keyed on an account and the
+// address together, it keeps one address's guesses slow while the
+// account's owner, elsewhere, signs in as usual. A key is forgotten after
+// a success, or once it has been quiet for a day.
+type Backoff struct {
+	mu     sync.Mutex
+	free   int
+	base   time.Duration
+	cap    time.Duration
+	forget time.Duration
+	keys   map[string]*streak
+	now    func() time.Time
+}
+
+type streak struct {
+	n     int
+	until time.Time // no tries before this
+	last  time.Time // the latest failure
+}
+
+// NewBackoff allows free failures per key, then makes the key wait base,
+// twice base, four times base and so on, never more than max.
+func NewBackoff(free int, base, max time.Duration) *Backoff {
+	return &Backoff{free: free, base: base, cap: max, forget: 24 * time.Hour, keys: map[string]*streak{}, now: time.Now}
+}
+
+// Wait returns how long key must wait before its next try, or zero.
+func (b *Backoff) Wait(key string) time.Duration {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	now := b.now()
+	s, ok := b.keys[key]
+	if !ok {
+		return 0
+	}
+	if now.Sub(s.last) >= b.forget {
+		delete(b.keys, key)
+		return 0
+	}
+	return max(s.until.Sub(now), 0)
+}
+
+// Fail records a failed try for key and returns how long it must now wait.
+func (b *Backoff) Fail(key string) time.Duration {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	now := b.now()
+	if len(b.keys) > 10_000 { // keep memory bounded under a flood
+		for k, s := range b.keys {
+			if now.Sub(s.last) >= b.forget || (s.n <= b.free && now.Sub(s.last) >= b.cap) {
+				delete(b.keys, k)
+			}
+		}
+	}
+	s, ok := b.keys[key]
+	if !ok || now.Sub(s.last) >= b.forget {
+		s = &streak{}
+		b.keys[key] = s
+	}
+	s.n++
+	s.last = now
+	if over := s.n - b.free; over > 0 {
+		wait := b.cap
+		if over < 63 && b.base <= b.cap>>(over-1) {
+			wait = b.base << (over - 1)
+		}
+		s.until = now.Add(wait)
+	}
+	return max(s.until.Sub(now), 0)
+}
+
+// Clear forgets key, after a success.
+func (b *Backoff) Clear(key string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	delete(b.keys, key)
+}

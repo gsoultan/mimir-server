@@ -117,29 +117,40 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 
 func (s *Service) SignIn(ctx context.Context, req *connect.Request[mimirv1.SignInRequest]) (*connect.Response[mimirv1.SignInResponse], error) {
 	email := auth.NormalizeEmail(req.Msg.GetEmail())
-	keys := []string{"email:" + email, "ip:" + s.Proxies.ClientIP(req.Header(), req.Peer().Addr)}
-	if wait := s.Limiter.Wait(keys...); wait > 0 {
+	// Guessing is slowed per address (a hard budget, so one address can't
+	// try many accounts quickly) and per account and address together (a
+	// growing delay). Nothing is keyed on the account alone: anyone could
+	// then lock its owner out by failing on purpose.
+	ip := s.Proxies.ClientIP(req.Header(), req.Peer().Addr)
+	ipKey, pairKey := "ip:"+ip, "signin:"+email+"|"+ip
+	if wait := max(s.Limiter.Wait(ipKey), s.Backoff.Wait(pairKey)); wait > 0 {
 		return nil, tooMany(wait)
+	}
+	fail := func() {
+		s.Limiter.Fail(ipKey)
+		s.Backoff.Fail(pairKey)
 	}
 	u, err := s.store.GetUserByEmail(ctx, email)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		// Hash anyway so a missing user takes as long as a wrong password.
 		auth.CheckPassword("$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", req.Msg.GetPassword())
-		s.Limiter.Fail(keys...)
+		fail()
 		return nil, badSignIn()
 	case err != nil:
 		return nil, s.internal(ctx, err)
 	}
 	if !auth.CheckPassword(u.PasswordHash, req.Msg.GetPassword()) {
-		s.Limiter.Fail(keys...)
+		fail()
 		s.auditIn(ctx, u.TeamID, email, "user.signin_failed", email, s.whence(req))
 		return nil, badSignIn()
 	}
 	if u.Disabled {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("This account is disabled. Ask an admin to enable it."))
 	}
-	s.Limiter.Clear(keys...)
+	// Only this account's streak from here ends: the address's budget
+	// stays, so signing in to an account of one's own can't reset it.
+	s.Backoff.Clear(pairKey)
 	// A stale cookie from before never carries over: the browser always
 	// leaves with a token minted for this sign-in.
 	if old := auth.SessionToken(req.Header()); old != "" {

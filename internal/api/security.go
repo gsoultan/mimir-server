@@ -92,6 +92,10 @@ func policyWord(p mimirv1.TwoFactorPolicy) string {
 
 // ErrTooMany is returned while a limiter holds the caller back.
 func tooMany(wait time.Duration) error {
+	if wait < time.Minute {
+		secs := int(wait.Seconds()) + 1
+		return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("Too many attempts. Try again in %d seconds.", secs))
+	}
 	mins := int(wait.Minutes()) + 1
 	return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("Too many attempts. Try again in %d minutes.", mins))
 }
