@@ -63,7 +63,8 @@ func Detect(b []byte) Format {
 }
 
 // ToMim returns b as a Mimir Model file: as it is when it already is one,
-// converted when it is an ONNX or GGUF model. It also returns the format b
+// with its section hashes checked, converted when it is an ONNX or GGUF
+// model. It also returns the format b
 // was in. It fails with ErrUnsupported for any other file, and for a model
 // whose operators, architecture or weights can't be carried over
 // faithfully.
@@ -73,6 +74,13 @@ func ToMim(b []byte) ([]byte, Format, error) {
 	var err error
 	switch f {
 	case Mim:
+		// A file damaged on its way here can still be well formed; its
+		// section hashes, when it has them, tell.
+		if mf, err := mim.Parse(b); err == nil {
+			if err := mf.VerifyHashes(); err != nil {
+				return nil, f, unsupported("the file is damaged: its %s; upload it again", strings.TrimPrefix(err.Error(), "mim: hash-mismatch: ")+" doesn't match the checksum written with it")
+			}
+		}
 		return b, f, nil
 	case ONNX:
 		if src, err = importer.ParseONNX(b); err != nil {
