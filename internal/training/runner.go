@@ -182,9 +182,17 @@ func (r *Runner) acquire(ctx context.Context) bool {
 	}
 }
 
-// release gives a slot back and looks at the queue again, for jobs set
-// aside while every worker was busy.
+// release gives back the slot of a job that ran and looks at the queue
+// again, for jobs set aside while every worker was busy.
 func (r *Runner) release() {
+	r.unclaim()
+	r.Kick()
+}
+
+// unclaim gives back a slot that started no job. It does not look at the
+// queue again: drain took it because it found the queue empty or the
+// store failing, and looking again at once would spin.
+func (r *Runner) unclaim() {
 	r.mu.Lock()
 	r.active--
 	r.mu.Unlock()
@@ -192,7 +200,6 @@ func (r *Runner) release() {
 	case r.freed <- struct{}{}:
 	default:
 	}
-	r.Kick()
 }
 
 // drain starts queued jobs until the queue is empty, each in its own
@@ -208,11 +215,11 @@ func (r *Runner) drain(ctx context.Context) {
 		}
 		j, err := r.st.ClaimJob(ctx, skip...)
 		if errors.Is(err, store.ErrNotFound) {
-			r.release()
+			r.unclaim()
 			return
 		}
 		if err != nil {
-			r.release()
+			r.unclaim()
 			r.log.ErrorContext(ctx, "training: claim job", "error", err)
 			return
 		}
