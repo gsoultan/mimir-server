@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -43,13 +42,14 @@ func (w Webhook) Wants(eventType string) bool {
 	return false
 }
 
-// DeliveryStatus is where a delivery is in its life.
-type DeliveryStatus int
+// DeliveryStatus is where a delivery is in its life. It is the column's
+// own type, declared with the schema.
+type DeliveryStatus = tables.DeliveryStatus
 
 const (
-	Pending DeliveryStatus = 1 + iota
-	Delivered
-	Failed
+	Pending   = tables.DeliveryPending
+	Delivered = tables.DeliveryDelivered
+	Failed    = tables.DeliveryFailed
 )
 
 // Delivery is one event on its way to one webhook, and the record of it
@@ -78,19 +78,9 @@ func fromWebhook(r webhook.Row) (Webhook, error) {
 		Enabled: r.Enabled,
 		Created: r.CreateTime.UTC(),
 		TeamID:  r.TeamID.V,
-	}
-	if err := json.Unmarshal([]byte(r.Events), &w.Events); err != nil {
-		return Webhook{}, fmt.Errorf("store: webhook %s events: %w", w.ID, err)
+		Events:  fromStrs(r.Events),
 	}
 	return w, nil
-}
-
-func eventsJSON(events []string) string {
-	if events == nil {
-		events = []string{}
-	}
-	b, _ := json.Marshal(events)
-	return string(b)
 }
 
 // CreateWebhook adds a webhook, filling in ID and Created.
@@ -108,7 +98,7 @@ func (s *Store) CreateWebhook(ctx context.Context, w Webhook) (Webhook, error) {
 	n.SetName(w.Name)
 	n.SetURL(w.URL)
 	n.SetSecret(w.Secret)
-	n.SetEvents(eventsJSON(w.Events))
+	n.SetEvents(strs(w.Events))
 	n.SetEnabled(w.Enabled)
 	n.SetCreateTime(w.Created)
 	n.SetTeamID(w.TeamID)
@@ -156,7 +146,7 @@ func (s *Store) UpdateWebhook(ctx context.Context, w Webhook) (Webhook, error) {
 	m := webhook.MutateKey(w.ID)
 	m.SetName(w.Name)
 	m.SetURL(w.URL)
-	m.SetEvents(eventsJSON(w.Events))
+	m.SetEvents(strs(w.Events))
 	m.SetEnabled(w.Enabled)
 	if err := m.Update(ctx, s.ex); err != nil {
 		if errors.Is(err, runtime.ErrNoRow) {

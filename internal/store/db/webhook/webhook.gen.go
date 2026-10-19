@@ -21,13 +21,13 @@ var (
 // replaced by their scalar foreign keys and *T rewritten to Null[T].
 type Row struct {
 	ID         string
+	CreateTime time.Time
 	Name       string
+	TeamID     runtime.Null[string]
 	URL        string
 	Secret     string
-	Events     string
+	Events     []string
 	Enabled    bool
-	CreateTime time.Time
-	TeamID     runtime.Null[string]
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -185,54 +185,47 @@ func (q *Query) cursor(col uint32, r Row) {
 		q.strs[q.ns] = r.ID
 		q.ns++
 	case 1:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Name
-		q.ns++
-	case 2:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.URL
-		q.ns++
-	case 3:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Secret
-		q.ns++
-	case 4:
-		if int(q.ns) >= len(q.strs) {
-			q.over = true
-			return
-		}
-		q.strs[q.ns] = r.Events
-		q.ns++
-	case 5:
-		if int(q.nbo) >= len(q.bools) {
-			q.over = true
-			return
-		}
-		q.bools[q.nbo] = r.Enabled
-		q.nbo++
-	case 6:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.CreateTime
 		q.ntm++
-	case 7:
+	case 2:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Name
+		q.ns++
+	case 3:
 		if int(q.ns) >= len(q.strs) {
 			q.over = true
 			return
 		}
 		q.strs[q.ns] = r.TeamID.V
 		q.ns++
+	case 4:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.URL
+		q.ns++
+	case 5:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Secret
+		q.ns++
+	case 7:
+		if int(q.nbo) >= len(q.bools) {
+			q.over = true
+			return
+		}
+		q.bools[q.nbo] = r.Enabled
+		q.nbo++
 	}
 }
 
@@ -380,6 +373,7 @@ func (q Query) stream(buf *[21]runtime.Tok) []runtime.Tok {
 type Pred struct {
 	col    uint8
 	op     runtime.Op
+	num    int64
 	str    string
 	tim    time.Time
 	bol    bool
@@ -398,13 +392,13 @@ func b2i(b bool) int64 {
 // Age.Like(...) fail to compile.
 var (
 	ID         = TextCol{0}
-	Name       = TextCol{1}
-	URL        = TextCol{2}
-	Secret     = TextCol{3}
-	Events     = TextCol{4}
-	Enabled    = BoolCol{5}
-	CreateTime = TimeCol{6}
-	TeamID     = NullTextCol{7}
+	CreateTime = TimeCol{1}
+	Name       = TextCol{2}
+	TeamID     = NullTextCol{3}
+	URL        = TextCol{4}
+	Secret     = TextCol{5}
+	Events     = TextArrayCol{6}
+	Enabled    = BoolCol{7}
 )
 
 // TextCol addresses a text column.
@@ -434,21 +428,6 @@ func (h TextCol) In(v ...string) Pred   { return Pred{col: h.c, op: opIn, anyStr
 // comparison NULL for every row and the result empty —
 // PostgreSQL's rule for NOT IN, not storm's.
 func (h TextCol) NotIn(v ...string) Pred { return Pred{col: h.c, op: opNotIn, anyStr: v} }
-
-// BoolCol addresses a bool column.
-type BoolCol struct{ c uint8 }
-
-func (h BoolCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
-func (h BoolCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
-func (h BoolCol) AscNullsFirst() Sort {
-	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
-}
-func (h BoolCol) DescNullsLast() Sort {
-	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
-}
-
-func (h BoolCol) Eq(v bool) Pred    { return Pred{col: h.c, op: opEq, bol: v} }
-func (h BoolCol) NotEq(v bool) Pred { return Pred{col: h.c, op: opNotEq, bol: v} }
 
 // TimeCol addresses a timestamptz column.
 type TimeCol struct{ c uint8 }
@@ -498,6 +477,50 @@ func (h NullTextCol) In(v ...string) Pred   { return Pred{col: h.c, op: opIn, an
 func (h NullTextCol) NotIn(v ...string) Pred { return Pred{col: h.c, op: opNotIn, anyStr: v} }
 func (h NullTextCol) IsNull() Pred           { return Pred{col: h.c, op: opIsNull} }
 func (h NullTextCol) IsNotNull() Pred        { return Pred{col: h.c, op: opIsNotNull} }
+
+// TextArrayCol addresses a text[] column.
+type TextArrayCol struct{ c uint8 }
+
+func (h TextArrayCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h TextArrayCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h TextArrayCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h TextArrayCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+// Contains is `@>`: every element of v is in the column.
+// An empty v is true for every row — every array contains
+// the empty one.
+func (h TextArrayCol) Contains(v ...string) Pred {
+	return Pred{col: h.c, op: opArrayContains, anyStr: v}
+}
+
+// ContainedBy is `<@`: every element of the column is in v.
+func (h TextArrayCol) ContainedBy(v ...string) Pred {
+	return Pred{col: h.c, op: opArrayContainedBy, anyStr: v}
+}
+
+// Overlaps is `&&`: the column and v share an element.
+func (h TextArrayCol) Overlaps(v ...string) Pred {
+	return Pred{col: h.c, op: opArrayOverlaps, anyStr: v}
+}
+
+// BoolCol addresses a bool column.
+type BoolCol struct{ c uint8 }
+
+func (h BoolCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h BoolCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h BoolCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h BoolCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+func (h BoolCol) Eq(v bool) Pred    { return Pred{col: h.c, op: opEq, bol: v} }
+func (h BoolCol) NotEq(v bool) Pred { return Pred{col: h.c, op: opNotEq, bol: v} }
 
 // Where applies predicates, ANDed together.
 func (q Query) Where(ps ...Pred) Query {
@@ -647,13 +670,6 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 1:
-			if int(q.nas) >= 3 {
-				q.over = true
-				return
-			}
-			q.anyStr[q.nas] = p.anyStr
-			q.nas++
 		case 2:
 			if int(q.nas) >= 3 {
 				q.over = true
@@ -675,7 +691,14 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 7:
+		case 5:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
+		case 6:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
@@ -699,12 +722,12 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 1:
-		if int(q.ns) >= 6 {
+		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
-		q.strs[q.ns] = p.str
-		q.ns++
+		q.tims[q.ntm] = p.tim
+		q.ntm++
 	case 2:
 		if int(q.ns) >= 6 {
 			q.over = true
@@ -727,109 +750,94 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 5:
-		if int(q.nbo) >= 4 {
-			q.over = true
-			return
-		}
-		q.bools[q.nbo] = p.bol
-		q.nbo++
-	case 6:
-		if int(q.ntm) >= 4 {
-			q.over = true
-			return
-		}
-		q.tims[q.ntm] = p.tim
-		q.ntm++
-	case 7:
 		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
 		q.strs[q.ns] = p.str
 		q.ns++
+	case 7:
+		if int(q.nbo) >= 4 {
+			q.over = true
+			return
+		}
+		q.bools[q.nbo] = p.bol
+		q.nbo++
 	}
 	q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 }
 
 // Chained predicate sugar. Identical to Where(Col.Op(v)).
-func (q Query) IDEq(v string) Query               { return q.Where(ID.Eq(v)) }
-func (q Query) IDNotEq(v string) Query            { return q.Where(ID.NotEq(v)) }
-func (q Query) IDGt(v string) Query               { return q.Where(ID.Gt(v)) }
-func (q Query) IDGte(v string) Query              { return q.Where(ID.Gte(v)) }
-func (q Query) IDLt(v string) Query               { return q.Where(ID.Lt(v)) }
-func (q Query) IDLte(v string) Query              { return q.Where(ID.Lte(v)) }
-func (q Query) IDEqLower(v string) Query          { return q.Where(ID.EqLower(v)) }
-func (q Query) IDLike(v string) Query             { return q.Where(ID.Like(v)) }
-func (q Query) IDILike(v string) Query            { return q.Where(ID.ILike(v)) }
-func (q Query) IDIn(v ...string) Query            { return q.Where(ID.In(v...)) }
-func (q Query) IDNotIn(v ...string) Query         { return q.Where(ID.NotIn(v...)) }
-func (q Query) NameEq(v string) Query             { return q.Where(Name.Eq(v)) }
-func (q Query) NameNotEq(v string) Query          { return q.Where(Name.NotEq(v)) }
-func (q Query) NameGt(v string) Query             { return q.Where(Name.Gt(v)) }
-func (q Query) NameGte(v string) Query            { return q.Where(Name.Gte(v)) }
-func (q Query) NameLt(v string) Query             { return q.Where(Name.Lt(v)) }
-func (q Query) NameLte(v string) Query            { return q.Where(Name.Lte(v)) }
-func (q Query) NameEqLower(v string) Query        { return q.Where(Name.EqLower(v)) }
-func (q Query) NameLike(v string) Query           { return q.Where(Name.Like(v)) }
-func (q Query) NameILike(v string) Query          { return q.Where(Name.ILike(v)) }
-func (q Query) NameIn(v ...string) Query          { return q.Where(Name.In(v...)) }
-func (q Query) NameNotIn(v ...string) Query       { return q.Where(Name.NotIn(v...)) }
-func (q Query) URLEq(v string) Query              { return q.Where(URL.Eq(v)) }
-func (q Query) URLNotEq(v string) Query           { return q.Where(URL.NotEq(v)) }
-func (q Query) URLGt(v string) Query              { return q.Where(URL.Gt(v)) }
-func (q Query) URLGte(v string) Query             { return q.Where(URL.Gte(v)) }
-func (q Query) URLLt(v string) Query              { return q.Where(URL.Lt(v)) }
-func (q Query) URLLte(v string) Query             { return q.Where(URL.Lte(v)) }
-func (q Query) URLEqLower(v string) Query         { return q.Where(URL.EqLower(v)) }
-func (q Query) URLLike(v string) Query            { return q.Where(URL.Like(v)) }
-func (q Query) URLILike(v string) Query           { return q.Where(URL.ILike(v)) }
-func (q Query) URLIn(v ...string) Query           { return q.Where(URL.In(v...)) }
-func (q Query) URLNotIn(v ...string) Query        { return q.Where(URL.NotIn(v...)) }
-func (q Query) SecretEq(v string) Query           { return q.Where(Secret.Eq(v)) }
-func (q Query) SecretNotEq(v string) Query        { return q.Where(Secret.NotEq(v)) }
-func (q Query) SecretGt(v string) Query           { return q.Where(Secret.Gt(v)) }
-func (q Query) SecretGte(v string) Query          { return q.Where(Secret.Gte(v)) }
-func (q Query) SecretLt(v string) Query           { return q.Where(Secret.Lt(v)) }
-func (q Query) SecretLte(v string) Query          { return q.Where(Secret.Lte(v)) }
-func (q Query) SecretEqLower(v string) Query      { return q.Where(Secret.EqLower(v)) }
-func (q Query) SecretLike(v string) Query         { return q.Where(Secret.Like(v)) }
-func (q Query) SecretILike(v string) Query        { return q.Where(Secret.ILike(v)) }
-func (q Query) SecretIn(v ...string) Query        { return q.Where(Secret.In(v...)) }
-func (q Query) SecretNotIn(v ...string) Query     { return q.Where(Secret.NotIn(v...)) }
-func (q Query) EventsEq(v string) Query           { return q.Where(Events.Eq(v)) }
-func (q Query) EventsNotEq(v string) Query        { return q.Where(Events.NotEq(v)) }
-func (q Query) EventsGt(v string) Query           { return q.Where(Events.Gt(v)) }
-func (q Query) EventsGte(v string) Query          { return q.Where(Events.Gte(v)) }
-func (q Query) EventsLt(v string) Query           { return q.Where(Events.Lt(v)) }
-func (q Query) EventsLte(v string) Query          { return q.Where(Events.Lte(v)) }
-func (q Query) EventsEqLower(v string) Query      { return q.Where(Events.EqLower(v)) }
-func (q Query) EventsLike(v string) Query         { return q.Where(Events.Like(v)) }
-func (q Query) EventsILike(v string) Query        { return q.Where(Events.ILike(v)) }
-func (q Query) EventsIn(v ...string) Query        { return q.Where(Events.In(v...)) }
-func (q Query) EventsNotIn(v ...string) Query     { return q.Where(Events.NotIn(v...)) }
-func (q Query) EnabledEq(v bool) Query            { return q.Where(Enabled.Eq(v)) }
-func (q Query) EnabledNotEq(v bool) Query         { return q.Where(Enabled.NotEq(v)) }
-func (q Query) CreateTimeEq(v time.Time) Query    { return q.Where(CreateTime.Eq(v)) }
-func (q Query) CreateTimeNotEq(v time.Time) Query { return q.Where(CreateTime.NotEq(v)) }
-func (q Query) CreateTimeGt(v time.Time) Query    { return q.Where(CreateTime.Gt(v)) }
-func (q Query) CreateTimeGte(v time.Time) Query   { return q.Where(CreateTime.Gte(v)) }
-func (q Query) CreateTimeLt(v time.Time) Query    { return q.Where(CreateTime.Lt(v)) }
-func (q Query) CreateTimeLte(v time.Time) Query   { return q.Where(CreateTime.Lte(v)) }
-func (q Query) TeamIDEq(v string) Query           { return q.Where(TeamID.Eq(v)) }
-func (q Query) TeamIDNotEq(v string) Query        { return q.Where(TeamID.NotEq(v)) }
-func (q Query) TeamIDGt(v string) Query           { return q.Where(TeamID.Gt(v)) }
-func (q Query) TeamIDGte(v string) Query          { return q.Where(TeamID.Gte(v)) }
-func (q Query) TeamIDLt(v string) Query           { return q.Where(TeamID.Lt(v)) }
-func (q Query) TeamIDLte(v string) Query          { return q.Where(TeamID.Lte(v)) }
-func (q Query) TeamIDEqLower(v string) Query      { return q.Where(TeamID.EqLower(v)) }
-func (q Query) TeamIDLike(v string) Query         { return q.Where(TeamID.Like(v)) }
-func (q Query) TeamIDILike(v string) Query        { return q.Where(TeamID.ILike(v)) }
-func (q Query) TeamIDIn(v ...string) Query        { return q.Where(TeamID.In(v...)) }
-func (q Query) TeamIDNotIn(v ...string) Query     { return q.Where(TeamID.NotIn(v...)) }
-func (q Query) TeamIDIsNull() Query               { return q.Where(TeamID.IsNull()) }
-func (q Query) TeamIDIsNotNull() Query            { return q.Where(TeamID.IsNotNull()) }
+func (q Query) IDEq(v string) Query                 { return q.Where(ID.Eq(v)) }
+func (q Query) IDNotEq(v string) Query              { return q.Where(ID.NotEq(v)) }
+func (q Query) IDGt(v string) Query                 { return q.Where(ID.Gt(v)) }
+func (q Query) IDGte(v string) Query                { return q.Where(ID.Gte(v)) }
+func (q Query) IDLt(v string) Query                 { return q.Where(ID.Lt(v)) }
+func (q Query) IDLte(v string) Query                { return q.Where(ID.Lte(v)) }
+func (q Query) IDEqLower(v string) Query            { return q.Where(ID.EqLower(v)) }
+func (q Query) IDLike(v string) Query               { return q.Where(ID.Like(v)) }
+func (q Query) IDILike(v string) Query              { return q.Where(ID.ILike(v)) }
+func (q Query) IDIn(v ...string) Query              { return q.Where(ID.In(v...)) }
+func (q Query) IDNotIn(v ...string) Query           { return q.Where(ID.NotIn(v...)) }
+func (q Query) CreateTimeEq(v time.Time) Query      { return q.Where(CreateTime.Eq(v)) }
+func (q Query) CreateTimeNotEq(v time.Time) Query   { return q.Where(CreateTime.NotEq(v)) }
+func (q Query) CreateTimeGt(v time.Time) Query      { return q.Where(CreateTime.Gt(v)) }
+func (q Query) CreateTimeGte(v time.Time) Query     { return q.Where(CreateTime.Gte(v)) }
+func (q Query) CreateTimeLt(v time.Time) Query      { return q.Where(CreateTime.Lt(v)) }
+func (q Query) CreateTimeLte(v time.Time) Query     { return q.Where(CreateTime.Lte(v)) }
+func (q Query) NameEq(v string) Query               { return q.Where(Name.Eq(v)) }
+func (q Query) NameNotEq(v string) Query            { return q.Where(Name.NotEq(v)) }
+func (q Query) NameGt(v string) Query               { return q.Where(Name.Gt(v)) }
+func (q Query) NameGte(v string) Query              { return q.Where(Name.Gte(v)) }
+func (q Query) NameLt(v string) Query               { return q.Where(Name.Lt(v)) }
+func (q Query) NameLte(v string) Query              { return q.Where(Name.Lte(v)) }
+func (q Query) NameEqLower(v string) Query          { return q.Where(Name.EqLower(v)) }
+func (q Query) NameLike(v string) Query             { return q.Where(Name.Like(v)) }
+func (q Query) NameILike(v string) Query            { return q.Where(Name.ILike(v)) }
+func (q Query) NameIn(v ...string) Query            { return q.Where(Name.In(v...)) }
+func (q Query) NameNotIn(v ...string) Query         { return q.Where(Name.NotIn(v...)) }
+func (q Query) TeamIDEq(v string) Query             { return q.Where(TeamID.Eq(v)) }
+func (q Query) TeamIDNotEq(v string) Query          { return q.Where(TeamID.NotEq(v)) }
+func (q Query) TeamIDGt(v string) Query             { return q.Where(TeamID.Gt(v)) }
+func (q Query) TeamIDGte(v string) Query            { return q.Where(TeamID.Gte(v)) }
+func (q Query) TeamIDLt(v string) Query             { return q.Where(TeamID.Lt(v)) }
+func (q Query) TeamIDLte(v string) Query            { return q.Where(TeamID.Lte(v)) }
+func (q Query) TeamIDEqLower(v string) Query        { return q.Where(TeamID.EqLower(v)) }
+func (q Query) TeamIDLike(v string) Query           { return q.Where(TeamID.Like(v)) }
+func (q Query) TeamIDILike(v string) Query          { return q.Where(TeamID.ILike(v)) }
+func (q Query) TeamIDIn(v ...string) Query          { return q.Where(TeamID.In(v...)) }
+func (q Query) TeamIDNotIn(v ...string) Query       { return q.Where(TeamID.NotIn(v...)) }
+func (q Query) TeamIDIsNull() Query                 { return q.Where(TeamID.IsNull()) }
+func (q Query) TeamIDIsNotNull() Query              { return q.Where(TeamID.IsNotNull()) }
+func (q Query) URLEq(v string) Query                { return q.Where(URL.Eq(v)) }
+func (q Query) URLNotEq(v string) Query             { return q.Where(URL.NotEq(v)) }
+func (q Query) URLGt(v string) Query                { return q.Where(URL.Gt(v)) }
+func (q Query) URLGte(v string) Query               { return q.Where(URL.Gte(v)) }
+func (q Query) URLLt(v string) Query                { return q.Where(URL.Lt(v)) }
+func (q Query) URLLte(v string) Query               { return q.Where(URL.Lte(v)) }
+func (q Query) URLEqLower(v string) Query           { return q.Where(URL.EqLower(v)) }
+func (q Query) URLLike(v string) Query              { return q.Where(URL.Like(v)) }
+func (q Query) URLILike(v string) Query             { return q.Where(URL.ILike(v)) }
+func (q Query) URLIn(v ...string) Query             { return q.Where(URL.In(v...)) }
+func (q Query) URLNotIn(v ...string) Query          { return q.Where(URL.NotIn(v...)) }
+func (q Query) SecretEq(v string) Query             { return q.Where(Secret.Eq(v)) }
+func (q Query) SecretNotEq(v string) Query          { return q.Where(Secret.NotEq(v)) }
+func (q Query) SecretGt(v string) Query             { return q.Where(Secret.Gt(v)) }
+func (q Query) SecretGte(v string) Query            { return q.Where(Secret.Gte(v)) }
+func (q Query) SecretLt(v string) Query             { return q.Where(Secret.Lt(v)) }
+func (q Query) SecretLte(v string) Query            { return q.Where(Secret.Lte(v)) }
+func (q Query) SecretEqLower(v string) Query        { return q.Where(Secret.EqLower(v)) }
+func (q Query) SecretLike(v string) Query           { return q.Where(Secret.Like(v)) }
+func (q Query) SecretILike(v string) Query          { return q.Where(Secret.ILike(v)) }
+func (q Query) SecretIn(v ...string) Query          { return q.Where(Secret.In(v...)) }
+func (q Query) SecretNotIn(v ...string) Query       { return q.Where(Secret.NotIn(v...)) }
+func (q Query) EventsContains(v ...string) Query    { return q.Where(Events.Contains(v...)) }
+func (q Query) EventsContainedBy(v ...string) Query { return q.Where(Events.ContainedBy(v...)) }
+func (q Query) EventsOverlaps(v ...string) Query    { return q.Where(Events.Overlaps(v...)) }
+func (q Query) EnabledEq(v bool) Query              { return q.Where(Enabled.Eq(v)) }
+func (q Query) EnabledNotEq(v bool) Query           { return q.Where(Enabled.NotEq(v)) }
 
-const selectPrefix = `SELECT "id", "name", "url", "secret", "events", "enabled", "create_time", "team_id" FROM "webhooks"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "url", "secret", "events", "enabled" FROM "webhooks"`
 const countPrefix = `SELECT count(*) FROM "webhooks"`
 const existsPrefix = `SELECT 1 FROM "webhooks"`
 const existsSuffix = ` LIMIT 1`
@@ -872,11 +880,23 @@ var orderTable = [nCols][4]string{
 		"\"id\" ASC NULLS FIRST",
 		"\"id\" DESC NULLS LAST",
 	},
+	{ // create_time
+		"\"create_time\"",
+		"\"create_time\" DESC",
+		"\"create_time\" ASC NULLS FIRST",
+		"\"create_time\" DESC NULLS LAST",
+	},
 	{ // name
 		"\"name\"",
 		"\"name\" DESC",
 		"\"name\" ASC NULLS FIRST",
 		"\"name\" DESC NULLS LAST",
+	},
+	{ // team_id
+		"\"team_id\"",
+		"\"team_id\" DESC",
+		"\"team_id\" ASC NULLS FIRST",
+		"\"team_id\" DESC NULLS LAST",
 	},
 	{ // url
 		"\"url\"",
@@ -902,31 +922,19 @@ var orderTable = [nCols][4]string{
 		"\"enabled\" ASC NULLS FIRST",
 		"\"enabled\" DESC NULLS LAST",
 	},
-	{ // create_time
-		"\"create_time\"",
-		"\"create_time\" DESC",
-		"\"create_time\" ASC NULLS FIRST",
-		"\"create_time\" DESC NULLS LAST",
-	},
-	{ // team_id
-		"\"team_id\"",
-		"\"team_id\" DESC",
-		"\"team_id\" ASC NULLS FIRST",
-		"\"team_id\" DESC NULLS LAST",
-	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
 // row comparison.
 var identTable = [nCols]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"name\"",
+	"\"team_id\"",
 	"\"url\"",
 	"\"secret\"",
 	"\"events\"",
 	"\"enabled\"",
-	"\"create_time\"",
-	"\"team_id\"",
 }
 
 var lowering = runtime.Lowering{
@@ -990,6 +998,36 @@ var fragTable = [8][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // create_time
+		{}, // opNone
+		{A: "\"create_time\" = $", B: ""},
+		{A: "\"create_time\" <> $", B: ""},
+		{A: "\"create_time\" > $", B: ""},
+		{A: "\"create_time\" >= $", B: ""},
+		{A: "\"create_time\" < $", B: ""},
+		{A: "\"create_time\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 	{ // name
 		{}, // opNone
 		{A: "\"name\" = $", B: ""},
@@ -1017,6 +1055,36 @@ var fragTable = [8][28]runtime.Frag{
 		{},
 		{},
 		{},
+		{},
+		{},
+	},
+	{ // team_id
+		{}, // opNone
+		{A: "\"team_id\" = $", B: ""},
+		{A: "\"team_id\" <> $", B: ""},
+		{A: "\"team_id\" > $", B: ""},
+		{A: "\"team_id\" >= $", B: ""},
+		{A: "\"team_id\" < $", B: ""},
+		{A: "\"team_id\" <= $", B: ""},
+		{A: "lower(\"team_id\") = lower($", B: ")"},
+		{A: "\"team_id\" LIKE $", B: ""},
+		{A: "\"team_id\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"team_id\" = ANY($", B: ")"},
+		{A: "\"team_id\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"team_id\" IS NULL", B: ""},
+		{A: "\"team_id\" IS NOT NULL", B: ""},
 		{},
 		{},
 	},
@@ -1082,25 +1150,25 @@ var fragTable = [8][28]runtime.Frag{
 	},
 	{ // events
 		{}, // opNone
-		{A: "\"events\" = $", B: ""},
-		{A: "\"events\" <> $", B: ""},
-		{A: "\"events\" > $", B: ""},
-		{A: "\"events\" >= $", B: ""},
-		{A: "\"events\" < $", B: ""},
-		{A: "\"events\" <= $", B: ""},
-		{A: "lower(\"events\") = lower($", B: ")"},
-		{A: "\"events\" LIKE $", B: ""},
-		{A: "\"events\" ILIKE $", B: ""},
 		{},
 		{},
 		{},
 		{},
 		{},
-		{A: "\"events\" = ANY($", B: ")"},
-		{A: "\"events\" <> ALL($", B: ")"},
 		{},
 		{},
 		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"events\" @> $", B: ""},
+		{A: "\"events\" <@ $", B: ""},
+		{A: "\"events\" && $", B: ""},
 		{},
 		{},
 		{},
@@ -1137,66 +1205,6 @@ var fragTable = [8][28]runtime.Frag{
 		{},
 		{},
 		{},
-		{},
-		{},
-	},
-	{ // create_time
-		{}, // opNone
-		{A: "\"create_time\" = $", B: ""},
-		{A: "\"create_time\" <> $", B: ""},
-		{A: "\"create_time\" > $", B: ""},
-		{A: "\"create_time\" >= $", B: ""},
-		{A: "\"create_time\" < $", B: ""},
-		{A: "\"create_time\" <= $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-	},
-	{ // team_id
-		{}, // opNone
-		{A: "\"team_id\" = $", B: ""},
-		{A: "\"team_id\" <> $", B: ""},
-		{A: "\"team_id\" > $", B: ""},
-		{A: "\"team_id\" >= $", B: ""},
-		{A: "\"team_id\" < $", B: ""},
-		{A: "\"team_id\" <= $", B: ""},
-		{A: "lower(\"team_id\") = lower($", B: ")"},
-		{A: "\"team_id\" LIKE $", B: ""},
-		{A: "\"team_id\" ILIKE $", B: ""},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{A: "\"team_id\" = ANY($", B: ")"},
-		{A: "\"team_id\" <> ALL($", B: ")"},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{A: "\"team_id\" IS NULL", B: ""},
-		{A: "\"team_id\" IS NOT NULL", B: ""},
 		{},
 		{},
 	},
@@ -1355,15 +1363,19 @@ func Scan(rv [][]byte, r *Row, sl *runtime.Slab) error { return scan(rv, r, sl) 
 // numeric past 18 significant digits, or a NaN. Those must not become a
 // plausible zero, and a row scanner is the last place that can tell.
 func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
+	var decErr error
 	r.ID = sl.Str(rv[0])
-	r.Name = sl.Str(rv[1])
-	r.URL = sl.Str(rv[2])
-	r.Secret = sl.Str(rv[3])
-	r.Events = sl.Str(rv[4])
-	r.Enabled = runtime.Bool(rv[5])
-	r.CreateTime = runtime.Timestamptz(rv[6])
-	r.TeamID = runtime.NullText(rv[7], sl)
-	return nil
+	r.CreateTime = runtime.Timestamptz(rv[1])
+	r.Name = sl.Str(rv[2])
+	r.TeamID = runtime.NullText(rv[3], sl)
+	r.URL = sl.Str(rv[4])
+	r.Secret = sl.Str(rv[5])
+	r.Events, decErr = runtime.TextArray(rv[6], sl)
+	if decErr != nil {
+		return decErr
+	}
+	r.Enabled = runtime.Bool(rv[7])
+	return decErr
 }
 
 type binder struct {
@@ -1427,10 +1439,6 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 1:
-				b.anyStr[nas] = q.anyStr[nas]
-				v = append(v, &b.anyStr[nas])
-				nas++
 			case 2:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
@@ -1443,7 +1451,11 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 7:
+			case 5:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
+			case 6:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
@@ -1456,9 +1468,9 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 1:
-			b.strs[ns] = q.strs[ns]
-			v = append(v, &b.strs[ns])
-			ns++
+			b.tims[ntm] = q.tims[ntm]
+			v = append(v, &b.tims[ntm])
+			ntm++
 		case 2:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
@@ -1472,17 +1484,13 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 5:
-			b.bools[nbo] = q.bools[nbo]
-			v = append(v, &b.bools[nbo])
-			nbo++
-		case 6:
-			b.tims[ntm] = q.tims[ntm]
-			v = append(v, &b.tims[ntm])
-			ntm++
-		case 7:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
+		case 7:
+			b.bools[nbo] = q.bools[nbo]
+			v = append(v, &b.bools[nbo])
+			nbo++
 		}
 	}
 	b.vals = v
@@ -1620,7 +1628,7 @@ func (q Query) Prepare(b *Binder) (string, []any) {
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "webhooks" ("id", "name", "url", "secret", "events", "enabled", "create_time", "team_id") VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "id", "name", "url", "secret", "events", "enabled", "create_time", "team_id"`
+const insertSQL = `INSERT INTO "webhooks" ("id", "create_time", "name", "team_id", "url", "secret", "events", "enabled") VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "id", "create_time", "name", "team_id", "url", "secret", "events", "enabled"`
 
 const updatePrefix = `UPDATE "webhooks" SET `
 const deletePrefix = `DELETE FROM "webhooks"`
@@ -1628,39 +1636,30 @@ const deletePrefix = `DELETE FROM "webhooks"`
 // Dirty bits. One per updatable column; the set of them is an UPDATE's
 // identity, exactly as a token stream is a SELECT's.
 const (
-	dName       uint64 = 1 << 0
-	dURL        uint64 = 1 << 1
-	dSecret     uint64 = 1 << 2
-	dEvents     uint64 = 1 << 3
-	dEnabled    uint64 = 1 << 4
-	dCreateTime uint64 = 1 << 5
-	dTeamID     uint64 = 1 << 6
+	dName    uint64 = 1 << 0
+	dURL     uint64 = 1 << 1
+	dEvents  uint64 = 1 << 2
+	dEnabled uint64 = 1 << 3
 )
 
-const nUpdatable = 7
+const nUpdatable = 4
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
-	{A: "\"name\" = $", B: ""},        // name
-	{A: "\"url\" = $", B: ""},         // url
-	{A: "\"secret\" = $", B: ""},      // secret
-	{A: "\"events\" = $", B: ""},      // events
-	{A: "\"enabled\" = $", B: ""},     // enabled
-	{A: "\"create_time\" = $", B: ""}, // create_time
-	{A: "\"team_id\" = $", B: ""},     // team_id
+	{A: "\"name\" = $", B: ""},    // name
+	{A: "\"url\" = $", B: ""},     // url
+	{A: "\"events\" = $", B: ""},  // events
+	{A: "\"enabled\" = $", B: ""}, // enabled
 }
 
 // exprFrags is the SERVER-side assignment each column may take instead
 // of a bound value. A zero Frag means the column admits none. None of
 // these end in a placeholder sigil, so none consumes an argument slot.
 var exprFrags = [nUpdatable]runtime.Frag{
-	{},                                    // name has no server-side form
-	{},                                    // url has no server-side form
-	{},                                    // secret has no server-side form
-	{},                                    // events has no server-side form
-	{},                                    // enabled has no server-side form
-	{A: "\"create_time\" = now()", B: ""}, // create_time = the database's clock
-	{},                                    // team_id has no server-side form
+	{}, // name has no server-side form
+	{}, // url has no server-side form
+	{}, // events has no server-side form
+	{}, // enabled has no server-side form
 }
 
 // pkFrags addresses one row.
@@ -1673,13 +1672,13 @@ var pkFrags = [1]runtime.Frag{
 // the only way a DEFAULT gen_random_uuid() can ever fire.
 const (
 	iID         uint64 = 1 << 0
-	iName       uint64 = 1 << 1
-	iURL        uint64 = 1 << 2
-	iSecret     uint64 = 1 << 3
-	iEvents     uint64 = 1 << 4
-	iEnabled    uint64 = 1 << 5
-	iCreateTime uint64 = 1 << 6
-	iTeamID     uint64 = 1 << 7
+	iCreateTime uint64 = 1 << 1
+	iName       uint64 = 1 << 2
+	iTeamID     uint64 = 1 << 3
+	iURL        uint64 = 1 << 4
+	iSecret     uint64 = 1 << 5
+	iEvents     uint64 = 1 << 6
+	iEnabled    uint64 = 1 << 7
 )
 
 const nInsertable = 8
@@ -1687,13 +1686,13 @@ const nInsertable = 8
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
 	"\"id\"",
+	"\"create_time\"",
 	"\"name\"",
+	"\"team_id\"",
 	"\"url\"",
 	"\"secret\"",
 	"\"events\"",
 	"\"enabled\"",
-	"\"create_time\"",
-	"\"team_id\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -1702,7 +1701,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"webhooks\""
-const insReturning = " RETURNING \"id\", \"name\", \"url\", \"secret\", \"events\", \"enabled\", \"create_time\", \"team_id\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"url\", \"secret\", \"events\", \"enabled\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -1721,7 +1720,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"name\", \"url\", \"secret\", \"events\", \"enabled\", \"create_time\", \"team_id\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"url\", \"secret\", \"events\", \"enabled\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -1781,13 +1780,7 @@ func (m *Mut) SetURL(v string) {
 	m.expr &^= dURL
 }
 
-func (m *Mut) SetSecret(v string) {
-	m.row.Secret = v
-	m.dirty |= dSecret
-	m.expr &^= dSecret
-}
-
-func (m *Mut) SetEvents(v string) {
+func (m *Mut) SetEvents(v []string) {
 	m.row.Events = v
 	m.dirty |= dEvents
 	m.expr &^= dEvents
@@ -1797,37 +1790,6 @@ func (m *Mut) SetEnabled(v bool) {
 	m.row.Enabled = v
 	m.dirty |= dEnabled
 	m.expr &^= dEnabled
-}
-
-func (m *Mut) SetCreateTime(v time.Time) {
-	m.row.CreateTime = v
-	m.dirty |= dCreateTime
-	m.expr &^= dCreateTime
-}
-
-// SetCreateTimeNow assigns the database's clock, not this process's.
-//
-// Binding time.Now() instead would record when THIS server
-// thought it was. Servers skew, so rows written seconds apart
-// can land out of order, and an event stamped by a fast clock
-// reads as preceding the thing that caused it.
-func (m *Mut) SetCreateTimeNow() {
-	m.expr |= dCreateTime
-	m.dirty &^= dCreateTime
-}
-
-func (m *Mut) SetTeamID(v string) {
-	m.row.TeamID = runtime.Null[string]{V: v, Valid: true}
-	m.dirty |= dTeamID
-	m.expr &^= dTeamID
-}
-
-// SetTeamIDNull writes SQL NULL. It is a separate method because a
-// zero value and an absent value are different facts.
-func (m *Mut) SetTeamIDNull() {
-	m.row.TeamID = runtime.Null[string]{}
-	m.dirty |= dTeamID
-	m.expr &^= dTeamID
 }
 
 // Ins stages a new row. Unlike Mut it has a setter for every insertable
@@ -1860,34 +1822,14 @@ func (n *Ins) SetID(v string) {
 	n.set |= iID
 }
 
-func (n *Ins) SetName(v string) {
-	n.row.Name = v
-	n.set |= iName
-}
-
-func (n *Ins) SetURL(v string) {
-	n.row.URL = v
-	n.set |= iURL
-}
-
-func (n *Ins) SetSecret(v string) {
-	n.row.Secret = v
-	n.set |= iSecret
-}
-
-func (n *Ins) SetEvents(v string) {
-	n.row.Events = v
-	n.set |= iEvents
-}
-
-func (n *Ins) SetEnabled(v bool) {
-	n.row.Enabled = v
-	n.set |= iEnabled
-}
-
 func (n *Ins) SetCreateTime(v time.Time) {
 	n.row.CreateTime = v
 	n.set |= iCreateTime
+}
+
+func (n *Ins) SetName(v string) {
+	n.row.Name = v
+	n.set |= iName
 }
 
 func (n *Ins) SetTeamID(v string) {
@@ -1900,6 +1842,26 @@ func (n *Ins) SetTeamID(v string) {
 func (n *Ins) SetTeamIDNull() {
 	n.row.TeamID = runtime.Null[string]{}
 	n.set |= iTeamID
+}
+
+func (n *Ins) SetURL(v string) {
+	n.row.URL = v
+	n.set |= iURL
+}
+
+func (n *Ins) SetSecret(v string) {
+	n.row.Secret = v
+	n.set |= iSecret
+}
+
+func (n *Ins) SetEvents(v []string) {
+	n.row.Events = v
+	n.set |= iEvents
+}
+
+func (n *Ins) SetEnabled(v bool) {
+	n.row.Enabled = v
+	n.set |= iEnabled
 }
 
 // The conflict encoding. One byte holds both which unique index an
@@ -1947,29 +1909,20 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 7)
+	set := make([]string, 0, 4)
 	switch i {
 	case 0:
-		if mask&(1<<1) != 0 {
+		if mask&(1<<2) != 0 {
 			set = append(set, "name")
 		}
-		if mask&(1<<2) != 0 {
+		if mask&(1<<4) != 0 {
 			set = append(set, "url")
 		}
-		if mask&(1<<3) != 0 {
-			set = append(set, "secret")
-		}
-		if mask&(1<<4) != 0 {
+		if mask&(1<<6) != 0 {
 			set = append(set, "events")
 		}
-		if mask&(1<<5) != 0 {
-			set = append(set, "enabled")
-		}
-		if mask&(1<<6) != 0 {
-			set = append(set, "create_time")
-		}
 		if mask&(1<<7) != 0 {
-			set = append(set, "team_id")
+			set = append(set, "enabled")
 		}
 	}
 	return set
@@ -2019,13 +1972,10 @@ func joinAssign(set []string) string {
 }
 
 var assignFor = map[string]string{
-	"name":        "\"name\" = EXCLUDED.\"name\"",
-	"url":         "\"url\" = EXCLUDED.\"url\"",
-	"secret":      "\"secret\" = EXCLUDED.\"secret\"",
-	"events":      "\"events\" = EXCLUDED.\"events\"",
-	"enabled":     "\"enabled\" = EXCLUDED.\"enabled\"",
-	"create_time": "\"create_time\" = EXCLUDED.\"create_time\"",
-	"team_id":     "\"team_id\" = EXCLUDED.\"team_id\"",
+	"name":    "\"name\" = EXCLUDED.\"name\"",
+	"url":     "\"url\" = EXCLUDED.\"url\"",
+	"events":  "\"events\" = EXCLUDED.\"events\"",
+	"enabled": "\"enabled\" = EXCLUDED.\"enabled\"",
 }
 
 func assignExcluded(c string) string { return assignFor[c] }
@@ -2072,19 +2022,19 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
-			args = append(args, n.row.URL)
-		case 3:
-			args = append(args, n.row.Secret)
-		case 4:
-			args = append(args, n.row.Events)
-		case 5:
-			args = append(args, n.row.Enabled)
-		case 6:
 			args = append(args, n.row.CreateTime)
-		case 7:
+		case 2:
+			args = append(args, n.row.Name)
+		case 3:
 			args = append(args, n.row.TeamID.Arg())
+		case 4:
+			args = append(args, n.row.URL)
+		case 5:
+			args = append(args, n.row.Secret)
+		case 6:
+			args = append(args, n.row.Events)
+		case 7:
+			args = append(args, n.row.Enabled)
 		}
 	}
 	var out Row
@@ -2124,13 +2074,13 @@ func Inserts() int { return insCache.Masks() }
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args := make([]any, 0, 8)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
+	args = append(args, r.TeamID.Arg())
 	args = append(args, r.URL)
 	args = append(args, r.Secret)
 	args = append(args, r.Events)
 	args = append(args, r.Enabled)
-	args = append(args, r.CreateTime)
-	args = append(args, r.TeamID.Arg())
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -2158,13 +2108,13 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 // yourself, or use Create() per row and give up the bulk path.
 var copyCols = []string{
 	"id",
+	"create_time",
 	"name",
+	"team_id",
 	"url",
 	"secret",
 	"events",
 	"enabled",
-	"create_time",
-	"team_id",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
@@ -2190,13 +2140,13 @@ func (s *rowSource) Next() bool {
 func (s *rowSource) Values() []any {
 	r := &s.rows[s.i-1]
 	s.buf[0] = &r.ID
-	s.buf[1] = &r.Name
-	s.buf[2] = &r.URL
-	s.buf[3] = &r.Secret
-	s.buf[4] = &r.Events
-	s.buf[5] = &r.Enabled
-	s.buf[6] = &r.CreateTime
-	s.buf[7] = r.TeamID.Ptr()
+	s.buf[1] = &r.CreateTime
+	s.buf[2] = &r.Name
+	s.buf[3] = r.TeamID.Ptr()
+	s.buf[4] = &r.URL
+	s.buf[5] = &r.Secret
+	s.buf[6] = &r.Events
+	s.buf[7] = &r.Enabled
 	return s.buf[:]
 }
 
@@ -2238,13 +2188,13 @@ func InsertOp(r Row) runtime.BatchOp {
 	st := stmtForInsertNoReturn(mask, 0)
 	args := make([]any, 0, 8)
 	args = append(args, r.ID)
+	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
+	args = append(args, r.TeamID.Arg())
 	args = append(args, r.URL)
 	args = append(args, r.Secret)
 	args = append(args, r.Events)
 	args = append(args, r.Enabled)
-	args = append(args, r.CreateTime)
-	args = append(args, r.TeamID.Arg())
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -2281,19 +2231,19 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 		case 0:
 			args = append(args, n.row.ID)
 		case 1:
-			args = append(args, n.row.Name)
-		case 2:
-			args = append(args, n.row.URL)
-		case 3:
-			args = append(args, n.row.Secret)
-		case 4:
-			args = append(args, n.row.Events)
-		case 5:
-			args = append(args, n.row.Enabled)
-		case 6:
 			args = append(args, n.row.CreateTime)
-		case 7:
+		case 2:
+			args = append(args, n.row.Name)
+		case 3:
 			args = append(args, n.row.TeamID.Arg())
+		case 4:
+			args = append(args, n.row.URL)
+		case 5:
+			args = append(args, n.row.Secret)
+		case 6:
+			args = append(args, n.row.Events)
+		case 7:
+			args = append(args, n.row.Enabled)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
@@ -2345,15 +2295,9 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 		case 1:
 			args = append(args, m.row.URL)
 		case 2:
-			args = append(args, m.row.Secret)
-		case 3:
 			args = append(args, m.row.Events)
-		case 4:
+		case 3:
 			args = append(args, m.row.Enabled)
-		case 5:
-			args = append(args, m.row.CreateTime)
-		case 6:
-			args = append(args, m.row.TeamID.Arg())
 		}
 	}
 	args = append(args, m.row.ID)
@@ -2441,15 +2385,9 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 		case 1:
 			args = append(args, m.row.URL)
 		case 2:
-			args = append(args, m.row.Secret)
-		case 3:
 			args = append(args, m.row.Events)
-		case 4:
+		case 3:
 			args = append(args, m.row.Enabled)
-		case 5:
-			args = append(args, m.row.CreateTime)
-		case 6:
-			args = append(args, m.row.TeamID.Arg())
 		}
 	}
 	args = append(args, m.row.ID)

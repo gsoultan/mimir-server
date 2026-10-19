@@ -23,13 +23,14 @@ import (
 )
 
 // Role is what a user or key may do. Each role includes the ones below it.
-type Role int
+// It is the column's own type, declared with the schema.
+type Role = tables.Role
 
 const (
-	Viewer Role = 1 + iota
-	Editor
-	Admin
-	Owner
+	Viewer = tables.RoleViewer
+	Editor = tables.RoleEditor
+	Admin  = tables.RoleAdmin
+	Owner  = tables.RoleOwner
 )
 
 // Access is a role and the models it applies to. Admins and owners always

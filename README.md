@@ -423,7 +423,10 @@ make gen        # regenerate code after editing proto/ (needs protoc-gen-go
 
 ### The database schema
 
-The tables are Go structs in `internal/store/tables`. The typed query code
+The tables are Go structs in `internal/store/tables`, one per file, with
+the shared columns as mixins (`mixins.go`: id and creation time, display
+name, owning team) and the roles, statuses and kinds as named types
+(`enums.go`) that package store uses directly. The typed query code
 in `internal/store/db` and the migrations in `internal/store/migrations`
 are generated from them with storm's CLI
 (`go install github.com/gsoultan/storm/cmd/storm@v1.2.0`), and both are
@@ -442,3 +445,9 @@ automigrate, in one transaction under an advisory lock, so several servers
 starting together are safe. The files in `internal/store/migrations` are
 the reviewed SQL for each change (embedded in the binary), and CI fails
 when they or the generated code fall behind the structs.
+
+A change automigrate cannot make (a type change that needs a `USING`
+conversion, or dropping an index, which it refuses as destructive) is a
+hand-finished migration that the server runs itself on a database still
+behind it, before automigrate: see `upgrades` in `internal/store/store.go`
+and `0002_typed_columns_and_indexes.up.sql`.
