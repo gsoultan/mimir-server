@@ -16,8 +16,12 @@ import (
 
 // Builtin returns a handler for every architecture the server knows. Data
 // is where checkpoints and the downloaded digits go.
+//
+// The handlers are Loaders: the worker hands each model's weights over
+// once and bounds how many models stay loaded (worker.Config.CacheBytes),
+// so their shared cache has no limit of its own.
 func Builtin(data string) map[string]worker.Handler {
-	cache := runtime.NewCache()
+	cache := runtime.NewCache(0)
 	out := map[string]worker.Handler{}
 	for _, a := range arch.All() {
 		if a.Answers() == arch.Written {
@@ -34,9 +38,31 @@ type handler struct {
 	cache *runtime.Cache
 }
 
+var _ worker.Loader = (*handler)(nil)
+
+func (h *handler) spec(m *worker.Model) arch.Spec {
+	return arch.Resolve(h.a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
+}
+
+// weights returns m's weights, or ErrNeedWeights once the worker has
+// dropped them after Load.
+func weights(m *worker.Model) func() ([]byte, error) {
+	return func() ([]byte, error) {
+		if len(m.Weights) == 0 {
+			return nil, worker.ErrNeedWeights
+		}
+		return m.Weights, nil
+	}
+}
+
+func (h *handler) Load(_ context.Context, m *worker.Model) error {
+	return h.cache.Load(m.ID, m.Version, h.a, h.spec(m), weights(m))
+}
+
+func (h *handler) Unload(modelID string) { h.cache.Forget(modelID) }
+
 func (h *handler) Predict(ctx context.Context, m *worker.Model, input []float32) (worker.Prediction, error) {
-	spec := arch.Resolve(h.a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
-	r, err := h.cache.Predict(ctx, m.ID, m.Version, h.a, spec, func() ([]byte, error) { return m.Weights, nil }, input)
+	r, err := h.cache.Predict(ctx, m.ID, m.Version, h.a, h.spec(m), weights(m), input)
 	if err != nil {
 		return worker.Prediction{}, err
 	}

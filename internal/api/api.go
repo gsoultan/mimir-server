@@ -86,6 +86,15 @@ type Service struct {
 	PredictTimeout time.Duration
 }
 
+// DefaultModelCacheBytes is how many bytes of loaded models the console
+// keeps in memory unless SetModelCacheBytes says otherwise.
+const DefaultModelCacheBytes = 4 << 30
+
+// SetModelCacheBytes bounds the models this process keeps loaded, by the
+// size of their files; the least recently used go first. 0 means no
+// bound.
+func (s *Service) SetModelCacheBytes(n int64) { s.cache.SetLimit(n) }
+
 // DefaultPredictTimeout is how long a prediction may take, loading the
 // model included, when PredictTimeout isn't set.
 const DefaultPredictTimeout = time.Minute
@@ -97,7 +106,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	return &Service{store: s, cache: runtime.NewCache(), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true}
+	return &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true}
 }
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {
