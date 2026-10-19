@@ -13,14 +13,13 @@ import (
 func _assertAPIKeyShape(m m0.APIKey) {
 	type shape m0.APIKey
 	_ = shape{
-		m.ID,
+		m.Record,
+		m.Named,
 		m.User,
-		m.Name,
 		m.Prefix,
 		m.SecretHash,
 		m.Role,
 		m.AllModels,
-		m.CreateTime,
 		m.LastUsed,
 	}
 }
@@ -55,8 +54,9 @@ func _assertAuditEventShape(m m0.AuditEvent) {
 func _assertDatasetShape(m m0.Dataset) {
 	type shape m0.Dataset
 	_ = shape{
-		m.ID,
-		m.Name,
+		m.Record,
+		m.Named,
+		m.TeamOwned,
 		m.Kind,
 		m.Rows,
 		m.Features,
@@ -64,12 +64,10 @@ func _assertDatasetShape(m m0.Dataset) {
 		m.InputShape,
 		m.Target,
 		m.SizeBytes,
-		m.CreateTime,
 		m.Driver,
 		m.DSN,
 		m.SourceQuery,
 		m.RefreshTime,
-		m.Team,
 		m.Columns,
 		m.NumberTarget,
 		m.Skipped,
@@ -81,7 +79,7 @@ func _assertDatasetShape(m m0.Dataset) {
 func _assertDeliveryShape(m m0.Delivery) {
 	type shape m0.Delivery
 	_ = shape{
-		m.ID,
+		m.Record,
 		m.Webhook,
 		m.EventID,
 		m.EventType,
@@ -90,7 +88,6 @@ func _assertDeliveryShape(m m0.Delivery) {
 		m.Attempts,
 		m.ResponseCode,
 		m.Error,
-		m.CreateTime,
 		m.LastAttempt,
 		m.NextAttempt,
 	}
@@ -101,22 +98,21 @@ func _assertDeliveryShape(m m0.Delivery) {
 func _assertModelShape(m m0.Model) {
 	type shape m0.Model
 	_ = shape{
-		m.ID,
-		m.Name,
+		m.Record,
+		m.Named,
+		m.TeamOwned,
 		m.Description,
 		m.Architecture,
 		m.SizeBytes,
 		m.SHA256,
-		m.CreateTime,
 		m.UpdateTime,
 		m.InputShape,
 		m.Labels,
 		m.Features,
+		m.Columns,
 		m.JobID,
 		m.Accuracy,
-		m.Team,
 		m.WorkerID,
-		m.Columns,
 	}
 }
 
@@ -135,14 +131,13 @@ func _assertRecoveryCodeShape(m m0.RecoveryCode) {
 func _assertSessionShape(m m0.Session) {
 	type shape m0.Session
 	_ = shape{
-		m.ID,
+		m.Record,
 		m.TokenHash,
 		m.User,
 		m.AgentHash,
 		m.Device,
 		m.IP,
 		m.Pending,
-		m.CreateTime,
 		m.LastSeen,
 		m.ExpireTime,
 	}
@@ -163,9 +158,8 @@ func _assertSettingShape(m m0.Setting) {
 func _assertTeamShape(m m0.Team) {
 	type shape m0.Team
 	_ = shape{
-		m.ID,
-		m.Name,
-		m.CreateTime,
+		m.Record,
+		m.Named,
 	}
 }
 
@@ -174,8 +168,9 @@ func _assertTeamShape(m m0.Team) {
 func _assertTrainingJobShape(m m0.TrainingJob) {
 	type shape m0.TrainingJob
 	_ = shape{
-		m.ID,
-		m.Name,
+		m.Record,
+		m.Named,
+		m.TeamOwned,
 		m.Description,
 		m.Architecture,
 		m.Dataset,
@@ -192,7 +187,6 @@ func _assertTrainingJobShape(m m0.TrainingJob) {
 		m.ModelID,
 		m.Worker,
 		m.CreatedBy,
-		m.CreateTime,
 		m.StartTime,
 		m.EndTime,
 		m.RepeatSeconds,
@@ -200,7 +194,6 @@ func _assertTrainingJobShape(m m0.TrainingJob) {
 		m.ParentID,
 		m.BaseModelID,
 		m.Note,
-		m.Team,
 		m.RunOn,
 	}
 }
@@ -223,14 +216,13 @@ func _assertUsageShape(m m0.Usage) {
 func _assertUserShape(m m0.User) {
 	type shape m0.User
 	_ = shape{
-		m.ID,
+		m.Record,
+		m.Named,
 		m.Email,
-		m.Name,
 		m.PasswordHash,
 		m.Role,
 		m.AllModels,
 		m.Disabled,
-		m.CreateTime,
 		m.LastSignIn,
 		m.TOTPSecret,
 		m.TOTPPending,
@@ -254,14 +246,13 @@ func _assertUserModelShape(m m0.UserModel) {
 func _assertWebhookShape(m m0.Webhook) {
 	type shape m0.Webhook
 	_ = shape{
-		m.ID,
-		m.Name,
+		m.Record,
+		m.Named,
+		m.TeamOwned,
 		m.URL,
 		m.Secret,
 		m.Events,
 		m.Enabled,
-		m.CreateTime,
-		m.Team,
 	}
 }
 
@@ -270,11 +261,10 @@ func _assertWebhookShape(m m0.Webhook) {
 func _assertWorkerShape(m m0.Worker) {
 	type shape m0.Worker
 	_ = shape{
-		m.ID,
-		m.Name,
+		m.Record,
+		m.Named,
 		m.TokenHash,
 		m.CreatedBy,
-		m.CreateTime,
 		m.LastSeen,
 		m.PublicKey,
 		m.LastAddress,

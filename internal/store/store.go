@@ -39,9 +39,69 @@ var ErrNotFound = errors.New("store: model not found")
 // migrations holds the reviewed migrations `storm diff` wrote from the
 // model. The server applies the model itself with migrate.Auto; these are
 // the record of what that does, and CI checks they carry the whole model.
+// The few that migrate.Auto cannot apply, the server runs itself first:
+// see upgrades.
 //
 //go:embed migrations/*.sql
 var migrations embed.FS
+
+// upgrades are the migrations the server runs itself, each on a database
+// that is still on the schema before it, before migrate.Auto. They change a
+// column's type in a way storm's plan cannot: storm writes ALTER ... TYPE
+// with no USING clause, which PostgreSQL refuses for JSON text to an array
+// (and Auto refuses the plan anyway, as it drops indexes). A fresh database
+// skips them, since Auto creates the model as it is now.
+var upgrades = []struct {
+	file string
+	// behind is a query reporting whether the database needs the file.
+	behind string
+}{{
+	file: "migrations/0002_typed_columns_and_indexes.up.sql",
+	behind: `SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'public' AND table_name = 'models'
+		  AND column_name = 'labels' AND data_type = 'text')`,
+}}
+
+// upgradeLock serialises servers running the upgrades, as migrate.Auto's
+// own lock does for the rest.
+const upgradeLock = 0x6d696d6972_0002 // "mimir", 2
+
+// upgrade runs each upgrade the database is behind on, each in a
+// transaction of its own, and returns how many ran.
+func (s *Store) upgrade(ctx context.Context) (int, error) {
+	ran := 0
+	for _, u := range upgrades {
+		sql, err := migrations.ReadFile(u.file)
+		if err != nil {
+			return ran, fmt.Errorf("store: upgrade: %w", err)
+		}
+		tx, err := s.pool.Begin(ctx)
+		if err != nil {
+			return ran, fmt.Errorf("store: upgrade: %w", err)
+		}
+		applied, err := func() (bool, error) {
+			defer tx.Rollback(context.WithoutCancel(ctx))
+			if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, int64(upgradeLock)); err != nil {
+				return false, err
+			}
+			var behind bool
+			if err := tx.QueryRow(ctx, u.behind).Scan(&behind); err != nil || !behind {
+				return false, err
+			}
+			if _, err := tx.Exec(ctx, string(sql)); err != nil {
+				return false, err
+			}
+			return true, tx.Commit(ctx)
+		}()
+		if err != nil {
+			return ran, fmt.Errorf("store: upgrade %s: %w", filepath.Base(u.file), err)
+		}
+		if applied {
+			ran++
+		}
+	}
+	return ran, nil
+}
 
 // Model is a stored model's metadata.
 type Model struct {
@@ -155,11 +215,15 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("store: model: %w", err)
 	}
+	upgraded, err := s.upgrade(ctx)
+	if err != nil {
+		return err
+	}
 	res, err := migrate.AutoPool(ctx, s.pool, want, migrate.AutoOptions{})
 	if err != nil {
 		return fmt.Errorf("store: migrate: %w", err)
 	}
-	s.applied = len(res.Applied)
+	s.applied = upgraded + len(res.Applied)
 	// A new database starts with the team everything belongs to by
 	// default. With no team at all nothing could be made, so an empty
 	// table gets it back too.
@@ -179,8 +243,8 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-// Applied reports how many schema steps Open applied; 0 when the database
-// already matched the model.
+// Applied reports how many schema steps Open applied, counting an upgrade
+// file as one; 0 when the database already matched the model.
 func (s *Store) Applied() int { return s.applied }
 
 // LatestSchemaVersion is the newest migration shipped with this build.
@@ -226,14 +290,14 @@ func fromModel(r model.Row) Model {
 		SHA256:       r.Sha256,
 		Created:      r.CreateTime.UTC(),
 		Updated:      r.UpdateTime.UTC(),
-		InputShape:   fromJSON[[]int](r.InputShape),
-		Labels:       fromJSON[[]string](r.Labels),
-		Features:     fromJSON[[]string](r.Features),
+		InputShape:   fromInt64s(r.InputShape),
+		Labels:       fromStrs(r.Labels),
+		Features:     fromStrs(r.Features),
 		Accuracy:     r.Accuracy,
 		JobID:        r.JobID,
 		TeamID:       r.TeamID.V,
 		WorkerID:     r.WorkerID,
-		Columns:      fromJSON[[]schema.Column](r.Columns),
+		Columns:      fromDoc[schema.Column](r.Columns),
 	}
 }
 
@@ -297,14 +361,14 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	n.SetSha256(m.SHA256)
 	n.SetCreateTime(t)
 	n.SetUpdateTime(t)
-	n.SetInputShape(toJSON(m.InputShape))
-	n.SetLabels(toJSON(m.Labels))
-	n.SetFeatures(toJSON(m.Features))
+	n.SetInputShape(int64s(m.InputShape))
+	n.SetLabels(strs(m.Labels))
+	n.SetFeatures(strs(m.Features))
 	n.SetJobID(m.JobID)
 	n.SetAccuracy(m.Accuracy)
 	n.SetTeamID(m.TeamID)
 	n.SetWorkerID(m.WorkerID)
-	n.SetColumns(toJSON(m.Columns))
+	n.SetColumns(doc(m.Columns))
 	if _, err := n.Insert(ctx, s.ex); err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)
@@ -324,12 +388,12 @@ func (s *Store) Replace(ctx context.Context, id string, m Model, weights []byte)
 	u.SetSizeBytes(int64(len(weights)))
 	u.SetSha256(hex.EncodeToString(sum[:]))
 	u.SetUpdateTime(now())
-	u.SetInputShape(toJSON(m.InputShape))
-	u.SetLabels(toJSON(m.Labels))
-	u.SetFeatures(toJSON(m.Features))
+	u.SetInputShape(int64s(m.InputShape))
+	u.SetLabels(strs(m.Labels))
+	u.SetFeatures(strs(m.Features))
 	u.SetJobID(m.JobID)
 	u.SetAccuracy(m.Accuracy)
-	u.SetColumns(toJSON(m.Columns))
+	u.SetColumns(doc(m.Columns))
 	if err := u.Update(ctx, s.ex); err != nil {
 		if errors.Is(err, runtime.ErrNoRow) {
 			return ErrNotFound
@@ -418,20 +482,59 @@ func timeOf(n runtime.Null[time.Time]) time.Time {
 	return n.V.UTC()
 }
 
-// toJSON and fromJSON keep small lists in text columns. An empty list is
-// stored as "" so uploaded models read back with nil slices.
-func toJSON[T any](v T) string {
-	b, err := json.Marshal(v)
-	if err != nil || string(b) == "null" || string(b) == "[]" {
-		return ""
+// The array columns are NOT NULL, so a nil list is written as an empty
+// one; an empty one reads back as nil, as uploaded models always have.
+
+func strs(v []string) []string {
+	if v == nil {
+		return []string{}
 	}
-	return string(b)
+	return v
 }
 
-func fromJSON[T any](s string) T {
-	var v T
-	if s != "" {
-		json.Unmarshal([]byte(s), &v)
+func fromStrs(v []string) []string {
+	if len(v) == 0 {
+		return nil
+	}
+	return v
+}
+
+func int64s(v []int) []int64 {
+	out := make([]int64, len(v))
+	for i, n := range v {
+		out[i] = int64(n)
+	}
+	return out
+}
+
+func fromInt64s(v []int64) []int {
+	if len(v) == 0 {
+		return nil
+	}
+	out := make([]int, len(v))
+	for i, n := range v {
+		out[i] = int(n)
+	}
+	return out
+}
+
+// doc and fromDoc keep a list of structs (a dataset's columns, a run's
+// history) in a jsonb column. Empty is [], and reads back as nil.
+func doc[T any](v []T) runtime.JSON {
+	if len(v) == 0 {
+		return runtime.JSON("[]")
+	}
+	b, err := json.Marshal(v)
+	if err != nil { // only unsupported values fail, and these have none
+		panic(fmt.Sprintf("store: encode %T: %v", v, err))
+	}
+	return b
+}
+
+func fromDoc[T any](j runtime.JSON) []T {
+	var v []T
+	if err := j.Unmarshal(&v); err != nil || len(v) == 0 {
+		return nil
 	}
 	return v
 }
