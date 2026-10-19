@@ -29,7 +29,11 @@ in the URL; the default is at most 16 connections. Model weights and
 uploaded examples stay as files in the `-data` folder.
 
 Open http://localhost:8080. The first visit asks you to make the owner
-account. Then choose **Add a model**, pick the model type and upload a
+account, with the one-time setup token the server prints in its log
+(`"setup_token"`) when it starts with no accounts; set
+`MIMIR_SETUP_TOKEN` (at least 16 characters) to choose it yourself, for
+an automated install. Until the owner exists, nobody without the token can
+claim the server. Then choose **Add a model**, pick the model type and upload a
 `.mim` file of its weights, saved with `mim.Save` from mimir. Models the
 server trains are stored the same way; the Mimir Model file is the only
 format it reads or writes.

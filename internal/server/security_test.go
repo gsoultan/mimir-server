@@ -336,7 +336,7 @@ func TestSecureCookieOverTLS(t *testing.T) {
 	ctx := context.Background()
 	srv := startServer(t, true)
 	c := newClients(srv)
-	res, err := c.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: "owner@example.com", Name: "Owner", Password: password}))
+	res, err := c.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: "owner@example.com", Name: "Owner", Password: password, SetupToken: setupToken}))
 	if err != nil {
 		t.Fatal(err)
 	}
