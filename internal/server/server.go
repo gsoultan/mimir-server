@@ -69,7 +69,8 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	)))
 	mux.Handle("/", uiHandler(ui))
 
-	return logRequests(harden(svc.WithConn(mux), svc), log)
+	uploads := newUploadGate(svc.MaxUploads, smallUpload)
+	return logRequests(harden(uploads.wrap(svc.WithConn(mux)), svc), log)
 }
 
 // harden refuses cross-site requests that carry a session cookie and adds

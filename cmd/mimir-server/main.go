@@ -59,6 +59,7 @@ func run() error {
 	predictTimeout := flag.Duration("predict-timeout", env.duration("MIMIR_PREDICT_TIMEOUT", api.DefaultPredictTimeout), "console: the longest one prediction may take, loading the model included, here or on a worker ($MIMIR_PREDICT_TIMEOUT)")
 	workerIdle := flag.Duration("worker-idle-timeout", env.duration("MIMIR_WORKER_IDLE_TIMEOUT", cluster.DefaultIdleTimeout), "console: how long a worker may go silent (it heartbeats every 15s) before its link is dropped and its tasks fail ($MIMIR_WORKER_IDLE_TIMEOUT)")
 	cacheMB := flag.Int("model-cache-mb", env.int("MIMIR_MODEL_CACHE_MB", api.DefaultModelCacheBytes>>20), "console and worker: how many MB of models to keep loaded, by file size; the least recently used are dropped first, and the last one loaded always stays; 0 for no limit ($MIMIR_MODEL_CACHE_MB)")
+	maxUploads := flag.Int("max-uploads", env.int("MIMIR_MAX_UPLOADS", server.DefaultMaxUploads), "console: how many model and dataset uploads to take at once; each is held in memory, so more are refused until one finishes ($MIMIR_MAX_UPLOADS)")
 	flag.Parse()
 	if err := env.err(); err != nil {
 		return err
@@ -114,6 +115,7 @@ func run() error {
 	svc.Pool = cluster.New(log)
 	svc.Pool.IdleTimeout = *workerIdle
 	svc.PredictTimeout = *predictTimeout
+	svc.MaxUploads = *maxUploads
 	svc.SetModelCacheBytes(int64(max(*cacheMB, 0)) << 20)
 	svc.Pool.OnSample = svc.KeepSample
 	svc.Local = local
