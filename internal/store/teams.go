@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gsoultan/storm"
 	"github.com/gsoultan/storm/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
@@ -159,7 +160,7 @@ func (s *Store) RenameTeam(ctx context.Context, id, name string) (Team, error) {
 // DeleteTeam removes a team that has no people, models, examples or
 // training runs left. Its webhooks go with it; its audit events stay.
 func (s *Store) DeleteTeam(ctx context.Context, id string) error {
-	return s.inTx(ctx, func(ex runtime.Executor) error {
+	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		// Lock the team so nothing joins it between the count and the delete.
 		if _, ok, err := team.New().Where(team.ID.Eq(id)).ForUpdate().One(ctx, ex); err != nil {
 			return fmt.Errorf("store: delete team: %w", err)

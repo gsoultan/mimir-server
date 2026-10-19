@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gsoultan/storm"
 	"github.com/gsoultan/storm/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/schema"
@@ -440,7 +441,7 @@ func jobs(rows []trainingjob.Row) []Job {
 // It returns ErrNotFound when there is none.
 func (s *Store) ClaimJob(ctx context.Context, skip ...string) (Job, error) {
 	var j Job
-	err := s.inTx(ctx, func(ex runtime.Executor) error {
+	err := storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		// SKIP LOCKED: two claimers take two different jobs, and neither
 		// waits for the other.
 		r, ok, err := trainingjob.New().
@@ -561,7 +562,7 @@ func (s *Store) SetJobWorker(ctx context.Context, id, workerName string) error {
 // RequeueJob puts a cancelled or failed job back in the queue.
 func (s *Store) RequeueJob(ctx context.Context, id string) (bool, error) {
 	requeued := false
-	err := s.inTx(ctx, func(ex runtime.Executor) error {
+	err := storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		r, ok, err := trainingjob.New().
 			Where(trainingjob.ID.Eq(id), trainingjob.Status.In(int32(JobFailed), int32(JobCancelled))).
 			ForUpdate().
@@ -606,7 +607,7 @@ func (s *Store) JobStatusOf(ctx context.Context, id string) (JobStatus, error) {
 
 // DeleteJob removes a job and its checkpoint. A running job can't go.
 func (s *Store) DeleteJob(ctx context.Context, id string) error {
-	err := s.inTx(ctx, func(ex runtime.Executor) error {
+	err := storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		// Locked, so the runner can't claim it between the check and the
 		// delete.
 		_, ok, err := trainingjob.New().
@@ -636,6 +637,8 @@ func (s *Store) DeleteJob(ctx context.Context, id string) error {
 // ResetRunningJobs puts jobs a previous process left running back in the
 // queue, for a server that restarted mid-training.
 func (s *Store) ResetRunningJobs(ctx context.Context) error {
-	_, err := tables.RequeueRunning.Exec(ctx, s.ex, int32(JobQueued), int32(JobRunning))
+	var m trainingjob.Mut
+	m.SetStatus(int32(JobQueued))
+	_, err := trainingjob.New().Where(trainingjob.Status.Eq(int32(JobRunning))).UpdateAll(ctx, s.ex, m)
 	return err
 }

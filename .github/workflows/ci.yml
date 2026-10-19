@@ -53,7 +53,7 @@ jobs:
           git diff --exit-code -- gen web/src/api/gen web/src/routeTree.gen.ts
       - name: Check storm code and migrations are current
         run: |
-          go install github.com/gsoultan/storm/cmd/storm@v1.2.0
+          go install github.com/gsoultan/storm/cmd/storm@v1.3.0
           createdb storm_generate
           createdb storm_migrate
           STORM_DSN=postgres://postgres:postgres@localhost:5432/storm_generate?sslmode=disable \
