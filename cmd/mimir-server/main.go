@@ -61,12 +61,13 @@ func run() error {
 	cacheMB := flag.Int("model-cache-mb", env.int("MIMIR_MODEL_CACHE_MB", api.DefaultModelCacheBytes>>20), "console and worker: how many MB of models to keep loaded, by file size; the least recently used are dropped first, and the last one loaded always stays; 0 for no limit ($MIMIR_MODEL_CACHE_MB)")
 	maxUploads := flag.Int("max-uploads", env.int("MIMIR_MAX_UPLOADS", server.DefaultMaxUploads), "console: how many model and dataset uploads to take at once; each is held in memory, so more are refused until one finishes ($MIMIR_MAX_UPLOADS)")
 	trainingJobs := flag.Int("training-jobs", env.int("MIMIR_TRAINING_JOBS", 0), "console: how many training jobs run at once (default: one per training slot of the connected workers, plus one for a standalone server, at least 2) ($MIMIR_TRAINING_JOBS)")
+	webhookWorkers := flag.Int("webhook-workers", env.int("MIMIR_WEBHOOK_WORKERS", 0), "console: how many webhooks are sent to at once; each webhook still gets its events one at a time, in order (default 8) ($MIMIR_WEBHOOK_WORKERS)")
 	flag.Parse()
 	if err := env.err(); err != nil {
 		return err
 	}
-	if *trainingJobs < 0 {
-		return errors.New("-training-jobs can't be negative")
+	if *trainingJobs < 0 || *webhookWorkers < 0 {
+		return errors.New("-training-jobs and -webhook-workers can't be negative")
 	}
 
 	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
@@ -165,26 +166,9 @@ func run() error {
 		svc.Notifier.Notify(ctx, "Webhook "+w.Name+" is failing",
 			fmt.Sprintf("mimir gave up sending a %s event to %s after %d tries.\nLast error: %s\n\nCheck the endpoint, then use Send again under Connect your apps.", d.EventType, w.URL, d.Attempts, d.Error))
 	}
-	kick := make(chan struct{}, 1)
-	svc.Kick = func() {
-		select {
-		case kick <- struct{}{}:
-		default:
-		}
-	}
-	bg.Go(func() {
-		t := time.NewTicker(5 * time.Second)
-		defer t.Stop()
-		for {
-			dispatcher.Tick(bgCtx)
-			select {
-			case <-bgCtx.Done():
-				return
-			case <-kick:
-			case <-t.C:
-			}
-		}
-	})
+	dispatcher.Workers = *webhookWorkers
+	svc.Kick = dispatcher.Kick
+	bg.Go(func() { dispatcher.Run(bgCtx, 5*time.Second) })
 	bg.Go(func() { janitor(bgCtx, st, log) })
 	// Prediction counts are written in batches, and once more on the way out.
 	bg.Go(func() {
