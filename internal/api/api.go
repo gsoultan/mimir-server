@@ -41,6 +41,9 @@ type Service struct {
 	meter   *meter
 	log     *slog.Logger
 	setupMu sync.Mutex // serialises Setup so only one first owner is made
+	// setupToken must come with Setup; empty means Setup is closed. Set by
+	// PrepareSetup, cleared once the first owner exists. Guarded by setupMu.
+	setupToken string
 
 	// Notifier sends alerts; nil means none.
 	Notifier *alert.Notifier

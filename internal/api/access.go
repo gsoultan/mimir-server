@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,6 +29,38 @@ var (
 )
 
 // Setup is called at most once: by the first visitor, who becomes owner.
+// Until then the server would belong to whoever found it first, so Setup
+// needs a one-time token that only someone who can read the server's log
+// (or set its environment) knows.
+
+// MinSetupToken is the shortest setup token MIMIR_SETUP_TOKEN may set.
+const MinSetupToken = 16
+
+// PrepareSetup opens Setup when the server has no accounts yet, with
+// preset as its token or, when preset is empty, a new random one, which
+// it returns for the caller to log. It returns "" when the server is
+// already set up.
+func (s *Service) PrepareSetup(ctx context.Context, preset string) (string, error) {
+	s.setupMu.Lock()
+	defer s.setupMu.Unlock()
+	n, err := s.store.CountUsers(ctx)
+	if err != nil {
+		return "", err
+	}
+	if n > 0 {
+		s.setupToken = ""
+		return "", nil
+	}
+	token := strings.TrimSpace(preset)
+	switch {
+	case token == "":
+		token = rand.Text()
+	case len(token) < MinSetupToken:
+		return "", fmt.Errorf("the setup token needs at least %d characters", MinSetupToken)
+	}
+	s.setupToken = token
+	return token, nil
+}
 
 func (s *Service) GetSetupState(ctx context.Context, _ *connect.Request[mimirv1.GetSetupStateRequest]) (*connect.Response[mimirv1.GetSetupStateResponse], error) {
 	n, err := s.store.CountUsers(ctx)
@@ -46,6 +80,17 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 	if n > 0 {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("This server is already set up. Sign in instead."))
 	}
+	if s.setupToken == "" {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("Setup isn't open. Restart the server and use the setup token it prints in its log."))
+	}
+	ipKey := "ip:" + s.Proxies.ClientIP(req.Header(), req.Peer().Addr)
+	if wait := s.Limiter.Wait(ipKey); wait > 0 {
+		return nil, tooMany(wait)
+	}
+	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(req.Msg.GetSetupToken())), []byte(s.setupToken)) != 1 {
+		s.Limiter.Fail(ipKey)
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("That setup token isn't right. The server prints it in its log when it starts with no accounts."))
+	}
 	email, name, err := cleanUser(req.Msg.GetEmail(), req.Msg.GetName())
 	if err != nil {
 		return nil, err
@@ -61,6 +106,7 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
+	s.setupToken = "" // one owner, once
 	res := connect.NewResponse(&mimirv1.SetupResponse{User: s.userProto(ctx, u)})
 	if _, err := s.signIn(ctx, req, res.Header(), u, false); err != nil {
 		return nil, s.internal(ctx, err)

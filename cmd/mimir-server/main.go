@@ -113,6 +113,20 @@ func run() error {
 		return err
 	}
 	svc.ConsolePin = pin
+	// With no accounts yet, the first owner needs a one-time token that
+	// only someone who can read this log (or set the environment) knows.
+	presetSetup := os.Getenv("MIMIR_SETUP_TOKEN")
+	setupToken, err := svc.PrepareSetup(ctx, presetSetup)
+	if err != nil {
+		return fmt.Errorf("$MIMIR_SETUP_TOKEN: %w", err)
+	}
+	switch {
+	case setupToken == "":
+	case presetSetup != "":
+		log.Info("no accounts yet: open the console and set it up with the token in $MIMIR_SETUP_TOKEN")
+	default:
+		log.Info("no accounts yet: open the console and set it up with this one-time setup token", "setup_token", setupToken)
+	}
 
 	// Webhook deliveries and housekeeping run in the background until the
 	// server stops.
