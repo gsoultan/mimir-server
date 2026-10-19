@@ -307,6 +307,16 @@ func (s *Service) WithConn(next http.Handler) http.Handler {
 	})
 }
 
+// https reports whether req reached us over HTTPS. WithConn notes that
+// for every request the server handles; without it, only a trusted
+// proxy's word counts.
+func (s *Service) https(ctx context.Context, req connect.AnyRequest) bool {
+	if c, ok := ctx.Value(connKey{}).(conn); ok {
+		return c.https()
+	}
+	return s.Proxies.ForwardedHTTPS(req.Header(), req.Peer().Addr)
+}
+
 // linkSecurity says how a worker's link is protected. A link a trusted
 // proxy passed on over plain HTTP is plain even when that proxy runs on
 // this machine: the worker is wherever the proxy heard from.
