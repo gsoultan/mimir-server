@@ -290,7 +290,26 @@ curl localhost:8080/mimir.v1.PredictService/Generate \
 always picks the likeliest word, to 2.
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
-anything public. Health checks are at `grpc.health.v1.Health`.
+anything public.
+
+### Health, metrics and request ids
+
+- `GET /healthz` answers 200 while the process serves HTTP (a liveness
+  probe; it checks nothing else).
+- `GET /readyz` answers 200 when the database answers a ping within two
+  seconds, 503 otherwise (a readiness probe). `grpc.health.v1.Health`
+  reports the same, for the whole server and for each service.
+- `GET /metrics` serves Prometheus metrics: `mimir_http_requests_total`,
+  `mimir_http_errors_total` (5xx) and `mimir_http_request_duration_seconds`
+  by method and route; `mimir_rpc_requests_total`, `mimir_rpc_errors_total`
+  and `mimir_rpc_duration_seconds` by Connect/gRPC procedure and status
+  code; plus Go runtime and process metrics. Set `-metrics-token` (or
+  `MIMIR_METRICS_TOKEN`) to require `Authorization: Bearer <token>`;
+  without it anyone who can reach the port can read them.
+- Every response carries `X-Request-Id`: the caller's own when it sends a
+  sensible one (up to 128 letters, digits and `-_.:+/=`), otherwise a new
+  UUID. Log lines written while handling the request carry it as
+  `request_id`.
 
 ### Webhooks
 

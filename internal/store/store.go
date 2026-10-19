@@ -285,6 +285,9 @@ func LatestSchemaVersion() int {
 	return latest
 }
 
+// Ping checks the database answers, for readiness checks.
+func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
+
 // Close closes the database pool.
 func (s *Store) Close() error {
 	s.pool.Close()
