@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gsoultan/storm"
 	"github.com/gsoultan/storm/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/store/db"
@@ -163,7 +164,7 @@ func (s *Store) CreateUser(ctx context.Context, u User) (User, error) {
 	if u.TeamID == "" {
 		u.TeamID = DefaultTeam
 	}
-	err = s.inTx(ctx, func(ex runtime.Executor) error {
+	err = storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		n := user.Create()
 		n.SetID(u.ID)
 		n.SetEmail(u.Email)
@@ -287,7 +288,7 @@ func (s *Store) keyGrants(ctx context.Context, keyIDs ...string) (map[string][]s
 // keys are revoked and their sessions end except keepSession, since all
 // were for the old team's models.
 func (s *Store) MoveUser(ctx context.Context, id, teamID, keepSession string) error {
-	return s.inTx(ctx, func(ex runtime.Executor) error {
+	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		m := user.MutateKey(id)
 		m.SetTeamID(teamID)
 		if err := m.Update(ctx, ex); err != nil {
@@ -296,13 +297,13 @@ func (s *Store) MoveUser(ctx context.Context, id, teamID, keepSession string) er
 			}
 			return fmt.Errorf("store: move user: %w", err)
 		}
-		if _, err := tables.DeleteUserModels.Exec(ctx, ex, id); err != nil {
+		if _, err := usermodel.New().Where(usermodel.UserID.Eq(id)).DeleteAll(ctx, ex); err != nil {
 			return fmt.Errorf("store: move user: %w", err)
 		}
-		if _, err := tables.DeleteUserAPIKeys.Exec(ctx, ex, id); err != nil {
+		if _, err := apikey.New().Where(apikey.UserID.Eq(id)).DeleteAll(ctx, ex); err != nil {
 			return fmt.Errorf("store: move user: %w", err)
 		}
-		if _, err := tables.DeleteOtherSessions.Exec(ctx, ex, id, keepSession); err != nil {
+		if _, err := deleteOtherSessions(ctx, ex, id, keepSession); err != nil {
 			return fmt.Errorf("store: move user: %w", err)
 		}
 		return nil
@@ -312,7 +313,7 @@ func (s *Store) MoveUser(ctx context.Context, id, teamID, keepSession string) er
 // UpdateUser changes a user's name, access and disabled flag.
 func (s *Store) UpdateUser(ctx context.Context, id, name string, access Access, disabled bool) (User, error) {
 	access = normalize(access)
-	err := s.inTx(ctx, func(ex runtime.Executor) error {
+	err := storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		m := user.MutateKey(id)
 		m.SetName(name)
 		m.SetRole(int32(access.Role))
@@ -334,7 +335,7 @@ func (s *Store) UpdateUser(ctx context.Context, id, name string, access Access, 
 
 // SetPassword replaces a user's password hash and ends all their sessions.
 func (s *Store) SetPassword(ctx context.Context, id, hash string) error {
-	return s.inTx(ctx, func(ex runtime.Executor) error {
+	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		m := user.MutateKey(id)
 		m.SetPasswordHash(hash)
 		if err := m.Update(ctx, ex); err != nil {
@@ -343,7 +344,7 @@ func (s *Store) SetPassword(ctx context.Context, id, hash string) error {
 			}
 			return fmt.Errorf("store: set password: %w", err)
 		}
-		if _, err := tables.DeleteUserSessions.Exec(ctx, ex, id); err != nil {
+		if _, err := session.New().Where(session.UserID.Eq(id)).DeleteAll(ctx, ex); err != nil {
 			return fmt.Errorf("store: end sessions: %w", err)
 		}
 		return nil
@@ -510,19 +511,29 @@ func (s *Store) RevokeSession(ctx context.Context, userID, id string) (bool, err
 
 // RevokeOtherSessions ends every session of a user except keep.
 func (s *Store) RevokeOtherSessions(ctx context.Context, userID, keep string) (int64, error) {
-	return tables.DeleteOtherSessions.Exec(ctx, s.ex, userID, keep)
+	return deleteOtherSessions(ctx, s.ex, userID, keep)
 }
 
 // EndSessions signs a user out everywhere.
 func (s *Store) EndSessions(ctx context.Context, userID string) error {
-	_, err := tables.DeleteUserSessions.Exec(ctx, s.ex, userID)
+	_, err := session.New().Where(session.UserID.Eq(userID)).DeleteAll(ctx, s.ex)
 	return err
+}
+
+// deleteOtherSessions ends every session of a user except keep.
+func deleteOtherSessions(ctx context.Context, ex runtime.Executor, userID, keep string) (int64, error) {
+	return session.New().Where(session.UserID.Eq(userID), session.ID.NotEq(keep)).DeleteAll(ctx, ex)
 }
 
 // ExpireSessions drops sessions past their end or idle for too long.
 func (s *Store) ExpireSessions(ctx context.Context) error {
 	t := time.Now()
-	_, err := tables.DeleteStaleSessions.Exec(ctx, s.ex, t, t.Add(-SessionIdleTTL))
+	_, err := session.New().
+		AnyOf(
+			session.And(session.ExpireTime.Lte(t)),
+			session.And(session.Pending.Eq(false), session.LastSeen.Lte(t.Add(-SessionIdleTTL))),
+		).
+		DeleteAll(ctx, s.ex)
 	return err
 }
 
@@ -541,7 +552,7 @@ func (s *Store) SetPendingTOTP(ctx context.Context, userID, secret string) error
 // EnableTOTP promotes the pending secret, stores hashed recovery codes and
 // ends every other session, so a hijacked one can't ride along.
 func (s *Store) EnableTOTP(ctx context.Context, userID, keepSession string, codeHashes []string) error {
-	return s.inTx(ctx, func(ex runtime.Executor) error {
+	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		r, ok, err := user.New().Where(user.ID.Eq(userID)).ForUpdate().One(ctx, ex)
 		if err != nil {
 			return fmt.Errorf("store: enable totp: %w", err)
@@ -558,14 +569,14 @@ func (s *Store) EnableTOTP(ctx context.Context, userID, keepSession string, code
 		if err := replaceRecoveryCodes(ctx, ex, userID, codeHashes); err != nil {
 			return err
 		}
-		_, err = tables.DeleteOtherSessions.Exec(ctx, ex, userID, keepSession)
+		_, err = deleteOtherSessions(ctx, ex, userID, keepSession)
 		return err
 	})
 }
 
 // DisableTOTP turns two-step verification off and drops recovery codes.
 func (s *Store) DisableTOTP(ctx context.Context, userID string) error {
-	return s.inTx(ctx, func(ex runtime.Executor) error {
+	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		m := user.MutateKey(userID)
 		m.SetTotpSecret("")
 		m.SetTotpPending("")
@@ -578,7 +589,7 @@ func (s *Store) DisableTOTP(ctx context.Context, userID string) error {
 }
 
 func replaceRecoveryCodes(ctx context.Context, ex runtime.Executor, userID string, hashes []string) error {
-	if _, err := tables.DeleteRecoveryCodes.Exec(ctx, ex, userID); err != nil {
+	if _, err := recoverycode.New().Where(recoverycode.UserID.Eq(userID)).DeleteAll(ctx, ex); err != nil {
 		return err
 	}
 	if len(hashes) == 0 {
@@ -598,7 +609,7 @@ func replaceRecoveryCodes(ctx context.Context, ex runtime.Executor, userID strin
 // It reports whether the step was new.
 func (s *Store) UseTOTPStep(ctx context.Context, userID string, step int64) (bool, error) {
 	fresh := false
-	err := s.inTx(ctx, func(ex runtime.Executor) error {
+	err := storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		// The row lock makes the check and the write one step: two requests
 		// with the same code can't both see the old step.
 		r, ok, err := user.New().Where(user.ID.Eq(userID)).ForUpdate().One(ctx, ex)
@@ -649,7 +660,7 @@ func (s *Store) CreateAPIKey(ctx context.Context, k APIKey, secretHash string) (
 	}
 	k.ID, k.Created = id, now()
 	k.Access = normalize(k.Access)
-	err = s.inTx(ctx, func(ex runtime.Executor) error {
+	err = storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		n := apikey.Create()
 		n.SetID(k.ID)
 		n.SetUserID(k.UserID)
@@ -830,7 +841,7 @@ func normalize(a Access) Access {
 // first when clear is set. A model listed twice is granted once.
 func setUserModels(ctx context.Context, ex runtime.Executor, userID string, a Access, clear bool) error {
 	if clear {
-		if _, err := tables.DeleteUserModels.Exec(ctx, ex, userID); err != nil {
+		if _, err := usermodel.New().Where(usermodel.UserID.Eq(userID)).DeleteAll(ctx, ex); err != nil {
 			return fmt.Errorf("store: clear user_models: %w", err)
 		}
 	}

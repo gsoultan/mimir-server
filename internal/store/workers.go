@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gsoultan/storm"
 	"github.com/gsoultan/storm/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/store/db/auditevent"
@@ -98,17 +99,21 @@ func (s *Store) TouchWorker(ctx context.Context, id string) {
 // DeleteWorker removes a worker; its token stops working.
 // Models and waiting runs placed on it go back to automatic.
 func (s *Store) DeleteWorker(ctx context.Context, id string) error {
-	return s.inTx(ctx, func(ex runtime.Executor) error {
+	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		if err := worker.Delete(ctx, ex, id); err != nil {
 			if errors.Is(err, runtime.ErrNoRow) {
 				return ErrNotFound
 			}
 			return fmt.Errorf("store: delete worker: %w", err)
 		}
-		if _, err := tables.UnplaceModels.Exec(ctx, ex, id); err != nil {
+		var um model.Mut
+		um.SetWorkerID("")
+		if _, err := model.New().Where(model.WorkerID.Eq(id)).UpdateAll(ctx, ex, um); err != nil {
 			return fmt.Errorf("store: delete worker: %w", err)
 		}
-		if _, err := tables.UnplaceRuns.Exec(ctx, ex, id); err != nil {
+		var ur trainingjob.Mut
+		ur.SetRunOn("")
+		if _, err := trainingjob.New().Where(trainingjob.RunOn.Eq(id)).UpdateAll(ctx, ex, ur); err != nil {
 			return fmt.Errorf("store: delete worker: %w", err)
 		}
 		return nil
@@ -132,7 +137,7 @@ func (s *Store) GetWorker(ctx context.Context, id string) (Worker, error) {
 // reports whether this call set it.
 func (s *Store) SetWorkerKey(ctx context.Context, id string, key []byte) (bool, error) {
 	set := false
-	err := s.inTx(ctx, func(ex runtime.Executor) error {
+	err := storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		// The row lock makes the check and the write one step.
 		r, ok, err := worker.New().Where(worker.ID.Eq(id), worker.PublicKey.IsNull()).ForUpdate().One(ctx, ex)
 		if err != nil || !ok {
@@ -217,7 +222,7 @@ func (s *Store) WorkerSamples(ctx context.Context, workerID string, since time.T
 	for _, r := range rows {
 		out = append(out, WorkerSample{
 			Time:        r.Time.UTC(),
-			CPUPercent:  r.CpuPercent,
+			CPUPercent:  r.CPUPercent,
 			MemoryUsed:  r.MemoryUsed,
 			MemoryTotal: r.MemoryTotal,
 			DiskUsed:    r.DiskUsed,

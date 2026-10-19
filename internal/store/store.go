@@ -559,20 +559,6 @@ func writeFileAtomic(path string, b []byte) error {
 	return os.Rename(tmp.Name(), path)
 }
 
-// inTx runs fn in one transaction and commits it, or rolls back and
-// returns fn's error. A panic in fn rolls back too.
-func (s *Store) inTx(ctx context.Context, fn func(ex runtime.Executor) error) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("store: begin: %w", err)
-	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
-	if err := fn(pgxdrv.Tx{T: tx}); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
-
 // IsOwnDatabase reports whether a PostgreSQL connection string reaches the
 // database this server keeps its own records in, which holds password
 // hashes and sessions and so is never a source of examples. It compares
