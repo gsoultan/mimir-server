@@ -20,7 +20,7 @@ type Dataset struct {
 	SizeBytes   int64
 	Driver      string
 	DSN         string
-	SourceQuery string // not "query": storm derives Go names from column names, and Query is taken
+	SourceQuery string // column source_query since 0001; renaming it would drop and re-add the column
 	RefreshTime *time.Time
 	// Columns is the []schema.Column the rows were read with, as jsonb.
 	Columns      storm.JSON
