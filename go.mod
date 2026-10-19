@@ -9,7 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gsoultan/mimir v0.0.0-20261018101107-3d5242f815c4
 	github.com/gsoultan/mimir-model v0.0.0-20261018100945-b05abe798cbb
-	github.com/gsoultan/storm v1.2.0
+	github.com/gsoultan/storm v1.3.0
 	github.com/jackc/pgx/v5 v5.11.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sync v0.24.0

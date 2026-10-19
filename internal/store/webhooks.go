@@ -11,9 +11,11 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/auditevent"
 	"github.com/gsoultan/mimir-server/internal/store/db/delivery"
 	"github.com/gsoultan/mimir-server/internal/store/db/model"
+	"github.com/gsoultan/mimir-server/internal/store/db/session"
 	"github.com/gsoultan/mimir-server/internal/store/db/setting"
 	"github.com/gsoultan/mimir-server/internal/store/db/user"
 	"github.com/gsoultan/mimir-server/internal/store/db/webhook"
+	"github.com/gsoultan/mimir-server/internal/store/db/workersample"
 	"github.com/gsoultan/mimir-server/internal/store/tables"
 )
 
@@ -339,18 +341,13 @@ func (s *Store) SetSetting(ctx context.Context, key, value string) error {
 func (s *Store) Trim(ctx context.Context, auditKeep, deliveryKeep time.Duration) (int64, error) {
 	var total int64
 	t := time.Now()
-	for _, q := range []struct {
-		stmt interface {
-			Exec(context.Context, runtime.Executor, ...any) (int64, error)
-		}
-		before time.Time
-	}{
-		{tables.TrimAuditEvents, t.Add(-auditKeep)},
-		{tables.TrimDeliveries, t.Add(-deliveryKeep)},
-		{tables.DeleteExpiredSessions, t},
-		{tables.TrimWorkerSamples, t.Add(-WorkerSampleKeep)},
+	for _, del := range []func(context.Context, runtime.Executor) (int64, error){
+		auditevent.New().Where(auditevent.Time.Lt(t.Add(-auditKeep))).DeleteAll,
+		delivery.New().Where(delivery.Status.NotEq(int32(Pending)), delivery.CreateTime.Lt(t.Add(-deliveryKeep))).DeleteAll,
+		session.New().Where(session.ExpireTime.Lte(t)).DeleteAll,
+		workersample.New().Where(workersample.Time.Lt(t.Add(-WorkerSampleKeep))).DeleteAll,
 	} {
-		n, err := q.stmt.Exec(ctx, s.ex, q.before)
+		n, err := del(ctx, s.ex)
 		if err != nil {
 			return total, fmt.Errorf("store: trim: %w", err)
 		}

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gsoultan/storm"
 	"github.com/gsoultan/storm/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/store/db/trainingjob"
 	"github.com/gsoultan/mimir-server/internal/store/db/usage"
 	"github.com/gsoultan/mimir-server/internal/store/db/user"
-	"github.com/gsoultan/mimir-server/internal/store/tables"
 )
 
 // UsageKey names one counter: a month, a person and the key they used.
@@ -29,16 +29,34 @@ type Usage struct {
 	Predictions int64
 }
 
-// AddUsage adds counts in one transaction.
+// AddUsage adds counts in one transaction. Each counter is created at its
+// first prediction and added to after that; the sum is the database's, so
+// two servers counting into one row both land.
 func (s *Store) AddUsage(ctx context.Context, counts map[UsageKey]int64) error {
-	return s.inTx(ctx, func(ex runtime.Executor) error {
-		for k, n := range counts {
-			if _, err := tables.AddUsage.Exec(ctx, ex, k.Month, k.UserID, k.KeyID, k.KeyName, n); err != nil {
-				return fmt.Errorf("store: add usage: %w", err)
-			}
-		}
+	if len(counts) == 0 {
 		return nil
+	}
+	ops := make([]runtime.BatchOp, 0, len(counts))
+	for k, n := range counts {
+		u := usage.Create()
+		u.SetMonth(k.Month)
+		u.SetUserID(k.UserID)
+		u.SetKeyID(k.KeyID)
+		u.SetKeyName(k.KeyName)
+		u.AddPredictionsOnConflict(n)
+		op, err := u.OnConflictMonthUserIDKeyID().Op()
+		if err != nil {
+			return fmt.Errorf("store: add usage: %w", err)
+		}
+		ops = append(ops, op)
+	}
+	err := storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
+		return ex.Batch(ctx, ops, nil)
 	})
+	if err != nil {
+		return fmt.Errorf("store: add usage: %w", err)
+	}
+	return nil
 }
 
 // UserUsage returns a person's predictions in a month, keys included.
