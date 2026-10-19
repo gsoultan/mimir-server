@@ -164,7 +164,11 @@ func (s *Store) JobDir(id string) string {
 	return filepath.Join(filepath.Dir(s.weights), "training", id)
 }
 
-func fromDataset(r dataset.Row) Dataset {
+func (s *Store) fromDataset(r dataset.Row) (Dataset, error) {
+	dsn, err := s.openSecret(r.Dsn, datasetContext(r.ID))
+	if err != nil {
+		return Dataset{}, err
+	}
 	return Dataset{
 		ID:           r.ID,
 		Name:         r.Name,
@@ -177,14 +181,14 @@ func fromDataset(r dataset.Row) Dataset {
 		SizeBytes:    r.SizeBytes,
 		Created:      r.CreateTime.UTC(),
 		Driver:       r.Driver,
-		DSN:          r.Dsn,
+		DSN:          dsn,
 		Query:        r.SourceQuery,
 		Refreshed:    timeOf(r.RefreshTime),
 		TeamID:       r.TeamID.V,
 		Columns:      fromDoc[schema.Column](r.Columns),
 		NumberTarget: r.NumberTarget,
 		Skipped:      r.Skipped,
-	}
+	}, nil
 }
 
 // CreateDataset stores a dataset row and, for a table, its CSV.
@@ -222,7 +226,11 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 	n.SetSizeBytes(d.SizeBytes)
 	n.SetCreateTime(d.Created)
 	n.SetDriver(d.Driver)
-	n.SetDsn(d.DSN)
+	dsn, err := s.box.Seal(d.DSN, datasetContext(d.ID))
+	if err != nil {
+		return Dataset{}, err
+	}
+	n.SetDsn(dsn)
 	n.SetSourceQuery(d.Query)
 	n.SetTeamID(d.TeamID)
 	n.SetColumns(doc(d.Columns))
@@ -284,7 +292,7 @@ func (s *Store) GetDataset(ctx context.Context, id string) (Dataset, error) {
 	if !ok {
 		return Dataset{}, ErrNotFound
 	}
-	return fromDataset(r), nil
+	return s.fromDataset(r)
 }
 
 // ListDatasets returns a team's datasets, newest first.
@@ -299,7 +307,11 @@ func (s *Store) ListDatasets(ctx context.Context, teamID string) ([]Dataset, err
 	}
 	out := make([]Dataset, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, fromDataset(r))
+		d, err := s.fromDataset(r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, d)
 	}
 	return out, nil
 }

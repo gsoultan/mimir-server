@@ -287,7 +287,37 @@ func TestCrossSiteAndHeaders(t *testing.T) {
 		t.Fatal("no CSP")
 	}
 
-	// Over HTTPS (behind a proxy) the cookie gets the __Host- prefix.
+	// A client that merely claims HTTPS gets the plain cookie and no HSTS:
+	// no proxy is trusted yet.
+	spoof := newClients(srv, withHeader("X-Forwarded-Proto", "https"))
+	if _, err := spoof.auth.SignIn(ctx, connect.NewRequest(&mimirv1.SignInRequest{Email: "owner@example.com", Password: password})); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(spoof.jar.cookie, "mimir_session=") {
+		t.Fatalf("cookie from an untrusted X-Forwarded-Proto: %q", spoof.jar.cookie)
+	}
+	req.Header.Set("X-Forwarded-Proto", "https")
+	if res, err = srv.Client().Do(req); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.Header.Get("Strict-Transport-Security") != "" {
+		t.Fatal("HSTS from an untrusted X-Forwarded-Proto")
+	}
+
+	// Over HTTPS behind a trusted proxy the cookie gets the __Host- prefix.
+	proxies, err := auth.ParseProxies("127.0.0.1, ::1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc.Proxies = proxies
+	if res, err = srv.Client().Do(req); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.Header.Get("Strict-Transport-Security") == "" {
+		t.Fatal("no HSTS behind a trusted https proxy")
+	}
 	tls := newClients(srv, withHeader("X-Forwarded-Proto", "https"))
 	if _, err := tls.auth.SignIn(ctx, connect.NewRequest(&mimirv1.SignInRequest{Email: "owner@example.com", Password: password})); err != nil {
 		t.Fatal(err)
@@ -297,6 +327,40 @@ func TestCrossSiteAndHeaders(t *testing.T) {
 	}
 	if _, err := tls.auth.WhoAmI(ctx, connect.NewRequest(&mimirv1.WhoAmIRequest{})); err != nil {
 		t.Fatalf("secure cookie: %v", err)
+	}
+}
+
+// TestSecureCookieOverTLS checks that a console serving TLS itself, with
+// no proxy in front, marks the session cookie Secure and sends HSTS.
+func TestSecureCookieOverTLS(t *testing.T) {
+	ctx := context.Background()
+	srv := startServer(t, true)
+	c := newClients(srv)
+	res, err := c.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: "owner@example.com", Name: "Owner", Password: password, SetupToken: setupToken}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := res.Header().Get("Set-Cookie")
+	if !strings.HasPrefix(set, auth.SecureSessionCookie+"=") || !strings.Contains(set, "; Secure") || !strings.Contains(set, "; HttpOnly") {
+		t.Fatalf("Set-Cookie over TLS: %q", set)
+	}
+	if _, err := c.auth.WhoAmI(ctx, connect.NewRequest(&mimirv1.WhoAmIRequest{})); err != nil {
+		t.Fatalf("secure cookie: %v", err)
+	}
+	si, err := c.auth.SignIn(ctx, connect.NewRequest(&mimirv1.SignInRequest{Email: "owner@example.com", Password: password}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if set := si.Header().Get("Set-Cookie"); !strings.Contains(set, "; Secure") {
+		t.Fatalf("Set-Cookie on sign-in over TLS: %q", set)
+	}
+	page, err := srv.Client().Get(srv.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page.Body.Close()
+	if page.Header.Get("Strict-Transport-Security") == "" {
+		t.Fatal("no HSTS over TLS")
 	}
 }
 

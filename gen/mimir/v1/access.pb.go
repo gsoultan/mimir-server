@@ -345,10 +345,13 @@ func (x *GetSetupStateResponse) GetNeedsSetup() bool {
 }
 
 type SetupRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Email    string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Password string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	// The one-time setup token the server printed in its log when it
+	// started with no accounts, or $MIMIR_SETUP_TOKEN.
+	SetupToken    string `protobuf:"bytes,4,opt,name=setup_token,json=setupToken,proto3" json:"setup_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -400,6 +403,13 @@ func (x *SetupRequest) GetName() string {
 func (x *SetupRequest) GetPassword() string {
 	if x != nil {
 		return x.Password
+	}
+	return ""
+}
+
+func (x *SetupRequest) GetSetupToken() string {
+	if x != nil {
+		return x.SetupToken
 	}
 	return ""
 }
@@ -2456,11 +2466,13 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\x14GetSetupStateRequest\"8\n" +
 	"\x15GetSetupStateResponse\x12\x1f\n" +
 	"\vneeds_setup\x18\x01 \x01(\bR\n" +
-	"needsSetup\"T\n" +
+	"needsSetup\"u\n" +
 	"\fSetupRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\"3\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x1f\n" +
+	"\vsetup_token\x18\x04 \x01(\tR\n" +
+	"setupToken\"3\n" +
 	"\rSetupResponse\x12\"\n" +
 	"\x04user\x18\x01 \x01(\v2\x0e.mimir.v1.UserR\x04user\"A\n" +
 	"\rSignInRequest\x12\x14\n" +

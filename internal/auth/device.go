@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"net"
 	"net/http"
 	"strings"
 )
@@ -51,20 +50,6 @@ func Device(userAgent string) string {
 		return browser
 	}
 	return browser + " on " + os
-}
-
-// ClientIP is the address a request came from, trusting the first
-// X-Forwarded-For entry when a proxy set one. It's shown to the person on
-// their sessions list and written to the audit log, never used to decide.
-func ClientIP(h http.Header, remoteAddr string) string {
-	if xff := h.Get("X-Forwarded-For"); xff != "" {
-		first, _, _ := strings.Cut(xff, ",")
-		return strings.TrimSpace(first)
-	}
-	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
-		return host
-	}
-	return remoteAddr
 }
 
 // SameOrigin reports whether a browser request came from this site. A

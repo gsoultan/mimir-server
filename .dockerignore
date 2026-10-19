@@ -1,0 +1,13 @@
+.git
+.github
+.claude
+.serena
+.mcp.json
+graphify-out
+.storm-bootstrap-*
+bin
+data
+web/node_modules
+web/dist
+*.test
+coverage.out

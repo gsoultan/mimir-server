@@ -92,6 +92,10 @@ func policyWord(p mimirv1.TwoFactorPolicy) string {
 
 // ErrTooMany is returned while a limiter holds the caller back.
 func tooMany(wait time.Duration) error {
+	if wait < time.Minute {
+		secs := int(wait.Seconds()) + 1
+		return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("Too many attempts. Try again in %d seconds.", secs))
+	}
 	mins := int(wait.Minutes()) + 1
 	return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("Too many attempts. Try again in %d minutes.", mins))
 }
@@ -102,7 +106,7 @@ func (s *Service) VerifySecondFactor(ctx context.Context, req *connect.Request[m
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("Sign in with your password first."))
 	}
 	u := p.User
-	keys := []string{"2fa:" + u.ID, "ip:" + auth.ClientIP(req.Header(), req.Peer().Addr)}
+	keys := []string{"2fa:" + u.ID, "ip:" + s.Proxies.ClientIP(req.Header(), req.Peer().Addr)}
 	if wait := s.Limiter.Wait(keys...); wait > 0 {
 		return nil, tooMany(wait)
 	}
@@ -211,7 +215,7 @@ func (s *Service) proveIdentity(ctx context.Context, h http.Header, remote strin
 	if p.Session == nil {
 		return apiKeyNo()
 	}
-	keys := []string{"user:" + p.User.ID, "ip:" + auth.ClientIP(h, remote)}
+	keys := []string{"user:" + p.User.ID, "ip:" + s.Proxies.ClientIP(h, remote)}
 	if wait := s.Limiter.Wait(keys...); wait > 0 {
 		return tooMany(wait)
 	}
@@ -274,5 +278,5 @@ func (s *Service) RevokeSessions(ctx context.Context, req *connect.Request[mimir
 
 // whence describes where a request came from, for the audit log.
 func (s *Service) whence(req connect.AnyRequest) string {
-	return auth.ClientIP(req.Header(), req.Peer().Addr) + ", " + strings.ToLower(auth.Device(req.Header().Get("User-Agent")))
+	return s.Proxies.ClientIP(req.Header(), req.Peer().Addr) + ", " + strings.ToLower(auth.Device(req.Header().Get("User-Agent")))
 }

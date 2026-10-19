@@ -286,19 +286,40 @@ type connKey struct{}
 // conn is how a request reached the console.
 type conn struct {
 	tls       *tls.ConnectionState
-	forwarded bool // a proxy says the caller used https
+	forwarded bool // a trusted proxy says the caller used https
+	proxied   bool // a trusted proxy passed the request on
 }
 
+// https reports whether the caller reached us over HTTPS.
+func (c conn) https() bool { return c.tls != nil || c.forwarded }
+
 // WithConn notes how a request arrived, for the worker link to show and
-// check.
-func WithConn(next http.Handler) http.Handler {
+// check and for the session cookie. Forwarded headers only count from a
+// trusted proxy (Service.Proxies).
+func (s *Service) WithConn(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c := conn{tls: r.TLS, forwarded: strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")}
+		c := conn{
+			tls:       r.TLS,
+			forwarded: s.Proxies.ForwardedHTTPS(r.Header, r.RemoteAddr),
+			proxied:   s.Proxies.Forwarded(r.Header, r.RemoteAddr),
+		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), connKey{}, c)))
 	})
 }
 
-// linkSecurity says how a worker's link is protected.
+// https reports whether req reached us over HTTPS. WithConn notes that
+// for every request the server handles; without it, only a trusted
+// proxy's word counts.
+func (s *Service) https(ctx context.Context, req connect.AnyRequest) bool {
+	if c, ok := ctx.Value(connKey{}).(conn); ok {
+		return c.https()
+	}
+	return s.Proxies.ForwardedHTTPS(req.Header(), req.Peer().Addr)
+}
+
+// linkSecurity says how a worker's link is protected. A link a trusted
+// proxy passed on over plain HTTP is plain even when that proxy runs on
+// this machine: the worker is wherever the proxy heard from.
 func linkSecurity(ctx context.Context, addr string) (security, version string) {
 	c, _ := ctx.Value(connKey{}).(conn)
 	switch {
@@ -306,6 +327,8 @@ func linkSecurity(ctx context.Context, addr string) (security, version string) {
 		return "tls", tls.VersionName(c.tls.Version)
 	case c.forwarded:
 		return "proxy", ""
+	case c.proxied:
+		return "plain", ""
 	case loopback(addr):
 		return "local", ""
 	}

@@ -41,6 +41,9 @@ type Service struct {
 	meter   *meter
 	log     *slog.Logger
 	setupMu sync.Mutex // serialises Setup so only one first owner is made
+	// setupToken must come with Setup; empty means Setup is closed. Set by
+	// PrepareSetup, cleared once the first owner exists. Guarded by setupMu.
+	setupToken string
 
 	// Notifier sends alerts; nil means none.
 	Notifier *alert.Notifier
@@ -49,8 +52,16 @@ type Service struct {
 	Kick func()
 	// AllowPrivateWebhooks lets webhooks point at local addresses.
 	AllowPrivateWebhooks bool
-	// Limiter holds back password and code guessing.
+	// Limiter holds back password and code guessing: per address at
+	// sign-in, per account where a password or code was already needed.
 	Limiter *auth.Limiter
+	// Backoff slows password guessing at sign-in per account and address
+	// together, so guesses from one place can't lock the owner out.
+	Backoff *auth.Backoff
+	// Proxies are the reverse proxies whose X-Forwarded-* headers count.
+	// The zero value trusts none, so a client can't choose its own address
+	// or claim it used HTTPS.
+	Proxies auth.Proxies
 	// KickTraining asks the training runner to look at the queue now, and
 	// CancelTraining stops a running job; either may be nil.
 	KickTraining   func()
@@ -70,7 +81,27 @@ type Service struct {
 	// MaxModelBytes is the largest model file an upload may be; 0 means
 	// the server's default.
 	MaxModelBytes int
+	// MaxUploads is how many model and dataset uploads the server reads
+	// and handles at once; more are refused with ResourceExhausted. 0
+	// means the server's default.
+	MaxUploads int
+	// PredictTimeout bounds one prediction, here or on a worker, on top
+	// of the caller's own deadline; 0 means DefaultPredictTimeout.
+	PredictTimeout time.Duration
 }
+
+// DefaultModelCacheBytes is how many bytes of loaded models the console
+// keeps in memory unless SetModelCacheBytes says otherwise.
+const DefaultModelCacheBytes = 4 << 30
+
+// SetModelCacheBytes bounds the models this process keeps loaded, by the
+// size of their files; the least recently used go first. 0 means no
+// bound.
+func (s *Service) SetModelCacheBytes(n int64) { s.cache.SetLimit(n) }
+
+// DefaultPredictTimeout is how long a prediction may take, loading the
+// model included, when PredictTimeout isn't set.
+const DefaultPredictTimeout = time.Minute
 
 var (
 	_ mimirv1connect.ModelServiceHandler   = (*Service)(nil)
@@ -79,7 +110,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	return &Service{store: s, cache: runtime.NewCache(), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Local: true}
+	return &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true}
 }
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {
@@ -295,6 +326,12 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		}
 	}
 	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
+	timeout := s.PredictTimeout
+	if timeout <= 0 {
+		timeout = DefaultPredictTimeout
+	}
+	pctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	var r runtime.Result
 	var err2 error
 	ran := false
@@ -303,7 +340,7 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	// A model placed on one worker only runs there.
 	if s.Pool != nil && (!s.Local || m.WorkerID != "") {
 		var worker string
-		r, worker, ran, err2 = s.Pool.Predict(ctx, m.ID, m.SHA256, m.WorkerID, a, spec, load, input)
+		r, worker, ran, err2 = s.Pool.Predict(pctx, m.ID, m.SHA256, m.WorkerID, a, spec, load, input)
 		if ran && err2 != nil {
 			s.log.WarnContext(ctx, "predict: worker failed", "worker", worker, "model_id", m.ID, "error", err2)
 		}
@@ -315,9 +352,13 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		if !s.Local {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
 		}
-		r, err2 = s.cache.Predict(ctx, m.ID, m.SHA256, a, spec, load, input)
+		r, err2 = s.cache.Predict(pctx, m.ID, m.SHA256, a, spec, load, input)
 	}
 	switch {
+	case err2 != nil && ctx.Err() != nil:
+		return nil, ctx.Err() // the caller gave up; connect maps it to its code
+	case err2 != nil && pctx.Err() != nil:
+		return nil, connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("The prediction took longer than %v and was stopped.", timeout))
 	case errors.Is(err2, runtime.ErrBadInput):
 		return nil, invalid("%v", err2)
 	case errors.Is(err2, cluster.ErrWorkerFailed), errors.Is(err2, cluster.ErrLinkLost):

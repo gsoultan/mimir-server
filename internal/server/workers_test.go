@@ -144,3 +144,38 @@ func TestWorker(t *testing.T) {
 		t.Fatalf("editor ListWorkers: %v", err)
 	}
 }
+
+// A worker whose model budget fits one model at a time drops the other
+// model's weights and asks for them again, so predictions alternating
+// between two models still succeed, each one reloading.
+func TestWorkerCacheEvictsAndReloads(t *testing.T) {
+	srv := newServer(t)
+	ctx := context.Background()
+	own := owner(t, srv)
+	created, err := own.workers.CreateWorker(ctx, connect.NewRequest(&mimirv1.CreateWorkerRequest{Name: "small"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wctx, stop := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		worker.Run(wctx, worker.Config{Server: srv.URL, Token: created.Msg.GetToken(), Capacity: 2, Version: "test", DataDir: t.TempDir(), CacheBytes: 1, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}, builtin.Builtin(t.TempDir()))
+	}()
+	t.Cleanup(func() { stop(); <-done })
+	waitOnline(t, own, created.Msg.GetWorker().GetId(), true)
+
+	svc.Local = false
+	t.Cleanup(func() { svc.Local = true })
+	a := createModel(t, own, "A", "mnist-mlp")
+	b := createModel(t, own, "B", "mnist-mlp")
+	for i, m := range []*mimirv1.Model{a, b, a, b, a} {
+		res, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: m.GetId(), Input: &mimirv1.Tensor{Values: make([]float32, 784)}}))
+		if err != nil {
+			t.Fatalf("predict %d (%s): %v", i, m.GetName(), err)
+		}
+		if n := len(res.Msg.GetProbabilities().GetValues()); n != 10 {
+			t.Fatalf("predict %d: %d probabilities", i, n)
+		}
+	}
+}

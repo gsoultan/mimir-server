@@ -37,6 +37,7 @@ var (
 	dispatcher *webhook.Dispatcher
 	dbURL      string // the test server's own database
 	runner     *training.Runner
+	setupToken string // the one-time token Setup needs on a fresh server
 )
 
 func newServer(t *testing.T) *httptest.Server {
@@ -68,6 +69,9 @@ func startServer(t *testing.T, tls bool) *httptest.Server {
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
 	svc.CancelTraining = runner.Cancel
+	if setupToken, err = svc.PrepareSetup(context.Background(), ""); err != nil || setupToken == "" {
+		t.Fatalf("PrepareSetup = %q, %v", setupToken, err)
+	}
 	srv := httptest.NewUnstartedServer(server.Handler(svc, st, ui, log))
 	srv.Config.Protocols = server.Protocols()
 	if tls {
@@ -145,7 +149,7 @@ func newClients(srv *httptest.Server, opts ...connect.ClientOption) clients {
 func owner(t *testing.T, srv *httptest.Server) clients {
 	t.Helper()
 	c := newClients(srv)
-	_, err := c.auth.Setup(context.Background(), connect.NewRequest(&mimirv1.SetupRequest{Email: "owner@example.com", Name: "Owner", Password: password}))
+	_, err := c.auth.Setup(context.Background(), connect.NewRequest(&mimirv1.SetupRequest{Email: "owner@example.com", Name: "Owner", Password: password, SetupToken: setupToken}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,15 +213,42 @@ func TestSetupAndSignIn(t *testing.T) {
 	if _, err := anon.models.ListModels(ctx, connect.NewRequest(&mimirv1.ListModelsRequest{})); code(err) != connect.CodeUnauthenticated {
 		t.Fatalf("anonymous ListModels: %v", err)
 	}
-	_, err = anon.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: "x@example.com", Name: "x", Password: "short"}))
+	// Setup needs the token from the server's log: without it, or with a
+	// wrong one, nobody who merely found the server can claim it.
+	for _, tok := range []string{"", "not-the-token-at-all", setupToken + "x"} {
+		_, err = anon.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: "x@example.com", Name: "x", Password: password, SetupToken: tok}))
+		if code(err) != connect.CodePermissionDenied {
+			t.Fatalf("setup with token %q: %v", tok, err)
+		}
+	}
+	if state, _ := anon.auth.GetSetupState(ctx, connect.NewRequest(&mimirv1.GetSetupStateRequest{})); !state.Msg.GetNeedsSetup() {
+		t.Fatal("a refused setup made an account")
+	}
+	// $MIMIR_SETUP_TOKEN presets the token, if it's long enough.
+	if _, err := svc.PrepareSetup(ctx, "too-short"); err == nil {
+		t.Fatal("a short preset setup token was accepted")
+	}
+	const preset = "preset-setup-token-0123456789"
+	if tok, err := svc.PrepareSetup(ctx, preset); err != nil || tok != preset {
+		t.Fatalf("PrepareSetup(preset) = %q, %v", tok, err)
+	}
+	_, err = anon.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: "x@example.com", Name: "x", Password: password, SetupToken: setupToken}))
+	if code(err) != connect.CodePermissionDenied {
+		t.Fatalf("setup with the replaced token: %v", err)
+	}
+	setupToken = preset
+	_, err = anon.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: "x@example.com", Name: "x", Password: "short", SetupToken: setupToken}))
 	if code(err) != connect.CodeInvalidArgument {
 		t.Fatalf("weak password: %v", err)
 	}
 
 	own := owner(t, srv)
-	_, err = anon.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: "again@example.com", Name: "x", Password: password}))
+	_, err = anon.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: "again@example.com", Name: "x", Password: password, SetupToken: setupToken}))
 	if code(err) != connect.CodeFailedPrecondition {
 		t.Fatalf("second setup: %v", err)
+	}
+	if tok, err := svc.PrepareSetup(ctx, ""); err != nil || tok != "" {
+		t.Fatalf("PrepareSetup once set up = %q, %v", tok, err)
 	}
 	me, err := own.auth.WhoAmI(ctx, connect.NewRequest(&mimirv1.WhoAmIRequest{}))
 	if err != nil || me.Msg.GetUser().GetAccess().GetRole() != mimirv1.Role_ROLE_OWNER || len(me.Msg.GetPermissions()) == 0 {

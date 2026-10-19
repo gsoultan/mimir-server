@@ -48,10 +48,19 @@ var ErrBadProof = errors.New("cluster: the worker's key didn't check out")
 // doesn't say.
 const defaultCapacity = 4
 
+// DefaultIdleTimeout is how long a link may stay silent before the pool
+// takes the worker for dead: three missed heartbeats (workers send one
+// every 15 seconds).
+const DefaultIdleTimeout = 45 * time.Second
+
 // Pool is the set of connected workers.
 type Pool struct {
 	// OnSample, when set, is given a worker's stats about once a minute.
 	OnSample func(workerID string, s store.WorkerSample)
+	// IdleTimeout is how long a link may go without a message, heartbeat
+	// or reply, before it is dropped and its tasks fail with ErrLinkLost.
+	// Zero means DefaultIdleTimeout. Set it before the first Serve.
+	IdleTimeout time.Duration
 
 	log   *slog.Logger
 	mu    sync.Mutex
@@ -180,14 +189,52 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 	if err := l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Welcome{Welcome: &mimirv1.Welcome{WorkerId: w.ID, Name: w.Name}}}); err != nil {
 		return err
 	}
+	// Receive blocks until the worker says something or the stream ends,
+	// so it runs on its own goroutine and the loop below can give up on a
+	// worker that has gone quiet. Once Serve returns, connect ends the
+	// stream and the pending Receive returns.
+	msgs := make(chan received)
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			msg, err := stream.Receive()
+			select {
+			case msgs <- received{msg, err}:
+			case <-done:
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	idle := p.IdleTimeout
+	if idle <= 0 {
+		idle = DefaultIdleTimeout
+	}
+	quiet := time.NewTimer(idle)
+	defer quiet.Stop()
 	for {
-		msg, err := stream.Receive()
+		var r received
+		select {
+		case r = <-msgs:
+		case <-quiet.C:
+			log.WarnContext(ctx, "worker: no heartbeat, dropping the link", "idle", idle)
+			return connect.NewError(connect.CodeDeadlineExceeded, errors.New("The worker stopped sending heartbeats."))
+		case <-l.dropped:
+			return connect.NewError(connect.CodeUnauthenticated, errors.New("This worker was deleted."))
+		case <-ctx.Done():
+			return nil
+		}
+		msg, err := r.msg, r.err
 		if errors.Is(err, io.EOF) || ctx.Err() != nil {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
+		quiet.Reset(idle)
 		select {
 		case <-l.dropped:
 			return connect.NewError(connect.CodeUnauthenticated, errors.New("This worker was deleted."))
@@ -205,7 +252,7 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 		case *mimirv1.LinkRequest_TrainResult:
 			taskID = b.TrainResult.GetTaskId()
 		default:
-			continue // heartbeat, or a second hello
+			continue // a second hello
 		}
 		l.mu.Lock()
 		ch := l.pending[taskID]
@@ -219,6 +266,12 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 			return nil
 		}
 	}
+}
+
+// received is one Receive's result.
+type received struct {
+	msg *mimirv1.LinkRequest
+	err error
 }
 
 // receive waits for the next message, for at most helloTimeout.
@@ -300,10 +353,9 @@ func (l *link) send(msg *mimirv1.LinkResponse) error {
 	return l.stream.Send(msg)
 }
 
-// open registers a task and returns its id and reply channel.
+// open registers a task and returns its id and reply channel. l.mu must
+// be held, and the caller must have checked the link has room.
 func (l *link) open(t Task) (string, chan *mimirv1.LinkRequest) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.seq++
 	id := fmt.Sprintf("%s-%d", l.id, l.seq)
 	ch := make(chan *mimirv1.LinkRequest, 16)
@@ -322,12 +374,18 @@ func (l *link) finish(id string) {
 	l.busy--
 }
 
-// pick returns the least busy link that can do the job, or nil. With a
-// workerID only that worker's links count.
+// pick returns the least busy link that can do the job and has room, or
+// nil. With a workerID only that worker's links count.
 func (p *Pool) pick(archName string, train bool, workerID string) *link {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.best(archName, train, workerID)
+}
+
+// best is pick with p.mu held.
+func (p *Pool) best(archName string, train bool, workerID string) *link {
 	var best *link
+	bestBusy := 0
 	for _, l := range p.links {
 		if workerID != "" && l.worker.ID != workerID {
 			continue
@@ -341,11 +399,30 @@ func (p *Pool) pick(archName string, train bool, workerID string) *link {
 		if busy >= cap {
 			continue
 		}
-		if best == nil || busy < best.busy {
-			best = l
+		if best == nil || busy < bestBusy {
+			best, bestBusy = l, busy
 		}
 	}
 	return best
+}
+
+// reserve picks a link like pick and takes a slot on it for t in the same
+// critical section, so two callers can't both take a link's last slot. It
+// returns nil when no link has room; otherwise the caller must finish the
+// task id.
+func (p *Pool) reserve(archName string, train bool, workerID string, t Task) (*link, string, chan *mimirv1.LinkRequest) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	l := p.best(archName, train, workerID)
+	if l == nil {
+		return nil, "", nil
+	}
+	// Slots are only taken here, under p.mu, and finish only gives them
+	// back, so the room best saw is still there.
+	l.mu.Lock()
+	id, ch := l.open(t)
+	l.mu.Unlock()
+	return l, id, ch
 }
 
 // Drop closes every link of a worker, for example after it is deleted.
@@ -402,11 +479,10 @@ func (p *Pool) Statuses() []Status {
 // Predict runs input through version ver of a model on a worker. ran is
 // false when no worker can run the architecture.
 func (p *Pool) Predict(ctx context.Context, modelID, ver, workerID string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (res runtime.Result, worker string, ran bool, err error) {
-	l := p.pick(a.Name, false, workerID)
+	l, id, replies := p.reserve(a.Name, false, workerID, Task{Kind: "predict", ModelID: modelID})
 	if l == nil {
 		return res, "", false, nil
 	}
-	id, replies := l.open(Task{Kind: "predict", ModelID: modelID})
 	defer l.finish(id)
 	task := &mimirv1.PredictTask{
 		TaskId: id, ModelId: modelID, Architecture: a.Name,
@@ -432,6 +508,11 @@ func (p *Pool) Predict(ctx context.Context, modelID, ver, workerID string, a arc
 		}
 		msg, err := wait(ctx, replies, l.closed)
 		if err != nil {
+			if !errors.Is(err, ErrLinkLost) {
+				// The caller gave up or ran out of time: tell the worker
+				// so it stops working on an answer nobody will read.
+				l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Cancel{Cancel: &mimirv1.CancelTask{TaskId: id}}})
+			}
 			return res, l.worker.Name, true, err
 		}
 		r := msg.GetPredictResult()
@@ -453,11 +534,10 @@ func (p *Pool) Predict(ctx context.Context, modelID, ver, workerID string, a arc
 // ran is false when no worker can train the architecture. When ctx ends
 // the worker is told to stop and the error is ctx's cause.
 func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Task, progress training.Progress) (res training.Result, worker string, ran bool, err error) {
-	l := p.pick(t.Arch.Name, true, workerID)
+	l, id, replies := p.reserve(t.Arch.Name, true, workerID, Task{Kind: "train", JobID: jobID})
 	if l == nil {
 		return res, "", false, nil
 	}
-	id, replies := l.open(Task{Kind: "train", JobID: jobID})
 	defer l.finish(id)
 	task := &mimirv1.TrainTask{
 		TaskId: id, JobId: jobID, Architecture: t.Arch.Name,
