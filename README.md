@@ -28,8 +28,24 @@ and console roles. On start it brings the schema up to date by itself
 in the URL; the default is at most 16 connections. Model weights and
 uploaded examples stay as files in the `-data` folder.
 
+Secrets the server keeps in the database (webhook signing secrets, dataset
+connection strings, alert passwords and bot tokens) are encrypted with
+AES-256-GCM, so a copy or backup of the database does not reveal them. The
+key is 32 random bytes as base64 or hex (`openssl rand -base64 32`), taken
+from `MIMIR_SECRET_KEY`, else from the file `-secret-key-file` (or
+`MIMIR_SECRET_KEY_FILE`) names, else from `<data>/secret.key`, which the
+server makes on first start and logs. Secrets written by an older version
+are encrypted in place on the next start. Keep the key with your backups
+but apart from them: without it those secrets cannot be read, and the
+server refuses to start with a key that does not open them. Every console
+sharing a database needs the same key.
+
 Open http://localhost:8080. The first visit asks you to make the owner
-account. Then choose **Add a model**, pick the model type and upload a
+account, with the one-time setup token the server prints in its log
+(`"setup_token"`) when it starts with no accounts; set
+`MIMIR_SETUP_TOKEN` (at least 16 characters) to choose it yourself, for
+an automated install. Until the owner exists, nobody without the token can
+claim the server. Then choose **Add a model**, pick the model type and upload a
 `.mim` file of its weights, saved with `mim.Save` from mimir. Models the
 server trains are stored the same way; the Mimir Model file is the only
 format it reads or writes.
@@ -79,6 +95,26 @@ language models. Start the console with `-max-model-mb 2048`, say, to take
 bigger GGUF files; converting one needs about three times its size in
 memory for a moment.
 
+### In a container, or from a release
+
+The `Dockerfile` builds the web UI and a static binary (no GPU backends:
+it is built with `-tags nocuda,norocm`, since mimir loads the CUDA and ROCm
+libraries through the C library's loader) on a distroless image that runs
+as a non-root user, with the data folder at `/data`:
+
+```sh
+docker build --build-arg VERSION=$(git describe --tags --always) -t mimir-server .
+docker run -p 8080:8080 -v mimir-data:/data \
+  -e MIMIR_DATABASE_URL='postgres://mimir:secret@db:5432/mimir' mimir-server
+```
+
+The image has no `pg_dump`, so download backups with `pg_dump` from
+elsewhere. Pushing a `v*` tag builds release archives for Linux, macOS and
+Windows on amd64 and arm64, with SHA-256 sums, and attaches them to a
+GitHub release. Those binaries keep the GPU backends, so on Linux they need
+glibc. `make build` and CI stamp the version (`git describe`) with
+`-ldflags "-X main.version=..."`; workers report it to the console.
+
 ## Who can do what
 
 | Role | Can |
@@ -124,14 +160,29 @@ server-wide settings are theirs alone.
   every sign-in, after the second factor and after a password change;
   a password change, a smaller role or a disabled account signs the person
   out everywhere.
-- **Guessing and forgery.** Ten wrong passwords or codes lock an account
-  (and the address they came from) for 15 minutes. Cross-site requests
+- **Guessing and forgery.** At sign-in, after five wrong passwords for
+  an account from one address, each further one doubles the wait before
+  that address may try that account again (1 second, 2, 4, ... up to 15
+  minutes); and ten wrong passwords from one address, for any accounts,
+  hold that address back for 15 minutes. Neither touches the account from
+  anywhere else, so nobody can lock its owner out by failing on purpose.
+  Ten wrong second-step codes, or wrong passwords when changing account
+  security, hold that account back for 15 minutes. Cross-site requests
   that carry the session cookie are refused, and the UI ships with a
   Content-Security-Policy, `X-Frame-Options: DENY` and friends.
+- **Behind a proxy.** The console believes `X-Forwarded-For` and
+  `X-Forwarded-Proto` only from the proxies you list with
+  `-trusted-proxies` (or `$MIMIR_TRUSTED_PROXIES`), a comma-separated list
+  of addresses and CIDR ranges such as `127.0.0.1,10.0.0.0/8`. By default
+  it trusts none and uses the address of the connection itself, so a
+  client can't pick the address that keys rate limits and goes in the
+  audit log, or claim it used HTTPS. Behind a reverse proxy, list it:
+  otherwise every request seems to come from the proxy.
 - **Storage.** Passwords are hashed with argon2id; session tokens, API
   keys and recovery codes are stored only as hashes. The cookie is
-  HttpOnly and SameSite=Lax, and becomes `__Host-` prefixed and Secure
-  behind an HTTPS proxy that sets `X-Forwarded-Proto`.
+  HttpOnly and SameSite=Lax, and becomes `__Host-` prefixed and Secure,
+  with HSTS on every response, over HTTPS: when the console serves TLS
+  itself, or behind a trusted proxy that sets `X-Forwarded-Proto: https`.
 
 ## How models load
 
@@ -259,7 +310,26 @@ curl localhost:8080/mimir.v1.PredictService/Generate \
 always picks the likeliest word, to 2.
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
-anything public. Health checks are at `grpc.health.v1.Health`.
+anything public.
+
+### Health, metrics and request ids
+
+- `GET /healthz` answers 200 while the process serves HTTP (a liveness
+  probe; it checks nothing else).
+- `GET /readyz` answers 200 when the database answers a ping within two
+  seconds, 503 otherwise (a readiness probe). `grpc.health.v1.Health`
+  reports the same, for the whole server and for each service.
+- `GET /metrics` serves Prometheus metrics: `mimir_http_requests_total`,
+  `mimir_http_errors_total` (5xx) and `mimir_http_request_duration_seconds`
+  by method and route; `mimir_rpc_requests_total`, `mimir_rpc_errors_total`
+  and `mimir_rpc_duration_seconds` by Connect/gRPC procedure and status
+  code; plus Go runtime and process metrics. Set `-metrics-token` (or
+  `MIMIR_METRICS_TOKEN`) to require `Authorization: Bearer <token>`;
+  without it anyone who can reach the port can read them.
+- Every response carries `X-Request-Id`: the caller's own when it sends a
+  sensible one (up to 128 letters, digits and `-_.:+/=`), otherwise a new
+  UUID. Log lines written while handling the request carry it as
+  `request_id`.
 
 ### Webhooks
 
@@ -334,7 +404,7 @@ it is connected.
   machine, and the console refuses unencrypted workers from other
   machines. Serve the console with TLS (`-tls-cert` and `-tls-key`, or
   `-tls-auto` to make a certificate in the data folder) or put it behind an
-  https proxy. For a private network you trust, `-insecure` on the worker
+  https proxy listed in `-trusted-proxies`. For a private network you trust, `-insecure` on the worker
   and `-allow-plain-workers` on the console turn this off.
 - **The worker checks the console.** When the console serves a
   certificate nobody vouches for (such as `-tls-auto`), tokens carry its
@@ -369,7 +439,8 @@ Owners find these under **Settings**; admins see their team's
   needs `pg_dump` on its `PATH` for this (same major version as the
   database or newer); without it the download fails with HTTP 501 and you
   run `pg_dump` yourself. Model weights live in the data folder; back that
-  up too.
+  up too. Stored secrets are encrypted in the dump; restoring needs the
+  same secret key.
 - **Limits**: how many predictions each API key or person may make a minute,
   how many each person may make a month (all their keys together), and how
   many training runs each person may have waiting or learning at once. 0

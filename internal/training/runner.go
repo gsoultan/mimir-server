@@ -37,14 +37,25 @@ func DefaultsFor(k store.DatasetKind) store.Settings {
 // ErrCancelled is the cause a job's context carries when a person stops it.
 var ErrCancelled = errors.New("training: cancelled")
 
-// Runner takes queued jobs one at a time and trains them.
+// Runner takes queued jobs and trains them, several at once.
 type Runner struct {
 	st  *store.Store
 	log *slog.Logger
 
 	mu      sync.Mutex
 	running map[string]context.CancelCauseFunc
+	active  int // jobs holding a slot; guarded by mu
 	wake    chan struct{}
+	freed   chan struct{} // a slot came free
+	jobs    sync.WaitGroup
+	// local lets one job at a time train in this process: the framework
+	// runs one computation at a time anyway, so more would only add memory.
+	local chan struct{}
+
+	// Jobs is how many jobs run at once. Zero means one per training slot
+	// of the connected workers, plus one when Local, and at least
+	// DefaultJobs.
+	Jobs int
 
 	// OnDone is called after a job succeeds or fails, for webhooks and
 	// alerts. It may be nil.
@@ -69,6 +80,15 @@ type Remote interface {
 	CanTrain(a, workerID string) bool
 }
 
+// DefaultJobs is the fewest jobs that run at once when Jobs is zero.
+const DefaultJobs = 2
+
+// TrainSlots is what a Remote can also say: how many training tasks its
+// connected workers take at once, to size the runner when Jobs is zero.
+type TrainSlots interface {
+	TrainSlots() int
+}
+
 // errNoWorker is the failure when nobody can run a job.
 var errNoWorker = errors.New("no worker is connected that can train this kind of model")
 
@@ -78,7 +98,7 @@ var ErrWorkerLost = errors.New("the worker disconnected")
 
 // New returns a Runner over st that trains locally.
 func New(st *store.Store, log *slog.Logger) *Runner {
-	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1), Local: true, Now: time.Now}
+	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1), freed: make(chan struct{}, 1), local: make(chan struct{}, 1), Local: true, Now: time.Now}
 }
 
 // Kick asks the runner to look at the queue now.
@@ -100,14 +120,15 @@ func (r *Runner) Cancel(id string) bool {
 	return ok
 }
 
-// Run works the queue until ctx ends. A job interrupted by shutdown goes
-// back to the queue for the next start.
+// Run works the queue until ctx ends, then waits for the jobs in flight.
+// A job interrupted by shutdown goes back to the queue for the next start.
 func (r *Runner) Run(ctx context.Context) {
 	if err := r.st.ResetRunningJobs(ctx); err != nil {
 		r.log.ErrorContext(ctx, "training: reset running jobs", "error", err)
 	}
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
+	defer r.jobs.Wait()
 	for {
 		r.schedule(ctx)
 		r.drain(ctx)
@@ -120,35 +141,96 @@ func (r *Runner) Run(ctx context.Context) {
 	}
 }
 
-// Tick queues due keep-learning passes and runs every queued job once,
-// for tests.
+// Tick queues due keep-learning passes, runs every queued job once and
+// waits for them, for tests.
 func (r *Runner) Tick(ctx context.Context) {
 	r.schedule(ctx)
 	r.drain(ctx)
+	r.jobs.Wait()
 }
 
+// limit is how many jobs may run at once right now.
+func (r *Runner) limit() int {
+	if r.Jobs > 0 {
+		return r.Jobs
+	}
+	n := 0
+	if s, ok := r.Remote.(TrainSlots); ok {
+		n = s.TrainSlots()
+	}
+	if r.Local {
+		n++
+	}
+	return max(n, DefaultJobs)
+}
+
+// acquire waits for a free slot. It reports false when ctx ends first.
+func (r *Runner) acquire(ctx context.Context) bool {
+	for {
+		r.mu.Lock()
+		if r.active < r.limit() {
+			r.active++
+			r.mu.Unlock()
+			return true
+		}
+		r.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return false
+		case <-r.freed:
+		}
+	}
+}
+
+// release gives a slot back and looks at the queue again, for jobs set
+// aside while every worker was busy.
+func (r *Runner) release() {
+	r.mu.Lock()
+	r.active--
+	r.mu.Unlock()
+	select {
+	case r.freed <- struct{}{}:
+	default:
+	}
+	r.Kick()
+}
+
+// drain starts queued jobs until the queue is empty, each in its own
+// goroutine once a slot is free. Claiming is atomic in the database, so
+// two servers never take the same job.
 func (r *Runner) drain(ctx context.Context) {
 	// skip holds jobs set aside this round because nobody can run them
 	// now, so one waiting for an offline worker doesn't hold up the rest.
 	var skip []string
 	for ctx.Err() == nil {
+		if !r.acquire(ctx) {
+			return
+		}
 		j, err := r.st.ClaimJob(ctx, skip...)
 		if errors.Is(err, store.ErrNotFound) {
+			r.release()
 			return
 		}
 		if err != nil {
+			r.release()
 			r.log.ErrorContext(ctx, "training: claim job", "error", err)
 			return
 		}
 		pinned := j.RunOn != ""
 		if (pinned || !r.Local) && (r.Remote == nil || !r.Remote.CanTrain(j.Architecture, j.RunOn)) {
 			// Nobody can run it right now; leave it queued for when a
-			// worker connects.
+			// worker connects or comes free.
 			r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
 			skip = append(skip, j.ID)
+			r.mu.Lock()
+			r.active--
+			r.mu.Unlock()
 			continue
 		}
-		r.run(ctx, j)
+		r.jobs.Go(func() {
+			defer r.release()
+			r.run(ctx, j)
+		})
 	}
 }
 
@@ -178,6 +260,12 @@ func (r *Runner) run(ctx context.Context, j store.Job) {
 	case errors.Is(err, ErrWorkerLost):
 		r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
 		log.WarnContext(ctx, "training: the worker went away; back in the queue")
+		return
+	case errors.Is(err, errNoWorker) && ctx.Err() == nil:
+		// A worker could take it when it was claimed, but another job got
+		// there first or the worker left; wait in the queue.
+		r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
+		log.InfoContext(ctx, "training: no worker free; back in the queue")
 		return
 	case ctx.Err() != nil:
 		// The server is stopping; the job goes back to the queue with its
@@ -241,7 +329,13 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		if !r.Local || j.RunOn != "" {
 			return "", errNoWorker
 		}
+		select {
+		case r.local <- struct{}{}:
+		case <-ctx.Done():
+			return "", context.Cause(ctx)
+		}
 		res, err = Fit(ctx, task, progress)
+		<-r.local
 	}
 	if err != nil {
 		return "", err

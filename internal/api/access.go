@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,6 +29,38 @@ var (
 )
 
 // Setup is called at most once: by the first visitor, who becomes owner.
+// Until then the server would belong to whoever found it first, so Setup
+// needs a one-time token that only someone who can read the server's log
+// (or set its environment) knows.
+
+// MinSetupToken is the shortest setup token MIMIR_SETUP_TOKEN may set.
+const MinSetupToken = 16
+
+// PrepareSetup opens Setup when the server has no accounts yet, with
+// preset as its token or, when preset is empty, a new random one, which
+// it returns for the caller to log. It returns "" when the server is
+// already set up.
+func (s *Service) PrepareSetup(ctx context.Context, preset string) (string, error) {
+	s.setupMu.Lock()
+	defer s.setupMu.Unlock()
+	n, err := s.store.CountUsers(ctx)
+	if err != nil {
+		return "", err
+	}
+	if n > 0 {
+		s.setupToken = ""
+		return "", nil
+	}
+	token := strings.TrimSpace(preset)
+	switch {
+	case token == "":
+		token = rand.Text()
+	case len(token) < MinSetupToken:
+		return "", fmt.Errorf("the setup token needs at least %d characters", MinSetupToken)
+	}
+	s.setupToken = token
+	return token, nil
+}
 
 func (s *Service) GetSetupState(ctx context.Context, _ *connect.Request[mimirv1.GetSetupStateRequest]) (*connect.Response[mimirv1.GetSetupStateResponse], error) {
 	n, err := s.store.CountUsers(ctx)
@@ -46,6 +80,17 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 	if n > 0 {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("This server is already set up. Sign in instead."))
 	}
+	if s.setupToken == "" {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("Setup isn't open. Restart the server and use the setup token it prints in its log."))
+	}
+	ipKey := "ip:" + s.Proxies.ClientIP(req.Header(), req.Peer().Addr)
+	if wait := s.Limiter.Wait(ipKey); wait > 0 {
+		return nil, tooMany(wait)
+	}
+	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(req.Msg.GetSetupToken())), []byte(s.setupToken)) != 1 {
+		s.Limiter.Fail(ipKey)
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("That setup token isn't right. The server prints it in its log when it starts with no accounts."))
+	}
 	email, name, err := cleanUser(req.Msg.GetEmail(), req.Msg.GetName())
 	if err != nil {
 		return nil, err
@@ -61,6 +106,7 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
+	s.setupToken = "" // one owner, once
 	res := connect.NewResponse(&mimirv1.SetupResponse{User: s.userProto(ctx, u)})
 	if _, err := s.signIn(ctx, req, res.Header(), u, false); err != nil {
 		return nil, s.internal(ctx, err)
@@ -71,29 +117,40 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 
 func (s *Service) SignIn(ctx context.Context, req *connect.Request[mimirv1.SignInRequest]) (*connect.Response[mimirv1.SignInResponse], error) {
 	email := auth.NormalizeEmail(req.Msg.GetEmail())
-	keys := []string{"email:" + email, "ip:" + auth.ClientIP(req.Header(), req.Peer().Addr)}
-	if wait := s.Limiter.Wait(keys...); wait > 0 {
+	// Guessing is slowed per address (a hard budget, so one address can't
+	// try many accounts quickly) and per account and address together (a
+	// growing delay). Nothing is keyed on the account alone: anyone could
+	// then lock its owner out by failing on purpose.
+	ip := s.Proxies.ClientIP(req.Header(), req.Peer().Addr)
+	ipKey, pairKey := "ip:"+ip, "signin:"+email+"|"+ip
+	if wait := max(s.Limiter.Wait(ipKey), s.Backoff.Wait(pairKey)); wait > 0 {
 		return nil, tooMany(wait)
+	}
+	fail := func() {
+		s.Limiter.Fail(ipKey)
+		s.Backoff.Fail(pairKey)
 	}
 	u, err := s.store.GetUserByEmail(ctx, email)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		// Hash anyway so a missing user takes as long as a wrong password.
 		auth.CheckPassword("$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", req.Msg.GetPassword())
-		s.Limiter.Fail(keys...)
+		fail()
 		return nil, badSignIn()
 	case err != nil:
 		return nil, s.internal(ctx, err)
 	}
 	if !auth.CheckPassword(u.PasswordHash, req.Msg.GetPassword()) {
-		s.Limiter.Fail(keys...)
+		fail()
 		s.auditIn(ctx, u.TeamID, email, "user.signin_failed", email, s.whence(req))
 		return nil, badSignIn()
 	}
 	if u.Disabled {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("This account is disabled. Ask an admin to enable it."))
 	}
-	s.Limiter.Clear(keys...)
+	// Only this account's streak from here ends: the address's budget
+	// stays, so signing in to an account of one's own can't reset it.
+	s.Backoff.Clear(pairKey)
 	// A stale cookie from before never carries over: the browser always
 	// leaves with a token minted for this sign-in.
 	if old := auth.SessionToken(req.Header()); old != "" {
@@ -437,16 +494,15 @@ func (s *Service) signIn(ctx context.Context, req connect.AnyRequest, resHeader 
 	}
 	h := req.Header()
 	se, err := s.store.CreateSession(ctx, hash, store.Session{
-		UserID: u.ID, Device: auth.Device(h.Get("User-Agent")), IP: auth.ClientIP(h, req.Peer().Addr),
+		UserID: u.ID, Device: auth.Device(h.Get("User-Agent")), IP: s.Proxies.ClientIP(h, req.Peer().Addr),
 		Pending: pending, Expires: time.Now().Add(ttl),
 	})
 	if err != nil {
 		return store.Session{}, err
 	}
-	// Mark the cookie Secure when the browser reached us over HTTPS, which
-	// in production means through a TLS proxy.
-	secure := strings.EqualFold(h.Get("X-Forwarded-Proto"), "https")
-	auth.SetSessionCookie(resHeader, token, secure, ttl)
+	// Mark the cookie Secure when the browser reached us over HTTPS: TLS
+	// served here, or a trusted proxy that says so.
+	auth.SetSessionCookie(resHeader, token, s.https(ctx, req), ttl)
 	return se, nil
 }
 

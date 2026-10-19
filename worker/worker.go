@@ -63,6 +63,22 @@ type Handler interface {
 	Predict(ctx context.Context, m *Model, input []float32) (Prediction, error)
 }
 
+// Loader is a Handler that keeps its own loaded copy of each model, so the
+// worker need not keep the raw weights too. The worker calls Load once
+// with a model's weights and then drops them: Predict gets the Model with
+// Weights empty. A Predict that needs the weights again, because the
+// handler let its copy go, returns ErrNeedWeights and the worker asks the
+// server to send them. Unload is called when the worker drops a model to
+// stay within Config.CacheBytes.
+type Loader interface {
+	Load(ctx context.Context, m *Model) error
+	Unload(modelID string)
+}
+
+// ErrNeedWeights is what a Loader's Predict returns when it no longer has
+// the model loaded and the Model it was given carries no weights.
+var ErrNeedWeights = errors.New("worker: the model's weights are needed again")
+
 // Settings are a training task's knobs.
 type Settings struct {
 	Epochs       int
@@ -179,7 +195,16 @@ type Config struct {
 	// examples then cross the network unencrypted; only use it on a
 	// network you trust.
 	Insecure bool
+	// CacheBytes bounds the models the worker keeps, by the size of their
+	// weights; the least recently used are dropped first and sent again
+	// by the server when next needed. 0 means DefaultCacheBytes; a
+	// negative value means no bound.
+	CacheBytes int64
 }
+
+// DefaultCacheBytes is how many bytes of models a worker keeps when
+// Config.CacheBytes isn't set.
+const DefaultCacheBytes = 4 << 30
 
 // Run joins the server and serves tasks until ctx ends. It returns ctx's
 // error, or a configuration error found before connecting.
@@ -242,6 +267,12 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 		client = httpClient(plain, tc)
 	}
 	cfg.Token = secret
+	switch {
+	case cfg.CacheBytes == 0:
+		cfg.CacheBytes = DefaultCacheBytes
+	case cfg.CacheBytes < 0:
+		cfg.CacheBytes = 0 // no bound
+	}
 	w := &worker{cfg: cfg, handlers: handlers, key: key, stats: newSampler(cfg.DataDir), client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
 
 	delay := time.Second
@@ -282,8 +313,9 @@ type worker struct {
 	sendMu sync.Mutex
 	stream *connect.BidiStreamForClient[mimirv1.LinkRequest, mimirv1.LinkResponse]
 
+	models *modelCache
+
 	mu      sync.Mutex
-	models  map[string]*Model
 	running map[string]context.CancelFunc
 }
 
@@ -298,7 +330,7 @@ func (w *worker) serve(ctx context.Context) error {
 		stream.CloseRequest()
 		stream.CloseResponse()
 	}()
-	w.models = map[string]*Model{}
+	w.models = newModelCache(w.cfg.CacheBytes)
 	w.running = map[string]context.CancelFunc{}
 
 	archs := make([]string, 0, len(w.handlers))
@@ -409,23 +441,38 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 		r.TaskId = t.TaskId
 		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_PredictResult{PredictResult: r}})
 	}
-	w.mu.Lock()
-	m := w.models[t.ModelId]
-	if len(t.Weights) > 0 {
-		m = &Model{ID: t.ModelId, Architecture: t.Architecture, InputShape: ints(t.GetSpec().GetInputShape()), Labels: t.GetSpec().GetLabels(), Features: t.GetSpec().GetFeatures(), Weights: t.Weights, Version: version(t.Weights)}
-		w.models[t.ModelId] = m
-	}
-	w.mu.Unlock()
-	if m == nil {
-		reply(&mimirv1.PredictResult{NeedWeights: true})
-		return
-	}
 	h := w.handlers[t.Architecture]
 	if h == nil {
 		reply(&mimirv1.PredictResult{Error: "this worker doesn't run " + t.Architecture})
 		return
 	}
+	var m *Model
+	if len(t.Weights) > 0 {
+		m = &Model{ID: t.ModelId, Architecture: t.Architecture, InputShape: ints(t.GetSpec().GetInputShape()), Labels: t.GetSpec().GetLabels(), Features: t.GetSpec().GetFeatures(), Weights: t.Weights, Version: version(t.Weights)}
+		size := int64(len(t.Weights))
+		var unload func()
+		if ld, ok := h.(Loader); ok {
+			if err := ld.Load(ctx, m); err != nil {
+				reply(&mimirv1.PredictResult{Error: err.Error()})
+				return
+			}
+			m.Weights = nil // the handler has its own copy now
+			unload = func() { ld.Unload(m.ID) }
+		}
+		w.models.put(m, size, unload)
+	} else {
+		m = w.models.get(t.ModelId)
+	}
+	if m == nil {
+		reply(&mimirv1.PredictResult{NeedWeights: true})
+		return
+	}
 	p, err := h.Predict(ctx, m, t.GetInput().GetValues())
+	if errors.Is(err, ErrNeedWeights) {
+		w.models.remove(m)
+		reply(&mimirv1.PredictResult{NeedWeights: true})
+		return
+	}
 	if err != nil {
 		reply(&mimirv1.PredictResult{Error: err.Error()})
 		return

@@ -1,5 +1,10 @@
 export GOTOOLCHAIN := auto
 
+# Reported by workers and the console; tags give v1.2.3, other commits the
+# nearest tag plus the commit.
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -X main.version=$(VERSION)
+
 .PHONY: all gen web build test run dev clean
 
 all: web build
@@ -14,7 +19,7 @@ web:
 	cd web && bun install --frozen-lockfile && bun run build
 
 build:
-	go build -o bin/mimir-server ./cmd/mimir-server
+	go build -ldflags "$(LDFLAGS)" -o bin/mimir-server ./cmd/mimir-server
 
 test:
 	go vet ./...

@@ -78,7 +78,8 @@ func TestUpgradeFrom0001(t *testing.T) {
 	}
 	conn.Close(ctx)
 
-	s, err := Open(ctx, url, t.TempDir())
+	dir := t.TempDir() // holds the secret key both opens share
+	s, err := Open(ctx, url, dir)
 	if err != nil {
 		t.Fatalf("Open on a 0001 database: %v", err)
 	}
@@ -126,7 +127,7 @@ func TestUpgradeFrom0001(t *testing.T) {
 	}
 
 	w, err := s.GetWebhook(ctx, hookID)
-	if err != nil || !reflect.DeepEqual(w.Events, []string{"model.created", "job.finished"}) || !w.Wants("job.finished") || w.Wants("model.deleted") {
+	if err != nil || w.Secret != "s3cret" || !reflect.DeepEqual(w.Events, []string{"model.created", "job.finished"}) || !w.Wants("job.finished") || w.Wants("model.deleted") {
 		t.Errorf("webhook after upgrade = %+v, %v", w, err)
 	}
 	if all, err := s.GetWebhook(ctx, allHookID); err != nil || all.Events != nil || !all.Wants("anything") {
@@ -144,7 +145,7 @@ func TestUpgradeFrom0001(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Close()
-	again, err := Open(ctx, url, t.TempDir())
+	again, err := Open(ctx, url, dir)
 	if err != nil {
 		t.Fatal(err)
 	}

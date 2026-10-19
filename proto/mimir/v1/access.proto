@@ -116,6 +116,9 @@ message SetupRequest {
   string email = 1;
   string name = 2;
   string password = 3;
+  // The one-time setup token the server printed in its log when it
+  // started with no accounts, or $MIMIR_SETUP_TOKEN.
+  string setup_token = 4;
 }
 
 message SetupResponse {

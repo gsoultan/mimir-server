@@ -71,4 +71,11 @@ jobs:
           go vet ./...
           go test -race ./...
       - name: Build binary
-        run: go build -o bin/mimir-server ./cmd/mimir-server
+        run: go build -ldflags "-X main.version=$(git describe --tags --always --dirty)" -o bin/mimir-server ./cmd/mimir-server
+      - name: Build the container image's static binary
+        # The Dockerfile's build command; the binary must not need libc.
+        run: |
+          CGO_ENABLED=0 go build -trimpath -tags nocuda,norocm \
+            -ldflags "-s -w -X main.version=$(git describe --tags --always --dirty)" \
+            -o bin/mimir-server-static ./cmd/mimir-server
+          file bin/mimir-server-static | tee /dev/stderr | grep -q "statically linked"

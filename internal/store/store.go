@@ -28,6 +28,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/gsoultan/mimir-server/internal/schema"
+	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/store/db/model"
 	"github.com/gsoultan/mimir-server/internal/store/db/team"
 	"github.com/gsoultan/mimir-server/internal/store/tables"
@@ -138,6 +139,8 @@ type Store struct {
 	url     string
 	weights string // directory holding <id>.mim files
 	applied int    // migration steps Open applied
+	box     *secret.Box
+	sealed  int // plaintext secrets Open sealed in place
 }
 
 // Pool limits used unless the database URL sets its own pool_* options.
@@ -156,9 +159,28 @@ const (
 // Automigrate takes an advisory lock, so servers starting together migrate
 // once; applies every step in one transaction; and refuses a plan that
 // could lose data. The role needs CREATE on the database.
-func Open(ctx context.Context, databaseURL, dir string) (*Store, error) {
+//
+// Stored secrets are sealed with the key WithSecretKey gives, or else the
+// one in dir's key file (made on first start); Open seals any still in
+// plaintext and refuses a key that does not open those already sealed.
+func Open(ctx context.Context, databaseURL, dir string, opts ...Option) (*Store, error) {
 	if strings.TrimSpace(databaseURL) == "" {
 		return nil, errors.New("store: no database URL: pass -database-url or set MIMIR_DATABASE_URL, such as postgres://mimir:secret@localhost:5432/mimir")
+	}
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	if o.key == nil {
+		k, _, err := secret.Load("", "", dir)
+		if err != nil {
+			return nil, fmt.Errorf("store: %w", err)
+		}
+		o.key = k
+	}
+	box, err := secret.New(o.key)
+	if err != nil {
+		return nil, fmt.Errorf("store: %w", err)
 	}
 	weights := filepath.Join(dir, "models")
 	if err := os.MkdirAll(weights, 0o750); err != nil {
@@ -177,8 +199,12 @@ func Open(ctx context.Context, databaseURL, dir string) (*Store, error) {
 		pool.Close()
 		return nil, fmt.Errorf("store: connect to %s: %w", Redact(databaseURL), err)
 	}
-	s := &Store{pool: pool, ex: pgxdrv.Pool{P: pool}, url: databaseURL, weights: weights}
+	s := &Store{pool: pool, ex: pgxdrv.Pool{P: pool}, url: databaseURL, weights: weights, box: box}
 	if err := s.migrate(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	if s.sealed, err = s.sealLegacy(ctx); err != nil {
 		pool.Close()
 		return nil, err
 	}
@@ -258,6 +284,9 @@ func LatestSchemaVersion() int {
 	}
 	return latest
 }
+
+// Ping checks the database answers, for readiness checks.
+func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 // Close closes the database pool.
 func (s *Store) Close() error {
