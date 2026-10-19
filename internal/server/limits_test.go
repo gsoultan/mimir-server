@@ -8,6 +8,7 @@ import (
 	"connectrpc.com/connect"
 
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
+	"github.com/gsoultan/mimir-server/internal/api"
 )
 
 func TestLimitsAndUsage(t *testing.T) {
@@ -134,4 +135,23 @@ func bearer(secret string) connect.Interceptor {
 			return next(ctx, req)
 		}
 	})
+}
+
+// TestModelSizeLimit uploads files around a limit set below the default:
+// the limit holds, whichever way it moves from the default.
+func TestModelSizeLimit(t *testing.T) {
+	ctx := context.Background()
+	srv := startServerWith(t, false, func(s *api.Service) { s.MaxModelBytes = 1 << 20 })
+	c := owner(t, srv)
+	upload := func(n int) error {
+		_, err := c.models.CreateModel(ctx, connect.NewRequest(&mimirv1.CreateModelRequest{Name: "Big", Architecture: "mim", Weights: make([]byte, n)}))
+		return err
+	}
+	if err := upload(2 << 20); code(err) != connect.CodeResourceExhausted {
+		t.Errorf("2 MiB upload with a 1 MiB limit: %v, want ResourceExhausted", err)
+	}
+	// Under the limit, the file reaches the server, which finds it isn't a model.
+	if err := upload(512 << 10); code(err) != connect.CodeInvalidArgument {
+		t.Errorf("512 KiB upload with a 1 MiB limit: %v, want InvalidArgument", err)
+	}
 }

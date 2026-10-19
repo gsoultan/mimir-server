@@ -49,6 +49,13 @@ func newServer(t *testing.T) *httptest.Server {
 // httptest's own when tls is set.
 func startServer(t *testing.T, tls bool) *httptest.Server {
 	t.Helper()
+	return startServerWith(t, tls, nil)
+}
+
+// startServerWith is startServer with configure, if not nil, applied to
+// the service before the handler is built.
+func startServerWith(t *testing.T, tls bool, configure func(*api.Service)) *httptest.Server {
+	t.Helper()
 	dbURL = testdb.URL(t)
 	st, err := store.Open(context.Background(), dbURL, t.TempDir())
 	if err != nil {
@@ -71,6 +78,9 @@ func startServer(t *testing.T, tls bool) *httptest.Server {
 	svc.CancelTraining = runner.Cancel
 	if setupToken, err = svc.PrepareSetup(context.Background(), ""); err != nil || setupToken == "" {
 		t.Fatalf("PrepareSetup = %q, %v", setupToken, err)
+	}
+	if configure != nil {
+		configure(svc)
 	}
 	srv := httptest.NewUnstartedServer(server.Handler(svc, st, ui, log))
 	srv.Config.Protocols = server.Protocols()

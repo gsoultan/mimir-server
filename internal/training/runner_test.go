@@ -153,3 +153,26 @@ func TestRunnerShutdownWaitsAndRequeues(t *testing.T) {
 		}
 	}
 }
+
+// TestRunnerIdlesOnAnEmptyQueue runs the runner with nothing queued: it
+// looks at the queue once and then waits for its ticker or a kick, rather
+// than looking again and again.
+func TestRunnerIdlesOnAnEmptyQueue(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	st, err := store.Open(ctx, testdb.URL(t), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	r := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	var looks atomic.Int32
+	r.Now = func() time.Time { looks.Add(1); return time.Now() } // once per look at the queue
+	done := make(chan struct{})
+	go func() { r.Run(ctx); close(done) }()
+	time.Sleep(time.Second)
+	cancel()
+	<-done
+	if n := looks.Load(); n > 2 {
+		t.Errorf("an idle runner looked at the queue %d times in a second", n)
+	}
+}

@@ -1,6 +1,7 @@
 package convert_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
@@ -10,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	mimfile "github.com/gsoultan/mimir-model"
 
 	"github.com/gsoultan/mimir-server/internal/convert"
 	"github.com/gsoultan/mimir-server/internal/runtime"
@@ -154,5 +157,25 @@ func TestUnsupported(t *testing.T) {
 		if !errors.Is(err, convert.ErrUnsupported) || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: %v", name, err)
 		}
+	}
+}
+
+// TestDamagedMim rejects a .mim file whose bytes no longer match the
+// section hashes written with it.
+func TestDamagedMim(t *testing.T) {
+	b, _, err := convert.ToMim(read(t, "tiny-cnn.onnx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := mimfile.Parse(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := f.TensorAt(0)
+	damaged := bytes.Clone(b)
+	damaged[int(f.Preamble().DataOffset)+int(w.Offset)] ^= 0x40 // one bit of a weight
+	_, _, err = convert.ToMim(damaged)
+	if !errors.Is(err, convert.ErrUnsupported) || !strings.Contains(err.Error(), "damaged") {
+		t.Fatalf("damaged file: %v, want ErrUnsupported saying it is damaged", err)
 	}
 }
