@@ -3,6 +3,7 @@ package runtime
 
 import (
 	"cmp"
+	"container/list"
 	"context"
 	"errors"
 	"fmt"
@@ -147,17 +148,28 @@ func (f *File) Close() error { return f.m.Close() }
 // concurrent use; mimir tensors are immutable, so one module serves many
 // requests at once. Each entry remembers the version of the weights it
 // loaded, so a model retrained in place is loaded again on its next use.
+//
+// The cache holds at most its limit in bytes, counting each model by the
+// size of the file it was loaded from, and drops the least recently used
+// models to stay under it. The model loaded last always stays, even when
+// it alone is over the limit.
 type Cache struct {
 	mu     sync.Mutex
 	loaded map[string]*entry
+	lru    list.List // loaded entries, most recently used first
+	used   int64     // bytes of the entries in lru
+	limit  int64     // 0 means no limit
 }
 
 type entry struct {
+	id   string
 	ver  string // the weights' version, such as their SHA-256
 	once sync.Once
 	run  func(ctx context.Context, x *tensor.Tensor) *tensor.Tensor
 	lm   *LanguageModel // for a language model, instead of run
 	err  error
+	size int64         // bytes of the file it was loaded from
+	elem *list.Element // its place in lru, once loaded; guarded by Cache.mu
 }
 
 // load builds the model of architecture a from weights, a weights file
@@ -189,8 +201,25 @@ func (e *entry) load(a arch.Architecture, spec arch.Spec, weights []byte) {
 	e.run = func(_ context.Context, x *tensor.Tensor) *tensor.Tensor { return mod.Forward(x) }
 }
 
-// NewCache returns an empty cache.
-func NewCache() *Cache { return &Cache{loaded: map[string]*entry{}} }
+// NewCache returns an empty cache that holds at most limit bytes of
+// models; 0 means no limit.
+func NewCache(limit int64) *Cache { return &Cache{loaded: map[string]*entry{}, limit: max(limit, 0)} }
+
+// SetLimit changes how many bytes of models the cache holds, dropping the
+// least recently used ones now if it holds more; 0 means no limit.
+func (c *Cache) SetLimit(limit int64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.limit = max(limit, 0)
+	c.trim(nil)
+}
+
+// Used returns the bytes of models the cache holds and how many models.
+func (c *Cache) Used() (bytes int64, models int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.used, c.lru.Len()
+}
 
 // Predict runs input, shaped like spec's InputShape, through version ver
 // of the model with id, loading it with load on first use.
@@ -226,6 +255,13 @@ func (c *Cache) Predict(ctx context.Context, id, ver string, a arch.Architecture
 	return Result{Output: out, Probability: p}, nil
 }
 
+// Load loads version ver of the model with id ahead of its first
+// prediction, so the caller can let the weights go.
+func (c *Cache) Load(id, ver string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error)) error {
+	_, err := c.ready(id, ver, a, spec, load)
+	return err
+}
+
 // Generate continues prompt with version ver of the language model with
 // id, loading it with load on first use.
 func (c *Cache) Generate(ctx context.Context, id, ver string, a arch.Architecture, load func() ([]byte, error), prompt string, s Sampling) (Generation, error) {
@@ -242,17 +278,26 @@ func (c *Cache) Generate(ctx context.Context, id, ver string, a arch.Architectur
 // ready returns the entry of version ver of the model with id, loading it
 // with load on first use.
 func (c *Cache) ready(id, ver string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error)) (*entry, error) {
+	return c.get(id, ver, load, func(e *entry, w []byte) { e.load(a, spec, w) })
+}
+
+// get returns the entry of version ver of the model with id, building it
+// from the bytes load returns on first use, and marks it most recently
+// used.
+func (c *Cache) get(id, ver string, load func() ([]byte, error), build func(e *entry, w []byte)) (*entry, error) {
 	e := c.entry(id, ver)
 	e.once.Do(func() {
 		var w []byte
 		if w, e.err = load(); e.err == nil {
-			e.load(a, spec, w)
+			build(e, w)
+			e.size = int64(len(w))
 		}
 	})
 	if e.err != nil {
 		c.forget(id, e) // let the next request try again
 		return nil, e.err
 	}
+	c.touch(e)
 	return e, nil
 }
 
@@ -263,10 +308,61 @@ func (c *Cache) entry(id, ver string) *entry {
 	defer c.mu.Unlock()
 	e, ok := c.loaded[id]
 	if !ok || e.ver != ver {
-		e = &entry{ver: ver}
+		if ok {
+			c.unlist(e)
+		}
+		e = &entry{id: id, ver: ver}
 		c.loaded[id] = e
 	}
 	return e
+}
+
+// touch marks a loaded entry most recently used, counting its bytes the
+// first time, and drops others to keep under the limit. An entry that was
+// replaced or forgotten while it loaded serves its request and goes.
+func (c *Cache) touch(e *entry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.loaded[e.id] != e {
+		return
+	}
+	if e.elem != nil {
+		c.lru.MoveToFront(e.elem)
+		return
+	}
+	e.elem = c.lru.PushFront(e)
+	c.used += e.size
+	c.trim(e)
+}
+
+// trim drops the least recently used entries, but never keep, until the
+// cache is under its limit. c.mu must be held.
+func (c *Cache) trim(keep *entry) {
+	for c.limit > 0 && c.used > c.limit {
+		back := c.lru.Back()
+		if back == nil {
+			return
+		}
+		old := back.Value.(*entry)
+		if old == keep {
+			return // keep is all that is left
+		}
+		c.unlist(old)
+		if c.loaded[old.id] == old {
+			delete(c.loaded, old.id)
+		}
+	}
+}
+
+// unlist takes e out of the LRU list and its bytes off the total. c.mu
+// must be held.
+func (c *Cache) unlist(e *entry) {
+	if e.elem == nil {
+		return
+	}
+	c.lru.Remove(e.elem)
+	e.elem = nil
+	c.used -= e.size
 }
 
 // forget drops e if it is still the entry for id.
@@ -275,6 +371,7 @@ func (c *Cache) forget(id string, e *entry) {
 	defer c.mu.Unlock()
 	if c.loaded[id] == e {
 		delete(c.loaded, id)
+		c.unlist(e)
 	}
 }
 
@@ -282,5 +379,8 @@ func (c *Cache) forget(id string, e *entry) {
 func (c *Cache) Forget(id string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	delete(c.loaded, id)
+	if e, ok := c.loaded[id]; ok {
+		delete(c.loaded, id)
+		c.unlist(e)
+	}
 }
