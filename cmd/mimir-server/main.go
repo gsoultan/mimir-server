@@ -60,9 +60,13 @@ func run() error {
 	workerIdle := flag.Duration("worker-idle-timeout", env.duration("MIMIR_WORKER_IDLE_TIMEOUT", cluster.DefaultIdleTimeout), "console: how long a worker may go silent (it heartbeats every 15s) before its link is dropped and its tasks fail ($MIMIR_WORKER_IDLE_TIMEOUT)")
 	cacheMB := flag.Int("model-cache-mb", env.int("MIMIR_MODEL_CACHE_MB", api.DefaultModelCacheBytes>>20), "console and worker: how many MB of models to keep loaded, by file size; the least recently used are dropped first, and the last one loaded always stays; 0 for no limit ($MIMIR_MODEL_CACHE_MB)")
 	maxUploads := flag.Int("max-uploads", env.int("MIMIR_MAX_UPLOADS", server.DefaultMaxUploads), "console: how many model and dataset uploads to take at once; each is held in memory, so more are refused until one finishes ($MIMIR_MAX_UPLOADS)")
+	trainingJobs := flag.Int("training-jobs", env.int("MIMIR_TRAINING_JOBS", 0), "console: how many training jobs run at once (default: one per training slot of the connected workers, plus one for a standalone server, at least 2) ($MIMIR_TRAINING_JOBS)")
 	flag.Parse()
 	if err := env.err(); err != nil {
 		return err
+	}
+	if *trainingJobs < 0 {
+		return errors.New("-training-jobs can't be negative")
 	}
 
 	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
@@ -201,9 +205,11 @@ func run() error {
 		}
 	})
 
-	// Training runs one job at a time in this process. A job cut short by
-	// shutdown goes back in the queue and resumes from its checkpoint.
+	// Training runs several jobs at once; shutdown waits for them. A job cut
+	// short by shutdown goes back in the queue and resumes from its
+	// checkpoint.
 	runner := training.New(st, log)
+	runner.Jobs = *trainingJobs
 	runner.Local = local
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
