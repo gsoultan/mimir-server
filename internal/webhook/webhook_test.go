@@ -125,8 +125,10 @@ func TestSlowWebhookDoesNotDelayOthers(t *testing.T) {
 
 	release := make(chan struct{})
 	var slowCalls atomic.Int32
+	slowStarted := make(chan struct{}, 10)
 	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		slowCalls.Add(1)
+		slowStarted <- struct{}{}
 		select {
 		case <-release:
 		case <-r.Context().Done():
@@ -172,8 +174,12 @@ func TestSlowWebhookDoesNotDelayOthers(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("the fast webhook waited behind the slow one")
 	}
-	if slowCalls.Load() != 1 {
-		t.Fatalf("slow endpoint called %d times", slowCalls.Load())
+	// The fast delivery can land before the slow request reaches its
+	// server, so wait for that rather than read the count at once.
+	select {
+	case <-slowStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the slow webhook was never sent to")
 	}
 
 	// A new event for the fast webhook goes out at once too, while the
