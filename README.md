@@ -28,6 +28,18 @@ and console roles. On start it brings the schema up to date by itself
 in the URL; the default is at most 16 connections. Model weights and
 uploaded examples stay as files in the `-data` folder.
 
+Secrets the server keeps in the database (webhook signing secrets, dataset
+connection strings, alert passwords and bot tokens) are encrypted with
+AES-256-GCM, so a copy or backup of the database does not reveal them. The
+key is 32 random bytes as base64 or hex (`openssl rand -base64 32`), taken
+from `MIMIR_SECRET_KEY`, else from the file `-secret-key-file` (or
+`MIMIR_SECRET_KEY_FILE`) names, else from `<data>/secret.key`, which the
+server makes on first start and logs. Secrets written by an older version
+are encrypted in place on the next start. Keep the key with your backups
+but apart from them: without it those secrets cannot be read, and the
+server refuses to start with a key that does not open them. Every console
+sharing a database needs the same key.
+
 Open http://localhost:8080. The first visit asks you to make the owner
 account, with the one-time setup token the server prints in its log
 (`"setup_token"`) when it starts with no accounts; set
@@ -388,7 +400,8 @@ Owners find these under **Settings**; admins see their team's
   needs `pg_dump` on its `PATH` for this (same major version as the
   database or newer); without it the download fails with HTTP 501 and you
   run `pg_dump` yourself. Model weights live in the data folder; back that
-  up too.
+  up too. Stored secrets are encrypted in the dump; restoring needs the
+  same secret key.
 - **Limits**: how many predictions each API key or person may make a minute,
   how many each person may make a month (all their keys together), and how
   many training runs each person may have waiting or learning at once. 0

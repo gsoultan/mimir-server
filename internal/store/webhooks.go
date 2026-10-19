@@ -71,12 +71,16 @@ type Delivery struct {
 	NextAttempt  time.Time
 }
 
-func fromWebhook(r webhook.Row) (Webhook, error) {
+func (s *Store) fromWebhook(r webhook.Row) (Webhook, error) {
+	sec, err := s.openSecret(r.Secret, webhookContext(r.ID))
+	if err != nil {
+		return Webhook{}, err
+	}
 	w := Webhook{
 		ID:      r.ID,
 		Name:    r.Name,
 		URL:     r.URL,
-		Secret:  r.Secret,
+		Secret:  sec,
 		Enabled: r.Enabled,
 		Created: r.CreateTime.UTC(),
 		TeamID:  r.TeamID.V,
@@ -95,11 +99,15 @@ func (s *Store) CreateWebhook(ctx context.Context, w Webhook) (Webhook, error) {
 	if w.TeamID == "" {
 		w.TeamID = DefaultTeam
 	}
+	sealed, err := s.box.Seal(w.Secret, webhookContext(w.ID))
+	if err != nil {
+		return Webhook{}, err
+	}
 	n := webhook.Create()
 	n.SetID(w.ID)
 	n.SetName(w.Name)
 	n.SetURL(w.URL)
-	n.SetSecret(w.Secret)
+	n.SetSecret(sealed)
 	n.SetEvents(strs(w.Events))
 	n.SetEnabled(w.Enabled)
 	n.SetCreateTime(w.Created)
@@ -119,7 +127,7 @@ func (s *Store) GetWebhook(ctx context.Context, id string) (Webhook, error) {
 	if !ok {
 		return Webhook{}, ErrNotFound
 	}
-	return fromWebhook(r)
+	return s.fromWebhook(r)
 }
 
 // ListWebhooks returns a team's webhooks, oldest first.
@@ -134,7 +142,7 @@ func (s *Store) ListWebhooks(ctx context.Context, teamID string) ([]Webhook, err
 	}
 	out := make([]Webhook, 0, len(rows))
 	for _, r := range rows {
-		w, err := fromWebhook(r)
+		w, err := s.fromWebhook(r)
 		if err != nil {
 			return nil, err
 		}
@@ -326,11 +334,21 @@ func (s *Store) GetSetting(ctx context.Context, key string) (string, error) {
 	if err != nil || !ok {
 		return "", err
 	}
+	if secretSetting(key) {
+		return s.openSecret(r.Value, settingContext(key))
+	}
 	return r.Value, nil
 }
 
 // SetSetting stores a setting.
 func (s *Store) SetSetting(ctx context.Context, key, value string) error {
+	if secretSetting(key) {
+		v, err := s.box.Seal(value, settingContext(key))
+		if err != nil {
+			return err
+		}
+		value = v
+	}
 	n := setting.Create()
 	n.SetKey(key)
 	n.SetValue(value)
