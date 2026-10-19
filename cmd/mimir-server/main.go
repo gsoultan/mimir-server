@@ -84,7 +84,7 @@ func run() error {
 		if *serverURL == "" || *token == "" {
 			return errors.New("a worker needs -server and -token (or $MIMIR_WORKER_TOKEN)")
 		}
-		log.Info("worker: starting", "server", *serverURL, "data", *data)
+		log.Info("worker: starting", "server", *serverURL, "data", *data, "version", version)
 		if err := os.MkdirAll(*data, 0o700); err != nil {
 			return err
 		}
@@ -226,7 +226,7 @@ func run() error {
 
 	errc := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", *addr, "data", *data, "role", *role, "tls", tlsConfig != nil)
+		log.Info("listening", "addr", *addr, "data", *data, "role", *role, "tls", tlsConfig != nil, "version", version)
 		if tlsConfig != nil {
 			errc <- srv.ListenAndServeTLS("", "")
 			return

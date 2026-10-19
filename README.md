@@ -95,6 +95,26 @@ language models. Start the console with `-max-model-mb 2048`, say, to take
 bigger GGUF files; converting one needs about three times its size in
 memory for a moment.
 
+### In a container, or from a release
+
+The `Dockerfile` builds the web UI and a static binary (no GPU backends:
+it is built with `-tags nocuda,norocm`, since mimir loads the CUDA and ROCm
+libraries through the C library's loader) on a distroless image that runs
+as a non-root user, with the data folder at `/data`:
+
+```sh
+docker build --build-arg VERSION=$(git describe --tags --always) -t mimir-server .
+docker run -p 8080:8080 -v mimir-data:/data \
+  -e MIMIR_DATABASE_URL='postgres://mimir:secret@db:5432/mimir' mimir-server
+```
+
+The image has no `pg_dump`, so download backups with `pg_dump` from
+elsewhere. Pushing a `v*` tag builds release archives for Linux, macOS and
+Windows on amd64 and arm64, with SHA-256 sums, and attaches them to a
+GitHub release. Those binaries keep the GPU backends, so on Linux they need
+glibc. `make build` and CI stamp the version (`git describe`) with
+`-ldflags "-X main.version=..."`; workers report it to the console.
+
 ## Who can do what
 
 | Role | Can |
