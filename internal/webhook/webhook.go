@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -127,7 +128,16 @@ func isPrivate(ip net.IP) bool {
 		ip.IsUnspecified() || ip.IsMulticast() || ip.Equal(net.IPv4bcast)
 }
 
-// Dispatcher sends due deliveries in the background.
+// DefaultWorkers is how many webhooks are sent to at once when Workers is
+// zero.
+const DefaultWorkers = 8
+
+// dueBatch is how many due deliveries one look at the outbox reads.
+const dueBatch = 100
+
+// Dispatcher sends due deliveries in the background. Different webhooks
+// are sent to at the same time, so a slow endpoint holds up only its own
+// events; each webhook gets its events one at a time, in order.
 type Dispatcher struct {
 	store        *store.Store
 	client       *http.Client
@@ -135,6 +145,14 @@ type Dispatcher struct {
 	allowPrivate bool
 	// OnGiveUp is called when a delivery fails for good.
 	OnGiveUp func(ctx context.Context, w store.Webhook, d store.Delivery)
+	// Workers is how many webhooks are sent to at once; zero means
+	// DefaultWorkers. Set it before the first Tick or Run.
+	Workers int
+
+	mu       sync.Mutex
+	inFlight map[string]bool // webhook ids being sent to; guarded by mu
+	sending  sync.WaitGroup
+	wake     chan struct{}
 }
 
 // New returns a dispatcher. With allowPrivate, it will post to local and
@@ -168,6 +186,8 @@ func New(st *store.Store, log *slog.Logger, allowPrivate bool) *Dispatcher {
 		store:        st,
 		log:          log,
 		allowPrivate: allowPrivate,
+		inFlight:     map[string]bool{},
+		wake:         make(chan struct{}, 1),
 		client: &http.Client{
 			Timeout:   30 * time.Second,
 			Transport: transport,
@@ -177,42 +197,153 @@ func New(st *store.Store, log *slog.Logger, allowPrivate bool) *Dispatcher {
 	}
 }
 
-// Run delivers due events until ctx ends, checking every interval.
+// Kick asks Run to look at the outbox now.
+func (d *Dispatcher) Kick() {
+	select {
+	case d.wake <- struct{}{}:
+	default:
+	}
+}
+
+// Run delivers due events until ctx ends, looking every interval and on
+// each Kick. It returns once the deliveries in flight have stopped.
 func (d *Dispatcher) Run(ctx context.Context, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
+	defer d.sending.Wait()
 	for {
-		d.Tick(ctx)
+		d.dispatch(ctx, nil)
 		select {
 		case <-ctx.Done():
 			return
+		case <-d.wake:
 		case <-t.C:
 		}
 	}
 }
 
-// Tick sends everything that is due right now.
+// Tick sends everything that is due right now and waits for it.
 func (d *Dispatcher) Tick(ctx context.Context) {
-	due, err := d.store.DueDeliveries(ctx, 100)
-	if err != nil {
-		d.log.ErrorContext(ctx, "webhooks: list due", "error", err)
-		return
-	}
-	for _, del := range due {
-		if ctx.Err() != nil {
+	// seen keeps each webhook to one turn, so a delivery that can't be
+	// recorded isn't tried again and again.
+	seen := map[string]bool{}
+	for ctx.Err() == nil {
+		n := d.dispatch(ctx, seen)
+		d.sending.Wait()
+		if n == 0 {
 			return
 		}
-		d.attempt(ctx, del)
 	}
 }
 
-func (d *Dispatcher) attempt(ctx context.Context, del store.Delivery) {
+func (d *Dispatcher) workers() int {
+	if d.Workers > 0 {
+		return d.Workers
+	}
+	return DefaultWorkers
+}
+
+// dispatch starts sending the due deliveries of up to the free number of
+// webhooks, each webhook's in order in a goroutine of its own, and
+// returns how many webhooks it started. Webhooks already being sent to,
+// and those in seen, are left out; started ones are added to seen.
+func (d *Dispatcher) dispatch(ctx context.Context, seen map[string]bool) int {
+	d.mu.Lock()
+	free := d.workers() - len(d.inFlight)
+	skip := make([]string, 0, len(d.inFlight)+len(seen))
+	for id := range d.inFlight {
+		skip = append(skip, id)
+	}
+	d.mu.Unlock()
+	if free <= 0 {
+		return 0
+	}
+	for id := range seen {
+		skip = append(skip, id)
+	}
+	due, err := d.store.DueDeliveries(ctx, dueBatch, skip...)
+	if err != nil {
+		if ctx.Err() == nil {
+			d.log.ErrorContext(ctx, "webhooks: list due", "error", err)
+		}
+		return 0
+	}
+	// Group by webhook, keeping the outbox order within each.
+	var order []string
+	groups := map[string][]store.Delivery{}
+	for _, del := range due {
+		if _, ok := groups[del.WebhookID]; !ok {
+			order = append(order, del.WebhookID)
+		}
+		groups[del.WebhookID] = append(groups[del.WebhookID], del)
+	}
+	started := 0
+	for _, id := range order {
+		if started == free {
+			break
+		}
+		d.mu.Lock()
+		if d.inFlight[id] {
+			d.mu.Unlock()
+			continue
+		}
+		d.inFlight[id] = true
+		d.mu.Unlock()
+		if seen != nil {
+			seen[id] = true
+		}
+		started++
+		batch := groups[id]
+		d.sending.Go(func() {
+			recorded := false
+			defer func() { d.finish(id, recorded) }()
+			for _, del := range batch {
+				if ctx.Err() != nil {
+					return
+				}
+				if d.attempt(ctx, del) {
+					recorded = true
+				}
+			}
+		})
+	}
+	if started > 0 && len(due) == dueBatch {
+		// The batch was full, so other webhooks may be waiting behind
+		// these; look again now that these are left out.
+		d.Kick()
+	}
+	return started
+}
+
+// finish marks a webhook free again. When its deliveries got somewhere it
+// looks for more to send now; otherwise the next interval will, so a
+// delivery that can't be recorded isn't tried in a tight loop.
+func (d *Dispatcher) finish(id string, recorded bool) {
+	d.mu.Lock()
+	delete(d.inFlight, id)
+	d.mu.Unlock()
+	if recorded {
+		d.Kick()
+	}
+}
+
+// attempt sends one delivery and records the outcome. It reports whether
+// the outcome was recorded.
+func (d *Dispatcher) attempt(ctx context.Context, del store.Delivery) bool {
 	w, err := d.store.GetWebhook(ctx, del.WebhookID)
 	if err != nil {
 		d.log.ErrorContext(ctx, "webhooks: load", "delivery", del.ID, "error", err)
-		return
+		return false
 	}
 	code, sendErr := d.send(ctx, w, del)
+	if sendErr != nil && ctx.Err() != nil {
+		// Stopping: the attempt was cut short, so it stays pending and is
+		// sent again on the next start.
+		return false
+	}
+	// The outcome is recorded even if the server started stopping just
+	// now, so a delivered event isn't sent twice.
+	ctx = context.WithoutCancel(ctx)
 	status, errText := store.Delivered, ""
 	var next time.Time
 	if sendErr != nil {
@@ -226,7 +357,7 @@ func (d *Dispatcher) attempt(ctx context.Context, del store.Delivery) {
 	}
 	if err := d.store.RecordAttempt(ctx, del.ID, status, code, errText, next); err != nil {
 		d.log.ErrorContext(ctx, "webhooks: record", "delivery", del.ID, "error", err)
-		return
+		return false
 	}
 	d.log.InfoContext(ctx, "webhook delivery", "webhook", w.Name, "event", del.EventType, "attempt", del.Attempts+1, "status", code, "error", errText)
 	if status == store.Failed && d.OnGiveUp != nil {
@@ -234,6 +365,7 @@ func (d *Dispatcher) attempt(ctx context.Context, del store.Delivery) {
 		del.Status, del.ResponseCode, del.Error = store.Failed, code, errText
 		d.OnGiveUp(ctx, w, del)
 	}
+	return true
 }
 
 // send makes one HTTP attempt. A 2xx response is success.

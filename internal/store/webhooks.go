@@ -241,10 +241,12 @@ func (s *Store) EnqueueFor(ctx context.Context, webhookID, eventID, eventType, p
 	return d, nil
 }
 
-// DueDeliveries returns up to limit pending deliveries whose time has come.
-func (s *Store) DueDeliveries(ctx context.Context, limit int) ([]Delivery, error) {
+// DueDeliveries returns up to limit pending deliveries whose time has come,
+// oldest first, leaving out those of the webhooks in skip.
+func (s *Store) DueDeliveries(ctx context.Context, limit int, skip ...string) ([]Delivery, error) {
 	rows, err := delivery.New().
 		Where(delivery.Status.Eq(int32(Pending)), delivery.NextAttempt.Lte(time.Now())).
+		WhereIf(len(skip) > 0, delivery.WebhookID.NotIn(skip...)).
 		Order(delivery.NextAttempt.Asc(), delivery.ID.Asc()).
 		Limit(int64(limit)).
 		All(ctx, s.ex, nil)
