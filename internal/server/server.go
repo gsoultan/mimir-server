@@ -24,7 +24,8 @@ import (
 )
 
 // Request size limits. Models can be large; predictions are small. A
-// server can take larger models (see api.Service.MaxModelBytes).
+// server can take larger or only smaller models (see
+// api.Service.MaxModelBytes).
 const (
 	maxModelBytes   = 256 << 20
 	maxPredictBytes = 16 << 20
@@ -55,8 +56,15 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	// interceptor, which signs callers in from their cookie or API key and
 	// checks the procedure's permission.
 	guard := connect.WithInterceptors(metrics.Interceptor(), auth.Interceptor(st, svc.MustEnroll))
+	// Uploads take the configured limit, lower or higher than the default.
+	// Workers fetch and send models already stored, which may predate a
+	// lowered limit, so their link keeps at least the default.
+	uploadBytes := maxModelBytes
+	if svc.MaxModelBytes > 0 {
+		uploadBytes = svc.MaxModelBytes
+	}
 	modelBytes := max(svc.MaxModelBytes, maxModelBytes)
-	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, guard, connect.WithReadMaxBytes(modelBytes)))
+	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, guard, connect.WithReadMaxBytes(uploadBytes)))
 	mux.Handle(mimirv1connect.NewPredictServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewAuthServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewUserServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))

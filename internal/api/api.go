@@ -25,6 +25,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir/tensor"
 )
 
 // Limits on user-supplied text.
@@ -361,6 +362,8 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		return nil, connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("The prediction took longer than %v and was stopped.", timeout))
 	case errors.Is(err2, runtime.ErrBadInput):
 		return nil, invalid("%v", err2)
+	case tooBig(err2):
+		return nil, tooBigError(err2)
 	case errors.Is(err2, cluster.ErrWorkerFailed), errors.Is(err2, cluster.ErrLinkLost):
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("The worker couldn't answer: %v", err2))
 	case err2 != nil:
@@ -459,6 +462,17 @@ func (s *Service) get(ctx context.Context, id string) (store.Model, error) {
 
 // internal logs err with its detail and returns a generic error, so storage
 // paths and driver messages never reach the caller.
+// tooBig reports whether a run failed because the model needs more memory
+// than mimir may take, such as for a file that declares a value larger
+// than the bound on one.
+func tooBig(err error) bool {
+	return errors.Is(err, tensor.ErrMemoryBudget) || errors.Is(err, tensor.ErrOutOfMemory)
+}
+
+func tooBigError(err error) error {
+	return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("This model needs more memory than the server may give it: %v", err))
+}
+
 func (s *Service) internal(ctx context.Context, err error) error {
 	s.log.ErrorContext(ctx, "request failed", "error", err)
 	return connect.NewError(connect.CodeInternal, errors.New("Something went wrong on the server. Please try again."))

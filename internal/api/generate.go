@@ -70,6 +70,8 @@ func (s *Service) Generate(ctx context.Context, req *connect.Request[mimirv1.Gen
 	switch {
 	case errors.Is(err, runtime.ErrBadInput):
 		return nil, invalid("%s.", strings.TrimPrefix(err.Error(), runtime.ErrBadInput.Error()+": "))
+	case tooBig(err):
+		return nil, tooBigError(err)
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return nil, connect.NewError(connect.CodeCanceled, errors.New("The request ended before the model finished writing."))
 	case err != nil:
