@@ -19,6 +19,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
+	"github.com/gsoultan/mimir-server/internal/obs"
 	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
@@ -56,6 +57,7 @@ func run() error {
 	maxModelMB := flag.Int("max-model-mb", 256, "console: the largest model file an upload may be, in MB; a GGUF language model is often larger, and an upload needs about three times its size in memory while it is converted")
 	trustedProxies := flag.String("trusted-proxies", os.Getenv("MIMIR_TRUSTED_PROXIES"), "console: comma-separated addresses and CIDR ranges of reverse proxies whose X-Forwarded-For and X-Forwarded-Proto headers to believe, such as 10.0.0.0/8,127.0.0.1; by default no one's are ($MIMIR_TRUSTED_PROXIES)")
 	secretKeyFile := flag.String("secret-key-file", os.Getenv("MIMIR_SECRET_KEY_FILE"), "console: file holding the key stored secrets are encrypted with, 32 bytes as base64 or hex ($MIMIR_SECRET_KEY_FILE); $MIMIR_SECRET_KEY, the key itself, comes first; with neither, the key is <data>/secret.key, made on first start")
+	metricsToken := flag.String("metrics-token", os.Getenv("MIMIR_METRICS_TOKEN"), "console: require this bearer token to read /metrics ($MIMIR_METRICS_TOKEN); empty serves it to anyone who can reach the port")
 	insecure := flag.Bool("insecure", false, "worker: allow an http:// console on another machine (a private network you trust)")
 	env := envDefaults{}
 	predictTimeout := flag.Duration("predict-timeout", env.duration("MIMIR_PREDICT_TIMEOUT", api.DefaultPredictTimeout), "console: the longest one prediction may take, loading the model included, here or on a worker ($MIMIR_PREDICT_TIMEOUT)")
@@ -72,7 +74,8 @@ func run() error {
 		return errors.New("-training-jobs and -webhook-workers can't be negative")
 	}
 
-	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	// Lines logged with a request's context carry its request id.
+	log := slog.New(obs.NewLogHandler(slog.NewJSONHandler(os.Stderr, nil)))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -214,7 +217,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              *addr,
-		Handler:           server.Handler(svc, st, web.Dist(), log),
+		Handler:           server.Handler(svc, st, web.Dist(), log, server.WithMetricsToken(*metricsToken)),
 		Protocols:         server.Protocols(),
 		TLSConfig:         tlsConfig,
 		ReadHeaderTimeout: 10 * time.Second,

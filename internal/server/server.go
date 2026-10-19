@@ -19,6 +19,7 @@ import (
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
+	"github.com/gsoultan/mimir-server/internal/obs"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -29,13 +30,31 @@ const (
 	maxPredictBytes = 16 << 20
 )
 
-// Handler returns the server's root handler.
-func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http.Handler {
-	mux := http.NewServeMux()
+// Option changes how Handler serves.
+type Option func(*options)
 
-	// Every RPC goes through the auth interceptor, which signs callers in
-	// from their cookie or API key and checks the procedure's permission.
-	guard := connect.WithInterceptors(auth.Interceptor(st, svc.MustEnroll))
+type options struct {
+	metricsToken string
+}
+
+// WithMetricsToken makes /metrics require "Authorization: Bearer <token>".
+func WithMetricsToken(token string) Option {
+	return func(o *options) { o.metricsToken = token }
+}
+
+// Handler returns the server's root handler.
+func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts ...Option) http.Handler {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	mux := http.NewServeMux()
+	metrics := obs.NewMetrics()
+
+	// Every RPC is counted and timed, then goes through the auth
+	// interceptor, which signs callers in from their cookie or API key and
+	// checks the procedure's permission.
+	guard := connect.WithInterceptors(metrics.Interceptor(), auth.Interceptor(st, svc.MustEnroll))
 	modelBytes := max(svc.MaxModelBytes, maxModelBytes)
 	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, guard, connect.WithReadMaxBytes(modelBytes)))
 	mux.Handle(mimirv1connect.NewPredictServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
@@ -53,24 +72,28 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger) http
 	// guards the unary calls as usual.
 	mux.Handle(mimirv1connect.NewWorkerServiceHandler(svc, guard, connect.WithReadMaxBytes(modelBytes), connect.WithSendMaxBytes(modelBytes)))
 	mux.Handle("GET /api/backup", backupHandler(st, log))
-	mux.Handle(grpchealth.NewHandler(grpchealth.NewStaticChecker(
-		mimirv1connect.ModelServiceName,
-		mimirv1connect.PredictServiceName,
-		mimirv1connect.AuthServiceName,
-		mimirv1connect.UserServiceName,
-		mimirv1connect.ApiKeyServiceName,
-		mimirv1connect.AuditServiceName,
-		mimirv1connect.WebhookServiceName,
-		mimirv1connect.SettingsServiceName,
-		mimirv1connect.DatasetServiceName,
-		mimirv1connect.TrainingServiceName,
-		mimirv1connect.WorkerServiceName,
-		mimirv1connect.TeamServiceName,
-	)))
+	mux.Handle(grpchealth.NewHandler(newHealthChecker(st.Ping), connect.WithInterceptors(metrics.Interceptor())))
+	mux.Handle("GET /healthz", liveHandler())
+	mux.Handle("GET /readyz", readyHandler(st.Ping, log))
+	mux.Handle("GET /metrics", metrics.Handler(o.metricsToken))
 	mux.Handle("/", uiHandler(ui))
 
 	uploads := newUploadGate(svc.MaxUploads, smallUpload)
-	return logRequests(harden(uploads.wrap(svc.WithConn(mux)), svc), log)
+	return obs.RequestIDs(metrics.HTTP(logRequests(harden(uploads.wrap(svc.WithConn(mux)), svc), log), route))
+}
+
+// route names a request's path for the HTTP metrics: one of a fixed set,
+// so made-up URLs don't add series. RPCs are counted per procedure by the
+// interceptor as well.
+func route(r *http.Request) string {
+	p := r.URL.Path
+	switch {
+	case p == "/healthz", p == "/readyz", p == "/metrics", p == "/api/backup":
+		return p
+	case strings.HasPrefix(p, "/mimir.v1."), strings.HasPrefix(p, "/grpc.health.v1."):
+		return "rpc"
+	}
+	return "ui"
 }
 
 // harden refuses cross-site requests that carry a session cookie and adds
@@ -224,11 +247,17 @@ func (w *statusWriter) Flush() {
 // Unwrap lets http.ResponseController reach the rest.
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
+// logRequests logs each request, with its request id from the context.
+// Successful probes and scrapes are left out: they come every few seconds
+// and say nothing.
 func logRequests(next http.Handler, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w}
 		next.ServeHTTP(sw, r)
+		if quiet[r.URL.Path] && sw.status < 400 {
+			return
+		}
 		log.InfoContext(r.Context(), "request",
 			"method", r.Method,
 			"path", r.URL.Path,
