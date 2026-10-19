@@ -52,8 +52,12 @@ type Service struct {
 	Kick func()
 	// AllowPrivateWebhooks lets webhooks point at local addresses.
 	AllowPrivateWebhooks bool
-	// Limiter holds back password and code guessing.
+	// Limiter holds back password and code guessing: per address at
+	// sign-in, per account where a password or code was already needed.
 	Limiter *auth.Limiter
+	// Backoff slows password guessing at sign-in per account and address
+	// together, so guesses from one place can't lock the owner out.
+	Backoff *auth.Backoff
 	// Proxies are the reverse proxies whose X-Forwarded-* headers count.
 	// The zero value trusts none, so a client can't choose its own address
 	// or claim it used HTTPS.
@@ -86,7 +90,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	return &Service{store: s, cache: runtime.NewCache(), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Local: true}
+	return &Service{store: s, cache: runtime.NewCache(), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true}
 }
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {

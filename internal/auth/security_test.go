@@ -99,3 +99,56 @@ func TestDeviceAndOrigin(t *testing.T) {
 		t.Fatal("cross-site")
 	}
 }
+
+func TestBackoff(t *testing.T) {
+	now := time.Unix(1000, 0)
+	b := NewBackoff(3, time.Second, time.Minute)
+	b.now = func() time.Time { return now }
+	attacker, owner := "signin:a@example.com|192.0.2.1", "signin:a@example.com|198.51.100.2"
+	for range 3 {
+		if b.Wait(attacker) != 0 {
+			t.Fatal("waited during the free tries")
+		}
+		b.Fail(attacker)
+	}
+	if b.Wait(attacker) != 0 {
+		t.Fatal("waited after only the free tries")
+	}
+	// Then each failure doubles the wait, up to the cap.
+	want := []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 32 * time.Second, time.Minute, time.Minute}
+	for i, w := range want {
+		if got := b.Fail(attacker); got != w {
+			t.Fatalf("failure %d: wait %v, want %v", i+4, got, w)
+		}
+		if got := b.Wait(attacker); got != w {
+			t.Fatalf("Wait after failure %d = %v, want %v", i+4, got, w)
+		}
+		now = now.Add(w)
+		if b.Wait(attacker) != 0 {
+			t.Fatal("still waiting after the delay")
+		}
+	}
+	// The same account from another address isn't held back at all.
+	if b.Wait(owner) != 0 {
+		t.Fatal("another address is held back")
+	}
+	// A huge streak never overflows into no wait.
+	for range 100 {
+		b.Fail(attacker)
+	}
+	if got := b.Wait(attacker); got != time.Minute {
+		t.Fatalf("after a long streak: %v", got)
+	}
+	// Success forgets the streak; so does a quiet day.
+	b.Clear(attacker)
+	if b.Wait(attacker) != 0 {
+		t.Fatal("clear")
+	}
+	for range 5 {
+		b.Fail(owner)
+	}
+	now = now.Add(25 * time.Hour)
+	if b.Wait(owner) != 0 || b.Fail(owner) != 0 {
+		t.Fatal("a quiet day did not reset the streak")
+	}
+}

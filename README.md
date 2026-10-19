@@ -128,8 +128,14 @@ server-wide settings are theirs alone.
   every sign-in, after the second factor and after a password change;
   a password change, a smaller role or a disabled account signs the person
   out everywhere.
-- **Guessing and forgery.** Ten wrong passwords or codes lock an account
-  (and the address they came from) for 15 minutes. Cross-site requests
+- **Guessing and forgery.** At sign-in, after five wrong passwords for
+  an account from one address, each further one doubles the wait before
+  that address may try that account again (1 second, 2, 4, ... up to 15
+  minutes); and ten wrong passwords from one address, for any accounts,
+  hold that address back for 15 minutes. Neither touches the account from
+  anywhere else, so nobody can lock its owner out by failing on purpose.
+  Ten wrong second-step codes, or wrong passwords when changing account
+  security, hold that account back for 15 minutes. Cross-site requests
   that carry the session cookie are refused, and the UI ships with a
   Content-Security-Policy, `X-Frame-Options: DENY` and friends.
 - **Behind a proxy.** The console believes `X-Forwarded-For` and
