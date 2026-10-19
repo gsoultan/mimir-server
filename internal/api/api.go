@@ -81,7 +81,14 @@ type Service struct {
 	// MaxModelBytes is the largest model file an upload may be; 0 means
 	// the server's default.
 	MaxModelBytes int
+	// PredictTimeout bounds one prediction, here or on a worker, on top
+	// of the caller's own deadline; 0 means DefaultPredictTimeout.
+	PredictTimeout time.Duration
 }
+
+// DefaultPredictTimeout is how long a prediction may take, loading the
+// model included, when PredictTimeout isn't set.
+const DefaultPredictTimeout = time.Minute
 
 var (
 	_ mimirv1connect.ModelServiceHandler   = (*Service)(nil)
@@ -306,6 +313,12 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		}
 	}
 	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
+	timeout := s.PredictTimeout
+	if timeout <= 0 {
+		timeout = DefaultPredictTimeout
+	}
+	pctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	var r runtime.Result
 	var err2 error
 	ran := false
@@ -314,7 +327,7 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	// A model placed on one worker only runs there.
 	if s.Pool != nil && (!s.Local || m.WorkerID != "") {
 		var worker string
-		r, worker, ran, err2 = s.Pool.Predict(ctx, m.ID, m.SHA256, m.WorkerID, a, spec, load, input)
+		r, worker, ran, err2 = s.Pool.Predict(pctx, m.ID, m.SHA256, m.WorkerID, a, spec, load, input)
 		if ran && err2 != nil {
 			s.log.WarnContext(ctx, "predict: worker failed", "worker", worker, "model_id", m.ID, "error", err2)
 		}
@@ -326,9 +339,13 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		if !s.Local {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
 		}
-		r, err2 = s.cache.Predict(ctx, m.ID, m.SHA256, a, spec, load, input)
+		r, err2 = s.cache.Predict(pctx, m.ID, m.SHA256, a, spec, load, input)
 	}
 	switch {
+	case err2 != nil && ctx.Err() != nil:
+		return nil, ctx.Err() // the caller gave up; connect maps it to its code
+	case err2 != nil && pctx.Err() != nil:
+		return nil, connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("The prediction took longer than %v and was stopped.", timeout))
 	case errors.Is(err2, runtime.ErrBadInput):
 		return nil, invalid("%v", err2)
 	case errors.Is(err2, cluster.ErrWorkerFailed), errors.Is(err2, cluster.ErrLinkLost):

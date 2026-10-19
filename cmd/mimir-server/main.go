@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -54,7 +55,13 @@ func run() error {
 	maxModelMB := flag.Int("max-model-mb", 256, "console: the largest model file an upload may be, in MB; a GGUF language model is often larger, and an upload needs about three times its size in memory while it is converted")
 	trustedProxies := flag.String("trusted-proxies", os.Getenv("MIMIR_TRUSTED_PROXIES"), "console: comma-separated addresses and CIDR ranges of reverse proxies whose X-Forwarded-For and X-Forwarded-Proto headers to believe, such as 10.0.0.0/8,127.0.0.1; by default no one's are ($MIMIR_TRUSTED_PROXIES)")
 	insecure := flag.Bool("insecure", false, "worker: allow an http:// console on another machine (a private network you trust)")
+	env := envDefaults{}
+	predictTimeout := flag.Duration("predict-timeout", env.duration("MIMIR_PREDICT_TIMEOUT", api.DefaultPredictTimeout), "console: the longest one prediction may take, loading the model included, here or on a worker ($MIMIR_PREDICT_TIMEOUT)")
+	workerIdle := flag.Duration("worker-idle-timeout", env.duration("MIMIR_WORKER_IDLE_TIMEOUT", cluster.DefaultIdleTimeout), "console: how long a worker may go silent (it heartbeats every 15s) before its link is dropped and its tasks fail ($MIMIR_WORKER_IDLE_TIMEOUT)")
 	flag.Parse()
+	if err := env.err(); err != nil {
+		return err
+	}
 
 	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -100,6 +107,8 @@ func run() error {
 	svc := api.New(st, log)
 	svc.AllowPrivateWebhooks = *allowPrivate
 	svc.Pool = cluster.New(log)
+	svc.Pool.IdleTimeout = *workerIdle
+	svc.PredictTimeout = *predictTimeout
 	svc.Pool.OnSample = svc.KeepSample
 	svc.Local = local
 	svc.MaxModelBytes = *maxModelMB << 20
@@ -259,3 +268,41 @@ func janitor(ctx context.Context, st *store.Store, log *slog.Logger) {
 		}
 	}
 }
+
+// envDefaults reads flag defaults from the environment, remembering the
+// first value it couldn't parse.
+type envDefaults struct{ bad error }
+
+func (e *envDefaults) duration(name string, def time.Duration) time.Duration {
+	v := os.Getenv(name)
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil || d <= 0 {
+		e.fail(fmt.Errorf("$%s=%q: want a duration such as 30s or 2m", name, v))
+		return def
+	}
+	return d
+}
+
+func (e *envDefaults) int(name string, def int) int {
+	v := os.Getenv(name)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		e.fail(fmt.Errorf("$%s=%q: want a whole number", name, v))
+		return def
+	}
+	return n
+}
+
+func (e *envDefaults) fail(err error) {
+	if e.bad == nil {
+		e.bad = err
+	}
+}
+
+func (e *envDefaults) err() error { return e.bad }

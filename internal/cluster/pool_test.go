@@ -1,0 +1,224 @@
+package cluster
+
+import (
+	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"errors"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"connectrpc.com/connect"
+
+	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
+	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
+	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/store"
+)
+
+// linkService serves the pool's Link and nothing else.
+type linkService struct {
+	mimirv1connect.UnimplementedWorkerServiceHandler
+	pool *Pool
+}
+
+func (s linkService) Link(ctx context.Context, stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse]) error {
+	return s.pool.Serve(ctx, stream, Join{Worker: store.Worker{ID: "w1", Name: "silent"}, Addr: "test"})
+}
+
+// silentWorker joins p over a real gRPC stream, then says nothing more, as
+// a worker does whose machine hung or whose network vanished. It returns
+// the client stream and the messages the pool sent after the welcome.
+func silentWorker(t *testing.T, p *Pool) (*connect.BidiStreamForClient[mimirv1.LinkRequest, mimirv1.LinkResponse], <-chan *mimirv1.LinkResponse) {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.Handle(mimirv1connect.NewWorkerServiceHandler(linkService{pool: p}))
+	srv := httptest.NewUnstartedServer(mux)
+	srv.EnableHTTP2 = true
+	srv.Config.Protocols = new(http.Protocols)
+	srv.Config.Protocols.SetUnencryptedHTTP2(true)
+	srv.Start()
+	t.Cleanup(srv.Close)
+
+	h2c := new(http.Protocols)
+	h2c.SetUnencryptedHTTP2(true)
+	client := mimirv1connect.NewWorkerServiceClient(&http.Client{Transport: &http.Transport{Protocols: h2c}}, srv.URL, connect.WithGRPC())
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	stream := client.Link(ctx)
+	t.Cleanup(func() { // a blocked Receive only wakes when the stream closes
+		stream.CloseRequest()
+		stream.CloseResponse()
+	})
+	pub, key, _ := ed25519.GenerateKey(rand.Reader)
+	if err := stream.Send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Hello{Hello: &mimirv1.Hello{Architectures: []string{"table-mlp"}, Capacity: 1, PublicKey: pub}}}); err != nil {
+		t.Fatal(err)
+	}
+	ch, err := stream.Receive()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig := ed25519.Sign(key, append([]byte(ProofContext), ch.GetChallenge().GetNonce()...))
+	if err := stream.Send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Proof{Proof: &mimirv1.Proof{Signature: sig}}}); err != nil {
+		t.Fatal(err)
+	}
+	if w, err := stream.Receive(); err != nil || w.GetWelcome() == nil {
+		t.Fatalf("welcome = %v, %v", w, err)
+	}
+	got := make(chan *mimirv1.LinkResponse, 16)
+	go func() {
+		defer close(got)
+		for {
+			msg, err := stream.Receive()
+			if err != nil {
+				return
+			}
+			got <- msg
+		}
+	}()
+	return stream, got
+}
+
+func testPool() *Pool { return New(slog.New(slog.NewTextHandler(io.Discard, nil))) }
+
+func tableMLP(t *testing.T) arch.Architecture {
+	t.Helper()
+	a, ok := arch.Lookup("table-mlp")
+	if !ok {
+		t.Fatal("no table-mlp architecture")
+	}
+	return a
+}
+
+// A worker that stops heartbeating is dropped after the idle timeout, and
+// a prediction waiting on it fails with ErrLinkLost instead of hanging.
+func TestIdleLinkDropped(t *testing.T) {
+	p := testPool()
+	p.IdleTimeout = 300 * time.Millisecond
+	_, got := silentWorker(t, p)
+	if !p.Online("w1") {
+		t.Fatal("worker not online after joining")
+	}
+	a := tableMLP(t)
+	spec := arch.Spec{InputShape: []int{2}}
+	start := time.Now()
+	errc := make(chan error, 1)
+	go func() {
+		_, _, ran, err := p.Predict(context.Background(), "m1", "v1", "", a, spec, func() ([]byte, error) { return []byte("weights"), nil }, []float32{1, 2})
+		if !ran {
+			err = errors.New("no worker took the prediction")
+		}
+		errc <- err
+	}()
+	if msg := <-got; msg.GetPredict() == nil {
+		t.Fatalf("worker got %v, want a predict task", msg)
+	}
+	select {
+	case err := <-errc:
+		if !errors.Is(err, ErrLinkLost) {
+			t.Fatalf("Predict on a silent worker = %v, want ErrLinkLost", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Predict on a silent worker never returned")
+	}
+	if d := time.Since(start); d < p.IdleTimeout {
+		t.Fatalf("link dropped after %v, before the idle timeout", d)
+	}
+	if p.Online("w1") {
+		t.Fatal("silent worker still online")
+	}
+	if p.CanPredict("table-mlp", "") {
+		t.Fatal("pool still offers the silent worker")
+	}
+}
+
+// A prediction ends with its caller's context, and the worker is told to
+// stop; the link itself stays up while the worker heartbeats.
+func TestPredictHonoursContext(t *testing.T) {
+	p := testPool()
+	p.IdleTimeout = time.Minute
+	_, got := silentWorker(t, p)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, _, ran, err := p.Predict(ctx, "m1", "v1", "", tableMLP(t), arch.Spec{InputShape: []int{2}}, func() ([]byte, error) { return []byte("weights"), nil }, []float32{1, 2})
+	if !ran || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Predict past its deadline = %v, %v", ran, err)
+	}
+	if msg := <-got; msg.GetPredict() == nil {
+		t.Fatalf("first message %v, want the predict task", msg)
+	}
+	select {
+	case msg := <-got:
+		if msg.GetCancel() == nil {
+			t.Fatalf("second message %v, want a cancel", msg)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the worker was never told to cancel")
+	}
+	if !p.Online("w1") {
+		t.Fatal("a timed-out prediction dropped the link")
+	}
+	if !p.CanPredict("table-mlp", "") {
+		t.Fatal("the timed-out prediction kept its slot")
+	}
+}
+
+// Many callers reserving at once never put more tasks on a link than its
+// capacity. Run with -race: it also catches unguarded reads of busy.
+func TestReserveRespectsCapacity(t *testing.T) {
+	p := testPool()
+	caps := map[string]int{"a": 3, "b": 2}
+	for id, c := range caps {
+		p.links[id] = &link{id: id, worker: store.Worker{ID: id}, hello: &mimirv1.Hello{Architectures: []string{"x"}, Capacity: int32(c)},
+			pending: map[string]chan *mimirv1.LinkRequest{}, tasks: map[string]Task{}}
+	}
+	for range 50 { // repeat: a race needs a lucky interleaving to show
+		var wg sync.WaitGroup
+		var taken atomic.Int32
+		var mu sync.Mutex
+		var held []func()
+		start := make(chan struct{})
+		for range 32 {
+			wg.Go(func() {
+				<-start
+				l, id, _ := p.reserve("x", false, "", Task{Kind: "predict"})
+				if l == nil {
+					return
+				}
+				taken.Add(1)
+				p.CanPredict("x", "") // reads busy alongside the reservations
+				l.mu.Lock()
+				over := l.busy > int(l.hello.Capacity)
+				l.mu.Unlock()
+				if over {
+					t.Errorf("link %s over capacity", l.id)
+				}
+				mu.Lock()
+				held = append(held, func() { l.finish(id) })
+				mu.Unlock()
+			})
+		}
+		close(start)
+		wg.Wait()
+		if n := taken.Load(); n != 5 {
+			t.Fatalf("%d reservations held at once, want 5 (the total capacity)", n)
+		}
+		if p.CanPredict("x", "") {
+			t.Fatal("a full pool still offers a link")
+		}
+		for _, f := range held {
+			f()
+		}
+		for id := range caps {
+			if b := p.links[id].busy; b != 0 {
+				t.Fatalf("link %s busy %d after every task finished", id, b)
+			}
+		}
+	}
+}
