@@ -19,6 +19,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
+	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
@@ -54,6 +55,7 @@ func run() error {
 	capacity := flag.Int("capacity", 0, "worker: how many tasks to run at once (default: the CPU count)")
 	maxModelMB := flag.Int("max-model-mb", 256, "console: the largest model file an upload may be, in MB; a GGUF language model is often larger, and an upload needs about three times its size in memory while it is converted")
 	trustedProxies := flag.String("trusted-proxies", os.Getenv("MIMIR_TRUSTED_PROXIES"), "console: comma-separated addresses and CIDR ranges of reverse proxies whose X-Forwarded-For and X-Forwarded-Proto headers to believe, such as 10.0.0.0/8,127.0.0.1; by default no one's are ($MIMIR_TRUSTED_PROXIES)")
+	secretKeyFile := flag.String("secret-key-file", os.Getenv("MIMIR_SECRET_KEY_FILE"), "console: file holding the key stored secrets are encrypted with, 32 bytes as base64 or hex ($MIMIR_SECRET_KEY_FILE); $MIMIR_SECRET_KEY, the key itself, comes first; with neither, the key is <data>/secret.key, made on first start")
 	insecure := flag.Bool("insecure", false, "worker: allow an http:// console on another machine (a private network you trust)")
 	env := envDefaults{}
 	predictTimeout := flag.Duration("predict-timeout", env.duration("MIMIR_PREDICT_TIMEOUT", api.DefaultPredictTimeout), "console: the longest one prediction may take, loading the model included, here or on a worker ($MIMIR_PREDICT_TIMEOUT)")
@@ -108,12 +110,21 @@ func run() error {
 	if *databaseURL == "" {
 		return errors.New("the console keeps its records in PostgreSQL: pass -database-url or set $MIMIR_DATABASE_URL, such as postgres://mimir:secret@localhost:5432/mimir")
 	}
-	st, err := store.Open(ctx, *databaseURL, *data)
+	key, keySource, err := secret.Load(os.Getenv(secret.Env), *secretKeyFile, *data)
+	if err != nil {
+		return err
+	}
+	if keySource.Generated {
+		log.Warn("secret key: made a new key for encrypting stored secrets; back it up with the database, which cannot be read without it", "path", keySource.Where)
+	} else {
+		log.Info("secret key: loaded", "from", keySource.Where)
+	}
+	st, err := store.Open(ctx, *databaseURL, *data, store.WithSecretKey(key))
 	if err != nil {
 		return err
 	}
 	defer st.Close()
-	log.Info("database ready", "database", store.Redact(*databaseURL), "migration_steps", st.Applied())
+	log.Info("database ready", "database", store.Redact(*databaseURL), "migration_steps", st.Applied(), "secrets_encrypted", st.Sealed())
 
 	svc := api.New(st, log)
 	svc.AllowPrivateWebhooks = *allowPrivate
