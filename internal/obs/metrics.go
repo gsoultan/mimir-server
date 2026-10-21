@@ -30,6 +30,15 @@ type Metrics struct {
 	rpcReqs  *prometheus.CounterVec
 	rpcErrs  *prometheus.CounterVec
 	rpcDur   *prometheus.HistogramVec
+
+	// Predictions the server runs itself, by engine: "interpreter" or
+	// "mimir".
+	predictions *prometheus.CounterVec   // questions answered, by engine and result
+	batches     *prometheus.HistogramVec // questions per batch, by engine
+	queueWait   *prometheus.HistogramVec // time a question waited for its batch, by engine
+	batchDur    *prometheus.HistogramVec // time to run a batch, by engine
+	loads       *prometheus.CounterVec   // models loaded, by kind and result
+	loadDur     *prometheus.HistogramVec // time to load a model, by kind
 }
 
 // NewMetrics registers the server's metrics, and the Go runtime's and the
@@ -64,12 +73,82 @@ func NewMetrics() *Metrics {
 			Buckets: prometheus.DefBuckets,
 		}, []string{"procedure"}),
 	}
+	m.predictions = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "mimir_predictions_total",
+		Help: "Questions the server's models answered, by engine (interpreter or mimir) and result (ok or error).",
+	}, []string{"engine", "result"})
+	m.batches = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mimir_prediction_batch_size",
+		Help:    "Questions run together in one batch, by engine.",
+		Buckets: []float64{1, 2, 4, 8, 16, 32, 64, 128},
+	}, []string{"engine"})
+	m.queueWait = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mimir_prediction_queue_seconds",
+		Help:    "Time a question waited for a batch to start, by engine.",
+		Buckets: []float64{.00005, .0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, 1},
+	}, []string{"engine"})
+	m.batchDur = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mimir_prediction_batch_seconds",
+		Help:    "Time to run one batch of questions, by engine.",
+		Buckets: []float64{.0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5, 1, 2.5},
+	}, []string{"engine"})
+	m.loads = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "mimir_model_loads_total",
+		Help: "Models loaded into memory, by kind (built, file or language) and result (ok or error).",
+	}, []string{"kind", "result"})
+	m.loadDur = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mimir_model_load_seconds",
+		Help:    "Time to load a model into memory, by kind.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"kind"})
 	m.reg.MustRegister(
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		m.httpReqs, m.httpErrs, m.httpDur, m.rpcReqs, m.rpcErrs, m.rpcDur,
+		m.predictions, m.batches, m.queueWait, m.batchDur, m.loads, m.loadDur,
 	)
 	return m
+}
+
+// ObserveBatch counts a batch of size questions that engine ran in took,
+// each having waited for the matching duration of waited. It makes
+// Metrics a runtime.Observer.
+func (m *Metrics) ObserveBatch(engine string, size int, waited []time.Duration, took time.Duration, failed bool) {
+	m.predictions.WithLabelValues(engine, result(failed)).Add(float64(size))
+	m.batches.WithLabelValues(engine).Observe(float64(size))
+	m.batchDur.WithLabelValues(engine).Observe(took.Seconds())
+	q := m.queueWait.WithLabelValues(engine)
+	for _, w := range waited {
+		q.Observe(w.Seconds())
+	}
+}
+
+// ObserveLoad counts a model of the given kind loaded in took.
+func (m *Metrics) ObserveLoad(kind string, took time.Duration, failed bool) {
+	m.loads.WithLabelValues(kind, result(failed)).Inc()
+	m.loadDur.WithLabelValues(kind).Observe(took.Seconds())
+}
+
+func result(failed bool) string {
+	if failed {
+		return "error"
+	}
+	return "ok"
+}
+
+// WatchModelCache reports the models the server holds loaded, as usage
+// returns them when Prometheus scrapes.
+func (m *Metrics) WatchModelCache(usage func() (bytes int64, models int)) {
+	m.reg.MustRegister(
+		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Name: "mimir_model_cache_bytes",
+			Help: "Bytes of models held loaded, counted by the size of their files.",
+		}, func() float64 { b, _ := usage(); return float64(b) }),
+		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Name: "mimir_models_loaded",
+			Help: "Models held loaded.",
+		}, func() float64 { _, n := usage(); return float64(n) }),
+	)
 }
 
 // Registry is where the metrics live, for tests and extra collectors.

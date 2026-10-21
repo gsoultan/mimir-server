@@ -20,6 +20,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/obs"
+	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/store"
@@ -61,6 +62,8 @@ func run() error {
 	insecure := flag.Bool("insecure", false, "worker: allow an http:// console on another machine (a private network you trust)")
 	env := envDefaults{}
 	predictTimeout := flag.Duration("predict-timeout", env.duration("MIMIR_PREDICT_TIMEOUT", api.DefaultPredictTimeout), "console: the longest one prediction may take, loading the model included, here or on a worker ($MIMIR_PREDICT_TIMEOUT)")
+	predictBatch := flag.Int("predict-batch", env.int("MIMIR_PREDICT_BATCH", runtime.DefaultBatching.Max), "console and worker: the most predictions to one model to run together as one batch when they queue up; 1 runs each alone ($MIMIR_PREDICT_BATCH)")
+	predictBatchWait := flag.Duration("predict-batch-wait", env.duration("MIMIR_PREDICT_BATCH_WAIT", runtime.DefaultBatching.Wait), "console and worker: how long a runner that found fewer than -predict-batch predictions waiting holds them for more before it runs; 0 runs at once ($MIMIR_PREDICT_BATCH_WAIT)")
 	workerIdle := flag.Duration("worker-idle-timeout", env.duration("MIMIR_WORKER_IDLE_TIMEOUT", cluster.DefaultIdleTimeout), "console: how long a worker may go silent (it heartbeats every 15s) before its link is dropped and its tasks fail ($MIMIR_WORKER_IDLE_TIMEOUT)")
 	cacheMB := flag.Int("model-cache-mb", env.int("MIMIR_MODEL_CACHE_MB", api.DefaultModelCacheBytes>>20), "console and worker: how many MB of models to keep loaded, by file size; the least recently used are dropped first, and the last one loaded always stays; 0 for no limit ($MIMIR_MODEL_CACHE_MB)")
 	maxUploads := flag.Int("max-uploads", env.int("MIMIR_MAX_UPLOADS", server.DefaultMaxUploads), "console: how many model and dataset uploads to take at once; each is held in memory, so more are refused until one finishes ($MIMIR_MAX_UPLOADS)")
@@ -129,6 +132,11 @@ func run() error {
 	defer st.Close()
 	log.Info("database ready", "database", store.Redact(*databaseURL), "migration_steps", st.Applied(), "secrets_encrypted", st.Sealed())
 
+	if *predictBatch < 1 || *predictBatchWait < 0 {
+		log.Error("-predict-batch must be at least 1 and -predict-batch-wait not negative")
+		os.Exit(2)
+	}
+	runtime.SetDefaultBatching(runtime.Batching{Max: *predictBatch, Wait: *predictBatchWait})
 	svc := api.New(st, log)
 	if err := svc.LoadArchitectures(ctx); err != nil {
 		log.Error("couldn't read the described model types", "error", err)

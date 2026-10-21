@@ -52,6 +52,8 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	}
 	mux := http.NewServeMux()
 	metrics := obs.NewMetrics()
+	svc.ObserveModels(metrics)
+	metrics.WatchModelCache(svc.ModelCacheUsage)
 
 	// Every RPC is counted and timed, then goes through the auth
 	// interceptor, which signs callers in from their cookie or API key and
