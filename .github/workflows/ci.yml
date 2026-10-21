@@ -70,6 +70,10 @@ jobs:
           test -z "$(gofmt -l cmd internal worker)"
           go vet ./...
           go test -race ./...
+      - name: Known vulnerabilities
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          "$(go env GOPATH)/bin/govulncheck" ./...
       - name: Build binary
         run: go build -ldflags "-X main.version=$(git describe --tags --always --dirty)" -o bin/mimir-server ./cmd/mimir-server
       - name: Build the container image's static binary

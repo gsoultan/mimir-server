@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -28,12 +27,8 @@ import (
 	"github.com/gsoultan/mimir/tensor"
 )
 
-// Limits on user-supplied text.
-const (
-	maxName        = 100
-	maxDescription = 500
-	maxTopK        = 100
-)
+// maxTopK is the most guesses a prediction returns.
+const maxTopK = 100
 
 // Service implements ModelService and PredictService.
 type Service struct {
@@ -156,7 +151,7 @@ func (s *Service) GetModel(ctx context.Context, req *connect.Request[mimirv1.Get
 
 func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.CreateModelRequest]) (*connect.Response[mimirv1.CreateModelResponse], error) {
 	msg := req.Msg
-	name, desc, err := cleanText(msg.GetName(), msg.GetDescription())
+	name, desc, err := cleanText("model", msg.GetName(), msg.GetDescription())
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +246,7 @@ func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if _, err := s.get(ctx, id); err != nil {
 		return nil, err
 	}
-	name, desc, err := cleanText(req.Msg.GetName(), req.Msg.GetDescription())
+	name, desc, err := cleanText("model", req.Msg.GetName(), req.Msg.GetDescription())
 	if err != nil {
 		return nil, err
 	}
@@ -339,21 +334,22 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	// A worker takes the prediction when this server doesn't run models
 	// itself; otherwise local is faster for the small models here.
 	// A model placed on one worker only runs there.
-	if s.Pool != nil && (!s.Local || m.WorkerID != "") {
+	pin, pinned := m.PinnedWorker()
+	if s.Pool != nil && (!s.Local || pinned) {
 		var worker string
-		r, worker, ran, err2 = s.Pool.Predict(pctx, m.ID, m.SHA256, m.WorkerID, a, spec, load, input)
+		r, worker, ran, err2 = s.Pool.Predict(pctx, m.ID, m.WeightsVersion(), pin, a, spec, load, input)
 		if ran && err2 != nil {
 			s.log.WarnContext(ctx, "predict: worker failed", "worker", worker, "model_id", m.ID, "error", err2)
 		}
 	}
-	if !ran && m.WorkerID != "" {
-		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("This model runs on %s, which is offline or full right now. Wait for it, or change where the model runs on its page.", s.workerName(ctx, m.WorkerID)))
+	if !ran && pinned {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("This model runs on %s, which is offline or full right now. Wait for it, or change where the model runs on its page.", s.workerName(ctx, pin)))
 	}
 	if !ran {
 		if !s.Local {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
 		}
-		r, err2 = s.cache.Predict(pctx, m.ID, m.SHA256, a, spec, load, input)
+		r, err2 = s.cache.Predict(pctx, m.ID, m.WeightsVersion(), a, spec, load, input)
 	}
 	switch {
 	case err2 != nil && ctx.Err() != nil:
@@ -486,19 +482,33 @@ func notFound(id string) error {
 	return connect.NewError(connect.CodeNotFound, fmt.Errorf("No model with id %q.", id))
 }
 
-func cleanText(name, desc string) (string, string, error) {
-	name, desc = strings.TrimSpace(name), strings.TrimSpace(desc)
-	switch {
-	case name == "":
-		return "", "", invalid("Give the model a name.")
-	case !utf8.ValidString(name) || !utf8.ValidString(desc):
-		return "", "", invalid("Names and descriptions must be valid text.")
-	case utf8.RuneCountInString(name) > maxName:
-		return "", "", invalid("Names can be at most %d characters.", maxName)
-	case utf8.RuneCountInString(desc) > maxDescription:
-		return "", "", invalid("Descriptions can be at most %d characters.", maxDescription)
+// cleanText checks the name of a thing, such as "model", and a
+// description by the store's rules.
+func cleanText(thing, name, desc string) (string, string, error) {
+	n, err := store.ParseName(thing, name)
+	if err != nil {
+		return "", "", refused(err)
 	}
-	return name, desc, nil
+	d, err := store.ParseDescription(desc)
+	if err != nil {
+		return "", "", refused(err)
+	}
+	return n.String(), d.String(), nil
+}
+
+// cleanName checks the name of a thing by the store's rules.
+func cleanName(thing, name string) (string, error) {
+	n, err := store.ParseName(thing, name)
+	if err != nil {
+		return "", refused(err)
+	}
+	return n.String(), nil
+}
+
+// refused turns a value the store's rules refuse into InvalidArgument,
+// keeping its message for the person.
+func refused(err error) error {
+	return connect.NewError(connect.CodeInvalidArgument, err)
 }
 
 func toProto(m store.Model) *mimirv1.Model {
