@@ -602,7 +602,7 @@ name, owning team) and the roles, statuses and kinds as named types
 (`enums.go`) that package store uses directly. The typed query code
 in `internal/store/db` and the migrations in `internal/store/migrations`
 are generated from them with storm's CLI
-(`go install github.com/gsoultan/storm/cmd/storm@v1.3.1-0.20261021030417-810666285aaf`), and both are
+(`go install github.com/gsoultan/storm/cmd/storm@v1.4.0`), and both are
 committed. After changing a struct, against a scratch PostgreSQL database:
 
 ```sh
