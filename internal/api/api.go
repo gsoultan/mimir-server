@@ -111,19 +111,25 @@ func New(s *store.Store, log *slog.Logger) *Service {
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {
 	res := &mimirv1.ListArchitecturesResponse{}
-	for _, a := range arch.All() {
-		res.Architectures = append(res.Architectures, &mimirv1.Architecture{
-			Name:        a.Name,
-			Title:       a.Title,
-			Description: a.Description,
-			InputShape:  int64s(a.Spec.InputShape),
-			Labels:      a.Spec.Labels,
-			Trainable:   a.Trainable(),
-			Input:       string(a.Input),
-			Output:      string(a.Answers()),
-		})
+	for _, a := range arch.Every() {
+		res.Architectures = append(res.Architectures, archProto(a))
 	}
 	return connect.NewResponse(res), nil
+}
+
+func archProto(a arch.Architecture) *mimirv1.Architecture {
+	return &mimirv1.Architecture{
+		Name:        a.Name,
+		Title:       a.Title,
+		Description: a.Description,
+		InputShape:  int64s(a.Spec.InputShape),
+		Labels:      a.Spec.Labels,
+		Trainable:   a.Trainable(),
+		Input:       string(a.Input),
+		Output:      string(a.Answers()),
+		Custom:      a.Custom,
+		Items:       int32(a.Items),
+	}
 }
 
 func (s *Service) ListModels(ctx context.Context, _ *connect.Request[mimirv1.ListModelsRequest]) (*connect.Response[mimirv1.ListModelsResponse], error) {
@@ -159,7 +165,7 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if !ok {
 		return nil, invalid("Unknown model type %q. Pick one from the list of model types.", msg.GetArchitecture())
 	}
-	if !a.Fixed() && !a.File {
+	if !a.Fixed() && !a.File && !a.Custom {
 		return nil, invalid("%s models are taught from a dataset here rather than uploaded. Choose Teach a new model.", a.Title)
 	}
 	weights := msg.GetWeights()
@@ -194,6 +200,12 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 		if err := checkFile(&m, a, weights); err != nil {
 			s.log.InfoContext(ctx, "model file rejected", "architecture", a.Name, "format", from, "error", err)
 			return nil, invalid("This %s can't run here: %s.", fileName(from), strings.TrimPrefix(err.Error(), runtime.ErrBadWeights.Error()+": "))
+		}
+	} else if a.Custom {
+		// Only its own code can read the weights; keep them as they are
+		// with what the uploader says the model reads and answers.
+		if err := customSpec(&m, a, msg.GetInputShape(), msg.GetLabels()); err != nil {
+			return nil, err
 		}
 	} else if _, err := runtime.Build(a, a.Spec, weights); err != nil {
 		s.log.InfoContext(ctx, "weights rejected", "architecture", a.Name, "error", err)
@@ -320,6 +332,8 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	}
 	topK := int(msg.GetTopK())
 	switch {
+	case topK == 0 && a.Answers() == arch.Ranked && a.Items > 0:
+		topK = min(a.Items, maxTopK)
 	case topK == 0:
 		topK = 3
 	case topK < 0 || topK > maxTopK:
@@ -355,7 +369,8 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	// itself; otherwise local is faster for the small models here.
 	// A model placed on one worker only runs there.
 	pin, pinned := m.PinnedWorker()
-	if s.Pool != nil && (!s.Local || pinned) {
+	// A custom model's own code runs only on workers.
+	if s.Pool != nil && (!s.Local || pinned || a.Custom) {
 		var worker string
 		r, worker, ran, err2 = s.Pool.Predict(pctx, m.ID, m.WeightsVersion(), pin, a, spec, load, input)
 		if ran && err2 != nil {
@@ -366,6 +381,9 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("This model runs on %s, which is offline or full right now. Wait for it, or change where the model runs on its page.", s.workerName(ctx, pin)))
 	}
 	if !ran {
+		if a.Custom {
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("No worker that runs %s is connected right now. Start one with its code, or check Settings → Workers.", a.Name))
+		}
 		if !s.Local {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
 		}

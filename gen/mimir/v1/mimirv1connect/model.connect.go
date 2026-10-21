@@ -54,6 +54,12 @@ const (
 	// ModelServiceSetModelWorkerProcedure is the fully-qualified name of the ModelService's
 	// SetModelWorker RPC.
 	ModelServiceSetModelWorkerProcedure = "/mimir.v1.ModelService/SetModelWorker"
+	// ModelServiceSaveArchitectureProcedure is the fully-qualified name of the ModelService's
+	// SaveArchitecture RPC.
+	ModelServiceSaveArchitectureProcedure = "/mimir.v1.ModelService/SaveArchitecture"
+	// ModelServiceDeleteArchitectureProcedure is the fully-qualified name of the ModelService's
+	// DeleteArchitecture RPC.
+	ModelServiceDeleteArchitectureProcedure = "/mimir.v1.ModelService/DeleteArchitecture"
 	// PredictServicePredictProcedure is the fully-qualified name of the PredictService's Predict RPC.
 	PredictServicePredictProcedure = "/mimir.v1.PredictService/Predict"
 	// PredictServiceGenerateProcedure is the fully-qualified name of the PredictService's Generate RPC.
@@ -83,6 +89,11 @@ type ModelServiceClient interface {
 	// SetModelWorker picks the worker that answers a model's questions, or
 	// none to let the console choose.
 	SetModelWorker(context.Context, *connect.Request[v1.SetModelWorkerRequest]) (*connect.Response[v1.SetModelWorkerResponse], error)
+	// SaveArchitecture describes a model type written in someone's own code
+	// and run on workers, or changes how one is described.
+	SaveArchitecture(context.Context, *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error)
+	// DeleteArchitecture removes a described model type no model uses.
+	DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error)
 }
 
 // NewModelServiceClient constructs a client for the mimir.v1.ModelService service. By default, it
@@ -141,18 +152,32 @@ func NewModelServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(modelServiceMethods.ByName("SetModelWorker")),
 			connect.WithClientOptions(opts...),
 		),
+		saveArchitecture: connect.NewClient[v1.SaveArchitectureRequest, v1.SaveArchitectureResponse](
+			httpClient,
+			baseURL+ModelServiceSaveArchitectureProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("SaveArchitecture")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteArchitecture: connect.NewClient[v1.DeleteArchitectureRequest, v1.DeleteArchitectureResponse](
+			httpClient,
+			baseURL+ModelServiceDeleteArchitectureProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("DeleteArchitecture")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // modelServiceClient implements ModelServiceClient.
 type modelServiceClient struct {
-	listArchitectures *connect.Client[v1.ListArchitecturesRequest, v1.ListArchitecturesResponse]
-	listModels        *connect.Client[v1.ListModelsRequest, v1.ListModelsResponse]
-	getModel          *connect.Client[v1.GetModelRequest, v1.GetModelResponse]
-	createModel       *connect.Client[v1.CreateModelRequest, v1.CreateModelResponse]
-	updateModel       *connect.Client[v1.UpdateModelRequest, v1.UpdateModelResponse]
-	deleteModel       *connect.Client[v1.DeleteModelRequest, v1.DeleteModelResponse]
-	setModelWorker    *connect.Client[v1.SetModelWorkerRequest, v1.SetModelWorkerResponse]
+	listArchitectures  *connect.Client[v1.ListArchitecturesRequest, v1.ListArchitecturesResponse]
+	listModels         *connect.Client[v1.ListModelsRequest, v1.ListModelsResponse]
+	getModel           *connect.Client[v1.GetModelRequest, v1.GetModelResponse]
+	createModel        *connect.Client[v1.CreateModelRequest, v1.CreateModelResponse]
+	updateModel        *connect.Client[v1.UpdateModelRequest, v1.UpdateModelResponse]
+	deleteModel        *connect.Client[v1.DeleteModelRequest, v1.DeleteModelResponse]
+	setModelWorker     *connect.Client[v1.SetModelWorkerRequest, v1.SetModelWorkerResponse]
+	saveArchitecture   *connect.Client[v1.SaveArchitectureRequest, v1.SaveArchitectureResponse]
+	deleteArchitecture *connect.Client[v1.DeleteArchitectureRequest, v1.DeleteArchitectureResponse]
 }
 
 // ListArchitectures calls mimir.v1.ModelService.ListArchitectures.
@@ -190,6 +215,16 @@ func (c *modelServiceClient) SetModelWorker(ctx context.Context, req *connect.Re
 	return c.setModelWorker.CallUnary(ctx, req)
 }
 
+// SaveArchitecture calls mimir.v1.ModelService.SaveArchitecture.
+func (c *modelServiceClient) SaveArchitecture(ctx context.Context, req *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error) {
+	return c.saveArchitecture.CallUnary(ctx, req)
+}
+
+// DeleteArchitecture calls mimir.v1.ModelService.DeleteArchitecture.
+func (c *modelServiceClient) DeleteArchitecture(ctx context.Context, req *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error) {
+	return c.deleteArchitecture.CallUnary(ctx, req)
+}
+
 // ModelServiceHandler is an implementation of the mimir.v1.ModelService service.
 type ModelServiceHandler interface {
 	// ListArchitectures returns the model architectures this server can build.
@@ -208,6 +243,11 @@ type ModelServiceHandler interface {
 	// SetModelWorker picks the worker that answers a model's questions, or
 	// none to let the console choose.
 	SetModelWorker(context.Context, *connect.Request[v1.SetModelWorkerRequest]) (*connect.Response[v1.SetModelWorkerResponse], error)
+	// SaveArchitecture describes a model type written in someone's own code
+	// and run on workers, or changes how one is described.
+	SaveArchitecture(context.Context, *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error)
+	// DeleteArchitecture removes a described model type no model uses.
+	DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error)
 }
 
 // NewModelServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -262,6 +302,18 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(modelServiceMethods.ByName("SetModelWorker")),
 		connect.WithHandlerOptions(opts...),
 	)
+	modelServiceSaveArchitectureHandler := connect.NewUnaryHandler(
+		ModelServiceSaveArchitectureProcedure,
+		svc.SaveArchitecture,
+		connect.WithSchema(modelServiceMethods.ByName("SaveArchitecture")),
+		connect.WithHandlerOptions(opts...),
+	)
+	modelServiceDeleteArchitectureHandler := connect.NewUnaryHandler(
+		ModelServiceDeleteArchitectureProcedure,
+		svc.DeleteArchitecture,
+		connect.WithSchema(modelServiceMethods.ByName("DeleteArchitecture")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.ModelService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ModelServiceListArchitecturesProcedure:
@@ -278,6 +330,10 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 			modelServiceDeleteModelHandler.ServeHTTP(w, r)
 		case ModelServiceSetModelWorkerProcedure:
 			modelServiceSetModelWorkerHandler.ServeHTTP(w, r)
+		case ModelServiceSaveArchitectureProcedure:
+			modelServiceSaveArchitectureHandler.ServeHTTP(w, r)
+		case ModelServiceDeleteArchitectureProcedure:
+			modelServiceDeleteArchitectureHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -313,6 +369,14 @@ func (UnimplementedModelServiceHandler) DeleteModel(context.Context, *connect.Re
 
 func (UnimplementedModelServiceHandler) SetModelWorker(context.Context, *connect.Request[v1.SetModelWorkerRequest]) (*connect.Response[v1.SetModelWorkerResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.SetModelWorker is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) SaveArchitecture(context.Context, *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.SaveArchitecture is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.DeleteArchitecture is not implemented"))
 }
 
 // PredictServiceClient is a client for the mimir.v1.PredictService service.

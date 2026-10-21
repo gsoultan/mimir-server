@@ -27,6 +27,9 @@ export const Route = createFileRoute("/_app/models/teach")({
     template: z.string().optional(),
     example: z.boolean().optional(),
     data: z.enum(["table", "text", "photos", "photo_table"]).optional(),
+    // arch is the model type to teach when the examples fit it, such as
+    // one written in someone's own code.
+    arch: z.string().optional(),
   }),
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureQueryData(listDatasets),
@@ -204,6 +207,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
     const allowed = archs.architectures.filter((a) => d.architectures.includes(a.name));
     setArch((cur) => {
       if (tpl && d.architectures.includes(tpl.architecture)) return tpl.architecture;
+      if (search.arch && d.architectures.includes(search.arch)) return search.arch;
       return allowed.some((a) => a.name === cur) ? cur : allowed[0]?.name ?? "";
     });
     if (!name) setName(d.kind === DatasetKind.MNIST ? "My digits model" : `${d.name.replace(/\.(csv|zip)$/i, "")} model`);
@@ -495,7 +499,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                     <Radio.Card key={a.name} value={a.name} radius="md" p="md" className="data-[checked]:border-[var(--mantine-color-teal-7)]">
                       <Group wrap="nowrap" align="flex-start">
                         <Radio.Indicator />
-                        <div><Group gap="xs"><Text fw={600}>{a.title}</Text>{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}</Group><Text size="sm" c="dimmed">{a.description}</Text></div>
+                        <div><Group gap="xs"><Text fw={600}>{a.title}</Text>{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group><Text size="sm" c="dimmed">{a.description}</Text></div>
                       </Group>
                     </Radio.Card>
                   ))}

@@ -202,8 +202,15 @@ A mimir model is Go code plus weights, so the server keeps a registry of
 known model types in `internal/arch` (today: two handwritten-digit models,
 `mnist-mlp` and `mnist-cnn`, and `table-mlp` for rows of numbers). An
 upload names its type, and the server checks the weights fit that type
-before storing them. To serve your own architecture, add it to the
-registry.
+before storing them. To serve a model type of your own without changing
+the server, write it in Go and run it on a worker (see Your own model
+types).
+
+**Models → Build a model** is where a new model starts. It asks what the
+model should do (yes or no, pick a group, a number, write or chat,
+recommend, forecast, spot the odd one, find it in a photo), then ranks the
+ways to get there: a template, your own data, a model file trained
+elsewhere, or your own code.
 
 ## Teach a new model
 
@@ -463,10 +470,33 @@ it is connected.
   token or a rebuilt machine. Joins, refusals, new addresses and new
   tokens go in the audit log and on the worker's page.
 
-For models a weights file can't describe, write a worker of your own with
-the `worker` package: implement `Predict` (and `Train`) for an
-architecture name and call `worker.Run`. Workers authenticate with their
-token and key only; they never see people's credentials.
+Workers authenticate with their token and key only; they never see
+people's credentials.
+
+### Your own model types
+
+For models mimir can't build itself, such as a recommender or a
+forecaster, write the model in Go with the `worker` package and run it as
+a worker. **Build a model → Write your own model** walks through it:
+
+1. **Describe it**: the name your code runs it under, what people send
+   (a row of columns, a photo or a list of numbers) and what it answers
+   (one of a few groups, a number, or a ranked list of a set number of
+   items). This is `ModelService.SaveArchitecture`; the type then shows
+   up wherever model types do.
+2. **Write it**: the page gives a starting `main.go` that implements
+   `Predict`, and `Train` to teach it here, and calls `worker.Run` with
+   a handler under that name.
+3. **Connect it**: make a worker token and run it. The page waits and
+   moves on when a worker running that type joins.
+4. **Teach it or upload what you trained**: teaching sends the examples
+   to that worker's `Train`; an upload keeps the file as it is, with how
+   many numbers the model reads and the answers it picks from.
+
+Its models answer only on workers that run its code, even on a console
+that runs models itself, and a ranked answer lists the type's number of
+items, best first. A type can be changed by whoever described it or an
+owner, and deleted once no model uses it.
 
 ## Settings
 

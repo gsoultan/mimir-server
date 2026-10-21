@@ -1,5 +1,5 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Button, Card, Group, Radio, Stack, Stepper, Text, Textarea, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Card, Group, Radio, Stack, Stepper, Text, Textarea, TextInput } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconCheck, IconFileUpload } from "@tabler/icons-react";
@@ -23,7 +23,15 @@ export const Route = createFileRoute("/_app/models/new")({
   component: AddModel,
 });
 
-type Picked = { file: File; bytes: Uint8Array; format: Format; tensors?: number; parameters?: number };
+// A custom model's file is whatever its own code reads, so it is taken as
+// it is (format "own").
+type Picked = { file: File; bytes: Uint8Array; format: Format | "own"; tensors?: number; parameters?: number };
+
+// shapeOf reads "28" or "3 x 64 x 64" as a shape.
+const shapeOf = (s: string) => {
+  const parts = s.split(/[\s,x×*]+/).filter(Boolean).map(Number);
+  return parts.length > 0 && parts.every((n) => Number.isInteger(n) && n > 0) ? parts.map(BigInt) : undefined;
+};
 
 // Model types that take a whole model, rather than the weights of one the
 // server builds, also take ONNX and GGUF files and convert them.
@@ -41,7 +49,13 @@ function AddModel() {
   const [reading, setReading] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const whole = !data.architectures.find((a) => a.name === arch)?.trainable;
+  const picked0 = data.architectures.find((a) => a.name === arch);
+  const custom = !!picked0?.custom;
+  const whole = !picked0?.trainable;
+  const [shape, setShape] = useState("");
+  const [labels, setLabels] = useState("");
+  const labelList = labels.split("\n").map((l) => l.trim()).filter(Boolean);
+  const specOk = !custom || (!!shapeOf(shape) && (picked0?.output === "number" || labelList.length >= 2));
 
   const create = useMutation(ModelService.method.createModel, {
     onSuccess: async (res) => {
@@ -53,6 +67,11 @@ function AddModel() {
 
   async function pick(file: File) {
     setFileError(undefined);
+    if (custom) {
+      setPicked({ file, bytes: new Uint8Array(await file.arrayBuffer()), format: "own" });
+      if (!name) setName(file.name.replace(/\.[^.]+$/, ""));
+      return;
+    }
     setReading(true);
     const r = await readFile(file);
     setReading(false);
@@ -70,14 +89,14 @@ function AddModel() {
       <Card withBorder radius="lg" padding="xl">
         <Stepper active={step} onStepClick={(s) => s < step && setStep(s)} size="sm">
           <Stepper.Step label="What kind" description="Pick the model type">
-            <Radio.Group value={arch} onChange={setArch} label="What does this model do?" mt="md">
+            <Radio.Group value={arch} onChange={(v) => { setArch(v); setPicked(undefined); }} label="What does this model do?" mt="md">
               <Stack gap="sm" mt="sm">
                 {data.architectures.map((a) => (
                   <Radio.Card key={a.name} value={a.name} radius="md" p="md" className="data-[checked]:border-[var(--mantine-color-teal-7)]">
                     <Group wrap="nowrap" align="flex-start">
                       <Radio.Indicator />
                       <div>
-                        <Text fw={600}>{a.title}</Text>
+                        <Group gap="xs"><Text fw={600}>{a.title}</Text>{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group>
                         <Text size="sm" c="dimmed">{a.description}</Text>
                       </div>
                     </Group>
@@ -87,7 +106,7 @@ function AddModel() {
             </Radio.Group>
           </Stepper.Step>
 
-          <Stepper.Step label="The file" description={whole ? "Upload the model" : "Upload the weights"}>
+          <Stepper.Step label="The file" description={whole || custom ? "Upload the model" : "Upload the weights"}>
             <Dropzone
               mt="md"
               onDrop={(files) => files[0] && pick(files[0])}
@@ -99,8 +118,8 @@ function AddModel() {
             >
               <Stack align="center" gap={4} py="xl" className="pointer-events-none">
                 <IconFileUpload size={40} stroke={1.5} />
-                <Text fw={600}>Drop your {takes(whole)} file here</Text>
-                <Text size="sm" c="dimmed">or click to choose one{whole && ". ONNX and GGUF models become .mim files when you add them."}</Text>
+                <Text fw={600}>Drop your {custom ? "model's" : takes(whole)} file here</Text>
+                <Text size="sm" c="dimmed">or click to choose one{custom ? ". It is kept as it is, for your own code to read." : whole && ". ONNX and GGUF models become .mim files when you add them."}</Text>
               </Stack>
             </Dropzone>
             {fileError && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{fileError}</Alert>}
@@ -110,7 +129,7 @@ function AddModel() {
                 {picked.parameters !== undefined
                   ? ` · ${picked.parameters.toLocaleString()} numbers learned`
                   : picked.tensors !== undefined ? ` · ${picked.tensors.toLocaleString()} weight tables` : ""}
-                {picked.format !== "mim" && ` · becomes a .mim file when you add it`}
+                {picked.format !== "mim" && picked.format !== "own" && ` · becomes a .mim file when you add it`}
               </Alert>
             )}
           </Stepper.Step>
@@ -119,6 +138,14 @@ function AddModel() {
             <Stack mt="md">
               <TextInput label="Name" required maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} data-autofocus />
               <Textarea label="Description" description="Optional. What is it for?" maxLength={500} autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
+              {custom && (
+                <>
+                  <TextInput label="How many numbers it reads" description="One example, like 12, or 3 x 64 x 64 for a photo" required value={shape} onChange={(e) => setShape(e.currentTarget.value)} error={shape && !shapeOf(shape) ? "Whole numbers above 0, like 12 or 3 x 64 x 64" : undefined} />
+                  {picked0?.output !== "number" && (
+                    <Textarea label={picked0?.output === "ranked" ? "The items it ranks" : "The answers it picks from"} description="One per line, in the order your code scores them" required autosize minRows={3} maxRows={10} value={labels} onChange={(e) => setLabels(e.currentTarget.value)} />
+                  )}
+                </>
+              )}
               {create.error && <Alert color="red" icon={<IconAlertCircle />}>{message(create.error)}</Alert>}
             </Stack>
           </Stepper.Step>
@@ -131,8 +158,8 @@ function AddModel() {
           ) : (
             <Button
               loading={create.isPending}
-              disabled={!name.trim() || !picked}
-              onClick={() => picked && create.mutate({ name, description, architecture: arch, weights: picked.bytes })}
+              disabled={!name.trim() || !picked || !specOk}
+              onClick={() => picked && create.mutate({ name, description, architecture: arch, weights: picked.bytes, ...(custom ? { inputShape: shapeOf(shape), labels: labelList } : {}) })}
             >
               Add model
             </Button>

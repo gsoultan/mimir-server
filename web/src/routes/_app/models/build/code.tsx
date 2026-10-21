@@ -7,25 +7,28 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { message } from "../../../../api/client";
+import { ModelService } from "../../../../api/gen/mimir/v1/model_pb";
 import { WorkerService } from "../../../../api/gen/mimir/v1/worker_pb";
-import { allWorkerQueries, listWorkers, whoAmI } from "../../../../api/queries";
+import { allModelQueries, allWorkerQueries, listArchitectures, listWorkers, whoAmI } from "../../../../api/queries";
 import { AnchorLink, ButtonLink } from "../../../../components/links";
 import { Page } from "../../../../components/Page";
 import { goalOf } from "../../../../lib/goals";
 import { mainGo, setup, workerModule } from "../../../../lib/starter";
 
 export const Route = createFileRoute("/_app/models/build/code")({
-  validateSearch: z.object({ goal: z.string().optional() }),
+  // goal is the guide it came from; arch reopens a type described before.
+  validateSearch: z.object({ goal: z.string().optional(), arch: z.string().optional() }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(listArchitectures),
   component: CodeGuide,
 });
 
 const inputs = [
-  { value: "row", label: "A row of columns" },
-  { value: "photo", label: "A photo" },
-  { value: "numbers", label: "A list of numbers" },
+  { value: "table", label: "A row of columns" },
+  { value: "image", label: "A photo" },
+  { value: "tensor", label: "A list of numbers" },
 ];
 const outputs = [
-  { value: "group", label: "One of a few groups" },
+  { value: "class", label: "One of a few groups" },
   { value: "number", label: "A number" },
   { value: "ranked", label: "A ranked list of items" },
 ];
@@ -36,26 +39,39 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
 // CodeGuide walks a developer from an empty folder to a model of their own
 // running on a worker. It moves on by itself when the worker connects.
 function CodeGuide() {
-  const { goal: goalId } = Route.useSearch();
-  const goal = goalId ? goalOf(goalId) : undefined;
+  const search = Route.useSearch();
+  const goal = search.goal ? goalOf(search.goal) : undefined;
   const { data: me } = useSuspenseQuery(whoAmI);
+  const { data: archs } = useSuspenseQuery(listArchitectures);
   const canManage = me.permissions.includes("workers.manage");
-  const [name, setName] = useState(goal?.arch ?? "my-model");
-  const [input, setInput] = useState(goal?.id === "find_in_photo" ? "photo" : goal?.id === "forecast" ? "numbers" : "row");
-  const [output, setOutput] = useState(goal?.id === "recommend" ? "ranked" : goal?.id === "forecast" || goal?.id === "odd_one" ? "number" : "group");
-  const [items, setItems] = useState<number | string>(10);
+  const before = archs.architectures.find((a) => a.custom && a.name === search.arch);
+  const [name, setName] = useState(before?.name ?? goal?.arch ?? "my-model");
+  const [input, setInput] = useState(before?.input ?? (goal?.id === "find_in_photo" ? "image" : goal?.id === "forecast" ? "tensor" : "table"));
+  const [output, setOutput] = useState(before?.output ?? (goal?.id === "recommend" ? "ranked" : goal?.id === "forecast" || goal?.id === "odd_one" ? "number" : "class"));
+  const [items, setItems] = useState<number | string>(before?.items || 10);
   const [token, setToken] = useState<string>();
   const arch = slug(name) || "my-model";
+  const saved = archs.architectures.find((a) => a.custom && a.name === arch);
+  const dirty = !saved || saved.input !== input || saved.output !== output || (output === "ranked" && saved.items !== Number(items));
 
   const queryClient = useQueryClient();
-  const workers = useQuery({ ...listWorkers, enabled: canManage, refetchInterval: 3000 });
-  const running = workers.data?.workers.find((w) => w.online && w.architectures.includes(arch));
+  const workers = useQuery({ ...listWorkers, enabled: canManage && !!saved, refetchInterval: 3000 });
+  const running = saved && workers.data?.workers.find((w) => w.online && w.architectures.includes(arch));
   const create = useMutation(WorkerService.method.createWorker, {
     onSuccess: async (res) => { await queryClient.invalidateQueries({ queryKey: allWorkerQueries }); setToken(res.token); },
   });
+  const save = useMutation(ModelService.method.saveArchitecture, {
+    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: allModelQueries }); },
+  });
+  const describe = () => save.mutate({
+    name: arch,
+    title: goal && goal.arch === arch ? goal.title : arch,
+    description: goal && goal.arch === arch ? goal.intro : "",
+    input, output, items: output === "ranked" ? Number(items) || 10 : 0,
+  });
 
   const run = `MIMIR_WORKER_TOKEN=${token ?? "<your worker token>"} go run .`;
-  const step = running ? 4 : 3;
+  const step = !saved ? 0 : running ? 4 : 3;
   const what = goal ? goal.example.toLowerCase().replace(/\?$/, "") : "the question it was written for";
 
   return (
@@ -69,7 +85,14 @@ function CodeGuide() {
         <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
           <Card withBorder radius="lg" padding="lg" className="md:col-span-2">
             <Stepper active={step} orientation="vertical" size="sm" iconSize={30}>
-              <Stepper.Step label="Describe it" description={`${arch} · reads ${inputs.find((i) => i.value === input)!.label.toLowerCase()} · answers ${outputs.find((o) => o.value === output)!.label.toLowerCase()}`} />
+              <Stepper.Step label="Describe it" description={`${arch} · reads ${inputs.find((i) => i.value === input)!.label.toLowerCase()} · answers ${outputs.find((o) => o.value === output)!.label.toLowerCase()}`}>
+                <Stack gap="sm" mt="md">
+                  <Text fw={700} size="sm">Now: describe it</Text>
+                  <Text size="sm" c="dimmed">Check the card on the right: the name your code runs it under, what people send and what it answers. Then save it, and the next steps open.</Text>
+                  <Group><Button loading={save.isPending} onClick={describe}>Save {arch}</Button></Group>
+                  {save.error && <Alert color="red" icon={<IconAlertCircle />}>{message(save.error)}</Alert>}
+                </Stack>
+              </Stepper.Step>
               <Stepper.Step label="Get the starting project" description={`Go 1.27 or newer: go get ${workerModule}`} />
               <Stepper.Step label="Write the model" description="Fill in Predict, and Train if you want to teach it here. The starting main.go is below." />
               <Stepper.Step label="Connect it" description={running ? `${running.name} connected` : "Make a token, then run it from the project's folder."}>
@@ -109,8 +132,8 @@ function CodeGuide() {
                       <Text size="sm"><b>{running.name}</b> is connected and runs <Code>{arch}</Code>.{running.trains ? " It can also teach it." : ""}</Text>
                     </Alert>
                     <Group>
-                      {running.trains && <ButtonLink to="/models/teach">Teach it from my data</ButtonLink>}
-                      <ButtonLink variant="default" to="/models/new">Upload trained weights</ButtonLink>
+                      {running.trains && <ButtonLink to="/models/teach" search={{ arch, data: input === "image" ? "photos" : "table" }}>Teach it from my data</ButtonLink>}
+                      <ButtonLink variant="default" to="/models/new" search={{ kind: arch }}>Upload what you trained</ButtonLink>
                     </Group>
                   </Stack>
                 )}
@@ -126,6 +149,10 @@ function CodeGuide() {
                 <Select size="sm" label="People send" data={inputs} value={input} onChange={(v) => v && setInput(v)} allowDeselect={false} />
                 <Select size="sm" label="It answers" data={outputs} value={output} onChange={(v) => v && setOutput(v)} allowDeselect={false} />
                 {output === "ranked" && <NumberInput size="sm" label="How many items" min={1} max={100} value={items} onChange={setItems} />}
+                {saved && (dirty
+                  ? <Button variant="light" size="sm" loading={save.isPending} onClick={describe}>Save changes</Button>
+                  : <Text size="xs" c="teal.8" fw={600} className="inline-flex items-center gap-1"><IconCheck size={14} /> Saved. Apps and the Try page use this.</Text>)}
+                {saved && save.error && <Alert color="red" icon={<IconAlertCircle />}>{message(save.error)}</Alert>}
               </Stack>
             </Card>
             <Card withBorder radius="lg" padding="lg">

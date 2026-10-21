@@ -12,7 +12,107 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/model.proto.
  */
 export const file_mimir_v1_model: GenFile = /*@__PURE__*/
-  fileDesc("ChRtaW1pci92MS9tb2RlbC5wcm90bxIIbWltaXIudjEiNgoVU2V0TW9kZWxXb3JrZXJSZXF1ZXN0EgoKAmlkGAEgASgJEhEKCXdvcmtlcl9pZBgCIAEoCSI4ChZTZXRNb2RlbFdvcmtlclJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwilwEKDEFyY2hpdGVjdHVyZRIMCgRuYW1lGAEgASgJEg0KBXRpdGxlGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhMKC2lucHV0X3NoYXBlGAQgAygDEg4KBmxhYmVscxgFIAMoCRIRCgl0cmFpbmFibGUYBiABKAgSDQoFaW5wdXQYByABKAkSDgoGb3V0cHV0GAggASgJIkIKBkNvbHVtbhIMCgRuYW1lGAEgASgJEgwKBGtpbmQYAiABKAkSDgoGdmFsdWVzGAMgAygJEgwKBGZpbGwYBCABKAEivQMKBU1vZGVsEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSFAoMYXJjaGl0ZWN0dXJlGAQgASgJEiUKBnN0YXR1cxgFIAEoDjIVLm1pbWlyLnYxLk1vZGVsU3RhdHVzEhUKDXN0YXR1c19kZXRhaWwYBiABKAkSEgoKc2l6ZV9ieXRlcxgHIAEoAxIvCgtjcmVhdGVfdGltZRgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLdXBkYXRlX3RpbWUYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2lucHV0X3NoYXBlGAogAygDEg4KBmxhYmVscxgLIAMoCRIQCghmZWF0dXJlcxgMIAMoCRIOCgZqb2JfaWQYDSABKAkSEAoIYWNjdXJhY3kYDiABKAESEQoJd29ya2VyX2lkGA8gASgJEiEKB2NvbHVtbnMYECADKAsyEC5taW1pci52MS5Db2x1bW4SLAoIbGFuZ3VhZ2UYESABKAsyGi5taW1pci52MS5MYW5ndWFnZVNldHRpbmdzImMKEExhbmd1YWdlU2V0dGluZ3MSFAoMaW5zdHJ1Y3Rpb25zGAEgASgJEhMKC3RlbXBlcmF0dXJlGAIgASgCEhIKCm1heF90b2tlbnMYAyABKAUSEAoIYXBpX25hbWUYBCABKAkiJwoGVGVuc29yEg0KBXNoYXBlGAEgAygDEg4KBnZhbHVlcxgCIAMoAiIrCgVHdWVzcxINCgVsYWJlbBgBIAEoCRITCgtwcm9iYWJpbGl0eRgCIAEoAiIaChhMaXN0QXJjaGl0ZWN0dXJlc1JlcXVlc3QiSgoZTGlzdEFyY2hpdGVjdHVyZXNSZXNwb25zZRItCg1hcmNoaXRlY3R1cmVzGAEgAygLMhYubWltaXIudjEuQXJjaGl0ZWN0dXJlIhMKEUxpc3RNb2RlbHNSZXF1ZXN0IjUKEkxpc3RNb2RlbHNSZXNwb25zZRIfCgZtb2RlbHMYASADKAsyDy5taW1pci52MS5Nb2RlbCIdCg9HZXRNb2RlbFJlcXVlc3QSCgoCaWQYASABKAkiMgoQR2V0TW9kZWxSZXNwb25zZRIeCgVtb2RlbBgBIAEoCzIPLm1pbWlyLnYxLk1vZGVsIl4KEkNyZWF0ZU1vZGVsUmVxdWVzdBIMCgRuYW1lGAEgASgJEhMKC2Rlc2NyaXB0aW9uGAIgASgJEhQKDGFyY2hpdGVjdHVyZRgDIAEoCRIPCgd3ZWlnaHRzGAQgASgMIjUKE0NyZWF0ZU1vZGVsUmVzcG9uc2USHgoFbW9kZWwYASABKAsyDy5taW1pci52MS5Nb2RlbCJxChJVcGRhdGVNb2RlbFJlcXVlc3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRIsCghsYW5ndWFnZRgEIAEoCzIaLm1pbWlyLnYxLkxhbmd1YWdlU2V0dGluZ3MiNQoTVXBkYXRlTW9kZWxSZXNwb25zZRIeCgVtb2RlbBgBIAEoCzIPLm1pbWlyLnYxLk1vZGVsIiAKEkRlbGV0ZU1vZGVsUmVxdWVzdBIKCgJpZBgBIAEoCSIVChNEZWxldGVNb2RlbFJlc3BvbnNlIsYBCg5QcmVkaWN0UmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRIfCgVpbnB1dBgCIAEoCzIQLm1pbWlyLnYxLlRlbnNvchINCgV0b3BfaxgDIAEoBRI0CgZmaWVsZHMYBCADKAsyJC5taW1pci52MS5QcmVkaWN0UmVxdWVzdC5GaWVsZHNFbnRyeRINCgVwaG90bxgFIAEoDBotCgtGaWVsZHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIrYBCg9QcmVkaWN0UmVzcG9uc2USIAoGb3V0cHV0GAEgASgLMhAubWltaXIudjEuVGVuc29yEiAKB2d1ZXNzZXMYAiADKAsyDy5taW1pci52MS5HdWVzcxIXCg9kdXJhdGlvbl9taWNyb3MYAyABKAMSJwoNcHJvYmFiaWxpdGllcxgEIAEoCzIQLm1pbWlyLnYxLlRlbnNvchIOCgZudW1iZXIYBSABKAgSDQoFdmFsdWUYBiABKAEiagoPR2VuZXJhdGVSZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEg4KBnByb21wdBgCIAEoCRISCgptYXhfdG9rZW5zGAMgASgFEhMKC3RlbXBlcmF0dXJlGAQgASgCEgwKBHNlZWQYBSABKAQiLAoLQ2hhdE1lc3NhZ2USDAoEcm9sZRgBIAEoCRIPCgdjb250ZW50GAIgASgJIsABCgtDaGF0UmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRInCghtZXNzYWdlcxgCIAMoCzIVLm1pbWlyLnYxLkNoYXRNZXNzYWdlEhkKDGluc3RydWN0aW9ucxgDIAEoCUgAiAEBEhIKCm1heF90b2tlbnMYBCABKAUSGAoLdGVtcGVyYXR1cmUYBSABKAJIAYgBARIMCgRzZWVkGAYgASgEQg8KDV9pbnN0cnVjdGlvbnNCDgoMX3RlbXBlcmF0dXJlIp4BCgxDaGF0UmVzcG9uc2USDAoEdGV4dBgBIAEoCRIMCgRkb25lGAIgASgIEhUKDXByb21wdF90b2tlbnMYAyABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgEIAEoBRIQCghmaW5pc2hlZBgFIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBiABKAMSFgoOY29udGV4dF90b2tlbnMYByABKAUicAoVR2VuZXJhdGVTdHJlYW1SZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEg4KBnByb21wdBgCIAEoCRISCgptYXhfdG9rZW5zGAMgASgFEhMKC3RlbXBlcmF0dXJlGAQgASgCEgwKBHNlZWQYBSABKAQiqAEKFkdlbmVyYXRlU3RyZWFtUmVzcG9uc2USDAoEdGV4dBgBIAEoCRIMCgRkb25lGAIgASgIEhUKDXByb21wdF90b2tlbnMYAyABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgEIAEoBRIQCghmaW5pc2hlZBgFIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBiABKAMSFgoOY29udGV4dF90b2tlbnMYByABKAUifAoQR2VuZXJhdGVSZXNwb25zZRIMCgR0ZXh0GAEgASgJEhUKDXByb21wdF90b2tlbnMYAiABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgDIAEoBRIQCghmaW5pc2hlZBgEIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBSABKAMqXAoLTW9kZWxTdGF0dXMSHAoYTU9ERUxfU1RBVFVTX1VOU1BFQ0lGSUVEEAASFgoSTU9ERUxfU1RBVFVTX1JFQURZEAESFwoTTU9ERUxfU1RBVFVTX0ZBSUxFRBACMsAECgxNb2RlbFNlcnZpY2USYQoRTGlzdEFyY2hpdGVjdHVyZXMSIi5taW1pci52MS5MaXN0QXJjaGl0ZWN0dXJlc1JlcXVlc3QaIy5taW1pci52MS5MaXN0QXJjaGl0ZWN0dXJlc1Jlc3BvbnNlIgOQAgESTAoKTGlzdE1vZGVscxIbLm1pbWlyLnYxLkxpc3RNb2RlbHNSZXF1ZXN0GhwubWltaXIudjEuTGlzdE1vZGVsc1Jlc3BvbnNlIgOQAgESRgoIR2V0TW9kZWwSGS5taW1pci52MS5HZXRNb2RlbFJlcXVlc3QaGi5taW1pci52MS5HZXRNb2RlbFJlc3BvbnNlIgOQAgESSgoLQ3JlYXRlTW9kZWwSHC5taW1pci52MS5DcmVhdGVNb2RlbFJlcXVlc3QaHS5taW1pci52MS5DcmVhdGVNb2RlbFJlc3BvbnNlEkoKC1VwZGF0ZU1vZGVsEhwubWltaXIudjEuVXBkYXRlTW9kZWxSZXF1ZXN0Gh0ubWltaXIudjEuVXBkYXRlTW9kZWxSZXNwb25zZRJKCgtEZWxldGVNb2RlbBIcLm1pbWlyLnYxLkRlbGV0ZU1vZGVsUmVxdWVzdBodLm1pbWlyLnYxLkRlbGV0ZU1vZGVsUmVzcG9uc2USUwoOU2V0TW9kZWxXb3JrZXISHy5taW1pci52MS5TZXRNb2RlbFdvcmtlclJlcXVlc3QaIC5taW1pci52MS5TZXRNb2RlbFdvcmtlclJlc3BvbnNlMqMCCg5QcmVkaWN0U2VydmljZRI+CgdQcmVkaWN0EhgubWltaXIudjEuUHJlZGljdFJlcXVlc3QaGS5taW1pci52MS5QcmVkaWN0UmVzcG9uc2USQQoIR2VuZXJhdGUSGS5taW1pci52MS5HZW5lcmF0ZVJlcXVlc3QaGi5taW1pci52MS5HZW5lcmF0ZVJlc3BvbnNlElUKDkdlbmVyYXRlU3RyZWFtEh8ubWltaXIudjEuR2VuZXJhdGVTdHJlYW1SZXF1ZXN0GiAubWltaXIudjEuR2VuZXJhdGVTdHJlYW1SZXNwb25zZTABEjcKBENoYXQSFS5taW1pci52MS5DaGF0UmVxdWVzdBoWLm1pbWlyLnYxLkNoYXRSZXNwb25zZTABQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+  fileDesc("ChRtaW1pci92MS9tb2RlbC5wcm90bxIIbWltaXIudjEieQoXU2F2ZUFyY2hpdGVjdHVyZVJlcXVlc3QSDAoEbmFtZRgBIAEoCRINCgV0aXRsZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRINCgVpbnB1dBgEIAEoCRIOCgZvdXRwdXQYBSABKAkSDQoFaXRlbXMYBiABKAUiSAoYU2F2ZUFyY2hpdGVjdHVyZVJlc3BvbnNlEiwKDGFyY2hpdGVjdHVyZRgBIAEoCzIWLm1pbWlyLnYxLkFyY2hpdGVjdHVyZSIpChlEZWxldGVBcmNoaXRlY3R1cmVSZXF1ZXN0EgwKBG5hbWUYASABKAkiHAoaRGVsZXRlQXJjaGl0ZWN0dXJlUmVzcG9uc2UiNgoVU2V0TW9kZWxXb3JrZXJSZXF1ZXN0EgoKAmlkGAEgASgJEhEKCXdvcmtlcl9pZBgCIAEoCSI4ChZTZXRNb2RlbFdvcmtlclJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwitgEKDEFyY2hpdGVjdHVyZRIMCgRuYW1lGAEgASgJEg0KBXRpdGxlGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhMKC2lucHV0X3NoYXBlGAQgAygDEg4KBmxhYmVscxgFIAMoCRIRCgl0cmFpbmFibGUYBiABKAgSDQoFaW5wdXQYByABKAkSDgoGb3V0cHV0GAggASgJEg4KBmN1c3RvbRgJIAEoCBINCgVpdGVtcxgKIAEoBSJCCgZDb2x1bW4SDAoEbmFtZRgBIAEoCRIMCgRraW5kGAIgASgJEg4KBnZhbHVlcxgDIAMoCRIMCgRmaWxsGAQgASgBIr0DCgVNb2RlbBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhQKDGFyY2hpdGVjdHVyZRgEIAEoCRIlCgZzdGF0dXMYBSABKA4yFS5taW1pci52MS5Nb2RlbFN0YXR1cxIVCg1zdGF0dXNfZGV0YWlsGAYgASgJEhIKCnNpemVfYnl0ZXMYByABKAMSLwoLY3JlYXRlX3RpbWUYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi8KC3VwZGF0ZV90aW1lGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtpbnB1dF9zaGFwZRgKIAMoAxIOCgZsYWJlbHMYCyADKAkSEAoIZmVhdHVyZXMYDCADKAkSDgoGam9iX2lkGA0gASgJEhAKCGFjY3VyYWN5GA4gASgBEhEKCXdvcmtlcl9pZBgPIAEoCRIhCgdjb2x1bW5zGBAgAygLMhAubWltaXIudjEuQ29sdW1uEiwKCGxhbmd1YWdlGBEgASgLMhoubWltaXIudjEuTGFuZ3VhZ2VTZXR0aW5ncyJjChBMYW5ndWFnZVNldHRpbmdzEhQKDGluc3RydWN0aW9ucxgBIAEoCRITCgt0ZW1wZXJhdHVyZRgCIAEoAhISCgptYXhfdG9rZW5zGAMgASgFEhAKCGFwaV9uYW1lGAQgASgJIicKBlRlbnNvchINCgVzaGFwZRgBIAMoAxIOCgZ2YWx1ZXMYAiADKAIiKwoFR3Vlc3MSDQoFbGFiZWwYASABKAkSEwoLcHJvYmFiaWxpdHkYAiABKAIiGgoYTGlzdEFyY2hpdGVjdHVyZXNSZXF1ZXN0IkoKGUxpc3RBcmNoaXRlY3R1cmVzUmVzcG9uc2USLQoNYXJjaGl0ZWN0dXJlcxgBIAMoCzIWLm1pbWlyLnYxLkFyY2hpdGVjdHVyZSITChFMaXN0TW9kZWxzUmVxdWVzdCI1ChJMaXN0TW9kZWxzUmVzcG9uc2USHwoGbW9kZWxzGAEgAygLMg8ubWltaXIudjEuTW9kZWwiHQoPR2V0TW9kZWxSZXF1ZXN0EgoKAmlkGAEgASgJIjIKEEdldE1vZGVsUmVzcG9uc2USHgoFbW9kZWwYASABKAsyDy5taW1pci52MS5Nb2RlbCKDAQoSQ3JlYXRlTW9kZWxSZXF1ZXN0EgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSFAoMYXJjaGl0ZWN0dXJlGAMgASgJEg8KB3dlaWdodHMYBCABKAwSDgoGbGFiZWxzGAUgAygJEhMKC2lucHV0X3NoYXBlGAYgAygDIjUKE0NyZWF0ZU1vZGVsUmVzcG9uc2USHgoFbW9kZWwYASABKAsyDy5taW1pci52MS5Nb2RlbCJxChJVcGRhdGVNb2RlbFJlcXVlc3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRIsCghsYW5ndWFnZRgEIAEoCzIaLm1pbWlyLnYxLkxhbmd1YWdlU2V0dGluZ3MiNQoTVXBkYXRlTW9kZWxSZXNwb25zZRIeCgVtb2RlbBgBIAEoCzIPLm1pbWlyLnYxLk1vZGVsIiAKEkRlbGV0ZU1vZGVsUmVxdWVzdBIKCgJpZBgBIAEoCSIVChNEZWxldGVNb2RlbFJlc3BvbnNlIsYBCg5QcmVkaWN0UmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRIfCgVpbnB1dBgCIAEoCzIQLm1pbWlyLnYxLlRlbnNvchINCgV0b3BfaxgDIAEoBRI0CgZmaWVsZHMYBCADKAsyJC5taW1pci52MS5QcmVkaWN0UmVxdWVzdC5GaWVsZHNFbnRyeRINCgVwaG90bxgFIAEoDBotCgtGaWVsZHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIrYBCg9QcmVkaWN0UmVzcG9uc2USIAoGb3V0cHV0GAEgASgLMhAubWltaXIudjEuVGVuc29yEiAKB2d1ZXNzZXMYAiADKAsyDy5taW1pci52MS5HdWVzcxIXCg9kdXJhdGlvbl9taWNyb3MYAyABKAMSJwoNcHJvYmFiaWxpdGllcxgEIAEoCzIQLm1pbWlyLnYxLlRlbnNvchIOCgZudW1iZXIYBSABKAgSDQoFdmFsdWUYBiABKAEiagoPR2VuZXJhdGVSZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEg4KBnByb21wdBgCIAEoCRISCgptYXhfdG9rZW5zGAMgASgFEhMKC3RlbXBlcmF0dXJlGAQgASgCEgwKBHNlZWQYBSABKAQiLAoLQ2hhdE1lc3NhZ2USDAoEcm9sZRgBIAEoCRIPCgdjb250ZW50GAIgASgJIsABCgtDaGF0UmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRInCghtZXNzYWdlcxgCIAMoCzIVLm1pbWlyLnYxLkNoYXRNZXNzYWdlEhkKDGluc3RydWN0aW9ucxgDIAEoCUgAiAEBEhIKCm1heF90b2tlbnMYBCABKAUSGAoLdGVtcGVyYXR1cmUYBSABKAJIAYgBARIMCgRzZWVkGAYgASgEQg8KDV9pbnN0cnVjdGlvbnNCDgoMX3RlbXBlcmF0dXJlIp4BCgxDaGF0UmVzcG9uc2USDAoEdGV4dBgBIAEoCRIMCgRkb25lGAIgASgIEhUKDXByb21wdF90b2tlbnMYAyABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgEIAEoBRIQCghmaW5pc2hlZBgFIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBiABKAMSFgoOY29udGV4dF90b2tlbnMYByABKAUicAoVR2VuZXJhdGVTdHJlYW1SZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEg4KBnByb21wdBgCIAEoCRISCgptYXhfdG9rZW5zGAMgASgFEhMKC3RlbXBlcmF0dXJlGAQgASgCEgwKBHNlZWQYBSABKAQiqAEKFkdlbmVyYXRlU3RyZWFtUmVzcG9uc2USDAoEdGV4dBgBIAEoCRIMCgRkb25lGAIgASgIEhUKDXByb21wdF90b2tlbnMYAyABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgEIAEoBRIQCghmaW5pc2hlZBgFIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBiABKAMSFgoOY29udGV4dF90b2tlbnMYByABKAUifAoQR2VuZXJhdGVSZXNwb25zZRIMCgR0ZXh0GAEgASgJEhUKDXByb21wdF90b2tlbnMYAiABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgDIAEoBRIQCghmaW5pc2hlZBgEIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBSABKAMqXAoLTW9kZWxTdGF0dXMSHAoYTU9ERUxfU1RBVFVTX1VOU1BFQ0lGSUVEEAASFgoSTU9ERUxfU1RBVFVTX1JFQURZEAESFwoTTU9ERUxfU1RBVFVTX0ZBSUxFRBACMvwFCgxNb2RlbFNlcnZpY2USYQoRTGlzdEFyY2hpdGVjdHVyZXMSIi5taW1pci52MS5MaXN0QXJjaGl0ZWN0dXJlc1JlcXVlc3QaIy5taW1pci52MS5MaXN0QXJjaGl0ZWN0dXJlc1Jlc3BvbnNlIgOQAgESTAoKTGlzdE1vZGVscxIbLm1pbWlyLnYxLkxpc3RNb2RlbHNSZXF1ZXN0GhwubWltaXIudjEuTGlzdE1vZGVsc1Jlc3BvbnNlIgOQAgESRgoIR2V0TW9kZWwSGS5taW1pci52MS5HZXRNb2RlbFJlcXVlc3QaGi5taW1pci52MS5HZXRNb2RlbFJlc3BvbnNlIgOQAgESSgoLQ3JlYXRlTW9kZWwSHC5taW1pci52MS5DcmVhdGVNb2RlbFJlcXVlc3QaHS5taW1pci52MS5DcmVhdGVNb2RlbFJlc3BvbnNlEkoKC1VwZGF0ZU1vZGVsEhwubWltaXIudjEuVXBkYXRlTW9kZWxSZXF1ZXN0Gh0ubWltaXIudjEuVXBkYXRlTW9kZWxSZXNwb25zZRJKCgtEZWxldGVNb2RlbBIcLm1pbWlyLnYxLkRlbGV0ZU1vZGVsUmVxdWVzdBodLm1pbWlyLnYxLkRlbGV0ZU1vZGVsUmVzcG9uc2USUwoOU2V0TW9kZWxXb3JrZXISHy5taW1pci52MS5TZXRNb2RlbFdvcmtlclJlcXVlc3QaIC5taW1pci52MS5TZXRNb2RlbFdvcmtlclJlc3BvbnNlElkKEFNhdmVBcmNoaXRlY3R1cmUSIS5taW1pci52MS5TYXZlQXJjaGl0ZWN0dXJlUmVxdWVzdBoiLm1pbWlyLnYxLlNhdmVBcmNoaXRlY3R1cmVSZXNwb25zZRJfChJEZWxldGVBcmNoaXRlY3R1cmUSIy5taW1pci52MS5EZWxldGVBcmNoaXRlY3R1cmVSZXF1ZXN0GiQubWltaXIudjEuRGVsZXRlQXJjaGl0ZWN0dXJlUmVzcG9uc2UyowIKDlByZWRpY3RTZXJ2aWNlEj4KB1ByZWRpY3QSGC5taW1pci52MS5QcmVkaWN0UmVxdWVzdBoZLm1pbWlyLnYxLlByZWRpY3RSZXNwb25zZRJBCghHZW5lcmF0ZRIZLm1pbWlyLnYxLkdlbmVyYXRlUmVxdWVzdBoaLm1pbWlyLnYxLkdlbmVyYXRlUmVzcG9uc2USVQoOR2VuZXJhdGVTdHJlYW0SHy5taW1pci52MS5HZW5lcmF0ZVN0cmVhbVJlcXVlc3QaIC5taW1pci52MS5HZW5lcmF0ZVN0cmVhbVJlc3BvbnNlMAESNwoEQ2hhdBIVLm1pbWlyLnYxLkNoYXRSZXF1ZXN0GhYubWltaXIudjEuQ2hhdFJlc3BvbnNlMAFCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+
+/**
+ * @generated from message mimir.v1.SaveArchitectureRequest
+ */
+export type SaveArchitectureRequest = Message<"mimir.v1.SaveArchitectureRequest"> & {
+  /**
+   * name is what workers run it under: lower case letters, digits and
+   * dashes, at most 40. Saving under a name already described changes it.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string title = 2;
+   */
+  title: string;
+
+  /**
+   * @generated from field: string description = 3;
+   */
+  description: string;
+
+  /**
+   * input is "table" (a row of columns), "image" (a photo) or "tensor"
+   * (a list of numbers).
+   *
+   * @generated from field: string input = 4;
+   */
+  input: string;
+
+  /**
+   * output is "class" (one of a few labels), "number" or "ranked" (the
+   * labels that fit best, most likely first).
+   *
+   * @generated from field: string output = 5;
+   */
+  output: string;
+
+  /**
+   * items is how many a ranked answer lists, 1 to 100.
+   *
+   * @generated from field: int32 items = 6;
+   */
+  items: number;
+};
+
+/**
+ * Describes the message mimir.v1.SaveArchitectureRequest.
+ * Use `create(SaveArchitectureRequestSchema)` to create a new message.
+ */
+export const SaveArchitectureRequestSchema: GenMessage<SaveArchitectureRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 0);
+
+/**
+ * @generated from message mimir.v1.SaveArchitectureResponse
+ */
+export type SaveArchitectureResponse = Message<"mimir.v1.SaveArchitectureResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Architecture architecture = 1;
+   */
+  architecture?: Architecture | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.SaveArchitectureResponse.
+ * Use `create(SaveArchitectureResponseSchema)` to create a new message.
+ */
+export const SaveArchitectureResponseSchema: GenMessage<SaveArchitectureResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 1);
+
+/**
+ * @generated from message mimir.v1.DeleteArchitectureRequest
+ */
+export type DeleteArchitectureRequest = Message<"mimir.v1.DeleteArchitectureRequest"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message mimir.v1.DeleteArchitectureRequest.
+ * Use `create(DeleteArchitectureRequestSchema)` to create a new message.
+ */
+export const DeleteArchitectureRequestSchema: GenMessage<DeleteArchitectureRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 2);
+
+/**
+ * @generated from message mimir.v1.DeleteArchitectureResponse
+ */
+export type DeleteArchitectureResponse = Message<"mimir.v1.DeleteArchitectureResponse"> & {
+};
+
+/**
+ * Describes the message mimir.v1.DeleteArchitectureResponse.
+ * Use `create(DeleteArchitectureResponseSchema)` to create a new message.
+ */
+export const DeleteArchitectureResponseSchema: GenMessage<DeleteArchitectureResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 3);
 
 /**
  * @generated from message mimir.v1.SetModelWorkerRequest
@@ -37,7 +137,7 @@ export type SetModelWorkerRequest = Message<"mimir.v1.SetModelWorkerRequest"> & 
  * Use `create(SetModelWorkerRequestSchema)` to create a new message.
  */
 export const SetModelWorkerRequestSchema: GenMessage<SetModelWorkerRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 0);
+  messageDesc(file_mimir_v1_model, 4);
 
 /**
  * @generated from message mimir.v1.SetModelWorkerResponse
@@ -54,7 +154,7 @@ export type SetModelWorkerResponse = Message<"mimir.v1.SetModelWorkerResponse"> 
  * Use `create(SetModelWorkerResponseSchema)` to create a new message.
  */
 export const SetModelWorkerResponseSchema: GenMessage<SetModelWorkerResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 1);
+  messageDesc(file_mimir_v1_model, 5);
 
 /**
  * Architecture is a model shape the server knows how to build.
@@ -116,11 +216,27 @@ export type Architecture = Message<"mimir.v1.Architecture"> & {
 
   /**
    * Output says what the model answers: "class" picks a label, "number"
-   * answers with a number and "text" writes text (see Generate).
+   * answers with a number, "ranked" lists the labels that fit best and
+   * "text" writes text (see Generate).
    *
    * @generated from field: string output = 8;
    */
   output: string;
+
+  /**
+   * custom says someone wrote it in their own code: only workers that run
+   * it answer and teach its models.
+   *
+   * @generated from field: bool custom = 9;
+   */
+  custom: boolean;
+
+  /**
+   * items is how many a ranked answer lists.
+   *
+   * @generated from field: int32 items = 10;
+   */
+  items: number;
 };
 
 /**
@@ -128,7 +244,7 @@ export type Architecture = Message<"mimir.v1.Architecture"> & {
  * Use `create(ArchitectureSchema)` to create a new message.
  */
 export const ArchitectureSchema: GenMessage<Architecture> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 2);
+  messageDesc(file_mimir_v1_model, 6);
 
 /**
  * Column is one column a model reads and how it becomes numbers.
@@ -168,7 +284,7 @@ export type Column = Message<"mimir.v1.Column"> & {
  * Use `create(ColumnSchema)` to create a new message.
  */
 export const ColumnSchema: GenMessage<Column> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 3);
+  messageDesc(file_mimir_v1_model, 7);
 
 /**
  * Model is a trained model stored on the server.
@@ -291,7 +407,7 @@ export type Model = Message<"mimir.v1.Model"> & {
  * Use `create(ModelSchema)` to create a new message.
  */
 export const ModelSchema: GenMessage<Model> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 4);
+  messageDesc(file_mimir_v1_model, 8);
 
 /**
  * LanguageSettings are how a language model answers when a chat or an app
@@ -336,7 +452,7 @@ export type LanguageSettings = Message<"mimir.v1.LanguageSettings"> & {
  * Use `create(LanguageSettingsSchema)` to create a new message.
  */
 export const LanguageSettingsSchema: GenMessage<LanguageSettings> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 5);
+  messageDesc(file_mimir_v1_model, 9);
 
 /**
  * Tensor is a dense float32 array.
@@ -360,7 +476,7 @@ export type Tensor = Message<"mimir.v1.Tensor"> & {
  * Use `create(TensorSchema)` to create a new message.
  */
 export const TensorSchema: GenMessage<Tensor> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 6);
+  messageDesc(file_mimir_v1_model, 10);
 
 /**
  * Guess is one possible answer and how likely the model thinks it is.
@@ -384,7 +500,7 @@ export type Guess = Message<"mimir.v1.Guess"> & {
  * Use `create(GuessSchema)` to create a new message.
  */
 export const GuessSchema: GenMessage<Guess> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 7);
+  messageDesc(file_mimir_v1_model, 11);
 
 /**
  * @generated from message mimir.v1.ListArchitecturesRequest
@@ -397,7 +513,7 @@ export type ListArchitecturesRequest = Message<"mimir.v1.ListArchitecturesReques
  * Use `create(ListArchitecturesRequestSchema)` to create a new message.
  */
 export const ListArchitecturesRequestSchema: GenMessage<ListArchitecturesRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 8);
+  messageDesc(file_mimir_v1_model, 12);
 
 /**
  * @generated from message mimir.v1.ListArchitecturesResponse
@@ -414,7 +530,7 @@ export type ListArchitecturesResponse = Message<"mimir.v1.ListArchitecturesRespo
  * Use `create(ListArchitecturesResponseSchema)` to create a new message.
  */
 export const ListArchitecturesResponseSchema: GenMessage<ListArchitecturesResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 9);
+  messageDesc(file_mimir_v1_model, 13);
 
 /**
  * @generated from message mimir.v1.ListModelsRequest
@@ -427,7 +543,7 @@ export type ListModelsRequest = Message<"mimir.v1.ListModelsRequest"> & {
  * Use `create(ListModelsRequestSchema)` to create a new message.
  */
 export const ListModelsRequestSchema: GenMessage<ListModelsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 10);
+  messageDesc(file_mimir_v1_model, 14);
 
 /**
  * @generated from message mimir.v1.ListModelsResponse
@@ -444,7 +560,7 @@ export type ListModelsResponse = Message<"mimir.v1.ListModelsResponse"> & {
  * Use `create(ListModelsResponseSchema)` to create a new message.
  */
 export const ListModelsResponseSchema: GenMessage<ListModelsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 11);
+  messageDesc(file_mimir_v1_model, 15);
 
 /**
  * @generated from message mimir.v1.GetModelRequest
@@ -461,7 +577,7 @@ export type GetModelRequest = Message<"mimir.v1.GetModelRequest"> & {
  * Use `create(GetModelRequestSchema)` to create a new message.
  */
 export const GetModelRequestSchema: GenMessage<GetModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 12);
+  messageDesc(file_mimir_v1_model, 16);
 
 /**
  * @generated from message mimir.v1.GetModelResponse
@@ -478,7 +594,7 @@ export type GetModelResponse = Message<"mimir.v1.GetModelResponse"> & {
  * Use `create(GetModelResponseSchema)` to create a new message.
  */
 export const GetModelResponseSchema: GenMessage<GetModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 13);
+  messageDesc(file_mimir_v1_model, 17);
 
 /**
  * @generated from message mimir.v1.CreateModelRequest
@@ -505,11 +621,25 @@ export type CreateModelRequest = Message<"mimir.v1.CreateModelRequest"> & {
    * architecture the whole model. For the mim and language-model
    * architectures it may also be an ONNX or GGUF file, which the server
    * converts to a Mimir Model file and stores that way; a GGUF language
-   * model uploaded as mim becomes a language-model model.
+   * model uploaded as mim becomes a language-model model. For a custom
+   * architecture it is whatever its own code reads, kept as it is.
    *
    * @generated from field: bytes weights = 4;
    */
   weights: Uint8Array;
+
+  /**
+   * labels and input_shape say what a custom architecture's model
+   * answers and reads; other architectures take them from the file.
+   *
+   * @generated from field: repeated string labels = 5;
+   */
+  labels: string[];
+
+  /**
+   * @generated from field: repeated int64 input_shape = 6;
+   */
+  inputShape: bigint[];
 };
 
 /**
@@ -517,7 +647,7 @@ export type CreateModelRequest = Message<"mimir.v1.CreateModelRequest"> & {
  * Use `create(CreateModelRequestSchema)` to create a new message.
  */
 export const CreateModelRequestSchema: GenMessage<CreateModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 14);
+  messageDesc(file_mimir_v1_model, 18);
 
 /**
  * @generated from message mimir.v1.CreateModelResponse
@@ -534,7 +664,7 @@ export type CreateModelResponse = Message<"mimir.v1.CreateModelResponse"> & {
  * Use `create(CreateModelResponseSchema)` to create a new message.
  */
 export const CreateModelResponseSchema: GenMessage<CreateModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 15);
+  messageDesc(file_mimir_v1_model, 19);
 
 /**
  * @generated from message mimir.v1.UpdateModelRequest
@@ -568,7 +698,7 @@ export type UpdateModelRequest = Message<"mimir.v1.UpdateModelRequest"> & {
  * Use `create(UpdateModelRequestSchema)` to create a new message.
  */
 export const UpdateModelRequestSchema: GenMessage<UpdateModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 16);
+  messageDesc(file_mimir_v1_model, 20);
 
 /**
  * @generated from message mimir.v1.UpdateModelResponse
@@ -585,7 +715,7 @@ export type UpdateModelResponse = Message<"mimir.v1.UpdateModelResponse"> & {
  * Use `create(UpdateModelResponseSchema)` to create a new message.
  */
 export const UpdateModelResponseSchema: GenMessage<UpdateModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 17);
+  messageDesc(file_mimir_v1_model, 21);
 
 /**
  * @generated from message mimir.v1.DeleteModelRequest
@@ -602,7 +732,7 @@ export type DeleteModelRequest = Message<"mimir.v1.DeleteModelRequest"> & {
  * Use `create(DeleteModelRequestSchema)` to create a new message.
  */
 export const DeleteModelRequestSchema: GenMessage<DeleteModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 18);
+  messageDesc(file_mimir_v1_model, 22);
 
 /**
  * @generated from message mimir.v1.DeleteModelResponse
@@ -615,7 +745,7 @@ export type DeleteModelResponse = Message<"mimir.v1.DeleteModelResponse"> & {
  * Use `create(DeleteModelResponseSchema)` to create a new message.
  */
 export const DeleteModelResponseSchema: GenMessage<DeleteModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 19);
+  messageDesc(file_mimir_v1_model, 23);
 
 /**
  * @generated from message mimir.v1.PredictRequest
@@ -662,7 +792,7 @@ export type PredictRequest = Message<"mimir.v1.PredictRequest"> & {
  * Use `create(PredictRequestSchema)` to create a new message.
  */
 export const PredictRequestSchema: GenMessage<PredictRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 20);
+  messageDesc(file_mimir_v1_model, 24);
 
 /**
  * @generated from message mimir.v1.PredictResponse
@@ -714,7 +844,7 @@ export type PredictResponse = Message<"mimir.v1.PredictResponse"> & {
  * Use `create(PredictResponseSchema)` to create a new message.
  */
 export const PredictResponseSchema: GenMessage<PredictResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 21);
+  messageDesc(file_mimir_v1_model, 25);
 
 /**
  * @generated from message mimir.v1.GenerateRequest
@@ -761,7 +891,7 @@ export type GenerateRequest = Message<"mimir.v1.GenerateRequest"> & {
  * Use `create(GenerateRequestSchema)` to create a new message.
  */
 export const GenerateRequestSchema: GenMessage<GenerateRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 22);
+  messageDesc(file_mimir_v1_model, 26);
 
 /**
  * ChatMessage is one turn of a chat.
@@ -787,7 +917,7 @@ export type ChatMessage = Message<"mimir.v1.ChatMessage"> & {
  * Use `create(ChatMessageSchema)` to create a new message.
  */
 export const ChatMessageSchema: GenMessage<ChatMessage> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 23);
+  messageDesc(file_mimir_v1_model, 27);
 
 /**
  * @generated from message mimir.v1.ChatRequest
@@ -840,7 +970,7 @@ export type ChatRequest = Message<"mimir.v1.ChatRequest"> & {
  * Use `create(ChatRequestSchema)` to create a new message.
  */
 export const ChatRequestSchema: GenMessage<ChatRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 24);
+  messageDesc(file_mimir_v1_model, 28);
 
 /**
  * ChatResponse is a piece of the answer as it is written. The last one has
@@ -897,7 +1027,7 @@ export type ChatResponse = Message<"mimir.v1.ChatResponse"> & {
  * Use `create(ChatResponseSchema)` to create a new message.
  */
 export const ChatResponseSchema: GenMessage<ChatResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 25);
+  messageDesc(file_mimir_v1_model, 29);
 
 /**
  * GenerateStreamRequest is a GenerateRequest whose text comes back piece by
@@ -937,7 +1067,7 @@ export type GenerateStreamRequest = Message<"mimir.v1.GenerateStreamRequest"> & 
  * Use `create(GenerateStreamRequestSchema)` to create a new message.
  */
 export const GenerateStreamRequestSchema: GenMessage<GenerateStreamRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 26);
+  messageDesc(file_mimir_v1_model, 30);
 
 /**
  * GenerateStreamResponse is a piece of the text as it is written. The last
@@ -994,7 +1124,7 @@ export type GenerateStreamResponse = Message<"mimir.v1.GenerateStreamResponse"> 
  * Use `create(GenerateStreamResponseSchema)` to create a new message.
  */
 export const GenerateStreamResponseSchema: GenMessage<GenerateStreamResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 27);
+  messageDesc(file_mimir_v1_model, 31);
 
 /**
  * @generated from message mimir.v1.GenerateResponse
@@ -1038,7 +1168,7 @@ export type GenerateResponse = Message<"mimir.v1.GenerateResponse"> & {
  * Use `create(GenerateResponseSchema)` to create a new message.
  */
 export const GenerateResponseSchema: GenMessage<GenerateResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 28);
+  messageDesc(file_mimir_v1_model, 32);
 
 /**
  * ModelStatus says whether a model can answer.
@@ -1145,6 +1275,27 @@ export const ModelService: GenService<{
     methodKind: "unary";
     input: typeof SetModelWorkerRequestSchema;
     output: typeof SetModelWorkerResponseSchema;
+  },
+  /**
+   * SaveArchitecture describes a model type written in someone's own code
+   * and run on workers, or changes how one is described.
+   *
+   * @generated from rpc mimir.v1.ModelService.SaveArchitecture
+   */
+  saveArchitecture: {
+    methodKind: "unary";
+    input: typeof SaveArchitectureRequestSchema;
+    output: typeof SaveArchitectureResponseSchema;
+  },
+  /**
+   * DeleteArchitecture removes a described model type no model uses.
+   *
+   * @generated from rpc mimir.v1.ModelService.DeleteArchitecture
+   */
+  deleteArchitecture: {
+    methodKind: "unary";
+    input: typeof DeleteArchitectureRequestSchema;
+    output: typeof DeleteArchitectureResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_mimir_v1_model, 0);

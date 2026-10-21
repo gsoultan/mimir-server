@@ -9,6 +9,9 @@ export const transport = createConnectTransport({ baseUrl: location.origin, useB
 // already writes its messages for people, so those pass through.
 export function message(err: unknown): string {
   const e = ConnectError.from(err);
+  // The server says why it can't answer right now, such as no worker for a
+  // model, in a sentence; a dropped connection has no such words.
+  if (e.code === Code.Unavailable && /^[A-Z].*\.$/.test(e.rawMessage)) return e.rawMessage;
   switch (e.code) {
     case Code.Unavailable:
     case Code.Unknown:
