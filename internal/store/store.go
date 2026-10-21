@@ -80,6 +80,15 @@ type Model struct {
 	Columns []schema.Column
 }
 
+// WeightsVersion names the weights the model has now. Retraining a model
+// in place gives it a new one, so a cache keyed by it loads the new
+// weights on the next question.
+func (m Model) WeightsVersion() string { return m.SHA256 }
+
+// PinnedWorker reports the worker the model is set to run on. A model on
+// none runs wherever there is room.
+func (m Model) PinnedWorker() (id string, pinned bool) { return m.WorkerID, m.WorkerID != "" }
+
 // Store is safe for concurrent use.
 type Store struct {
 	pool    *pgxpool.Pool

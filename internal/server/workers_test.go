@@ -179,3 +179,53 @@ func TestWorkerCacheEvictsAndReloads(t *testing.T) {
 		}
 	}
 }
+
+// TestWorkerReconnects drops a worker's link under it: the console marks
+// it offline, the worker dials again, and the new link answers for a
+// model whose weights the old one carried.
+func TestWorkerReconnects(t *testing.T) {
+	srv := newServer(t)
+	ctx := context.Background()
+	own := owner(t, srv)
+	created, err := own.workers.CreateWorker(ctx, connect.NewRequest(&mimirv1.CreateWorkerRequest{Name: "flaky"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wctx, stop := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		worker.Run(wctx, worker.Config{Server: srv.URL, Token: created.Msg.GetToken(), Capacity: 1, Version: "test", DataDir: t.TempDir(), Log: slog.New(slog.NewTextHandler(io.Discard, nil))}, builtin.Builtin(t.TempDir()))
+	}()
+	t.Cleanup(func() { stop(); <-done })
+	id := created.Msg.GetWorker().GetId()
+	waitOnline(t, own, id, true)
+
+	svc.Local = false
+	t.Cleanup(func() { svc.Local = true })
+	m := createModel(t, own, "A", "mnist-mlp")
+	predict := func(when string) {
+		t.Helper()
+		if _, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: m.GetId(), Input: &mimirv1.Tensor{Values: make([]float32, 784)}})); err != nil {
+			t.Fatalf("predict %s: %v", when, err)
+		}
+	}
+	predict("before the link drops")
+
+	// Closing every connection drops the owner's too; its next request
+	// may land on a dead one, so ask until the console answers.
+	srv.CloseClientConnections()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		w, err := own.workers.GetWorker(ctx, connect.NewRequest(&mimirv1.GetWorkerRequest{Id: id}))
+		if err == nil && !w.Msg.GetWorker().GetOnline() {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the worker never went offline: %v", err)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	waitOnline(t, own, id, true)
+	predict("on the new link")
+}
