@@ -102,6 +102,10 @@ type File struct {
 	// is fixed.
 	batch int
 	prog  *interp.Program // nil when the interpreter cannot run the file
+	// budget is the device's memory budget prog was loaded under and
+	// bounds what its runs allocate; a run under another budget goes to
+	// mimir, which bounds itself.
+	budget int64
 	// noInterp is set once the interpreter has failed a run for want of
 	// an op, after which mimir runs the file.
 	noInterp atomic.Bool
@@ -124,14 +128,16 @@ func OpenFile(b []byte) (*File, error) {
 		m.Close()
 		return nil, err
 	}
-	f.prog = interpreter(b, f)
+	f.budget = tensor.MemoryBudget(tensor.DefaultDevice())
+	f.prog = interpreter(b, f, f.budget)
 	return f, nil
 }
 
-// interpreter loads b on mimir-model's interpreter for f, or returns nil
-// when it should not run there: a float32 input and first output are all
-// it takes.
-func interpreter(b []byte, f *File) *interp.Program {
+// interpreter loads b on mimir-model's interpreter for f, bounding what
+// a run allocates to budget bytes (0 for the interpreter's own default),
+// or returns nil when it should not run there: a float32 input and first
+// output are all it takes.
+func interpreter(b []byte, f *File, budget int64) *interp.Program {
 	if f.input.Type != mimfile.F32 || f.m.Outputs()[0].Type != mimfile.F32 {
 		return nil
 	}
@@ -144,6 +150,7 @@ func interpreter(b []byte, f *File) *interp.Program {
 		return nil
 	}
 	p.FastPaths = true
+	p.MaxBytes = budget
 	return p
 }
 
@@ -185,7 +192,8 @@ func newFile(m *mim.Model) (*File, error) {
 
 // onInterpreter reports whether the file's runs go to the interpreter.
 func (f *File) onInterpreter() bool {
-	return f.prog != nil && !f.noInterp.Load() && tensor.DefaultDevice().Name() == "cpu"
+	dev := tensor.DefaultDevice()
+	return f.prog != nil && !f.noInterp.Load() && dev.Name() == "cpu" && tensor.MemoryBudget(dev) == f.budget
 }
 
 // Engine names what runs the file: "interpreter" or "mimir".
@@ -209,7 +217,7 @@ func (f *File) Run(ctx context.Context, x []float32, n int) ([][]float32, error)
 	}
 	if f.onInterpreter() {
 		out, err := f.runInterpreter(ctx, x, shape)
-		if err == nil || ctx.Err() != nil || errors.Is(err, ErrBadInput) {
+		if err == nil || ctx.Err() != nil || errors.Is(err, ErrBadInput) || errors.Is(err, tensor.ErrMemoryBudget) {
 			return split(out, n), err
 		}
 		// An op the interpreter does not have: mimir runs this file from
@@ -229,6 +237,9 @@ func (f *File) runInterpreter(ctx context.Context, x []float32, shape []int) ([]
 		binary.LittleEndian.PutUint32(in.Data[4*i:], math.Float32bits(v))
 	}
 	outs, err := f.prog.NewSession().RunContext(ctx, map[string]*ref.Tensor{f.input.Name: in})
+	if errors.Is(err, interp.ErrBudget) {
+		return nil, fmt.Errorf("%w: %v", tensor.ErrMemoryBudget, err)
+	}
 	if err != nil {
 		return nil, err
 	}
