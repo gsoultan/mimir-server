@@ -12,6 +12,7 @@ import { ModelService } from "../../../api/gen/mimir/v1/model_pb";
 import { allModelQueries, getModel, listArchitectures, whoAmI } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
+import { LanguageDefaults } from "../../../components/LanguageDefaults";
 import { RunsOn } from "../../../components/Placement";
 import { ago, bytes } from "../../../lib/format";
 import { score } from "../../../lib/training";
@@ -83,7 +84,7 @@ function ModelDetails() {
     <Page
       title={m.name}
       intro={`${arch?.title ?? m.architecture} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}${m.accuracy > 0 ? ` · ${score(m.accuracy, arch?.output === "number")}` : ""}${m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? ` · last learned ${ago(m.updateTime)}` : ""}`}
-      actions={<ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>Try it</ButtonLink>}
+      actions={<ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>{writes ? "Chat with it" : "Try it"}</ButtonLink>}
     >
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Card withBorder radius="lg" padding="lg">
@@ -123,6 +124,7 @@ function ModelDetails() {
           </Tabs>
         </Card>
         {!writes && <RunsOn model={m} canWrite={canWrite} />}
+        {writes && m.language && <LanguageDefaults model={m} canWrite={canWrite} />}
       </SimpleGrid>
 
       <Modal opened={confirming} onClose={confirm.close} title={`Delete ${m.name}?`} centered>

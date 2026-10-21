@@ -20,6 +20,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/obs"
+	"github.com/gsoultan/mimir-server/internal/openai"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -80,6 +81,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	// guards the unary calls as usual.
 	mux.Handle(mimirv1connect.NewWorkerServiceHandler(svc, guard, connect.WithReadMaxBytes(modelBytes), connect.WithSendMaxBytes(modelBytes)))
 	mux.Handle("GET /api/backup", backupHandler(st, log))
+	mux.Handle("/v1/", openai.Handler(svc, st, log))
 	mux.Handle(grpchealth.NewHandler(newHealthChecker(st.Ping), connect.WithInterceptors(metrics.Interceptor())))
 	mux.Handle("GET /healthz", liveHandler())
 	mux.Handle("GET /readyz", readyHandler(st.Ping, log))
@@ -100,6 +102,8 @@ func route(r *http.Request) string {
 		return p
 	case strings.HasPrefix(p, "/mimir.v1."), strings.HasPrefix(p, "/grpc.health.v1."):
 		return "rpc"
+	case strings.HasPrefix(p, "/v1/"):
+		return "openai"
 	}
 	return "ui"
 }

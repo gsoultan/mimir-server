@@ -77,10 +77,22 @@ any other, so nothing downstream sees the original format.
   Q5_K_M, Q3_K, Q2_K and the IQ types don't yet. The weights are kept as
   they are, and the server adds the forward pass GGUF doesn't carry, with a
   key-value cache of the model's context length, up to 4096 tokens.
-  **Try a model** then gives it the start of a text to continue, and apps
-  call `PredictService.Generate`. Language models run on the console
-  itself, one generation at a time per model, not on workers. They
-  continue text; chat templates aren't applied.
+  **Try a model** then chats with it, or gives it the start of a text to
+  continue, with the answer appearing word by word. Apps call
+  `PredictService.Chat`, `Generate` or `GenerateStream`, or the
+  OpenAI-compatible API under `/v1` (see Use it from your app). Language
+  models run on the console itself, one generation at a time per model,
+  not on workers.
+
+  A chat is written out in the format the model was trained on: ChatML
+  (Qwen, SmolLM), Llama 3, Zephyr (TinyLlama Chat), `[INST]` (Llama 2,
+  Mistral) or Gemma, picked from the markers in the model's chat template.
+  The template itself is never run (running a GGUF Jinja template was
+  CVE-2024-34359); a model with none gets a plain "User: / Assistant:"
+  format. Each language model keeps default instructions (the system
+  message), word choice and longest answer, set on its page or from the
+  chat, which apps get when they don't send their own. Chats in **Try a
+  model** are kept for 30 days in the browser, not on the server.
 
 The server goes by what the file holds: a GGUF file added as a Mimir Model
 file still becomes a language model.
@@ -307,7 +319,39 @@ curl localhost:8080/mimir.v1.PredictService/Generate \
 ```
 
 `maxTokens` is up to 1024 (128 by default) and `temperature` from 0, which
-always picks the likeliest word, to 2.
+always picks the likeliest word, to 2. `GenerateStream` takes the same
+request and sends the text piece by piece as it is written, and `Chat`
+answers a list of `{role, content}` messages the same way, using the
+model's default instructions, temperature and answer length unless the
+request sets them.
+
+### OpenAI-compatible API
+
+Apps and libraries made for OpenAI work with the language models: point
+their base URL at `/v1` and use a mimir API key. A model's name there is
+its name in lower case with dashes (Tiny Llama is `tiny-llama`); its id
+works too. Keys, per-model access and limits apply as for every other call.
+
+```sh
+curl localhost:8080/v1/chat/completions \
+  -H 'Authorization: Bearer mimir_...' \
+  -H 'Content-Type: application/json' \
+  -d '{"model": "tiny-llama", "stream": true, "messages": [{"role": "user", "content": "Hello!"}]}'
+```
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="mimir_...")
+print(client.chat.completions.create(model="tiny-llama", messages=[{"role": "user", "content": "Hello!"}]).choices[0].message.content)
+```
+
+It serves `GET /v1/models`, `POST /v1/chat/completions` and
+`POST /v1/completions`, with `stream` (server-sent events, ending in
+`data: [DONE]`, and `stream_options.include_usage`), `max_tokens` or
+`max_completion_tokens`, `temperature`, `seed` and `stop` (up to four
+strings). System and developer messages become the instructions. Tools,
+images, `n` above 1 and log probabilities aren't supported and are refused
+with a 400.
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public.

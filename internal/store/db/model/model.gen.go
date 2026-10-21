@@ -36,6 +36,9 @@ type Row struct {
 	JobID        string
 	Accuracy     float64
 	WorkerID     string
+	Instructions string
+	Temperature  float64
+	MaxTokens    int32
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -74,7 +77,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 16
+const nCols = 19
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -91,9 +94,10 @@ type Query struct {
 	jsns                 [2]runtime.JSON
 	ns, nn, ntm, nf, njs uint8
 
-	anyStr     [3][]string
-	anyI64     [3][]int64
-	nas, nai64 uint8
+	anyStr            [3][]string
+	anyI32            [3][]int32
+	anyI64            [3][]int64
+	nas, nai32, nai64 uint8
 
 	// Order terms live in their own buffer and are appended to the stream
 	// after the predicate tree. Sharing one buffer would let a Where after
@@ -272,6 +276,27 @@ func (q *Query) cursor(col uint32, r Row) {
 		}
 		q.strs[q.ns] = r.WorkerID
 		q.ns++
+	case 16:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Instructions
+		q.ns++
+	case 17:
+		if int(q.nf) >= len(q.f64s) {
+			q.over = true
+			return
+		}
+		q.f64s[q.nf] = float64(r.Temperature)
+		q.nf++
+	case 18:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.MaxTokens)
+		q.nn++
 	}
 }
 
@@ -425,6 +450,7 @@ type Pred struct {
 	f64    float64
 	jsn    runtime.JSON
 	anyStr []string
+	anyI32 []int32
 	anyI64 []int64
 }
 
@@ -447,6 +473,9 @@ var (
 	JobID        = TextCol{13}
 	Accuracy     = Float64Col{14}
 	WorkerID     = TextCol{15}
+	Instructions = TextCol{16}
+	Temperature  = Float64Col{17}
+	MaxTokens    = Int32Col{18}
 )
 
 // TextCol addresses a text column.
@@ -646,6 +675,31 @@ func (h Float64Col) Gt(v float64) Pred    { return Pred{col: h.c, op: opGt, f64:
 func (h Float64Col) Gte(v float64) Pred   { return Pred{col: h.c, op: opGte, f64: float64(v)} }
 func (h Float64Col) Lt(v float64) Pred    { return Pred{col: h.c, op: opLt, f64: float64(v)} }
 func (h Float64Col) Lte(v float64) Pred   { return Pred{col: h.c, op: opLte, f64: float64(v)} }
+
+// Int32Col addresses a int4 column.
+type Int32Col struct{ c uint8 }
+
+func (h Int32Col) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h Int32Col) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h Int32Col) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h Int32Col) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+func (h Int32Col) Eq(v int32) Pred    { return Pred{col: h.c, op: opEq, num: int64(v)} }
+func (h Int32Col) NotEq(v int32) Pred { return Pred{col: h.c, op: opNotEq, num: int64(v)} }
+func (h Int32Col) Gt(v int32) Pred    { return Pred{col: h.c, op: opGt, num: int64(v)} }
+func (h Int32Col) Gte(v int32) Pred   { return Pred{col: h.c, op: opGte, num: int64(v)} }
+func (h Int32Col) Lt(v int32) Pred    { return Pred{col: h.c, op: opLt, num: int64(v)} }
+func (h Int32Col) Lte(v int32) Pred   { return Pred{col: h.c, op: opLte, num: int64(v)} }
+func (h Int32Col) In(v ...int32) Pred { return Pred{col: h.c, op: opIn, anyI32: v} }
+
+// NotIn is `<> ALL($1)`. A NULL anywhere in v makes the
+// comparison NULL for every row and the result empty —
+// PostgreSQL's rule for NOT IN, not storm's.
+func (h Int32Col) NotIn(v ...int32) Pred { return Pred{col: h.c, op: opNotIn, anyI32: v} }
 
 // Where applies predicates, ANDed together.
 func (q Query) Where(ps ...Pred) Query {
@@ -879,6 +933,20 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 16:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
+		case 18:
+			if int(q.nai32) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI32[q.nai32] = p.anyI32
+			q.nai32++
 		}
 		q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 		return
@@ -979,6 +1047,27 @@ func (q *Query) leaf(p Pred) {
 		}
 		q.strs[q.ns] = p.str
 		q.ns++
+	case 16:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 17:
+		if int(q.nf) >= 4 {
+			q.over = true
+			return
+		}
+		q.f64s[q.nf] = p.f64
+		q.nf++
+	case 18:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
 	}
 	q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 }
@@ -1113,8 +1202,33 @@ func (q Query) WorkerIDLike(v string) Query             { return q.Where(WorkerI
 func (q Query) WorkerIDILike(v string) Query            { return q.Where(WorkerID.ILike(v)) }
 func (q Query) WorkerIDIn(v ...string) Query            { return q.Where(WorkerID.In(v...)) }
 func (q Query) WorkerIDNotIn(v ...string) Query         { return q.Where(WorkerID.NotIn(v...)) }
+func (q Query) InstructionsEq(v string) Query           { return q.Where(Instructions.Eq(v)) }
+func (q Query) InstructionsNotEq(v string) Query        { return q.Where(Instructions.NotEq(v)) }
+func (q Query) InstructionsGt(v string) Query           { return q.Where(Instructions.Gt(v)) }
+func (q Query) InstructionsGte(v string) Query          { return q.Where(Instructions.Gte(v)) }
+func (q Query) InstructionsLt(v string) Query           { return q.Where(Instructions.Lt(v)) }
+func (q Query) InstructionsLte(v string) Query          { return q.Where(Instructions.Lte(v)) }
+func (q Query) InstructionsEqLower(v string) Query      { return q.Where(Instructions.EqLower(v)) }
+func (q Query) InstructionsLike(v string) Query         { return q.Where(Instructions.Like(v)) }
+func (q Query) InstructionsILike(v string) Query        { return q.Where(Instructions.ILike(v)) }
+func (q Query) InstructionsIn(v ...string) Query        { return q.Where(Instructions.In(v...)) }
+func (q Query) InstructionsNotIn(v ...string) Query     { return q.Where(Instructions.NotIn(v...)) }
+func (q Query) TemperatureEq(v float64) Query           { return q.Where(Temperature.Eq(v)) }
+func (q Query) TemperatureNotEq(v float64) Query        { return q.Where(Temperature.NotEq(v)) }
+func (q Query) TemperatureGt(v float64) Query           { return q.Where(Temperature.Gt(v)) }
+func (q Query) TemperatureGte(v float64) Query          { return q.Where(Temperature.Gte(v)) }
+func (q Query) TemperatureLt(v float64) Query           { return q.Where(Temperature.Lt(v)) }
+func (q Query) TemperatureLte(v float64) Query          { return q.Where(Temperature.Lte(v)) }
+func (q Query) MaxTokensEq(v int32) Query               { return q.Where(MaxTokens.Eq(v)) }
+func (q Query) MaxTokensNotEq(v int32) Query            { return q.Where(MaxTokens.NotEq(v)) }
+func (q Query) MaxTokensGt(v int32) Query               { return q.Where(MaxTokens.Gt(v)) }
+func (q Query) MaxTokensGte(v int32) Query              { return q.Where(MaxTokens.Gte(v)) }
+func (q Query) MaxTokensLt(v int32) Query               { return q.Where(MaxTokens.Lt(v)) }
+func (q Query) MaxTokensLte(v int32) Query              { return q.Where(MaxTokens.Lte(v)) }
+func (q Query) MaxTokensIn(v ...int32) Query            { return q.Where(MaxTokens.In(v...)) }
+func (q Query) MaxTokensNotIn(v ...int32) Query         { return q.Where(MaxTokens.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id" FROM "models"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens" FROM "models"`
 const countPrefix = `SELECT count(*) FROM "models"`
 const existsPrefix = `SELECT 1 FROM "models"`
 const existsSuffix = ` LIMIT 1`
@@ -1247,6 +1361,24 @@ var orderTable = [nCols][4]string{
 		"\"worker_id\" ASC NULLS FIRST",
 		"\"worker_id\" DESC NULLS LAST",
 	},
+	{ // instructions
+		"\"instructions\"",
+		"\"instructions\" DESC",
+		"\"instructions\" ASC NULLS FIRST",
+		"\"instructions\" DESC NULLS LAST",
+	},
+	{ // temperature
+		"\"temperature\"",
+		"\"temperature\" DESC",
+		"\"temperature\" ASC NULLS FIRST",
+		"\"temperature\" DESC NULLS LAST",
+	},
+	{ // max_tokens
+		"\"max_tokens\"",
+		"\"max_tokens\" DESC",
+		"\"max_tokens\" ASC NULLS FIRST",
+		"\"max_tokens\" DESC NULLS LAST",
+	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
@@ -1268,6 +1400,9 @@ var identTable = [nCols]string{
 	"\"job_id\"",
 	"\"accuracy\"",
 	"\"worker_id\"",
+	"\"instructions\"",
+	"\"temperature\"",
+	"\"max_tokens\"",
 }
 
 var lowering = runtime.Lowering{
@@ -1300,7 +1435,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [16][28]runtime.Frag{
+var fragTable = [19][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -1781,6 +1916,96 @@ var fragTable = [16][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // instructions
+		{}, // opNone
+		{A: "\"instructions\" = $", B: ""},
+		{A: "\"instructions\" <> $", B: ""},
+		{A: "\"instructions\" > $", B: ""},
+		{A: "\"instructions\" >= $", B: ""},
+		{A: "\"instructions\" < $", B: ""},
+		{A: "\"instructions\" <= $", B: ""},
+		{A: "lower(\"instructions\") = lower($", B: ")"},
+		{A: "\"instructions\" LIKE $", B: ""},
+		{A: "\"instructions\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"instructions\" = ANY($", B: ")"},
+		{A: "\"instructions\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // temperature
+		{}, // opNone
+		{A: "\"temperature\" = $", B: ""},
+		{A: "\"temperature\" <> $", B: ""},
+		{A: "\"temperature\" > $", B: ""},
+		{A: "\"temperature\" >= $", B: ""},
+		{A: "\"temperature\" < $", B: ""},
+		{A: "\"temperature\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // max_tokens
+		{}, // opNone
+		{A: "\"max_tokens\" = $", B: ""},
+		{A: "\"max_tokens\" <> $", B: ""},
+		{A: "\"max_tokens\" > $", B: ""},
+		{A: "\"max_tokens\" >= $", B: ""},
+		{A: "\"max_tokens\" < $", B: ""},
+		{A: "\"max_tokens\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"max_tokens\" = ANY($", B: ")"},
+		{A: "\"max_tokens\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 }
 
 func fragOf(op, col uint32) runtime.Frag {
@@ -1963,6 +2188,9 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.JobID = sl.Str(rv[13])
 	r.Accuracy = runtime.Float8(rv[14])
 	r.WorkerID = sl.Str(rv[15])
+	r.Instructions = sl.Str(rv[16])
+	r.Temperature = runtime.Float8(rv[17])
+	r.MaxTokens = runtime.Int4(rv[18])
 	return decErr
 }
 
@@ -1974,6 +2202,7 @@ type binder struct {
 	f64s   [4]float64
 	jsns   [2]runtime.JSON
 	anyStr [3][]string
+	anyI32 [3][]int32
 	anyI64 [3][]int64
 	limit  int64
 	offset int64
@@ -2002,6 +2231,9 @@ func putBinder(b *binder) {
 	for i := range b.anyStr {
 		b.anyStr[i] = nil
 	}
+	for i := range b.anyI32 {
+		b.anyI32[i] = nil
+	}
 	for i := range b.anyI64 {
 		b.anyI64[i] = nil
 	}
@@ -2013,7 +2245,7 @@ func putBinder(b *binder) {
 // Count and Exists stop here: their statements carry no LIMIT or OFFSET.
 func (q Query) bindPreds(b *binder) []any {
 	v := b.vals[:0]
-	var ns, nn, ntm, nf, njs, nas, nai64 uint8
+	var ns, nn, ntm, nf, njs, nas, nai32, nai64 uint8
 	for i := uint8(0); i < q.nt; i++ {
 		t := q.toks[i]
 		// KLeaf binds a predicate's value; KCol binds a keyset cursor's.
@@ -2081,6 +2313,14 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 16:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
+			case 18:
+				b.anyI32[nai32] = q.anyI32[nai32]
+				v = append(v, &b.anyI32[nai32])
+				nai32++
 			}
 			continue
 		}
@@ -2137,6 +2377,18 @@ func (q Query) bindPreds(b *binder) []any {
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
+		case 16:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 17:
+			b.f64s[nf] = q.f64s[nf]
+			v = append(v, &b.f64s[nf])
+			nf++
+		case 18:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
 		}
 	}
 	b.vals = v
@@ -2442,7 +2694,7 @@ var errPerWorkerOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "models" ("id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id"`
+const insertSQL = `INSERT INTO "models" ("id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens"`
 
 const updatePrefix = `UPDATE "models" SET `
 const deletePrefix = `DELETE FROM "models"`
@@ -2463,9 +2715,12 @@ const (
 	dJobID        uint64 = 1 << 10
 	dAccuracy     uint64 = 1 << 11
 	dWorkerID     uint64 = 1 << 12
+	dInstructions uint64 = 1 << 13
+	dTemperature  uint64 = 1 << 14
+	dMaxTokens    uint64 = 1 << 15
 )
 
-const nUpdatable = 13
+const nUpdatable = 16
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
@@ -2482,6 +2737,9 @@ var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"job_id\" = $", B: ""},       // job_id
 	{A: "\"accuracy\" = $", B: ""},     // accuracy
 	{A: "\"worker_id\" = $", B: ""},    // worker_id
+	{A: "\"instructions\" = $", B: ""}, // instructions
+	{A: "\"temperature\" = $", B: ""},  // temperature
+	{A: "\"max_tokens\" = $", B: ""},   // max_tokens
 }
 
 // exprFrags is the SERVER-side assignment each column may take instead
@@ -2501,6 +2759,9 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{},                                    // job_id has no server-side form
 	{},                                    // accuracy has no server-side form
 	{},                                    // worker_id has no server-side form
+	{},                                    // instructions has no server-side form
+	{},                                    // temperature has no server-side form
+	{A: "\"max_tokens\" = \"max_tokens\" + 1", B: ""}, // max_tokens = its own value plus one
 }
 
 // pkFrags addresses one row.
@@ -2528,9 +2789,12 @@ const (
 	iJobID        uint64 = 1 << 13
 	iAccuracy     uint64 = 1 << 14
 	iWorkerID     uint64 = 1 << 15
+	iInstructions uint64 = 1 << 16
+	iTemperature  uint64 = 1 << 17
+	iMaxTokens    uint64 = 1 << 18
 )
 
-const nInsertable = 16
+const nInsertable = 19
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -2550,6 +2814,9 @@ var insCols = [nInsertable]string{
 	"\"job_id\"",
 	"\"accuracy\"",
 	"\"worker_id\"",
+	"\"instructions\"",
+	"\"temperature\"",
+	"\"max_tokens\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -2558,7 +2825,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"models\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -2577,7 +2844,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -2722,6 +2989,34 @@ func (m *Mut) SetWorkerID(v string) {
 	m.row.WorkerID = v
 	m.dirty |= dWorkerID
 	m.expr &^= dWorkerID
+}
+
+func (m *Mut) SetInstructions(v string) {
+	m.row.Instructions = v
+	m.dirty |= dInstructions
+	m.expr &^= dInstructions
+}
+
+func (m *Mut) SetTemperature(v float64) {
+	m.row.Temperature = v
+	m.dirty |= dTemperature
+	m.expr &^= dTemperature
+}
+
+func (m *Mut) SetMaxTokens(v int32) {
+	m.row.MaxTokens = v
+	m.dirty |= dMaxTokens
+	m.expr &^= dMaxTokens
+}
+
+// IncMaxTokens adds one to the column's OWN value, in the database.
+//
+// Computing it in Go makes it a read-modify-write: two callers
+// who both read N both write N+1, and one increment is lost
+// with nothing to show that it happened.
+func (m *Mut) IncMaxTokens() {
+	m.expr |= dMaxTokens
+	m.dirty &^= dMaxTokens
 }
 
 // Ins stages a new row. Unlike Mut it has a setter for every insertable
@@ -2872,6 +3167,53 @@ func (n *Ins) SetWorkerID(v string) {
 	n.set |= iWorkerID
 }
 
+func (n *Ins) SetInstructions(v string) {
+	n.row.Instructions = v
+	n.set |= iInstructions
+}
+
+func (n *Ins) SetTemperature(v float64) {
+	n.row.Temperature = v
+	n.set |= iTemperature
+	n.add &^= iTemperature
+}
+
+// AddTemperatureOnConflict inserts v, or — when the insert conflicts and an
+// OnConflict… target updates the row already there — ADDS v to it:
+//
+//	"temperature" = "models"."temperature" + EXCLUDED."temperature"
+//
+// The sum is the database's, in the same statement, so two writers
+// counting into one row both land. Reading the row, adding in Go and
+// upserting the total loses one of them, with nothing to show it.
+// Without an OnConflict target, or with DoNothing, it is SetTemperature.
+func (n *Ins) AddTemperatureOnConflict(v float64) {
+	n.row.Temperature = v
+	n.set |= iTemperature
+	n.add |= iTemperature
+}
+
+func (n *Ins) SetMaxTokens(v int32) {
+	n.row.MaxTokens = v
+	n.set |= iMaxTokens
+	n.add &^= iMaxTokens
+}
+
+// AddMaxTokensOnConflict inserts v, or — when the insert conflicts and an
+// OnConflict… target updates the row already there — ADDS v to it:
+//
+//	"max_tokens" = "models"."max_tokens" + EXCLUDED."max_tokens"
+//
+// The sum is the database's, in the same statement, so two writers
+// counting into one row both land. Reading the row, adding in Go and
+// upserting the total loses one of them, with nothing to show it.
+// Without an OnConflict target, or with DoNothing, it is SetMaxTokens.
+func (n *Ins) AddMaxTokensOnConflict(v int32) {
+	n.row.MaxTokens = v
+	n.set |= iMaxTokens
+	n.add |= iMaxTokens
+}
+
 // The conflict encoding. One byte holds both which unique index an
 // upsert names and what it does on collision, so the insert statement
 // cache stays keyed by one mask and one byte:
@@ -2921,7 +3263,7 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 13)
+	set := make([]string, 0, 16)
 	switch i {
 	case 0:
 		if mask&(1<<2) != 0 {
@@ -2962,6 +3304,15 @@ func assignable(i uint8, mask uint64) []string {
 		}
 		if mask&(1<<15) != 0 {
 			set = append(set, "worker_id")
+		}
+		if mask&(1<<16) != 0 {
+			set = append(set, "instructions")
+		}
+		if mask&(1<<17) != 0 {
+			set = append(set, "temperature")
+		}
+		if mask&(1<<18) != 0 {
+			set = append(set, "max_tokens")
 		}
 	}
 	return set
@@ -3024,6 +3375,10 @@ func assignAdded(c string, add uint64) (string, bool) {
 		return "\"size_bytes\" = \"models\".\"size_bytes\" + EXCLUDED.\"size_bytes\"", add&iSizeBytes != 0
 	case "accuracy":
 		return "\"accuracy\" = \"models\".\"accuracy\" + EXCLUDED.\"accuracy\"", add&iAccuracy != 0
+	case "temperature":
+		return "\"temperature\" = \"models\".\"temperature\" + EXCLUDED.\"temperature\"", add&iTemperature != 0
+	case "max_tokens":
+		return "\"max_tokens\" = \"models\".\"max_tokens\" + EXCLUDED.\"max_tokens\"", add&iMaxTokens != 0
 	}
 	return "", false
 }
@@ -3042,6 +3397,9 @@ var assignFor = map[string]string{
 	"job_id":       "\"job_id\" = EXCLUDED.\"job_id\"",
 	"accuracy":     "\"accuracy\" = EXCLUDED.\"accuracy\"",
 	"worker_id":    "\"worker_id\" = EXCLUDED.\"worker_id\"",
+	"instructions": "\"instructions\" = EXCLUDED.\"instructions\"",
+	"temperature":  "\"temperature\" = EXCLUDED.\"temperature\"",
+	"max_tokens":   "\"max_tokens\" = EXCLUDED.\"max_tokens\"",
 }
 
 func assignExcluded(c string) string { return assignFor[c] }
@@ -3124,6 +3482,12 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 			args = append(args, n.row.Accuracy)
 		case 15:
 			args = append(args, n.row.WorkerID)
+		case 16:
+			args = append(args, n.row.Instructions)
+		case 17:
+			args = append(args, n.row.Temperature)
+		case 18:
+			args = append(args, n.row.MaxTokens)
 		}
 	}
 	var out Row
@@ -3161,7 +3525,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 16)
+	args := make([]any, 0, 19)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -3178,6 +3542,9 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.JobID)
 	args = append(args, r.Accuracy)
 	args = append(args, r.WorkerID)
+	args = append(args, r.Instructions)
+	args = append(args, r.Temperature)
+	args = append(args, r.MaxTokens)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -3220,13 +3587,16 @@ var copyCols = []string{
 	"job_id",
 	"accuracy",
 	"worker_id",
+	"instructions",
+	"temperature",
+	"max_tokens",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [16]any
+	buf  [19]any
 }
 
 func (s *rowSource) Next() bool {
@@ -3260,6 +3630,9 @@ func (s *rowSource) Values() []any {
 	s.buf[13] = &r.JobID
 	s.buf[14] = &r.Accuracy
 	s.buf[15] = &r.WorkerID
+	s.buf[16] = &r.Instructions
+	s.buf[17] = &r.Temperature
+	s.buf[18] = &r.MaxTokens
 	return s.buf[:]
 }
 
@@ -3306,8 +3679,11 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 13
 	mask |= 1 << 14
 	mask |= 1 << 15
+	mask |= 1 << 16
+	mask |= 1 << 17
+	mask |= 1 << 18
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 16)
+	args := make([]any, 0, 19)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -3324,6 +3700,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.JobID)
 	args = append(args, r.Accuracy)
 	args = append(args, r.WorkerID)
+	args = append(args, r.Instructions)
+	args = append(args, r.Temperature)
+	args = append(args, r.MaxTokens)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -3389,6 +3768,12 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 			args = append(args, n.row.Accuracy)
 		case 15:
 			args = append(args, n.row.WorkerID)
+		case 16:
+			args = append(args, n.row.Instructions)
+		case 17:
+			args = append(args, n.row.Temperature)
+		case 18:
+			args = append(args, n.row.MaxTokens)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
@@ -3470,6 +3855,12 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 			args = append(args, m.row.Accuracy)
 		case 12:
 			args = append(args, m.row.WorkerID)
+		case 13:
+			args = append(args, m.row.Instructions)
+		case 14:
+			args = append(args, m.row.Temperature)
+		case 15:
+			args = append(args, m.row.MaxTokens)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -3578,6 +3969,12 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 			args = append(args, m.row.Accuracy)
 		case 12:
 			args = append(args, m.row.WorkerID)
+		case 13:
+			args = append(args, m.row.Instructions)
+		case 14:
+			args = append(args, m.row.Temperature)
+		case 15:
+			args = append(args, m.row.MaxTokens)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -3752,6 +4149,12 @@ func (q Query) UpdateAll(ctx context.Context, ex runtime.Executor, m Mut) (int64
 			args = append(args, m.row.Accuracy)
 		case 12:
 			args = append(args, m.row.WorkerID)
+		case 13:
+			args = append(args, m.row.Instructions)
+		case 14:
+			args = append(args, m.row.Temperature)
+		case 15:
+			args = append(args, m.row.MaxTokens)
 		}
 	}
 	args = append(args, q.bindPreds(b)...)

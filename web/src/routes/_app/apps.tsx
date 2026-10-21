@@ -1,5 +1,5 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Button, Card, Code, CopyButton, Group, Modal, Stack, Tabs, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, Card, Code, CopyButton, Group, Modal, Stack, Table, Tabs, Text, TextInput, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconCheck, IconCopy, IconKey, IconTrash } from "@tabler/icons-react";
@@ -9,6 +9,7 @@ import { useState } from "react";
 
 import { message } from "../../api/client";
 import { ApiKeyService, type ApiKey } from "../../api/gen/mimir/v1/access_pb";
+import type { Model } from "../../api/gen/mimir/v1/model_pb";
 import { allKeyQueries, listApiKeys, listModels, listWebhooks, whoAmI } from "../../api/queries";
 import { AccessPicker, describe, type AccessValue } from "../../components/AccessPicker";
 import { Page } from "../../components/Page";
@@ -84,6 +85,8 @@ function Apps() {
         </Tabs>
       </Card>
 
+      <OpenAICard models={models.models.filter((m) => m.language)} />
+
       <Usage userId={me.user?.id ?? ""} />
 
       {me.permissions.includes("webhooks.manage") && <Webhooks />}
@@ -131,5 +134,87 @@ function KeyModal({ opened, onClose, maxRole, userAllModels, onCreated }: { open
         </Stack>
       </form>
     </Modal>
+  );
+}
+
+// OpenAICard shows how apps made for OpenAI reach the language models.
+function OpenAICard({ models }: { models: Model[] }) {
+  const base = `${location.origin}/v1`;
+  const name = models[0]?.language?.apiName ?? "<model name>";
+  const curl = `curl ${base}/chat/completions \\
+  -H 'Authorization: Bearer mimir_...' \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+    "model": "${name}",
+    "stream": true,
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'`;
+  const python = `from openai import OpenAI
+
+client = OpenAI(base_url="${base}", api_key="mimir_...")
+
+for part in client.chat.completions.create(
+        model="${name}", stream=True,
+        messages=[{"role": "user", "content": "Hello!"}]):
+    print(part.choices[0].delta.content or "", end="")`;
+  const js = `import OpenAI from "openai";
+
+const client = new OpenAI({ baseURL: "${base}", apiKey: "mimir_..." });
+
+const stream = await client.chat.completions.create({
+  model: "${name}",
+  stream: true,
+  messages: [{ role: "user", content: "Hello!" }],
+});
+for await (const part of stream) process.stdout.write(part.choices[0]?.delta?.content ?? "");`;
+  return (
+    <Card withBorder radius="lg" padding="lg">
+      <Title order={2} fz="lg" mb={4}>Use it like OpenAI</Title>
+      <Text size="sm" c="dimmed" mb="md">
+        Apps and tools built for OpenAI can talk to your language models. Give them this address and a mimir key instead of an OpenAI one. Nothing leaves your server.
+      </Text>
+      <Stack gap="md">
+        <div>
+          <Text size="sm" fw={500} mb={4}>Address (base URL)</Text>
+          <Group gap="xs" wrap="nowrap">
+            <Code block className="flex-1 break-all">{base}</Code>
+            <CopyButton value={base}>
+              {({ copied, copy }) => <Button variant="default" onClick={copy} leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}>{copied ? "Copied" : "Copy"}</Button>}
+            </CopyButton>
+          </Group>
+        </div>
+        <div>
+          <Text size="sm" fw={500} mb={4}>Model names</Text>
+          {models.length === 0 ? (
+            <Text size="sm" c="dimmed">No language models yet. Add one from a GGUF file under Models, and its name shows up here.</Text>
+          ) : (
+            <Table.ScrollContainer minWidth={360}>
+              <Table withTableBorder verticalSpacing="xs">
+                <Table.Thead><Table.Tr><Table.Th>Model</Table.Th><Table.Th>Name to send</Table.Th></Table.Tr></Table.Thead>
+                <Table.Tbody>
+                  {models.map((m) => (
+                    <Table.Tr key={m.id}><Table.Td>{m.name}</Table.Td><Table.Td><Code>{m.language?.apiName}</Code></Table.Td></Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
+          )}
+          <Text size="xs" c="dimmed" mt={4}>A key only sees the models it's allowed to use. The name follows the model's name, so renaming a model changes it.</Text>
+        </div>
+        <Tabs defaultValue="curl">
+          <Tabs.List>
+            <Tabs.Tab value="curl">curl</Tabs.Tab>
+            <Tabs.Tab value="python">Python</Tabs.Tab>
+            <Tabs.Tab value="js">JavaScript</Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="curl" pt="sm"><Code block>{curl}</Code></Tabs.Panel>
+          <Tabs.Panel value="python" pt="sm"><Code block>{python}</Code></Tabs.Panel>
+          <Tabs.Panel value="js" pt="sm"><Code block>{js}</Code></Tabs.Panel>
+        </Tabs>
+        <Text size="sm" c="dimmed">
+          Works with <Code>/v1/chat/completions</Code>, <Code>/v1/completions</Code> and <Code>/v1/models</Code>. Add <Code>"stream": true</Code> to get the answer word by word as it's written.
+        </Text>
+      </Stack>
+    </Card>
   );
 }

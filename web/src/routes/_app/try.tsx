@@ -8,7 +8,8 @@ import { z } from "zod";
 
 import { message } from "../../api/client";
 import { PredictService, type Column } from "../../api/gen/mimir/v1/model_pb";
-import { listArchitectures, listModels } from "../../api/queries";
+import { listArchitectures, listModels, whoAmI } from "../../api/queries";
+import { Chat } from "../../components/Chat";
 import { DrawPad, type DrawPadHandle } from "../../components/DrawPad";
 import { ButtonLink } from "../../components/links";
 import { Page } from "../../components/Page";
@@ -16,7 +17,7 @@ import { Writer } from "../../components/Writer";
 import { percent } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/try")({
-  validateSearch: z.object({ model: z.string().optional() }),
+  validateSearch: z.object({ model: z.string().optional(), mode: z.enum(["write"]).optional() }),
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureQueryData(listModels),
     context.queryClient.ensureQueryData(listArchitectures),
@@ -32,7 +33,9 @@ function sureness(p: number) {
 }
 
 function Try() {
-  const { model: selected } = Route.useSearch();
+  const { model: selected, mode: writeMode } = Route.useSearch();
+  const mode = writeMode ?? "chat";
+  const { data: me } = useSuspenseQuery(whoAmI);
   const navigate = Route.useNavigate();
   const { data } = useSuspenseQuery(listModels);
   const { data: archs } = useSuspenseQuery(listArchitectures);
@@ -63,7 +66,7 @@ function Try() {
   const pickModel = (
     <Select
       label="Model"
-      className="max-w-sm"
+      className="w-full max-w-sm"
       data={data.models.map((m) => ({ value: m.id, label: m.name }))}
       value={model.id}
       allowDeselect={false}
@@ -71,10 +74,17 @@ function Try() {
     />
   );
   if (arch?.output === "text") {
+    const modes = (
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-full sm:w-80">{pickModel}</div>
+        <SegmentedControl data={[{ value: "chat", label: "Chat" }, { value: "write", label: "Carry on a text" }]} value={mode} onChange={(v) => void navigate({ search: { model: model.id, mode: v === "write" ? "write" : undefined } })} />
+      </div>
+    );
     return (
-      <Page title="Try a model" intro="Start a text and see how the model carries on.">
-        {pickModel}
-        <Writer key={model.id} modelId={model.id} />
+      <Page title="Try a model" intro={mode === "chat" ? "Chat with a language model, the way your apps will." : "Start a text and see how the model carries on."}>
+        {mode === "chat"
+          ? <Chat key={model.id} model={model} canWrite={me.permissions.includes("models.write")} header={modes} />
+          : <>{modes}<Writer key={model.id} modelId={model.id} /></>}
       </Page>
     );
   }

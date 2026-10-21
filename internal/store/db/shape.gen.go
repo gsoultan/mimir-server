@@ -113,6 +113,9 @@ func _assertModelShape(m m0.Model) {
 		m.JobID,
 		m.Accuracy,
 		m.WorkerID,
+		m.Instructions,
+		m.Temperature,
+		m.MaxTokens,
 	}
 }
 
