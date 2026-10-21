@@ -37,15 +37,17 @@ func (d *Dataset) Aggregates(a *storm.Aggregates) {
 
 func (d *Dataset) Schema(t *storm.Table) {
 	t.Col(&d.Kind).Immutable()
-	t.Col(&d.Features).Default("'{}'")
-	t.Col(&d.Labels).Default("'{}'")
-	t.Col(&d.InputShape).Default("'{}'")
+	t.Col(&d.Features).Default("'{}'").ConvertFrom(storm.JSONText)
+	t.Col(&d.Labels).Default("'{}'").ConvertFrom(storm.JSONText)
+	t.Col(&d.InputShape).Default("'{}'").ConvertFrom(storm.JSONText)
 	t.Col(&d.Target).Default("''")
 	t.Col(&d.SizeBytes).Default("0")
 	t.Col(&d.Driver).Default("''").Immutable()
-	t.Col(&d.DSN).Named("dsn").Default("''").Immutable()
+	// Not Immutable, as Webhook.Secret is not: the store seals a
+	// plaintext one in place.
+	t.Col(&d.DSN).Named("dsn").Default("''")
 	t.Col(&d.SourceQuery).Default("''").Immutable()
-	t.Col(&d.Columns).Default("'[]'")
+	t.Col(&d.Columns).Default("'[]'").ConvertFrom(storm.JSONText)
 	t.Col(&d.NumberTarget).Default("false")
 	t.Col(&d.Skipped).Default("0")
 	// A team's datasets, newest first; also the team key's index.

@@ -53,7 +53,7 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Col(&j.Epoch).Default("0")
 	t.Col(&j.Step).Default("0")
 	t.Col(&j.StepsPerEpoch).Default("0")
-	t.Col(&j.History).Default("'[]'")
+	t.Col(&j.History).Default("'[]'").ConvertFrom(storm.JSONText)
 	t.Col(&j.ModelID).Default("''")
 	t.Col(&j.Worker).Default("''")
 	t.Col(&j.CreatedBy).Default("''").Immutable()

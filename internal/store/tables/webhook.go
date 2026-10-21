@@ -15,8 +15,9 @@ type Webhook struct {
 }
 
 func (w *Webhook) Schema(t *storm.Table) {
-	t.Col(&w.Secret).Immutable()
-	t.Col(&w.Events).Default("'{}'")
+	// Secret never changes once set, but it is not Immutable: the store
+	// seals a plaintext one left by an older server in place.
+	t.Col(&w.Events).Default("'{}'").ConvertFrom(storm.JSONText)
 	t.Col(&w.Enabled).Default("true")
 	// A team's webhooks go with it. The list, oldest first, is the team
 	// key's index.
