@@ -100,6 +100,32 @@ func TestONNX(t *testing.T) {
 	if checked == 0 {
 		t.Fatal("no run of one input to check")
 	}
+
+	// Run answers every run, a batch of questions included, on the
+	// interpreter.
+	if file.Engine() != "interpreter" {
+		t.Fatalf("the file runs on %s", file.Engine())
+	}
+	for _, run := range want.Runs {
+		x := run.Inputs["x"]
+		rows, err := file.Run(ctx, floats(t, x.Data), x.Shape[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		exp := floats(t, run.Outputs["probs"].Data)
+		var got []float32
+		for _, r := range rows {
+			got = append(got, r...)
+		}
+		if len(rows) != x.Shape[0] || len(got) != len(exp) {
+			t.Fatalf("%d rows of %d outputs, want %d rows of %d", len(rows), len(got), x.Shape[0], len(exp))
+		}
+		for i := range exp {
+			if math.Abs(float64(got[i]-exp[i])) > 1e-4 {
+				t.Fatalf("batch of %d: output %v, want %v", x.Shape[0], got, exp)
+			}
+		}
+	}
 }
 
 // TestGGUF converts a tiny Llama and has it write.
