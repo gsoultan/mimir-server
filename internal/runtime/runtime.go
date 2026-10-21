@@ -321,15 +321,15 @@ func (c *Cache) observerNow() Observer {
 }
 
 type entry struct {
-	id   string
-	ver  string // the weights' version, such as their SHA-256
+	id    string
+	ver   string // the weights' version, such as their SHA-256
 	once  sync.Once
 	batch *batcher       // runs the model's predictions
 	lm    *LanguageModel // for a language model, instead of batch
 	kind  string         // "language", "file" or "built", for metrics
-	err  error
-	size int64         // bytes of the file it was loaded from
-	elem *list.Element // its place in lru, once loaded; guarded by Cache.mu
+	err   error
+	size  int64         // bytes of the file it was loaded from
+	elem  *list.Element // its place in lru, once loaded; guarded by Cache.mu
 }
 
 // load builds the model of architecture a from weights, a weights file
