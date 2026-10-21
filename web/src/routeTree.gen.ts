@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as DeviceRouteImport } from './routes/device'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
@@ -27,9 +28,17 @@ import { Route as AppTemplatesIdRouteImport } from './routes/_app/templates/$id'
 import { Route as AppTrainingIndexRouteImport } from './routes/_app/training/index'
 import { Route as AppTrainingIdRouteImport } from './routes/_app/training/$id'
 import { Route as AppWorkersIdRouteImport } from './routes/_app/workers/$id'
+import { Route as AppModelsBuildIndexRouteImport } from './routes/_app/models/build/index'
+import { Route as AppModelsBuildGoalRouteImport } from './routes/_app/models/build/$goal'
+import { Route as AppModelsBuildCodeRouteImport } from './routes/_app/models/build/code'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeviceRoute = DeviceRouteImport.update({
+  id: '/device',
+  path: '/device',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -117,9 +126,25 @@ const AppWorkersIdRoute = AppWorkersIdRouteImport.update({
   path: '/workers/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppModelsBuildIndexRoute = AppModelsBuildIndexRouteImport.update({
+  id: '/models/build/',
+  path: '/models/build/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppModelsBuildGoalRoute = AppModelsBuildGoalRouteImport.update({
+  id: '/models/build/$goal',
+  path: '/models/build/$goal',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppModelsBuildCodeRoute = AppModelsBuildCodeRouteImport.update({
+  id: '/models/build/code',
+  path: '/models/build/code',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/device': typeof DeviceRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/apps': typeof AppAppsRoute
@@ -136,8 +161,12 @@ export interface FileRoutesByFullPath {
   '/models/': typeof AppModelsIndexRoute
   '/templates/': typeof AppTemplatesIndexRoute
   '/training/': typeof AppTrainingIndexRoute
+  '/models/build/$goal': typeof AppModelsBuildGoalRoute
+  '/models/build/code': typeof AppModelsBuildCodeRoute
+  '/models/build/': typeof AppModelsBuildIndexRoute
 }
 export interface FileRoutesByTo {
+  '/device': typeof DeviceRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/apps': typeof AppAppsRoute
@@ -155,10 +184,14 @@ export interface FileRoutesByTo {
   '/models': typeof AppModelsIndexRoute
   '/templates': typeof AppTemplatesIndexRoute
   '/training': typeof AppTrainingIndexRoute
+  '/models/build/$goal': typeof AppModelsBuildGoalRoute
+  '/models/build/code': typeof AppModelsBuildCodeRoute
+  '/models/build': typeof AppModelsBuildIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/device': typeof DeviceRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/_app/apps': typeof AppAppsRoute
@@ -176,11 +209,15 @@ export interface FileRoutesById {
   '/_app/models/': typeof AppModelsIndexRoute
   '/_app/templates/': typeof AppTemplatesIndexRoute
   '/_app/training/': typeof AppTrainingIndexRoute
+  '/_app/models/build/$goal': typeof AppModelsBuildGoalRoute
+  '/_app/models/build/code': typeof AppModelsBuildCodeRoute
+  '/_app/models/build/': typeof AppModelsBuildIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/device'
     | '/setup'
     | '/sign-in'
     | '/apps'
@@ -197,8 +234,12 @@ export interface FileRouteTypes {
     | '/models/'
     | '/templates/'
     | '/training/'
+    | '/models/build/$goal'
+    | '/models/build/code'
+    | '/models/build/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/device'
     | '/setup'
     | '/sign-in'
     | '/apps'
@@ -216,9 +257,13 @@ export interface FileRouteTypes {
     | '/models'
     | '/templates'
     | '/training'
+    | '/models/build/$goal'
+    | '/models/build/code'
+    | '/models/build'
   id:
     | '__root__'
     | '/_app'
+    | '/device'
     | '/setup'
     | '/sign-in'
     | '/_app/apps'
@@ -236,10 +281,14 @@ export interface FileRouteTypes {
     | '/_app/models/'
     | '/_app/templates/'
     | '/_app/training/'
+    | '/_app/models/build/$goal'
+    | '/_app/models/build/code'
+    | '/_app/models/build/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  DeviceRoute: typeof DeviceRoute
   SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
 }
@@ -251,6 +300,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/device': {
+      id: '/device'
+      path: '/device'
+      fullPath: '/device'
+      preLoaderRoute: typeof DeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -372,6 +428,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkersIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/models/build/': {
+      id: '/_app/models/build/'
+      path: '/models/build'
+      fullPath: '/models/build/'
+      preLoaderRoute: typeof AppModelsBuildIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/models/build/$goal': {
+      id: '/_app/models/build/$goal'
+      path: '/models/build/$goal'
+      fullPath: '/models/build/$goal'
+      preLoaderRoute: typeof AppModelsBuildGoalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/models/build/code': {
+      id: '/_app/models/build/code'
+      path: '/models/build/code'
+      fullPath: '/models/build/code'
+      preLoaderRoute: typeof AppModelsBuildCodeRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -391,6 +468,9 @@ interface AppRouteChildren {
   AppModelsIndexRoute: typeof AppModelsIndexRoute
   AppTemplatesIndexRoute: typeof AppTemplatesIndexRoute
   AppTrainingIndexRoute: typeof AppTrainingIndexRoute
+  AppModelsBuildGoalRoute: typeof AppModelsBuildGoalRoute
+  AppModelsBuildCodeRoute: typeof AppModelsBuildCodeRoute
+  AppModelsBuildIndexRoute: typeof AppModelsBuildIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -409,12 +489,16 @@ const AppRouteChildren: AppRouteChildren = {
   AppModelsIndexRoute: AppModelsIndexRoute,
   AppTemplatesIndexRoute: AppTemplatesIndexRoute,
   AppTrainingIndexRoute: AppTrainingIndexRoute,
+  AppModelsBuildGoalRoute: AppModelsBuildGoalRoute,
+  AppModelsBuildCodeRoute: AppModelsBuildCodeRoute,
+  AppModelsBuildIndexRoute: AppModelsBuildIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  DeviceRoute: DeviceRoute,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
 }

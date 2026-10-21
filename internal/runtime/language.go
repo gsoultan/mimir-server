@@ -52,6 +52,13 @@ type LanguageModel struct {
 	m       *mim.Model
 	tok     tokenizer.Tokenizer
 	context int
+	chat    chatFormat
+	// special maps the text of each control and user-defined token, such
+	// as <|im_start|>, to its id, so a chat's markers become those tokens
+	// rather than being spelled out. control holds the ids that end an
+	// answer when the model writes them.
+	special map[string]int32
+	control map[int32]bool
 	mu      sync.Mutex // one generation at a time: each holds a key-value cache
 }
 
@@ -84,8 +91,90 @@ func newLanguageModel(m *mim.Model) (*LanguageModel, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: its tokenizer: %v", ErrBadWeights, err)
 	}
-	return &LanguageModel{m: m, tok: tok, context: context}, nil
+	lm := &LanguageModel{m: m, tok: tok, context: context, special: map[string]int32{}, control: map[int32]bool{}}
+	vocab, _ := md["tokenizer.ggml.tokens"].([]string)
+	types := ints(md["tokenizer.ggml.token_type"])
+	for i, t := range types {
+		if i >= len(vocab) || (t != tokenControl && t != tokenUserDefined) || vocab[i] == "" {
+			continue
+		}
+		if _, dup := lm.special[vocab[i]]; !dup {
+			lm.special[vocab[i]] = int32(i)
+		}
+		if t == tokenControl {
+			lm.control[int32(i)] = true
+		}
+	}
+	template, _ := md["tokenizer.chat_template"].(string)
+	lm.chat = formatOf(template, vocab)
+	return lm, nil
 }
+
+// Token types, as GGUF's tokenizer.ggml.token_type stores them.
+const (
+	tokenControl     = 3
+	tokenUserDefined = 4
+)
+
+// ints reads a list of integers from metadata, whichever integer type the
+// file stored it as.
+func ints(v any) []int64 {
+	switch v := v.(type) {
+	case []int64:
+		return v
+	case []int32:
+		out := make([]int64, len(v))
+		for i, x := range v {
+			out[i] = int64(x)
+		}
+		return out
+	case []any:
+		out := make([]int64, 0, len(v))
+		for _, x := range v {
+			switch x := x.(type) {
+			case int64:
+				out = append(out, x)
+			case int32:
+				out = append(out, int64(x))
+			case int:
+				out = append(out, int64(x))
+			default:
+				return nil
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// encode tokenizes text. With special set, the text of control and
+// user-defined tokens becomes those tokens, as a chat's markers must.
+func (lm *LanguageModel) encode(text string, special bool) []int32 {
+	if !special || len(lm.special) == 0 {
+		return lm.tok.Encode(text, true)
+	}
+	out := lm.tok.Encode("", true) // just the beginning-of-text token, if any
+	for text != "" {
+		at, id, n := len(text), int32(0), 0
+		for s, i := range lm.special {
+			if k := strings.Index(text, s); k >= 0 && (k < at || (k == at && len(s) > n)) {
+				at, id, n = k, i, len(s)
+			}
+		}
+		if at > 0 {
+			out = append(out, lm.tok.Encode(text[:at], false)...)
+		}
+		if n == 0 {
+			break
+		}
+		out = append(out, id)
+		text = text[at+n:]
+	}
+	return out
+}
+
+// Count is how many tokens text is to the model.
+func (lm *LanguageModel) Count(text string) int { return len(lm.tok.Encode(text, false)) }
 
 // Context is the most tokens the model reads and writes in one
 // generation, prompt included.
@@ -105,6 +194,14 @@ type Sampling struct {
 	TopK int
 	// Seed makes sampling repeatable.
 	Seed uint64
+	// Stop ends the text before the first of these the model writes.
+	Stop []string
+	// OnText, when set, gets the text as it is written, piece by piece;
+	// the pieces add up to Generation.Text. An error from it ends the
+	// generation with that error.
+	OnText func(string) error
+	// special reads control tokens written in the prompt as those tokens.
+	special bool
 }
 
 // Generation is the text a language model wrote.
@@ -115,17 +212,28 @@ type Generation struct {
 	// Finished says the model ended the text itself, rather than running
 	// into MaxTokens or the end of its context.
 	Finished bool
+	// Context is the most tokens the model reads and writes at once.
+	Context int
 }
+
+// TooLongError is a prompt longer than the model reads. It is ErrBadInput.
+type TooLongError struct{ Tokens, Max int }
+
+func (e *TooLongError) Error() string {
+	return fmt.Sprintf("%v: the prompt is %d tokens; this model reads at most %d", ErrBadInput, e.Tokens, e.Max)
+}
+
+func (e *TooLongError) Unwrap() error { return ErrBadInput }
 
 // Generate continues prompt. It fails with ErrBadInput for an empty
 // prompt or one longer than the model's context.
 func (lm *LanguageModel) Generate(ctx context.Context, prompt string, s Sampling) (Generation, error) {
-	ids := lm.tok.Encode(prompt, true)
+	ids := lm.encode(prompt, s.special)
 	if len(ids) == 0 || prompt == "" {
 		return Generation{}, fmt.Errorf("%w: the prompt is empty", ErrBadInput)
 	}
 	if len(ids) >= lm.context {
-		return Generation{}, fmt.Errorf("%w: the prompt is %d tokens; this model reads at most %d", ErrBadInput, len(ids), lm.context-1)
+		return Generation{}, &TooLongError{Tokens: len(ids), Max: lm.context - 1}
 	}
 	if s.TopK <= 0 {
 		s.TopK = 40
@@ -135,29 +243,96 @@ func (lm *LanguageModel) Generate(ctx context.Context, prompt string, s Sampling
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 	sess := lm.m.NewSession()
-	g := Generation{PromptTokens: len(ids)}
+	g := Generation{PromptTokens: len(ids), Context: lm.context}
 	var text []byte
+	var out strings.Builder
+	sent := 0 // bytes of text already passed on
+	// flush passes on the text up to end that can no longer change.
+	flush := func(end int) error {
+		if end <= sent {
+			return nil
+		}
+		piece := clean(text[sent:end])
+		sent = end
+		out.WriteString(piece)
+		if s.OnText != nil && piece != "" {
+			return s.OnText(piece)
+		}
+		return nil
+	}
 	logits, err := lm.step(ctx, sess, ids, 0)
 	pos := len(ids)
 	for err == nil && g.GeneratedTokens < s.MaxTokens {
 		next := pick(logits, s, rng)
-		if next == lm.tok.EOS() {
+		if next == lm.tok.EOS() || lm.control[next] {
 			g.Finished = true
 			break
 		}
 		text = append(text, lm.tok.Piece(next)...)
 		g.GeneratedTokens++
+		if cut, ok := stopAt(text, s.Stop); ok {
+			text = text[:cut]
+			g.Finished = true
+			break
+		}
+		if err = flush(settled(text, s.Stop)); err != nil {
+			break
+		}
 		if pos >= lm.context || g.GeneratedTokens == s.MaxTokens {
 			break
 		}
 		logits, err = lm.step(ctx, sess, []int32{next}, pos)
 		pos++
 	}
+	if err == nil {
+		err = flush(len(trimPartial(text)))
+	}
 	if err != nil {
 		return Generation{}, err
 	}
-	g.Text = validUTF8(text)
+	g.Text = out.String()
 	return g, nil
+}
+
+// stopAt reports where the first stop string in text starts.
+func stopAt(text []byte, stop []string) (int, bool) {
+	at := -1
+	for _, s := range stop {
+		if k := strings.Index(string(text), s); k >= 0 && (at < 0 || k < at) {
+			at = k
+		}
+	}
+	return at, at >= 0
+}
+
+// settled is how much of text can't change any more: all of it but a last
+// character still being written and an end that could be the start of a
+// stop string.
+func settled(text []byte, stop []string) int {
+	end := len(trimPartial(text))
+	hold := 0
+	for _, s := range stop {
+		for n := min(len(s)-1, end); n > hold; n-- {
+			if strings.HasPrefix(s, string(text[end-n:end])) {
+				hold = n
+				break
+			}
+		}
+	}
+	return end - hold
+}
+
+// trimPartial drops a last character the model hasn't finished writing.
+func trimPartial(b []byte) []byte {
+	for n := 1; n <= min(len(b), utf8.UTFMax-1); n++ {
+		if utf8.RuneStart(b[len(b)-n]) {
+			if !utf8.FullRune(b[len(b)-n:]) {
+				return b[:len(b)-n]
+			}
+			break
+		}
+	}
+	return b
 }
 
 // step runs ids at positions pos, pos+1, ... and returns the logits of the
@@ -231,15 +406,11 @@ func pick(logits []float32, s Sampling, rng *rand.Rand) int32 {
 // validUTF8 drops a last character the model hadn't finished writing and
 // control characters other than line breaks and tabs, and replaces any
 // other invalid bytes.
-func validUTF8(b []byte) string {
-	for n := 1; n <= min(len(b), utf8.UTFMax-1); n++ {
-		if utf8.RuneStart(b[len(b)-n]) {
-			if !utf8.FullRune(b[len(b)-n:]) {
-				b = b[:len(b)-n]
-			}
-			break
-		}
-	}
+func validUTF8(b []byte) string { return clean(trimPartial(b)) }
+
+// clean drops control characters other than line breaks and tabs, and
+// replaces invalid bytes.
+func clean(b []byte) string {
 	return strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) && r != '\n' && r != '\t' {
 			return -1

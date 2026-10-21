@@ -644,7 +644,7 @@ func PhotoLabels(folders map[string][]string) ([]string, error) {
 // Architectures lists the model types that can learn from a dataset.
 func Architectures(d store.Dataset) []string {
 	var out []string
-	for _, a := range arch.All() {
+	for _, a := range arch.Every() {
 		switch d.Kind {
 		case store.DatasetTable:
 			if a.Input != arch.Table {
@@ -655,7 +655,7 @@ func Architectures(d store.Dataset) []string {
 				if d.NumberTarget {
 					out = append(out, a.Name)
 				}
-			case len(d.Labels) >= 2 && a.Text == schema.HasText(d.Columns):
+			case len(d.Labels) >= 2 && (a.Custom || a.Text == schema.HasText(d.Columns)):
 				out = append(out, a.Name)
 			}
 		case store.DatasetPhotos:

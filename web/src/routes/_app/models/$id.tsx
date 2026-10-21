@@ -12,6 +12,8 @@ import { ModelService } from "../../../api/gen/mimir/v1/model_pb";
 import { allModelQueries, getModel, listArchitectures, whoAmI } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
+import { LanguageDefaults } from "../../../components/LanguageDefaults";
+import { OnDevice } from "../../../components/OnDevice";
 import { RunsOn } from "../../../components/Placement";
 import { ago, bytes } from "../../../lib/format";
 import { score } from "../../../lib/training";
@@ -83,7 +85,7 @@ function ModelDetails() {
     <Page
       title={m.name}
       intro={`${arch?.title ?? m.architecture} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}${m.accuracy > 0 ? ` · ${score(m.accuracy, arch?.output === "number")}` : ""}${m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? ` · last learned ${ago(m.updateTime)}` : ""}`}
-      actions={<ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>Try it</ButtonLink>}
+      actions={<ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>{writes ? "Chat with it" : "Try it"}</ButtonLink>}
     >
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Card withBorder radius="lg" padding="lg">
@@ -111,6 +113,8 @@ function ModelDetails() {
               ? "Send the start of a text as prompt; get back how the model carries on, in text."
               : named
               ? `Send ${[columns.length > 0 && "each column by name in fields", wantsPhoto && "the photo as a JPG, PNG or GIF"].filter(Boolean).join(", and ")}. ${answer}`
+              : arch?.custom
+              ? `Send the ${input.toString() === "1" ? "number" : `${input.toString()} numbers`} its code reads; get back ${number ? "a number in value" : arch.output === "ranked" ? `the top ${arch.items}, best first, in guesses` : "the likeliest answers"}.`
               : `Send ${input.toString()} numbers between 0 and 1; get back the likeliest answers.`} Make a key under Connect your apps.
           </Text>
           <Tabs defaultValue="http">
@@ -123,6 +127,8 @@ function ModelDetails() {
           </Tabs>
         </Card>
         {!writes && <RunsOn model={m} canWrite={canWrite} />}
+        {!writes && <OnDevice model={m} arch={arch} canWrite={canWrite} />}
+        {writes && m.language && <LanguageDefaults model={m} canWrite={canWrite} />}
       </SimpleGrid>
 
       <Modal opened={confirming} onClose={confirm.close} title={`Delete ${m.name}?`} centered>

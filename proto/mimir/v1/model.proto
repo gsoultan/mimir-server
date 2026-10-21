@@ -30,7 +30,43 @@ service ModelService {
   // SetModelWorker picks the worker that answers a model's questions, or
   // none to let the console choose.
   rpc SetModelWorker(SetModelWorkerRequest) returns (SetModelWorkerResponse);
+  // SaveArchitecture describes a model type written in someone's own code
+  // and run on workers, or changes how one is described.
+  rpc SaveArchitecture(SaveArchitectureRequest) returns (SaveArchitectureResponse);
+  // GetDeviceModel downloads a model that may run on people's devices,
+  // with what a browser needs to answer with it.
+  rpc GetDeviceModel(GetDeviceModelRequest) returns (GetDeviceModelResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // DeleteArchitecture removes a described model type no model uses.
+  rpc DeleteArchitecture(DeleteArchitectureRequest) returns (DeleteArchitectureResponse);
 }
+
+message SaveArchitectureRequest {
+  // name is what workers run it under: lower case letters, digits and
+  // dashes, at most 40. Saving under a name already described changes it.
+  string name = 1;
+  string title = 2;
+  string description = 3;
+  // input is "table" (a row of columns), "image" (a photo) or "tensor"
+  // (a list of numbers).
+  string input = 4;
+  // output is "class" (one of a few labels), "number" or "ranked" (the
+  // labels that fit best, most likely first).
+  string output = 5;
+  // items is how many a ranked answer lists, 1 to 100.
+  int32 items = 6;
+}
+
+message SaveArchitectureResponse {
+  Architecture architecture = 1;
+}
+
+message DeleteArchitectureRequest {
+  string name = 1;
+}
+
+message DeleteArchitectureResponse {}
 
 message SetModelWorkerRequest {
   string id = 1;
@@ -50,6 +86,11 @@ service PredictService {
   // Generate continues a prompt with a language model, such as one
   // uploaded as a GGUF file.
   rpc Generate(GenerateRequest) returns (GenerateResponse);
+  // GenerateStream is Generate, sending the text as the model writes it.
+  rpc GenerateStream(GenerateStreamRequest) returns (stream GenerateStreamResponse);
+  // Chat writes a language model's next turn in a chat, sending the text
+  // as the model writes it.
+  rpc Chat(ChatRequest) returns (stream ChatResponse);
 }
 
 // Architecture is a model shape the server knows how to build.
@@ -72,8 +113,17 @@ message Architecture {
   // "tensor" for raw numbers and "text" for a prompt.
   string input = 7;
   // Output says what the model answers: "class" picks a label, "number"
-  // answers with a number and "text" writes text (see Generate).
+  // answers with a number, "ranked" lists the labels that fit best and
+  // "text" writes text (see Generate).
   string output = 8;
+  // custom says someone wrote it in their own code: only workers that run
+  // it answer and teach its models.
+  bool custom = 9;
+  // items is how many a ranked answer lists.
+  int32 items = 10;
+  // designable says its hidden layers can be shaped step by step when it
+  // is taught (TrainingSettings.layers).
+  bool designable = 11;
 }
 
 // Column is one column a model reads and how it becomes numbers.
@@ -125,6 +175,30 @@ message Model {
   // columns are the table columns the model reads, in order, when it was
   // taught from a table. Ask it with PredictRequest.fields.
   repeated Column columns = 16;
+  // language is how a language model answers by default; unset for other
+  // models.
+  LanguageSettings language = 17;
+  // on_device says people may download the model and answer with it in
+  // their own browser (GetDeviceModel), offline too.
+  bool on_device = 18;
+  // version identifies the weights: the SHA-256 of the stored file. It
+  // changes when the model is retrained in place.
+  string version = 19;
+}
+
+// LanguageSettings are how a language model answers when a chat or an app
+// doesn't say.
+message LanguageSettings {
+  // instructions are what the model reads before every chat, such as who it
+  // is and how to talk: the system message.
+  string instructions = 1;
+  // temperature is how freely it picks words, from 0 to 2.
+  float temperature = 2;
+  // max_tokens is the longest answer, in tokens.
+  int32 max_tokens = 3;
+  // api_name is the model name apps send to the OpenAI-compatible API under
+  // /v1. Output only: it comes from the model's name.
+  string api_name = 4;
 }
 
 // Tensor is a dense float32 array.
@@ -168,8 +242,13 @@ message CreateModelRequest {
   // architecture the whole model. For the mim and language-model
   // architectures it may also be an ONNX or GGUF file, which the server
   // converts to a Mimir Model file and stores that way; a GGUF language
-  // model uploaded as mim becomes a language-model model.
+  // model uploaded as mim becomes a language-model model. For a custom
+  // architecture it is whatever its own code reads, kept as it is.
   bytes weights = 4;
+  // labels and input_shape say what a custom architecture's model
+  // answers and reads; other architectures take them from the file.
+  repeated string labels = 5;
+  repeated int64 input_shape = 6;
 }
 
 message CreateModelResponse {
@@ -180,6 +259,12 @@ message UpdateModelRequest {
   string id = 1;
   string name = 2;
   string description = 3;
+  // language, when set, replaces a language model's default settings.
+  LanguageSettings language = 4;
+  // on_device, when set, lets people run the model in their browser, or
+  // stops them. A request with only on_device keeps the name and
+  // description.
+  optional bool on_device = 5;
 }
 
 message UpdateModelResponse {
@@ -234,6 +319,70 @@ message GenerateRequest {
   uint64 seed = 5;
 }
 
+// ChatMessage is one turn of a chat.
+message ChatMessage {
+  // role is "user" or "assistant".
+  string role = 1;
+  string content = 2;
+}
+
+message ChatRequest {
+  string model_id = 1;
+  // messages are the chat so far, oldest first, ending with the user's.
+  repeated ChatMessage messages = 2;
+  // instructions, when set, replace the model's default instructions; set
+  // it to "" for none.
+  optional string instructions = 3;
+  // max_tokens is the longest answer; 0 means the model's default.
+  int32 max_tokens = 4;
+  // temperature, when set, replaces the model's default.
+  optional float temperature = 5;
+  // seed makes an answer with a temperature repeatable.
+  uint64 seed = 6;
+}
+
+// ChatResponse is a piece of the answer as it is written. The last one has
+// done set and the totals.
+message ChatResponse {
+  // text is the next piece of the text.
+  string text = 1;
+  bool done = 2;
+  int32 prompt_tokens = 3;
+  int32 generated_tokens = 4;
+  // finished says the model ended the text itself.
+  bool finished = 5;
+  int64 duration_micros = 6;
+  // context_tokens is the most tokens the model reads and writes at once,
+  // prompt and answer together.
+  int32 context_tokens = 7;
+}
+
+// GenerateStreamRequest is a GenerateRequest whose text comes back piece by
+// piece.
+message GenerateStreamRequest {
+  string model_id = 1;
+  string prompt = 2;
+  int32 max_tokens = 3;
+  float temperature = 4;
+  uint64 seed = 5;
+}
+
+// GenerateStreamResponse is a piece of the text as it is written. The last
+// one has done set and the totals.
+message GenerateStreamResponse {
+  // text is the next piece of the text.
+  string text = 1;
+  bool done = 2;
+  int32 prompt_tokens = 3;
+  int32 generated_tokens = 4;
+  // finished says the model ended the text itself.
+  bool finished = 5;
+  int64 duration_micros = 6;
+  // context_tokens is the most tokens the model reads and writes at once,
+  // prompt and answer together.
+  int32 context_tokens = 7;
+}
+
 message GenerateResponse {
   // text is what the model wrote after the prompt.
   string text = 1;
@@ -244,4 +393,15 @@ message GenerateResponse {
   bool finished = 4;
   // DurationMicros is how long the model took.
   int64 duration_micros = 5;
+}
+
+message GetDeviceModelRequest {
+  string id = 1;
+}
+
+message GetDeviceModelResponse {
+  // model is the model as GetModel returns it; weights its stored file,
+  // whose SHA-256 is model.version.
+  Model model = 1;
+  bytes weights = 2;
 }

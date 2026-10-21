@@ -77,10 +77,22 @@ any other, so nothing downstream sees the original format.
   Q5_K_M, Q3_K, Q2_K and the IQ types don't yet. The weights are kept as
   they are, and the server adds the forward pass GGUF doesn't carry, with a
   key-value cache of the model's context length, up to 4096 tokens.
-  **Try a model** then gives it the start of a text to continue, and apps
-  call `PredictService.Generate`. Language models run on the console
-  itself, one generation at a time per model, not on workers. They
-  continue text; chat templates aren't applied.
+  **Try a model** then chats with it, or gives it the start of a text to
+  continue, with the answer appearing word by word. Apps call
+  `PredictService.Chat`, `Generate` or `GenerateStream`, or the
+  OpenAI-compatible API under `/v1` (see Use it from your app). Language
+  models run on the console itself, one generation at a time per model,
+  not on workers.
+
+  A chat is written out in the format the model was trained on: ChatML
+  (Qwen, SmolLM), Llama 3, Zephyr (TinyLlama Chat), `[INST]` (Llama 2,
+  Mistral) or Gemma, picked from the markers in the model's chat template.
+  The template itself is never run (running a GGUF Jinja template was
+  CVE-2024-34359); a model with none gets a plain "User: / Assistant:"
+  format. Each language model keeps default instructions (the system
+  message), word choice and longest answer, set on its page or from the
+  chat, which apps get when they don't send their own. Chats in **Try a
+  model** are kept for 30 days in the browser, not on the server.
 
 The server goes by what the file holds: a GGUF file added as a Mimir Model
 file still becomes a language model.
@@ -190,8 +202,15 @@ A mimir model is Go code plus weights, so the server keeps a registry of
 known model types in `internal/arch` (today: two handwritten-digit models,
 `mnist-mlp` and `mnist-cnn`, and `table-mlp` for rows of numbers). An
 upload names its type, and the server checks the weights fit that type
-before storing them. To serve your own architecture, add it to the
-registry.
+before storing them. To serve a model type of your own without changing
+the server, write it in Go and run it on a worker (see Your own model
+types).
+
+**Models → Build a model** is where a new model starts. It asks what the
+model should do (yes or no, pick a group, a number, write or chat,
+recommend, forecast, spot the odd one, find it in a photo), then ranks the
+ways to get there: a template, your own data, a model file trained
+elsewhere, or your own code.
 
 ## Teach a new model
 
@@ -213,7 +232,12 @@ models first says what their data looks like, then trains in three steps:
 2. **What kind.** The model types that fit the examples, plus a name:
    a table or text classifier, a **number predictor** when the answer is
    a number, a **picture classifier** for photo folders, and a **photo
-   and table classifier** when each row has a photo too.
+   and table classifier** when each row has a photo too. A table model
+   can be Small, Medium (the usual) or Large, or **designed** step by
+   step: up to 8 "learn patterns" (dense, 1 to 1024 units) and "forget a
+   little" (dropout) steps, with how many numbers it learns and how many
+   examples that wants shown as you go. The design is saved in the model
+   file, so any server or worker rebuilds it the same way.
 3. **How long.** Quick look (3 passes), Normal (10) or Thorough (30), with
    batch size, learning rate and the share kept aside for scoring under
    *Expert settings*.
@@ -307,7 +331,55 @@ curl localhost:8080/mimir.v1.PredictService/Generate \
 ```
 
 `maxTokens` is up to 1024 (128 by default) and `temperature` from 0, which
-always picks the likeliest word, to 2.
+always picks the likeliest word, to 2. `GenerateStream` takes the same
+request and sends the text piece by piece as it is written, and `Chat`
+answers a list of `{role, content}` messages the same way, using the
+model's default instructions, temperature and answer length unless the
+request sets them.
+
+### On people's own devices
+
+A model can also answer in the browser, with no server and no network.
+Turn on **Run on people's devices** on its page; then anyone who may use
+it can pick **On this device** in Try a model. The first question saves
+the model in their browser, and after that it answers there, offline too.
+Their questions never reach the server, so they don't count in usage.
+**On this device** in the menu lists what a browser has saved, offers the
+new version after a model learns again, and opens with no network.
+
+Table, photo and digits models up to 50 MB can run on devices. Language
+models and models in your own code stay on the server. The browser runs
+the same Go code as the server, built for WebAssembly (`cmd/mimir-wasm`),
+so a model answers the same in both places. Apps can download a model
+someone allowed onto devices with `ModelService/GetDeviceModel`.
+
+### OpenAI-compatible API
+
+Apps and libraries made for OpenAI work with the language models: point
+their base URL at `/v1` and use a mimir API key. A model's name there is
+its name in lower case with dashes (Tiny Llama is `tiny-llama`); its id
+works too. Keys, per-model access and limits apply as for every other call.
+
+```sh
+curl localhost:8080/v1/chat/completions \
+  -H 'Authorization: Bearer mimir_...' \
+  -H 'Content-Type: application/json' \
+  -d '{"model": "tiny-llama", "stream": true, "messages": [{"role": "user", "content": "Hello!"}]}'
+```
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="mimir_...")
+print(client.chat.completions.create(model="tiny-llama", messages=[{"role": "user", "content": "Hello!"}]).choices[0].message.content)
+```
+
+It serves `GET /v1/models`, `POST /v1/chat/completions` and
+`POST /v1/completions`, with `stream` (server-sent events, ending in
+`data: [DONE]`, and `stream_options.include_usage`), `max_tokens` or
+`max_completion_tokens`, `temperature`, `seed` and `stop` (up to four
+strings). System and developer messages become the instructions. Tools,
+images, `n` above 1 and log probabilities aren't supported and are refused
+with a 400.
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public.
@@ -419,10 +491,33 @@ it is connected.
   token or a rebuilt machine. Joins, refusals, new addresses and new
   tokens go in the audit log and on the worker's page.
 
-For models a weights file can't describe, write a worker of your own with
-the `worker` package: implement `Predict` (and `Train`) for an
-architecture name and call `worker.Run`. Workers authenticate with their
-token and key only; they never see people's credentials.
+Workers authenticate with their token and key only; they never see
+people's credentials.
+
+### Your own model types
+
+For models mimir can't build itself, such as a recommender or a
+forecaster, write the model in Go with the `worker` package and run it as
+a worker. **Build a model → Write your own model** walks through it:
+
+1. **Describe it**: the name your code runs it under, what people send
+   (a row of columns, a photo or a list of numbers) and what it answers
+   (one of a few groups, a number, or a ranked list of a set number of
+   items). This is `ModelService.SaveArchitecture`; the type then shows
+   up wherever model types do.
+2. **Write it**: the page gives a starting `main.go` that implements
+   `Predict`, and `Train` to teach it here, and calls `worker.Run` with
+   a handler under that name.
+3. **Connect it**: make a worker token and run it. The page waits and
+   moves on when a worker running that type joins.
+4. **Teach it or upload what you trained**: teaching sends the examples
+   to that worker's `Train`; an upload keeps the file as it is, with how
+   many numbers the model reads and the answers it picks from.
+
+Its models answer only on workers that run its code, even on a console
+that runs models itself, and a ranked answer lists the type's number of
+items, best first. A type can be changed by whoever described it or an
+owner, and deleted once no model uses it.
 
 ## Settings
 
@@ -477,7 +572,12 @@ drops it after. Without it those tests are skipped.
 make test       # go vet, go test, web typecheck and unit tests
 make gen        # regenerate code after editing proto/ (needs protoc-gen-go
                 # and protoc-gen-connect-go on PATH)
+make wasm       # rebuild the browser runtime into web/dist/wasm
 ```
+
+`make web` builds the browser runtime too. The web app bundles Go's
+`wasm_exec.js` from `web/src/workers`; after moving to a new Go version,
+`make wasm` says to copy it again.
 
 | Path | What's there |
 | --- | --- |
@@ -487,6 +587,8 @@ make gen        # regenerate code after editing proto/ (needs protoc-gen-go
 | `internal/alert` | Email and Telegram alerts |
 | `internal/auth` | Passwords, sessions, API keys, permissions |
 | `internal/runtime` | Loads weights into mimir and runs them |
+| `internal/ask` | Turns a question by column name into the numbers a model reads |
+| `internal/device`, `cmd/mimir-wasm` | Models answering in the browser |
 | `internal/store` | PostgreSQL metadata (through [storm](https://github.com/gsoultan/storm)) and weight files |
 | `internal/webhook` | Signing, delivery and retries |
 | `internal/server` | HTTP wiring, health, web UI serving |

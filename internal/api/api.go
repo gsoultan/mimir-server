@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/alert"
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/ask"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/convert"
@@ -111,19 +111,26 @@ func New(s *store.Store, log *slog.Logger) *Service {
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {
 	res := &mimirv1.ListArchitecturesResponse{}
-	for _, a := range arch.All() {
-		res.Architectures = append(res.Architectures, &mimirv1.Architecture{
-			Name:        a.Name,
-			Title:       a.Title,
-			Description: a.Description,
-			InputShape:  int64s(a.Spec.InputShape),
-			Labels:      a.Spec.Labels,
-			Trainable:   a.Trainable(),
-			Input:       string(a.Input),
-			Output:      string(a.Answers()),
-		})
+	for _, a := range arch.Every() {
+		res.Architectures = append(res.Architectures, archProto(a))
 	}
 	return connect.NewResponse(res), nil
+}
+
+func archProto(a arch.Architecture) *mimirv1.Architecture {
+	return &mimirv1.Architecture{
+		Name:        a.Name,
+		Title:       a.Title,
+		Description: a.Description,
+		InputShape:  int64s(a.Spec.InputShape),
+		Labels:      a.Spec.Labels,
+		Trainable:   a.Trainable(),
+		Input:       string(a.Input),
+		Output:      string(a.Answers()),
+		Custom:      a.Custom,
+		Items:       int32(a.Items),
+		Designable:  a.Designable,
+	}
 }
 
 func (s *Service) ListModels(ctx context.Context, _ *connect.Request[mimirv1.ListModelsRequest]) (*connect.Response[mimirv1.ListModelsResponse], error) {
@@ -159,7 +166,7 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if !ok {
 		return nil, invalid("Unknown model type %q. Pick one from the list of model types.", msg.GetArchitecture())
 	}
-	if !a.Fixed() && !a.File {
+	if !a.Fixed() && !a.File && !a.Custom {
 		return nil, invalid("%s models are taught from a dataset here rather than uploaded. Choose Teach a new model.", a.Title)
 	}
 	weights := msg.GetWeights()
@@ -194,6 +201,12 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 		if err := checkFile(&m, a, weights); err != nil {
 			s.log.InfoContext(ctx, "model file rejected", "architecture", a.Name, "format", from, "error", err)
 			return nil, invalid("This %s can't run here: %s.", fileName(from), strings.TrimPrefix(err.Error(), runtime.ErrBadWeights.Error()+": "))
+		}
+	} else if a.Custom {
+		// Only its own code can read the weights; keep them as they are
+		// with what the uploader says the model reads and answers.
+		if err := customSpec(&m, a, msg.GetInputShape(), msg.GetLabels()); err != nil {
+			return nil, err
 		}
 	} else if _, err := runtime.Build(a, a.Spec, weights); err != nil {
 		s.log.InfoContext(ctx, "weights rejected", "architecture", a.Name, "error", err)
@@ -243,12 +256,58 @@ func fileName(f convert.Format) string {
 
 func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.UpdateModelRequest]) (*connect.Response[mimirv1.UpdateModelResponse], error) {
 	id := req.Msg.GetId()
-	if _, err := s.get(ctx, id); err != nil {
-		return nil, err
-	}
-	name, desc, err := cleanText("model", req.Msg.GetName(), req.Msg.GetDescription())
+	old, err := s.get(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	// A request that only says where the model runs keeps its name.
+	onlyWhere := req.Msg.OnDevice != nil && req.Msg.GetName() == "" && req.Msg.GetDescription() == "" && req.Msg.GetLanguage() == nil
+	name, desc := old.Name, old.Description
+	if !onlyWhere {
+		if name, desc, err = cleanText("model", req.Msg.GetName(), req.Msg.GetDescription()); err != nil {
+			return nil, err
+		}
+	}
+	var lang *store.Language
+	if l := req.Msg.GetLanguage(); l != nil {
+		if !isLanguage(old) {
+			return nil, invalid("Only a language model has answer settings.")
+		}
+		v, err := checkLanguage(l)
+		if err != nil {
+			return nil, err
+		}
+		lang = &v
+	}
+	if req.Msg.OnDevice != nil && req.Msg.GetOnDevice() && !old.OnDevice {
+		if why := deviceRefusal(old); why != "" {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(why))
+		}
+	}
+	if req.Msg.OnDevice != nil && req.Msg.GetOnDevice() != old.OnDevice {
+		if err := s.store.SetOnDevice(ctx, id, req.Msg.GetOnDevice()); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return nil, notFound(id)
+			}
+			return nil, s.internal(ctx, err)
+		}
+		p, _ := auth.From(ctx)
+		s.audit(ctx, p.Actor(), "model.on_device", old.Name, map[bool]string{true: "may run on devices", false: "runs on the server only"}[req.Msg.GetOnDevice()])
+	}
+	if lang != nil {
+		if err := s.store.SetLanguage(ctx, id, *lang); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return nil, notFound(id)
+			}
+			return nil, s.internal(ctx, err)
+		}
+	}
+	if onlyWhere {
+		m, err := s.get(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		return connect.NewResponse(&mimirv1.UpdateModelResponse{Model: toProto(m)}), nil
 	}
 	m, err := s.store.Update(ctx, id, name, desc)
 	if errors.Is(err, store.ErrNotFound) {
@@ -300,6 +359,8 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	}
 	topK := int(msg.GetTopK())
 	switch {
+	case topK == 0 && a.Answers() == arch.Ranked && a.Items > 0:
+		topK = min(a.Items, maxTopK)
 	case topK == 0:
 		topK = 3
 	case topK < 0 || topK > maxTopK:
@@ -335,7 +396,8 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	// itself; otherwise local is faster for the small models here.
 	// A model placed on one worker only runs there.
 	pin, pinned := m.PinnedWorker()
-	if s.Pool != nil && (!s.Local || pinned) {
+	// A custom model's own code runs only on workers.
+	if s.Pool != nil && (!s.Local || pinned || a.Custom) {
 		var worker string
 		r, worker, ran, err2 = s.Pool.Predict(pctx, m.ID, m.WeightsVersion(), pin, a, spec, load, input)
 		if ran && err2 != nil {
@@ -346,6 +408,9 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("This model runs on %s, which is offline or full right now. Wait for it, or change where the model runs on its page.", s.workerName(ctx, pin)))
 	}
 	if !ran {
+		if a.Custom {
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("No worker that runs %s is connected right now. Start one with its code, or check Settings → Workers.", a.Name))
+		}
 		if !s.Local {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
 		}
@@ -386,43 +451,11 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 // encode turns a question asked by column name, and a photo, into the
 // numbers model m reads, the same way its examples were.
 func encode(m store.Model, a arch.Architecture, fields map[string]string, photo []byte) ([]float32, error) {
-	var out []float32
-	if a.Input == arch.Image && a.Fixed() || a.Input == arch.Tensor {
-		return nil, invalid("This model reads numbers; send them as input.")
+	in, err := ask.Encode(a, m.Columns, m.Features, fields, photo)
+	if err != nil {
+		return nil, invalid("%s", ask.Reason(err))
 	}
-	if a.Input == arch.Image || a.Input == arch.PhotoTable {
-		if len(photo) == 0 {
-			return nil, invalid("This model looks at a photo. Send one.")
-		}
-		px, err := schema.DecodePhoto(photo)
-		if err != nil {
-			return nil, invalid("That photo can't be read. Send a JPG, PNG or GIF.")
-		}
-		out = schema.Floats(out, px)
-	}
-	if a.Input == arch.Image {
-		return out, nil
-	}
-	cols := m.Columns
-	if len(cols) == 0 {
-		// Taught before columns had kinds: every column is a number.
-		for _, f := range m.Features {
-			cols = append(cols, schema.Column{Name: f, Kind: schema.Number})
-		}
-	}
-	for name := range fields {
-		if !slices.ContainsFunc(cols, func(c schema.Column) bool { return c.Name == name }) {
-			return nil, invalid("This model has no column called %q.", name)
-		}
-	}
-	for _, c := range cols {
-		if v := strings.TrimSpace(fields[c.Name]); c.Kind == schema.Number && v != "" {
-			if _, ok := schema.ParseNumber(v); !ok {
-				return nil, invalid("%s needs a number; %q isn't one.", c.Name, v)
-			}
-		}
-	}
-	return schema.Encode(out, cols, func(i int) string { return fields[cols[i].Name] }), nil
+	return in, nil
 }
 
 // DataDir is the server's data folder.
@@ -526,6 +559,9 @@ func toProto(m store.Model) *mimirv1.Model {
 		Accuracy:     m.Accuracy,
 		WorkerId:     m.WorkerID,
 		Columns:      columnsProto(m.Columns),
+		Language:     languageProto(m),
+		OnDevice:     m.OnDevice,
+		Version:      m.WeightsVersion(),
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {

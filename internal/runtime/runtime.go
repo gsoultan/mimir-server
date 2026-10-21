@@ -57,6 +57,17 @@ func Build(a arch.Architecture, spec arch.Spec, weights []byte) (nn.Module, erro
 		return nil, fmt.Errorf("%w: not a Mimir Model file: %v", ErrBadWeights, err)
 	}
 	defer f.Close()
+	if a.Designable {
+		// A designed model carries its layers in the file.
+		md, err := f.Metadata()
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+		}
+		s, _ := md[arch.LayersKey].(string)
+		if spec.Layers, err = arch.ParseLayers(s); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+		}
+	}
 	m := a.New(spec)
 	if err := f.Load(m); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
@@ -275,6 +286,19 @@ func (c *Cache) Generate(ctx context.Context, id, ver string, a arch.Architectur
 		return Generation{}, fmt.Errorf("%w: only a language model writes text", ErrBadInput)
 	}
 	return e.lm.Generate(ctx, prompt, s)
+}
+
+// Chat writes the next turn of a chat with version ver of the language
+// model with id, loading it with load on first use.
+func (c *Cache) Chat(ctx context.Context, id, ver string, a arch.Architecture, load func() ([]byte, error), msgs []Message, s Sampling) (Generation, error) {
+	e, err := c.ready(id, ver, a, arch.Spec{}, load)
+	if err != nil {
+		return Generation{}, err
+	}
+	if e.lm == nil {
+		return Generation{}, fmt.Errorf("%w: only a language model chats", ErrBadInput)
+	}
+	return e.lm.Chat(ctx, msgs, s)
 }
 
 // ready returns the entry of version ver of the model with id, loading it
