@@ -113,7 +113,13 @@ func (j *cookieJar) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	}
 }
 func (j *cookieJar) WrapStreamingClient(n connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return n
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+		conn := n(ctx, spec)
+		if j.cookie != "" {
+			conn.RequestHeader().Set("Cookie", j.cookie)
+		}
+		return conn
+	}
 }
 func (j *cookieJar) WrapStreamingHandler(n connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return n

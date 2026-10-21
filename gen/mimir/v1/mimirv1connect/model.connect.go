@@ -58,6 +58,11 @@ const (
 	PredictServicePredictProcedure = "/mimir.v1.PredictService/Predict"
 	// PredictServiceGenerateProcedure is the fully-qualified name of the PredictService's Generate RPC.
 	PredictServiceGenerateProcedure = "/mimir.v1.PredictService/Generate"
+	// PredictServiceGenerateStreamProcedure is the fully-qualified name of the PredictService's
+	// GenerateStream RPC.
+	PredictServiceGenerateStreamProcedure = "/mimir.v1.PredictService/GenerateStream"
+	// PredictServiceChatProcedure is the fully-qualified name of the PredictService's Chat RPC.
+	PredictServiceChatProcedure = "/mimir.v1.PredictService/Chat"
 )
 
 // ModelServiceClient is a client for the mimir.v1.ModelService service.
@@ -317,6 +322,11 @@ type PredictServiceClient interface {
 	// Generate continues a prompt with a language model, such as one
 	// uploaded as a GGUF file.
 	Generate(context.Context, *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error)
+	// GenerateStream is Generate, sending the text as the model writes it.
+	GenerateStream(context.Context, *connect.Request[v1.GenerateStreamRequest]) (*connect.ServerStreamForClient[v1.GenerateStreamResponse], error)
+	// Chat writes a language model's next turn in a chat, sending the text
+	// as the model writes it.
+	Chat(context.Context, *connect.Request[v1.ChatRequest]) (*connect.ServerStreamForClient[v1.ChatResponse], error)
 }
 
 // NewPredictServiceClient constructs a client for the mimir.v1.PredictService service. By default,
@@ -342,13 +352,27 @@ func NewPredictServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(predictServiceMethods.ByName("Generate")),
 			connect.WithClientOptions(opts...),
 		),
+		generateStream: connect.NewClient[v1.GenerateStreamRequest, v1.GenerateStreamResponse](
+			httpClient,
+			baseURL+PredictServiceGenerateStreamProcedure,
+			connect.WithSchema(predictServiceMethods.ByName("GenerateStream")),
+			connect.WithClientOptions(opts...),
+		),
+		chat: connect.NewClient[v1.ChatRequest, v1.ChatResponse](
+			httpClient,
+			baseURL+PredictServiceChatProcedure,
+			connect.WithSchema(predictServiceMethods.ByName("Chat")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // predictServiceClient implements PredictServiceClient.
 type predictServiceClient struct {
-	predict  *connect.Client[v1.PredictRequest, v1.PredictResponse]
-	generate *connect.Client[v1.GenerateRequest, v1.GenerateResponse]
+	predict        *connect.Client[v1.PredictRequest, v1.PredictResponse]
+	generate       *connect.Client[v1.GenerateRequest, v1.GenerateResponse]
+	generateStream *connect.Client[v1.GenerateStreamRequest, v1.GenerateStreamResponse]
+	chat           *connect.Client[v1.ChatRequest, v1.ChatResponse]
 }
 
 // Predict calls mimir.v1.PredictService.Predict.
@@ -361,6 +385,16 @@ func (c *predictServiceClient) Generate(ctx context.Context, req *connect.Reques
 	return c.generate.CallUnary(ctx, req)
 }
 
+// GenerateStream calls mimir.v1.PredictService.GenerateStream.
+func (c *predictServiceClient) GenerateStream(ctx context.Context, req *connect.Request[v1.GenerateStreamRequest]) (*connect.ServerStreamForClient[v1.GenerateStreamResponse], error) {
+	return c.generateStream.CallServerStream(ctx, req)
+}
+
+// Chat calls mimir.v1.PredictService.Chat.
+func (c *predictServiceClient) Chat(ctx context.Context, req *connect.Request[v1.ChatRequest]) (*connect.ServerStreamForClient[v1.ChatResponse], error) {
+	return c.chat.CallServerStream(ctx, req)
+}
+
 // PredictServiceHandler is an implementation of the mimir.v1.PredictService service.
 type PredictServiceHandler interface {
 	// Predict runs one input through a model.
@@ -368,6 +402,11 @@ type PredictServiceHandler interface {
 	// Generate continues a prompt with a language model, such as one
 	// uploaded as a GGUF file.
 	Generate(context.Context, *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error)
+	// GenerateStream is Generate, sending the text as the model writes it.
+	GenerateStream(context.Context, *connect.Request[v1.GenerateStreamRequest], *connect.ServerStream[v1.GenerateStreamResponse]) error
+	// Chat writes a language model's next turn in a chat, sending the text
+	// as the model writes it.
+	Chat(context.Context, *connect.Request[v1.ChatRequest], *connect.ServerStream[v1.ChatResponse]) error
 }
 
 // NewPredictServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -389,12 +428,28 @@ func NewPredictServiceHandler(svc PredictServiceHandler, opts ...connect.Handler
 		connect.WithSchema(predictServiceMethods.ByName("Generate")),
 		connect.WithHandlerOptions(opts...),
 	)
+	predictServiceGenerateStreamHandler := connect.NewServerStreamHandler(
+		PredictServiceGenerateStreamProcedure,
+		svc.GenerateStream,
+		connect.WithSchema(predictServiceMethods.ByName("GenerateStream")),
+		connect.WithHandlerOptions(opts...),
+	)
+	predictServiceChatHandler := connect.NewServerStreamHandler(
+		PredictServiceChatProcedure,
+		svc.Chat,
+		connect.WithSchema(predictServiceMethods.ByName("Chat")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.PredictService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PredictServicePredictProcedure:
 			predictServicePredictHandler.ServeHTTP(w, r)
 		case PredictServiceGenerateProcedure:
 			predictServiceGenerateHandler.ServeHTTP(w, r)
+		case PredictServiceGenerateStreamProcedure:
+			predictServiceGenerateStreamHandler.ServeHTTP(w, r)
+		case PredictServiceChatProcedure:
+			predictServiceChatHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -410,4 +465,12 @@ func (UnimplementedPredictServiceHandler) Predict(context.Context, *connect.Requ
 
 func (UnimplementedPredictServiceHandler) Generate(context.Context, *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.Generate is not implemented"))
+}
+
+func (UnimplementedPredictServiceHandler) GenerateStream(context.Context, *connect.Request[v1.GenerateStreamRequest], *connect.ServerStream[v1.GenerateStreamResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.GenerateStream is not implemented"))
+}
+
+func (UnimplementedPredictServiceHandler) Chat(context.Context, *connect.Request[v1.ChatRequest], *connect.ServerStream[v1.ChatResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.Chat is not implemented"))
 }

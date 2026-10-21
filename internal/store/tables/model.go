@@ -24,6 +24,12 @@ type Model struct {
 	JobID    string
 	Accuracy float64
 	WorkerID string // "" runs it wherever there is room
+	// How a language model answers when a chat or app doesn't say: its
+	// instructions (the system message), temperature and longest answer
+	// in tokens. Other models keep the defaults.
+	Instructions string
+	Temperature  float64
+	MaxTokens    int32
 }
 
 // Aggregates: how many models each team has, and how many are placed on
@@ -47,6 +53,9 @@ func (m *Model) Schema(t *storm.Table) {
 	t.Col(&m.JobID).Default("''")
 	t.Col(&m.Accuracy).Default("0")
 	t.Col(&m.WorkerID).Default("''")
+	t.Col(&m.Instructions).Default("''")
+	t.Col(&m.Temperature).Default("0.7")
+	t.Col(&m.MaxTokens).Default("256")
 	// A team's models, newest first; also the team key's index.
 	t.Col(&m.Team).NoIndex()
 	t.Index(&m.Team, storm.Desc(&m.CreateTime), storm.Desc(&m.ID))
@@ -56,4 +65,7 @@ func (m *Model) Schema(t *storm.Table) {
 	t.Check(storm.RawSQL(`architecture <> ''`))
 	t.Check(storm.RawSQL(`size_bytes > 0`))
 	t.Check(storm.RawSQL(`length(sha256) = 64`))
+	t.Check(storm.RawSQL(`length(instructions) <= 8000`))
+	t.Check(storm.RawSQL(`temperature >= 0 AND temperature <= 2`))
+	t.Check(storm.RawSQL(`max_tokens >= 1 AND max_tokens <= 1024`))
 }

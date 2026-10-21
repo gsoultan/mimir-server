@@ -50,6 +50,11 @@ service PredictService {
   // Generate continues a prompt with a language model, such as one
   // uploaded as a GGUF file.
   rpc Generate(GenerateRequest) returns (GenerateResponse);
+  // GenerateStream is Generate, sending the text as the model writes it.
+  rpc GenerateStream(GenerateStreamRequest) returns (stream GenerateStreamResponse);
+  // Chat writes a language model's next turn in a chat, sending the text
+  // as the model writes it.
+  rpc Chat(ChatRequest) returns (stream ChatResponse);
 }
 
 // Architecture is a model shape the server knows how to build.
@@ -125,6 +130,24 @@ message Model {
   // columns are the table columns the model reads, in order, when it was
   // taught from a table. Ask it with PredictRequest.fields.
   repeated Column columns = 16;
+  // language is how a language model answers by default; unset for other
+  // models.
+  LanguageSettings language = 17;
+}
+
+// LanguageSettings are how a language model answers when a chat or an app
+// doesn't say.
+message LanguageSettings {
+  // instructions are what the model reads before every chat, such as who it
+  // is and how to talk: the system message.
+  string instructions = 1;
+  // temperature is how freely it picks words, from 0 to 2.
+  float temperature = 2;
+  // max_tokens is the longest answer, in tokens.
+  int32 max_tokens = 3;
+  // api_name is the model name apps send to the OpenAI-compatible API under
+  // /v1. Output only: it comes from the model's name.
+  string api_name = 4;
 }
 
 // Tensor is a dense float32 array.
@@ -180,6 +203,8 @@ message UpdateModelRequest {
   string id = 1;
   string name = 2;
   string description = 3;
+  // language, when set, replaces a language model's default settings.
+  LanguageSettings language = 4;
 }
 
 message UpdateModelResponse {
@@ -232,6 +257,70 @@ message GenerateRequest {
   float temperature = 4;
   // seed makes a generation with a temperature repeatable.
   uint64 seed = 5;
+}
+
+// ChatMessage is one turn of a chat.
+message ChatMessage {
+  // role is "user" or "assistant".
+  string role = 1;
+  string content = 2;
+}
+
+message ChatRequest {
+  string model_id = 1;
+  // messages are the chat so far, oldest first, ending with the user's.
+  repeated ChatMessage messages = 2;
+  // instructions, when set, replace the model's default instructions; set
+  // it to "" for none.
+  optional string instructions = 3;
+  // max_tokens is the longest answer; 0 means the model's default.
+  int32 max_tokens = 4;
+  // temperature, when set, replaces the model's default.
+  optional float temperature = 5;
+  // seed makes an answer with a temperature repeatable.
+  uint64 seed = 6;
+}
+
+// ChatResponse is a piece of the answer as it is written. The last one has
+// done set and the totals.
+message ChatResponse {
+  // text is the next piece of the text.
+  string text = 1;
+  bool done = 2;
+  int32 prompt_tokens = 3;
+  int32 generated_tokens = 4;
+  // finished says the model ended the text itself.
+  bool finished = 5;
+  int64 duration_micros = 6;
+  // context_tokens is the most tokens the model reads and writes at once,
+  // prompt and answer together.
+  int32 context_tokens = 7;
+}
+
+// GenerateStreamRequest is a GenerateRequest whose text comes back piece by
+// piece.
+message GenerateStreamRequest {
+  string model_id = 1;
+  string prompt = 2;
+  int32 max_tokens = 3;
+  float temperature = 4;
+  uint64 seed = 5;
+}
+
+// GenerateStreamResponse is a piece of the text as it is written. The last
+// one has done set and the totals.
+message GenerateStreamResponse {
+  // text is the next piece of the text.
+  string text = 1;
+  bool done = 2;
+  int32 prompt_tokens = 3;
+  int32 generated_tokens = 4;
+  // finished says the model ended the text itself.
+  bool finished = 5;
+  int64 duration_micros = 6;
+  // context_tokens is the most tokens the model reads and writes at once,
+  // prompt and answer together.
+  int32 context_tokens = 7;
 }
 
 message GenerateResponse {

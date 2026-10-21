@@ -63,6 +63,8 @@ var Required = map[string]Permission{
 	"/mimir.v1.ModelService/DeleteModel":           ModelsWrite,
 	"/mimir.v1.PredictService/Predict":             ModelsPredict,
 	"/mimir.v1.PredictService/Generate":            ModelsPredict,
+	"/mimir.v1.PredictService/GenerateStream":      ModelsPredict,
+	"/mimir.v1.PredictService/Chat":                ModelsPredict,
 	"/mimir.v1.DatasetService/ListDatasets":        ModelsWrite,
 	"/mimir.v1.DatasetService/GetDataset":          ModelsWrite,
 	"/mimir.v1.DatasetService/CreateDataset":       ModelsWrite,
@@ -138,48 +140,91 @@ var ErrMustEnroll = connect.NewError(connect.CodeFailedPrecondition, errors.New(
 // verification before doing anything else.
 type MustEnroll func(ctx context.Context, u store.User) (bool, error)
 
+// SelfAuthenticated lists the streams that check their caller themselves:
+// a worker's link proves itself with its token inside the stream.
+var SelfAuthenticated = map[string]bool{
+	"/mimir.v1.WorkerService/Link": true,
+}
+
 // Interceptor authenticates every request from its cookie or bearer key
-// and checks the procedure's permission. It never reaches the handler
-// for a procedure it doesn't know.
-func Interceptor(st *store.Store, mustEnroll MustEnroll) connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			proc := req.Spec().Procedure
-			p, err := Authenticate(ctx, st, req.Header(), req.Peer().Addr)
-			if err != nil {
-				return nil, err
-			}
-			if p != nil && p.Session != nil && p.Session.Pending && !PendingAllowed[proc] {
-				p = nil // half signed in: only the second factor counts
-			}
-			if p != nil {
-				ctx = WithPrincipal(ctx, *p)
-			}
-			if Public[proc] {
-				return next(ctx, req)
-			}
-			perm, known := Required[proc]
-			if !known {
-				return nil, ErrForbidden
-			}
-			if p == nil {
-				return nil, ErrSignedOut
-			}
-			if perm != "" && !p.Can(perm) {
-				return nil, ErrForbidden
-			}
-			if p.Session != nil && !p.User.TwoFactor() && !EnrollAllowed[proc] && mustEnroll != nil {
-				must, err := mustEnroll(ctx, p.User)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-				if must {
-					return nil, ErrMustEnroll
-				}
-			}
+// and checks the procedure's permission, for calls and streams alike. It
+// never reaches the handler for a procedure it doesn't know.
+func Interceptor(st *store.Store, mustEnroll MustEnroll) connect.Interceptor {
+	return guard{st, mustEnroll}
+}
+
+type guard struct {
+	st         *store.Store
+	mustEnroll MustEnroll
+}
+
+func (g guard) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		if req.Spec().IsClient {
 			return next(ctx, req)
 		}
+		ctx, err := g.check(ctx, req.Spec().Procedure, req.Header(), req.Peer().Addr)
+		if err != nil {
+			return nil, err
+		}
+		return next(ctx, req)
 	}
+}
+
+func (g guard) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (g guard) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		proc := conn.Spec().Procedure
+		if SelfAuthenticated[proc] {
+			return next(ctx, conn)
+		}
+		ctx, err := g.check(ctx, proc, conn.RequestHeader(), conn.Peer().Addr)
+		if err != nil {
+			return err
+		}
+		return next(ctx, conn)
+	}
+}
+
+// check signs the caller in and checks they may call proc, returning ctx
+// carrying them.
+func (g guard) check(ctx context.Context, proc string, h http.Header, addr string) (context.Context, error) {
+	p, err := Authenticate(ctx, g.st, h, addr)
+	if err != nil {
+		return ctx, err
+	}
+	if p != nil && p.Session != nil && p.Session.Pending && !PendingAllowed[proc] {
+		p = nil // half signed in: only the second factor counts
+	}
+	if p != nil {
+		ctx = WithPrincipal(ctx, *p)
+	}
+	if Public[proc] {
+		return ctx, nil
+	}
+	perm, known := Required[proc]
+	if !known {
+		return ctx, ErrForbidden
+	}
+	if p == nil {
+		return ctx, ErrSignedOut
+	}
+	if perm != "" && !p.Can(perm) {
+		return ctx, ErrForbidden
+	}
+	if p.Session != nil && !p.User.TwoFactor() && !EnrollAllowed[proc] && g.mustEnroll != nil {
+		must, err := g.mustEnroll(ctx, p.User)
+		if err != nil {
+			return ctx, connect.NewError(connect.CodeInternal, err)
+		}
+		if must {
+			return ctx, ErrMustEnroll
+		}
+	}
+	return ctx, nil
 }
 
 // Authenticate returns the caller, nil when anonymous, or an error when

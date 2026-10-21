@@ -243,12 +243,32 @@ func fileName(f convert.Format) string {
 
 func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.UpdateModelRequest]) (*connect.Response[mimirv1.UpdateModelResponse], error) {
 	id := req.Msg.GetId()
-	if _, err := s.get(ctx, id); err != nil {
+	old, err := s.get(ctx, id)
+	if err != nil {
 		return nil, err
 	}
 	name, desc, err := cleanText("model", req.Msg.GetName(), req.Msg.GetDescription())
 	if err != nil {
 		return nil, err
+	}
+	var lang *store.Language
+	if l := req.Msg.GetLanguage(); l != nil {
+		if !isLanguage(old) {
+			return nil, invalid("Only a language model has answer settings.")
+		}
+		v, err := checkLanguage(l)
+		if err != nil {
+			return nil, err
+		}
+		lang = &v
+	}
+	if lang != nil {
+		if err := s.store.SetLanguage(ctx, id, *lang); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return nil, notFound(id)
+			}
+			return nil, s.internal(ctx, err)
+		}
 	}
 	m, err := s.store.Update(ctx, id, name, desc)
 	if errors.Is(err, store.ErrNotFound) {
@@ -526,6 +546,7 @@ func toProto(m store.Model) *mimirv1.Model {
 		Accuracy:     m.Accuracy,
 		WorkerId:     m.WorkerID,
 		Columns:      columnsProto(m.Columns),
+		Language:     languageProto(m),
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {

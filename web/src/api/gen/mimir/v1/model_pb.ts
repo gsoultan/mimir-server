@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/model.proto.
  */
 export const file_mimir_v1_model: GenFile = /*@__PURE__*/
-  fileDesc("ChRtaW1pci92MS9tb2RlbC5wcm90bxIIbWltaXIudjEiNgoVU2V0TW9kZWxXb3JrZXJSZXF1ZXN0EgoKAmlkGAEgASgJEhEKCXdvcmtlcl9pZBgCIAEoCSI4ChZTZXRNb2RlbFdvcmtlclJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwilwEKDEFyY2hpdGVjdHVyZRIMCgRuYW1lGAEgASgJEg0KBXRpdGxlGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhMKC2lucHV0X3NoYXBlGAQgAygDEg4KBmxhYmVscxgFIAMoCRIRCgl0cmFpbmFibGUYBiABKAgSDQoFaW5wdXQYByABKAkSDgoGb3V0cHV0GAggASgJIkIKBkNvbHVtbhIMCgRuYW1lGAEgASgJEgwKBGtpbmQYAiABKAkSDgoGdmFsdWVzGAMgAygJEgwKBGZpbGwYBCABKAEijwMKBU1vZGVsEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSFAoMYXJjaGl0ZWN0dXJlGAQgASgJEiUKBnN0YXR1cxgFIAEoDjIVLm1pbWlyLnYxLk1vZGVsU3RhdHVzEhUKDXN0YXR1c19kZXRhaWwYBiABKAkSEgoKc2l6ZV9ieXRlcxgHIAEoAxIvCgtjcmVhdGVfdGltZRgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLdXBkYXRlX3RpbWUYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2lucHV0X3NoYXBlGAogAygDEg4KBmxhYmVscxgLIAMoCRIQCghmZWF0dXJlcxgMIAMoCRIOCgZqb2JfaWQYDSABKAkSEAoIYWNjdXJhY3kYDiABKAESEQoJd29ya2VyX2lkGA8gASgJEiEKB2NvbHVtbnMYECADKAsyEC5taW1pci52MS5Db2x1bW4iJwoGVGVuc29yEg0KBXNoYXBlGAEgAygDEg4KBnZhbHVlcxgCIAMoAiIrCgVHdWVzcxINCgVsYWJlbBgBIAEoCRITCgtwcm9iYWJpbGl0eRgCIAEoAiIaChhMaXN0QXJjaGl0ZWN0dXJlc1JlcXVlc3QiSgoZTGlzdEFyY2hpdGVjdHVyZXNSZXNwb25zZRItCg1hcmNoaXRlY3R1cmVzGAEgAygLMhYubWltaXIudjEuQXJjaGl0ZWN0dXJlIhMKEUxpc3RNb2RlbHNSZXF1ZXN0IjUKEkxpc3RNb2RlbHNSZXNwb25zZRIfCgZtb2RlbHMYASADKAsyDy5taW1pci52MS5Nb2RlbCIdCg9HZXRNb2RlbFJlcXVlc3QSCgoCaWQYASABKAkiMgoQR2V0TW9kZWxSZXNwb25zZRIeCgVtb2RlbBgBIAEoCzIPLm1pbWlyLnYxLk1vZGVsIl4KEkNyZWF0ZU1vZGVsUmVxdWVzdBIMCgRuYW1lGAEgASgJEhMKC2Rlc2NyaXB0aW9uGAIgASgJEhQKDGFyY2hpdGVjdHVyZRgDIAEoCRIPCgd3ZWlnaHRzGAQgASgMIjUKE0NyZWF0ZU1vZGVsUmVzcG9uc2USHgoFbW9kZWwYASABKAsyDy5taW1pci52MS5Nb2RlbCJDChJVcGRhdGVNb2RlbFJlcXVlc3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCSI1ChNVcGRhdGVNb2RlbFJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwiIAoSRGVsZXRlTW9kZWxSZXF1ZXN0EgoKAmlkGAEgASgJIhUKE0RlbGV0ZU1vZGVsUmVzcG9uc2UixgEKDlByZWRpY3RSZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEh8KBWlucHV0GAIgASgLMhAubWltaXIudjEuVGVuc29yEg0KBXRvcF9rGAMgASgFEjQKBmZpZWxkcxgEIAMoCzIkLm1pbWlyLnYxLlByZWRpY3RSZXF1ZXN0LkZpZWxkc0VudHJ5Eg0KBXBob3RvGAUgASgMGi0KC0ZpZWxkc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEitgEKD1ByZWRpY3RSZXNwb25zZRIgCgZvdXRwdXQYASABKAsyEC5taW1pci52MS5UZW5zb3ISIAoHZ3Vlc3NlcxgCIAMoCzIPLm1pbWlyLnYxLkd1ZXNzEhcKD2R1cmF0aW9uX21pY3JvcxgDIAEoAxInCg1wcm9iYWJpbGl0aWVzGAQgASgLMhAubWltaXIudjEuVGVuc29yEg4KBm51bWJlchgFIAEoCBINCgV2YWx1ZRgGIAEoASJqCg9HZW5lcmF0ZVJlcXVlc3QSEAoIbW9kZWxfaWQYASABKAkSDgoGcHJvbXB0GAIgASgJEhIKCm1heF90b2tlbnMYAyABKAUSEwoLdGVtcGVyYXR1cmUYBCABKAISDAoEc2VlZBgFIAEoBCJ8ChBHZW5lcmF0ZVJlc3BvbnNlEgwKBHRleHQYASABKAkSFQoNcHJvbXB0X3Rva2VucxgCIAEoBRIYChBnZW5lcmF0ZWRfdG9rZW5zGAMgASgFEhAKCGZpbmlzaGVkGAQgASgIEhcKD2R1cmF0aW9uX21pY3JvcxgFIAEoAypcCgtNb2RlbFN0YXR1cxIcChhNT0RFTF9TVEFUVVNfVU5TUEVDSUZJRUQQABIWChJNT0RFTF9TVEFUVVNfUkVBRFkQARIXChNNT0RFTF9TVEFUVVNfRkFJTEVEEAIywAQKDE1vZGVsU2VydmljZRJhChFMaXN0QXJjaGl0ZWN0dXJlcxIiLm1pbWlyLnYxLkxpc3RBcmNoaXRlY3R1cmVzUmVxdWVzdBojLm1pbWlyLnYxLkxpc3RBcmNoaXRlY3R1cmVzUmVzcG9uc2UiA5ACARJMCgpMaXN0TW9kZWxzEhsubWltaXIudjEuTGlzdE1vZGVsc1JlcXVlc3QaHC5taW1pci52MS5MaXN0TW9kZWxzUmVzcG9uc2UiA5ACARJGCghHZXRNb2RlbBIZLm1pbWlyLnYxLkdldE1vZGVsUmVxdWVzdBoaLm1pbWlyLnYxLkdldE1vZGVsUmVzcG9uc2UiA5ACARJKCgtDcmVhdGVNb2RlbBIcLm1pbWlyLnYxLkNyZWF0ZU1vZGVsUmVxdWVzdBodLm1pbWlyLnYxLkNyZWF0ZU1vZGVsUmVzcG9uc2USSgoLVXBkYXRlTW9kZWwSHC5taW1pci52MS5VcGRhdGVNb2RlbFJlcXVlc3QaHS5taW1pci52MS5VcGRhdGVNb2RlbFJlc3BvbnNlEkoKC0RlbGV0ZU1vZGVsEhwubWltaXIudjEuRGVsZXRlTW9kZWxSZXF1ZXN0Gh0ubWltaXIudjEuRGVsZXRlTW9kZWxSZXNwb25zZRJTCg5TZXRNb2RlbFdvcmtlchIfLm1pbWlyLnYxLlNldE1vZGVsV29ya2VyUmVxdWVzdBogLm1pbWlyLnYxLlNldE1vZGVsV29ya2VyUmVzcG9uc2UykwEKDlByZWRpY3RTZXJ2aWNlEj4KB1ByZWRpY3QSGC5taW1pci52MS5QcmVkaWN0UmVxdWVzdBoZLm1pbWlyLnYxLlByZWRpY3RSZXNwb25zZRJBCghHZW5lcmF0ZRIZLm1pbWlyLnYxLkdlbmVyYXRlUmVxdWVzdBoaLm1pbWlyLnYxLkdlbmVyYXRlUmVzcG9uc2VCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChRtaW1pci92MS9tb2RlbC5wcm90bxIIbWltaXIudjEiNgoVU2V0TW9kZWxXb3JrZXJSZXF1ZXN0EgoKAmlkGAEgASgJEhEKCXdvcmtlcl9pZBgCIAEoCSI4ChZTZXRNb2RlbFdvcmtlclJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwilwEKDEFyY2hpdGVjdHVyZRIMCgRuYW1lGAEgASgJEg0KBXRpdGxlGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhMKC2lucHV0X3NoYXBlGAQgAygDEg4KBmxhYmVscxgFIAMoCRIRCgl0cmFpbmFibGUYBiABKAgSDQoFaW5wdXQYByABKAkSDgoGb3V0cHV0GAggASgJIkIKBkNvbHVtbhIMCgRuYW1lGAEgASgJEgwKBGtpbmQYAiABKAkSDgoGdmFsdWVzGAMgAygJEgwKBGZpbGwYBCABKAEivQMKBU1vZGVsEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSFAoMYXJjaGl0ZWN0dXJlGAQgASgJEiUKBnN0YXR1cxgFIAEoDjIVLm1pbWlyLnYxLk1vZGVsU3RhdHVzEhUKDXN0YXR1c19kZXRhaWwYBiABKAkSEgoKc2l6ZV9ieXRlcxgHIAEoAxIvCgtjcmVhdGVfdGltZRgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLdXBkYXRlX3RpbWUYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2lucHV0X3NoYXBlGAogAygDEg4KBmxhYmVscxgLIAMoCRIQCghmZWF0dXJlcxgMIAMoCRIOCgZqb2JfaWQYDSABKAkSEAoIYWNjdXJhY3kYDiABKAESEQoJd29ya2VyX2lkGA8gASgJEiEKB2NvbHVtbnMYECADKAsyEC5taW1pci52MS5Db2x1bW4SLAoIbGFuZ3VhZ2UYESABKAsyGi5taW1pci52MS5MYW5ndWFnZVNldHRpbmdzImMKEExhbmd1YWdlU2V0dGluZ3MSFAoMaW5zdHJ1Y3Rpb25zGAEgASgJEhMKC3RlbXBlcmF0dXJlGAIgASgCEhIKCm1heF90b2tlbnMYAyABKAUSEAoIYXBpX25hbWUYBCABKAkiJwoGVGVuc29yEg0KBXNoYXBlGAEgAygDEg4KBnZhbHVlcxgCIAMoAiIrCgVHdWVzcxINCgVsYWJlbBgBIAEoCRITCgtwcm9iYWJpbGl0eRgCIAEoAiIaChhMaXN0QXJjaGl0ZWN0dXJlc1JlcXVlc3QiSgoZTGlzdEFyY2hpdGVjdHVyZXNSZXNwb25zZRItCg1hcmNoaXRlY3R1cmVzGAEgAygLMhYubWltaXIudjEuQXJjaGl0ZWN0dXJlIhMKEUxpc3RNb2RlbHNSZXF1ZXN0IjUKEkxpc3RNb2RlbHNSZXNwb25zZRIfCgZtb2RlbHMYASADKAsyDy5taW1pci52MS5Nb2RlbCIdCg9HZXRNb2RlbFJlcXVlc3QSCgoCaWQYASABKAkiMgoQR2V0TW9kZWxSZXNwb25zZRIeCgVtb2RlbBgBIAEoCzIPLm1pbWlyLnYxLk1vZGVsIl4KEkNyZWF0ZU1vZGVsUmVxdWVzdBIMCgRuYW1lGAEgASgJEhMKC2Rlc2NyaXB0aW9uGAIgASgJEhQKDGFyY2hpdGVjdHVyZRgDIAEoCRIPCgd3ZWlnaHRzGAQgASgMIjUKE0NyZWF0ZU1vZGVsUmVzcG9uc2USHgoFbW9kZWwYASABKAsyDy5taW1pci52MS5Nb2RlbCJxChJVcGRhdGVNb2RlbFJlcXVlc3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRIsCghsYW5ndWFnZRgEIAEoCzIaLm1pbWlyLnYxLkxhbmd1YWdlU2V0dGluZ3MiNQoTVXBkYXRlTW9kZWxSZXNwb25zZRIeCgVtb2RlbBgBIAEoCzIPLm1pbWlyLnYxLk1vZGVsIiAKEkRlbGV0ZU1vZGVsUmVxdWVzdBIKCgJpZBgBIAEoCSIVChNEZWxldGVNb2RlbFJlc3BvbnNlIsYBCg5QcmVkaWN0UmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRIfCgVpbnB1dBgCIAEoCzIQLm1pbWlyLnYxLlRlbnNvchINCgV0b3BfaxgDIAEoBRI0CgZmaWVsZHMYBCADKAsyJC5taW1pci52MS5QcmVkaWN0UmVxdWVzdC5GaWVsZHNFbnRyeRINCgVwaG90bxgFIAEoDBotCgtGaWVsZHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIrYBCg9QcmVkaWN0UmVzcG9uc2USIAoGb3V0cHV0GAEgASgLMhAubWltaXIudjEuVGVuc29yEiAKB2d1ZXNzZXMYAiADKAsyDy5taW1pci52MS5HdWVzcxIXCg9kdXJhdGlvbl9taWNyb3MYAyABKAMSJwoNcHJvYmFiaWxpdGllcxgEIAEoCzIQLm1pbWlyLnYxLlRlbnNvchIOCgZudW1iZXIYBSABKAgSDQoFdmFsdWUYBiABKAEiagoPR2VuZXJhdGVSZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEg4KBnByb21wdBgCIAEoCRISCgptYXhfdG9rZW5zGAMgASgFEhMKC3RlbXBlcmF0dXJlGAQgASgCEgwKBHNlZWQYBSABKAQiLAoLQ2hhdE1lc3NhZ2USDAoEcm9sZRgBIAEoCRIPCgdjb250ZW50GAIgASgJIsABCgtDaGF0UmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRInCghtZXNzYWdlcxgCIAMoCzIVLm1pbWlyLnYxLkNoYXRNZXNzYWdlEhkKDGluc3RydWN0aW9ucxgDIAEoCUgAiAEBEhIKCm1heF90b2tlbnMYBCABKAUSGAoLdGVtcGVyYXR1cmUYBSABKAJIAYgBARIMCgRzZWVkGAYgASgEQg8KDV9pbnN0cnVjdGlvbnNCDgoMX3RlbXBlcmF0dXJlIp4BCgxDaGF0UmVzcG9uc2USDAoEdGV4dBgBIAEoCRIMCgRkb25lGAIgASgIEhUKDXByb21wdF90b2tlbnMYAyABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgEIAEoBRIQCghmaW5pc2hlZBgFIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBiABKAMSFgoOY29udGV4dF90b2tlbnMYByABKAUicAoVR2VuZXJhdGVTdHJlYW1SZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEg4KBnByb21wdBgCIAEoCRISCgptYXhfdG9rZW5zGAMgASgFEhMKC3RlbXBlcmF0dXJlGAQgASgCEgwKBHNlZWQYBSABKAQiqAEKFkdlbmVyYXRlU3RyZWFtUmVzcG9uc2USDAoEdGV4dBgBIAEoCRIMCgRkb25lGAIgASgIEhUKDXByb21wdF90b2tlbnMYAyABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgEIAEoBRIQCghmaW5pc2hlZBgFIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBiABKAMSFgoOY29udGV4dF90b2tlbnMYByABKAUifAoQR2VuZXJhdGVSZXNwb25zZRIMCgR0ZXh0GAEgASgJEhUKDXByb21wdF90b2tlbnMYAiABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgDIAEoBRIQCghmaW5pc2hlZBgEIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBSABKAMqXAoLTW9kZWxTdGF0dXMSHAoYTU9ERUxfU1RBVFVTX1VOU1BFQ0lGSUVEEAASFgoSTU9ERUxfU1RBVFVTX1JFQURZEAESFwoTTU9ERUxfU1RBVFVTX0ZBSUxFRBACMsAECgxNb2RlbFNlcnZpY2USYQoRTGlzdEFyY2hpdGVjdHVyZXMSIi5taW1pci52MS5MaXN0QXJjaGl0ZWN0dXJlc1JlcXVlc3QaIy5taW1pci52MS5MaXN0QXJjaGl0ZWN0dXJlc1Jlc3BvbnNlIgOQAgESTAoKTGlzdE1vZGVscxIbLm1pbWlyLnYxLkxpc3RNb2RlbHNSZXF1ZXN0GhwubWltaXIudjEuTGlzdE1vZGVsc1Jlc3BvbnNlIgOQAgESRgoIR2V0TW9kZWwSGS5taW1pci52MS5HZXRNb2RlbFJlcXVlc3QaGi5taW1pci52MS5HZXRNb2RlbFJlc3BvbnNlIgOQAgESSgoLQ3JlYXRlTW9kZWwSHC5taW1pci52MS5DcmVhdGVNb2RlbFJlcXVlc3QaHS5taW1pci52MS5DcmVhdGVNb2RlbFJlc3BvbnNlEkoKC1VwZGF0ZU1vZGVsEhwubWltaXIudjEuVXBkYXRlTW9kZWxSZXF1ZXN0Gh0ubWltaXIudjEuVXBkYXRlTW9kZWxSZXNwb25zZRJKCgtEZWxldGVNb2RlbBIcLm1pbWlyLnYxLkRlbGV0ZU1vZGVsUmVxdWVzdBodLm1pbWlyLnYxLkRlbGV0ZU1vZGVsUmVzcG9uc2USUwoOU2V0TW9kZWxXb3JrZXISHy5taW1pci52MS5TZXRNb2RlbFdvcmtlclJlcXVlc3QaIC5taW1pci52MS5TZXRNb2RlbFdvcmtlclJlc3BvbnNlMqMCCg5QcmVkaWN0U2VydmljZRI+CgdQcmVkaWN0EhgubWltaXIudjEuUHJlZGljdFJlcXVlc3QaGS5taW1pci52MS5QcmVkaWN0UmVzcG9uc2USQQoIR2VuZXJhdGUSGS5taW1pci52MS5HZW5lcmF0ZVJlcXVlc3QaGi5taW1pci52MS5HZW5lcmF0ZVJlc3BvbnNlElUKDkdlbmVyYXRlU3RyZWFtEh8ubWltaXIudjEuR2VuZXJhdGVTdHJlYW1SZXF1ZXN0GiAubWltaXIudjEuR2VuZXJhdGVTdHJlYW1SZXNwb25zZTABEjcKBENoYXQSFS5taW1pci52MS5DaGF0UmVxdWVzdBoWLm1pbWlyLnYxLkNoYXRSZXNwb25zZTABQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
 
 /**
  * @generated from message mimir.v1.SetModelWorkerRequest
@@ -276,6 +276,14 @@ export type Model = Message<"mimir.v1.Model"> & {
    * @generated from field: repeated mimir.v1.Column columns = 16;
    */
   columns: Column[];
+
+  /**
+   * language is how a language model answers by default; unset for other
+   * models.
+   *
+   * @generated from field: mimir.v1.LanguageSettings language = 17;
+   */
+  language?: LanguageSettings | undefined;
 };
 
 /**
@@ -284,6 +292,51 @@ export type Model = Message<"mimir.v1.Model"> & {
  */
 export const ModelSchema: GenMessage<Model> = /*@__PURE__*/
   messageDesc(file_mimir_v1_model, 4);
+
+/**
+ * LanguageSettings are how a language model answers when a chat or an app
+ * doesn't say.
+ *
+ * @generated from message mimir.v1.LanguageSettings
+ */
+export type LanguageSettings = Message<"mimir.v1.LanguageSettings"> & {
+  /**
+   * instructions are what the model reads before every chat, such as who it
+   * is and how to talk: the system message.
+   *
+   * @generated from field: string instructions = 1;
+   */
+  instructions: string;
+
+  /**
+   * temperature is how freely it picks words, from 0 to 2.
+   *
+   * @generated from field: float temperature = 2;
+   */
+  temperature: number;
+
+  /**
+   * max_tokens is the longest answer, in tokens.
+   *
+   * @generated from field: int32 max_tokens = 3;
+   */
+  maxTokens: number;
+
+  /**
+   * api_name is the model name apps send to the OpenAI-compatible API under
+   * /v1. Output only: it comes from the model's name.
+   *
+   * @generated from field: string api_name = 4;
+   */
+  apiName: string;
+};
+
+/**
+ * Describes the message mimir.v1.LanguageSettings.
+ * Use `create(LanguageSettingsSchema)` to create a new message.
+ */
+export const LanguageSettingsSchema: GenMessage<LanguageSettings> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 5);
 
 /**
  * Tensor is a dense float32 array.
@@ -307,7 +360,7 @@ export type Tensor = Message<"mimir.v1.Tensor"> & {
  * Use `create(TensorSchema)` to create a new message.
  */
 export const TensorSchema: GenMessage<Tensor> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 5);
+  messageDesc(file_mimir_v1_model, 6);
 
 /**
  * Guess is one possible answer and how likely the model thinks it is.
@@ -331,7 +384,7 @@ export type Guess = Message<"mimir.v1.Guess"> & {
  * Use `create(GuessSchema)` to create a new message.
  */
 export const GuessSchema: GenMessage<Guess> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 6);
+  messageDesc(file_mimir_v1_model, 7);
 
 /**
  * @generated from message mimir.v1.ListArchitecturesRequest
@@ -344,7 +397,7 @@ export type ListArchitecturesRequest = Message<"mimir.v1.ListArchitecturesReques
  * Use `create(ListArchitecturesRequestSchema)` to create a new message.
  */
 export const ListArchitecturesRequestSchema: GenMessage<ListArchitecturesRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 7);
+  messageDesc(file_mimir_v1_model, 8);
 
 /**
  * @generated from message mimir.v1.ListArchitecturesResponse
@@ -361,7 +414,7 @@ export type ListArchitecturesResponse = Message<"mimir.v1.ListArchitecturesRespo
  * Use `create(ListArchitecturesResponseSchema)` to create a new message.
  */
 export const ListArchitecturesResponseSchema: GenMessage<ListArchitecturesResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 8);
+  messageDesc(file_mimir_v1_model, 9);
 
 /**
  * @generated from message mimir.v1.ListModelsRequest
@@ -374,7 +427,7 @@ export type ListModelsRequest = Message<"mimir.v1.ListModelsRequest"> & {
  * Use `create(ListModelsRequestSchema)` to create a new message.
  */
 export const ListModelsRequestSchema: GenMessage<ListModelsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 9);
+  messageDesc(file_mimir_v1_model, 10);
 
 /**
  * @generated from message mimir.v1.ListModelsResponse
@@ -391,7 +444,7 @@ export type ListModelsResponse = Message<"mimir.v1.ListModelsResponse"> & {
  * Use `create(ListModelsResponseSchema)` to create a new message.
  */
 export const ListModelsResponseSchema: GenMessage<ListModelsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 10);
+  messageDesc(file_mimir_v1_model, 11);
 
 /**
  * @generated from message mimir.v1.GetModelRequest
@@ -408,7 +461,7 @@ export type GetModelRequest = Message<"mimir.v1.GetModelRequest"> & {
  * Use `create(GetModelRequestSchema)` to create a new message.
  */
 export const GetModelRequestSchema: GenMessage<GetModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 11);
+  messageDesc(file_mimir_v1_model, 12);
 
 /**
  * @generated from message mimir.v1.GetModelResponse
@@ -425,7 +478,7 @@ export type GetModelResponse = Message<"mimir.v1.GetModelResponse"> & {
  * Use `create(GetModelResponseSchema)` to create a new message.
  */
 export const GetModelResponseSchema: GenMessage<GetModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 12);
+  messageDesc(file_mimir_v1_model, 13);
 
 /**
  * @generated from message mimir.v1.CreateModelRequest
@@ -464,7 +517,7 @@ export type CreateModelRequest = Message<"mimir.v1.CreateModelRequest"> & {
  * Use `create(CreateModelRequestSchema)` to create a new message.
  */
 export const CreateModelRequestSchema: GenMessage<CreateModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 13);
+  messageDesc(file_mimir_v1_model, 14);
 
 /**
  * @generated from message mimir.v1.CreateModelResponse
@@ -481,7 +534,7 @@ export type CreateModelResponse = Message<"mimir.v1.CreateModelResponse"> & {
  * Use `create(CreateModelResponseSchema)` to create a new message.
  */
 export const CreateModelResponseSchema: GenMessage<CreateModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 14);
+  messageDesc(file_mimir_v1_model, 15);
 
 /**
  * @generated from message mimir.v1.UpdateModelRequest
@@ -501,6 +554,13 @@ export type UpdateModelRequest = Message<"mimir.v1.UpdateModelRequest"> & {
    * @generated from field: string description = 3;
    */
   description: string;
+
+  /**
+   * language, when set, replaces a language model's default settings.
+   *
+   * @generated from field: mimir.v1.LanguageSettings language = 4;
+   */
+  language?: LanguageSettings | undefined;
 };
 
 /**
@@ -508,7 +568,7 @@ export type UpdateModelRequest = Message<"mimir.v1.UpdateModelRequest"> & {
  * Use `create(UpdateModelRequestSchema)` to create a new message.
  */
 export const UpdateModelRequestSchema: GenMessage<UpdateModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 15);
+  messageDesc(file_mimir_v1_model, 16);
 
 /**
  * @generated from message mimir.v1.UpdateModelResponse
@@ -525,7 +585,7 @@ export type UpdateModelResponse = Message<"mimir.v1.UpdateModelResponse"> & {
  * Use `create(UpdateModelResponseSchema)` to create a new message.
  */
 export const UpdateModelResponseSchema: GenMessage<UpdateModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 16);
+  messageDesc(file_mimir_v1_model, 17);
 
 /**
  * @generated from message mimir.v1.DeleteModelRequest
@@ -542,7 +602,7 @@ export type DeleteModelRequest = Message<"mimir.v1.DeleteModelRequest"> & {
  * Use `create(DeleteModelRequestSchema)` to create a new message.
  */
 export const DeleteModelRequestSchema: GenMessage<DeleteModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 17);
+  messageDesc(file_mimir_v1_model, 18);
 
 /**
  * @generated from message mimir.v1.DeleteModelResponse
@@ -555,7 +615,7 @@ export type DeleteModelResponse = Message<"mimir.v1.DeleteModelResponse"> & {
  * Use `create(DeleteModelResponseSchema)` to create a new message.
  */
 export const DeleteModelResponseSchema: GenMessage<DeleteModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 18);
+  messageDesc(file_mimir_v1_model, 19);
 
 /**
  * @generated from message mimir.v1.PredictRequest
@@ -602,7 +662,7 @@ export type PredictRequest = Message<"mimir.v1.PredictRequest"> & {
  * Use `create(PredictRequestSchema)` to create a new message.
  */
 export const PredictRequestSchema: GenMessage<PredictRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 19);
+  messageDesc(file_mimir_v1_model, 20);
 
 /**
  * @generated from message mimir.v1.PredictResponse
@@ -654,7 +714,7 @@ export type PredictResponse = Message<"mimir.v1.PredictResponse"> & {
  * Use `create(PredictResponseSchema)` to create a new message.
  */
 export const PredictResponseSchema: GenMessage<PredictResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 20);
+  messageDesc(file_mimir_v1_model, 21);
 
 /**
  * @generated from message mimir.v1.GenerateRequest
@@ -701,7 +761,240 @@ export type GenerateRequest = Message<"mimir.v1.GenerateRequest"> & {
  * Use `create(GenerateRequestSchema)` to create a new message.
  */
 export const GenerateRequestSchema: GenMessage<GenerateRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 21);
+  messageDesc(file_mimir_v1_model, 22);
+
+/**
+ * ChatMessage is one turn of a chat.
+ *
+ * @generated from message mimir.v1.ChatMessage
+ */
+export type ChatMessage = Message<"mimir.v1.ChatMessage"> & {
+  /**
+   * role is "user" or "assistant".
+   *
+   * @generated from field: string role = 1;
+   */
+  role: string;
+
+  /**
+   * @generated from field: string content = 2;
+   */
+  content: string;
+};
+
+/**
+ * Describes the message mimir.v1.ChatMessage.
+ * Use `create(ChatMessageSchema)` to create a new message.
+ */
+export const ChatMessageSchema: GenMessage<ChatMessage> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 23);
+
+/**
+ * @generated from message mimir.v1.ChatRequest
+ */
+export type ChatRequest = Message<"mimir.v1.ChatRequest"> & {
+  /**
+   * @generated from field: string model_id = 1;
+   */
+  modelId: string;
+
+  /**
+   * messages are the chat so far, oldest first, ending with the user's.
+   *
+   * @generated from field: repeated mimir.v1.ChatMessage messages = 2;
+   */
+  messages: ChatMessage[];
+
+  /**
+   * instructions, when set, replace the model's default instructions; set
+   * it to "" for none.
+   *
+   * @generated from field: optional string instructions = 3;
+   */
+  instructions?: string | undefined;
+
+  /**
+   * max_tokens is the longest answer; 0 means the model's default.
+   *
+   * @generated from field: int32 max_tokens = 4;
+   */
+  maxTokens: number;
+
+  /**
+   * temperature, when set, replaces the model's default.
+   *
+   * @generated from field: optional float temperature = 5;
+   */
+  temperature?: number | undefined;
+
+  /**
+   * seed makes an answer with a temperature repeatable.
+   *
+   * @generated from field: uint64 seed = 6;
+   */
+  seed: bigint;
+};
+
+/**
+ * Describes the message mimir.v1.ChatRequest.
+ * Use `create(ChatRequestSchema)` to create a new message.
+ */
+export const ChatRequestSchema: GenMessage<ChatRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 24);
+
+/**
+ * ChatResponse is a piece of the answer as it is written. The last one has
+ * done set and the totals.
+ *
+ * @generated from message mimir.v1.ChatResponse
+ */
+export type ChatResponse = Message<"mimir.v1.ChatResponse"> & {
+  /**
+   * text is the next piece of the text.
+   *
+   * @generated from field: string text = 1;
+   */
+  text: string;
+
+  /**
+   * @generated from field: bool done = 2;
+   */
+  done: boolean;
+
+  /**
+   * @generated from field: int32 prompt_tokens = 3;
+   */
+  promptTokens: number;
+
+  /**
+   * @generated from field: int32 generated_tokens = 4;
+   */
+  generatedTokens: number;
+
+  /**
+   * finished says the model ended the text itself.
+   *
+   * @generated from field: bool finished = 5;
+   */
+  finished: boolean;
+
+  /**
+   * @generated from field: int64 duration_micros = 6;
+   */
+  durationMicros: bigint;
+
+  /**
+   * context_tokens is the most tokens the model reads and writes at once,
+   * prompt and answer together.
+   *
+   * @generated from field: int32 context_tokens = 7;
+   */
+  contextTokens: number;
+};
+
+/**
+ * Describes the message mimir.v1.ChatResponse.
+ * Use `create(ChatResponseSchema)` to create a new message.
+ */
+export const ChatResponseSchema: GenMessage<ChatResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 25);
+
+/**
+ * GenerateStreamRequest is a GenerateRequest whose text comes back piece by
+ * piece.
+ *
+ * @generated from message mimir.v1.GenerateStreamRequest
+ */
+export type GenerateStreamRequest = Message<"mimir.v1.GenerateStreamRequest"> & {
+  /**
+   * @generated from field: string model_id = 1;
+   */
+  modelId: string;
+
+  /**
+   * @generated from field: string prompt = 2;
+   */
+  prompt: string;
+
+  /**
+   * @generated from field: int32 max_tokens = 3;
+   */
+  maxTokens: number;
+
+  /**
+   * @generated from field: float temperature = 4;
+   */
+  temperature: number;
+
+  /**
+   * @generated from field: uint64 seed = 5;
+   */
+  seed: bigint;
+};
+
+/**
+ * Describes the message mimir.v1.GenerateStreamRequest.
+ * Use `create(GenerateStreamRequestSchema)` to create a new message.
+ */
+export const GenerateStreamRequestSchema: GenMessage<GenerateStreamRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 26);
+
+/**
+ * GenerateStreamResponse is a piece of the text as it is written. The last
+ * one has done set and the totals.
+ *
+ * @generated from message mimir.v1.GenerateStreamResponse
+ */
+export type GenerateStreamResponse = Message<"mimir.v1.GenerateStreamResponse"> & {
+  /**
+   * text is the next piece of the text.
+   *
+   * @generated from field: string text = 1;
+   */
+  text: string;
+
+  /**
+   * @generated from field: bool done = 2;
+   */
+  done: boolean;
+
+  /**
+   * @generated from field: int32 prompt_tokens = 3;
+   */
+  promptTokens: number;
+
+  /**
+   * @generated from field: int32 generated_tokens = 4;
+   */
+  generatedTokens: number;
+
+  /**
+   * finished says the model ended the text itself.
+   *
+   * @generated from field: bool finished = 5;
+   */
+  finished: boolean;
+
+  /**
+   * @generated from field: int64 duration_micros = 6;
+   */
+  durationMicros: bigint;
+
+  /**
+   * context_tokens is the most tokens the model reads and writes at once,
+   * prompt and answer together.
+   *
+   * @generated from field: int32 context_tokens = 7;
+   */
+  contextTokens: number;
+};
+
+/**
+ * Describes the message mimir.v1.GenerateStreamResponse.
+ * Use `create(GenerateStreamResponseSchema)` to create a new message.
+ */
+export const GenerateStreamResponseSchema: GenMessage<GenerateStreamResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 27);
 
 /**
  * @generated from message mimir.v1.GenerateResponse
@@ -745,7 +1038,7 @@ export type GenerateResponse = Message<"mimir.v1.GenerateResponse"> & {
  * Use `create(GenerateResponseSchema)` to create a new message.
  */
 export const GenerateResponseSchema: GenMessage<GenerateResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 22);
+  messageDesc(file_mimir_v1_model, 28);
 
 /**
  * ModelStatus says whether a model can answer.
@@ -882,6 +1175,27 @@ export const PredictService: GenService<{
     methodKind: "unary";
     input: typeof GenerateRequestSchema;
     output: typeof GenerateResponseSchema;
+  },
+  /**
+   * GenerateStream is Generate, sending the text as the model writes it.
+   *
+   * @generated from rpc mimir.v1.PredictService.GenerateStream
+   */
+  generateStream: {
+    methodKind: "server_streaming";
+    input: typeof GenerateStreamRequestSchema;
+    output: typeof GenerateStreamResponseSchema;
+  },
+  /**
+   * Chat writes a language model's next turn in a chat, sending the text
+   * as the model writes it.
+   *
+   * @generated from rpc mimir.v1.PredictService.Chat
+   */
+  chat: {
+    methodKind: "server_streaming";
+    input: typeof ChatRequestSchema;
+    output: typeof ChatResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_mimir_v1_model, 1);

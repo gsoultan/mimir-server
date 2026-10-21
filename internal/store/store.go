@@ -78,7 +78,22 @@ type Model struct {
 	// Columns are the table columns it reads and how each becomes
 	// numbers; empty when it reads numbers as they are.
 	Columns []schema.Column
+	// Language is how a language model answers by default.
+	Language Language
 }
+
+// Language is how a language model answers when a chat or an app doesn't
+// say: its instructions (the system message), how freely it picks words
+// and its longest answer in tokens.
+type Language struct {
+	Instructions string
+	Temperature  float64
+	MaxTokens    int
+}
+
+// DefaultLanguage is how a new model answers until someone changes it: no
+// instructions, a little variety, and answers of up to a few paragraphs.
+var DefaultLanguage = Language{Temperature: 0.7, MaxTokens: 256}
 
 // WeightsVersion names the weights the model has now. Retraining a model
 // in place gives it a new one, so a cache keyed by it loads the new
@@ -280,6 +295,7 @@ func fromModel(r model.Row) Model {
 		TeamID:       r.TeamID.V,
 		WorkerID:     r.WorkerID,
 		Columns:      fromDoc[schema.Column](r.Columns),
+		Language:     Language{Instructions: r.Instructions, Temperature: r.Temperature, MaxTokens: int(r.MaxTokens)},
 	}
 }
 
@@ -326,6 +342,9 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	if m.TeamID == "" {
 		m.TeamID = DefaultTeam
 	}
+	if m.Language == (Language{}) {
+		m.Language = DefaultLanguage
+	}
 
 	// The file goes first and the row second, so a row never points at a
 	// missing file. A crash between the two leaves an orphan file, which is
@@ -351,6 +370,9 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	n.SetTeamID(m.TeamID)
 	n.SetWorkerID(m.WorkerID)
 	n.SetColumns(doc(m.Columns))
+	n.SetInstructions(m.Language.Instructions)
+	n.SetTemperature(m.Language.Temperature)
+	n.SetMaxTokens(int32(m.Language.MaxTokens))
 	if _, err := n.Insert(ctx, s.ex); err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)
@@ -398,6 +420,21 @@ func (s *Store) Update(ctx context.Context, id, name, description string) (Model
 		return Model{}, fmt.Errorf("store: update %s: %w", id, err)
 	}
 	return s.Get(ctx, id)
+}
+
+// SetLanguage changes how a language model answers by default.
+func (s *Store) SetLanguage(ctx context.Context, id string, l Language) error {
+	u := model.MutateKey(id)
+	u.SetInstructions(l.Instructions)
+	u.SetTemperature(l.Temperature)
+	u.SetMaxTokens(int32(l.MaxTokens))
+	if err := u.Update(ctx, s.ex); err != nil {
+		if errors.Is(err, runtime.ErrNoRow) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("store: set language %s: %w", id, err)
+	}
+	return nil
 }
 
 // SetModelWorker places a model on a worker, or "" for automatic.
