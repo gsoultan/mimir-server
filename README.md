@@ -500,7 +500,7 @@ name, owning team) and the roles, statuses and kinds as named types
 (`enums.go`) that package store uses directly. The typed query code
 in `internal/store/db` and the migrations in `internal/store/migrations`
 are generated from them with storm's CLI
-(`go install github.com/gsoultan/storm/cmd/storm@v1.3.0`), and both are
+(`go install github.com/gsoultan/storm/cmd/storm@v1.3.1-0.20261021030417-810666285aaf`), and both are
 committed. After changing a struct, against a scratch PostgreSQL database:
 
 ```sh
@@ -517,8 +517,9 @@ starting together are safe. The files in `internal/store/migrations` are
 the reviewed SQL for each change (embedded in the binary), and CI fails
 when they or the generated code fall behind the structs.
 
-A change automigrate cannot make (a type change that needs a `USING`
-conversion, or dropping an index, which it refuses as destructive) is a
-hand-finished migration that the server runs itself on a database still
-behind it, before automigrate: see `upgrades` in `internal/store/store.go`
-and `0002_typed_columns_and_indexes.up.sql`.
+Every query and every migration goes through storm; the server runs no
+statement of its own. A type change PostgreSQL has no cast for (JSON once kept in
+a text column becoming an array or jsonb) is declared on the column with
+`ConvertFrom(storm.JSONText)`, and automigrate writes the conversion. The
+server lets automigrate replace indexes and CHECK constraints, which hold
+no data, and still refuses any plan that drops a table or column.
