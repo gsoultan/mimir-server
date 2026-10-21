@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/gsoultan/storm"
 
 	"github.com/gsoultan/mimir-server/internal/secret"
+	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
+	"github.com/gsoultan/mimir-server/internal/store/db/setting"
+	"github.com/gsoultan/mimir-server/internal/store/db/webhook"
 )
 
 // Secrets at rest. Webhook signing secrets, dataset connection strings and
@@ -41,88 +44,124 @@ func webhookContext(id string) string  { return "webhooks.secret:" + id }
 func datasetContext(id string) string  { return "datasets.dsn:" + id }
 func settingContext(key string) string { return "settings.value:" + key }
 
-// sealed is one column the store seals: its table, key column, value
-// column, the rows it covers, and each row's binding context.
-type sealed struct {
-	table, key, value string
-	where             string
-	context           func(key string) string
+// secretRow is one stored value of a sealed column and its row's key.
+type secretRow struct{ key, value string }
+
+// sealedColumn is one column the store seals: how to read its rows that
+// hold a value, how to swap one row's plaintext for its sealed form, and
+// each row's binding context.
+type sealedColumn struct {
+	name    string // table.column, for errors
+	context func(key string) string
+	rows    func(ctx context.Context, ex storm.Executor) ([]secretRow, error)
+	// replace writes sealed over the row's value while it still holds
+	// plain, and reports whether it did.
+	replace func(ctx context.Context, ex storm.Executor, key, plain, sealed string) (bool, error)
 }
 
-var sealedColumns = []sealed{
-	{"webhooks", "id", "secret", "", webhookContext},
-	{"datasets", "id", "dsn", "", datasetContext},
-	{"settings", "key", "value", ` AND "key" LIKE 'alerts.%'`, settingContext},
-}
+var sealedColumns = []sealedColumn{{
+	name:    "webhooks.secret",
+	context: webhookContext,
+	rows: func(ctx context.Context, ex storm.Executor) ([]secretRow, error) {
+		rs, err := webhook.New().Where(webhook.Secret.NotEq("")).All(ctx, ex, nil)
+		return collect(rs, func(r webhook.Row) secretRow { return secretRow{r.ID, r.Secret} }), err
+	},
+	replace: func(ctx context.Context, ex storm.Executor, key, plain, sealed string) (bool, error) {
+		var m webhook.Mut
+		m.SetSecret(sealed)
+		n, err := webhook.New().Where(webhook.ID.Eq(key), webhook.Secret.Eq(plain)).UpdateAll(ctx, ex, m)
+		return n > 0, err
+	},
+}, {
+	name:    "datasets.dsn",
+	context: datasetContext,
+	rows: func(ctx context.Context, ex storm.Executor) ([]secretRow, error) {
+		rs, err := dataset.New().Where(dataset.Dsn.NotEq("")).All(ctx, ex, nil)
+		return collect(rs, func(r dataset.Row) secretRow { return secretRow{r.ID, r.Dsn} }), err
+	},
+	replace: func(ctx context.Context, ex storm.Executor, key, plain, sealed string) (bool, error) {
+		var m dataset.Mut
+		m.SetDsn(sealed)
+		n, err := dataset.New().Where(dataset.ID.Eq(key), dataset.Dsn.Eq(plain)).UpdateAll(ctx, ex, m)
+		return n > 0, err
+	},
+}, {
+	name:    "settings.value",
+	context: settingContext,
+	rows: func(ctx context.Context, ex storm.Executor) ([]secretRow, error) {
+		rs, err := setting.New().Where(setting.Key.Like("alerts.%"), setting.Value.NotEq("")).All(ctx, ex, nil)
+		return collect(rs, func(r setting.Row) secretRow { return secretRow{r.Key, r.Value} }), err
+	},
+	replace: func(ctx context.Context, ex storm.Executor, key, plain, sealed string) (bool, error) {
+		var m setting.Mut
+		m.SetValue(sealed)
+		n, err := setting.New().Where(setting.Key.Eq(key), setting.Value.Eq(plain)).UpdateAll(ctx, ex, m)
+		return n > 0, err
+	},
+}}
 
-// sealLock serialises servers sealing legacy rows at the same start.
-const sealLock = 0x6d696d6972_5345 // "mimir", "SE"
+func collect[R any](rs []R, f func(R) secretRow) []secretRow {
+	out := make([]secretRow, len(rs))
+	for i, r := range rs {
+		out[i] = f(r)
+	}
+	return out
+}
 
 // sealLegacy seals, in one transaction, every stored secret still in
 // plaintext, and checks that every one already sealed opens with this
 // key, so a server started with the wrong key stops here rather than
 // failing each webhook and refresh later. It returns how many rows it
 // sealed.
+//
+// Each row is replaced only while it still holds the plaintext read, so
+// servers sealing at the same start seal each row once: the second
+// waits on the first's row lock and then finds nothing to replace.
 func (s *Store) sealLegacy(ctx context.Context) (int, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("store: seal secrets: %w", err)
-	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, int64(sealLock)); err != nil {
-		return 0, fmt.Errorf("store: seal secrets: %w", err)
-	}
 	n := 0
-	for _, c := range sealedColumns {
-		m, err := s.sealColumn(ctx, tx, c)
-		if err != nil {
-			return n, err
+	err := storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
+		n = 0
+		for _, c := range sealedColumns {
+			m, err := s.sealColumn(ctx, ex, c)
+			if err != nil {
+				return err
+			}
+			n += m
 		}
-		n += m
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return n, fmt.Errorf("store: seal secrets: %w", err)
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 	return n, nil
 }
 
-func (s *Store) sealColumn(ctx context.Context, tx pgx.Tx, c sealed) (int, error) {
-	key, value, table := pgx.Identifier{c.key}.Sanitize(), pgx.Identifier{c.value}.Sanitize(), pgx.Identifier{c.table}.Sanitize()
-	rows, err := tx.Query(ctx, `SELECT `+key+`, `+value+` FROM `+table+` WHERE `+value+` <> ''`+c.where)
+func (s *Store) sealColumn(ctx context.Context, ex storm.Executor, c sealedColumn) (int, error) {
+	rows, err := c.rows(ctx, ex)
 	if err != nil {
-		return 0, fmt.Errorf("store: seal %s.%s: %w", c.table, c.value, err)
+		return 0, fmt.Errorf("store: seal %s: %w", c.name, err)
 	}
-	type row struct{ k, v string }
-	var plain []row
-	for rows.Next() {
-		var r row
-		if err := rows.Scan(&r.k, &r.v); err != nil {
-			rows.Close()
-			return 0, fmt.Errorf("store: seal %s.%s: %w", c.table, c.value, err)
-		}
-		if !secret.Sealed(r.v) {
-			plain = append(plain, r)
+	n := 0
+	for _, r := range rows {
+		if secret.Sealed(r.value) {
+			if _, err := s.box.Open(r.value, c.context(r.key)); err != nil {
+				return 0, fmt.Errorf("store: %s %s: %w", c.name[:strings.IndexByte(c.name, '.')], r.key, err)
+			}
 			continue
 		}
-		if _, err := s.box.Open(r.v, c.context(r.k)); err != nil {
-			rows.Close()
-			return 0, fmt.Errorf("store: %s %s: %w", c.table, r.k, err)
-		}
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return 0, fmt.Errorf("store: seal %s.%s: %w", c.table, c.value, err)
-	}
-	for _, r := range plain {
-		v, err := s.box.Seal(r.v, c.context(r.k))
+		v, err := s.box.Seal(r.value, c.context(r.key))
 		if err != nil {
 			return 0, err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE `+table+` SET `+value+` = $1 WHERE `+key+` = $2 AND `+value+` = $3`, v, r.k, r.v); err != nil {
-			return 0, fmt.Errorf("store: seal %s %s: %w", c.table, r.k, err)
+		done, err := c.replace(ctx, ex, r.key, r.value, v)
+		if err != nil {
+			return 0, fmt.Errorf("store: seal %s %s: %w", c.name, r.key, err)
+		}
+		if done {
+			n++
 		}
 	}
-	return len(plain), nil
+	return n, nil
 }
 
 // Sealed reports how many plaintext secrets Open sealed in place.

@@ -394,11 +394,11 @@ type Stats struct {
 func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	// Open brought the schema to the model, so it is at the newest version.
 	st := Stats{Path: Redact(s.url), SchemaVersion: LatestSchemaVersion()}
-	size, _, err := tables.CurrentDatabaseSize.One(ctx, s.ex)
+	size, err := s.ex.DatabaseSize(ctx)
 	if err != nil {
-		return st, err
+		return st, fmt.Errorf("store: database size: %w", err)
 	}
-	st.SizeBytes = size.Bytes
+	st.SizeBytes = size
 	for _, c := range []struct {
 		count func() (int64, error)
 		dst   *int

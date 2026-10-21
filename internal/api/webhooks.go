@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -216,9 +215,9 @@ func (s *Service) getWebhook(ctx context.Context, id string) (store.Webhook, err
 }
 
 func (s *Service) cleanWebhook(name, url string, events []string) (string, string, []string, error) {
-	name = strings.TrimSpace(name)
-	if name == "" || !utf8.ValidString(name) || utf8.RuneCountInString(name) > maxName {
-		return "", "", nil, invalid("Give the webhook a name of up to %d characters.", maxName)
+	name, err := cleanName("webhook", name)
+	if err != nil {
+		return "", "", nil, err
 	}
 	url = strings.TrimSpace(url)
 	if len(url) > 2048 {

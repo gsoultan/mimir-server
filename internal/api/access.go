@@ -10,7 +10,6 @@ import (
 	"net/mail"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -413,9 +412,9 @@ func (s *Service) CreateApiKey(ctx context.Context, req *connect.Request[mimirv1
 	if p.Key != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("API keys can't make more keys. Sign in on the web."))
 	}
-	name := strings.TrimSpace(req.Msg.GetName())
-	if name == "" || utf8.RuneCountInString(name) > maxName {
-		return nil, invalid("Give the key a name of up to %d characters.", maxName)
+	name, err := cleanName("key", req.Msg.GetName())
+	if err != nil {
+		return nil, err
 	}
 	access, err := s.cleanAccess(ctx, p, req.Msg.GetAccess(), p.Team())
 	if err != nil {
@@ -640,11 +639,8 @@ func cleanUser(email, name string) (string, string, error) {
 	if a, err := mail.ParseAddress(email); err != nil || a.Address != email || len(email) > 254 {
 		return "", "", invalid("That doesn't look like an email address.")
 	}
-	name = strings.TrimSpace(name)
-	if name == "" || !utf8.ValidString(name) || utf8.RuneCountInString(name) > maxName {
-		return "", "", invalid("Give the person a name of up to %d characters.", maxName)
-	}
-	return email, name, nil
+	name, err := cleanName("person", name)
+	return email, name, err
 }
 
 func badSignIn() error {

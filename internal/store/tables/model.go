@@ -40,10 +40,10 @@ func (m *Model) Aggregates(a *storm.Aggregates) {
 
 func (m *Model) Schema(t *storm.Table) {
 	t.Col(&m.Description).Default("''")
-	t.Col(&m.InputShape).Default("'{}'")
-	t.Col(&m.Labels).Default("'{}'")
-	t.Col(&m.Features).Default("'{}'")
-	t.Col(&m.Columns).Default("'[]'")
+	t.Col(&m.InputShape).Default("'{}'").ConvertFrom(storm.JSONText)
+	t.Col(&m.Labels).Default("'{}'").ConvertFrom(storm.JSONText)
+	t.Col(&m.Features).Default("'{}'").ConvertFrom(storm.JSONText)
+	t.Col(&m.Columns).Default("'[]'").ConvertFrom(storm.JSONText)
 	t.Col(&m.JobID).Default("''")
 	t.Col(&m.Accuracy).Default("0")
 	t.Col(&m.WorkerID).Default("''")

@@ -14,7 +14,6 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/trainingjob"
 	"github.com/gsoultan/mimir-server/internal/store/db/worker"
 	"github.com/gsoultan/mimir-server/internal/store/db/workersample"
-	"github.com/gsoultan/mimir-server/internal/store/tables"
 )
 
 // Worker is a registered worker: a process that connects with its token
@@ -181,7 +180,8 @@ func (s *Store) ReplaceWorkerToken(ctx context.Context, id, tokenHash string) er
 	return nil
 }
 
-// WorkerSample is one minute of a worker's stats.
+// WorkerSample is one minute of a worker's stats, or the average of
+// several in a bucket of SampleSeries.Buckets.
 type WorkerSample struct {
 	Time                    time.Time
 	CPUPercent              float64
@@ -211,27 +211,34 @@ func (s *Store) AddWorkerSample(ctx context.Context, workerID string, x WorkerSa
 
 // WorkerSamples returns a worker's samples since a time, oldest first,
 // averaged into at most points buckets so a week still charts quickly.
+//
+// A worker writes a sample a minute and the store keeps them for
+// WorkerSampleKeep, so the read is bounded by that: about ten thousand
+// rows for a week.
 func (s *Store) WorkerSamples(ctx context.Context, workerID string, since time.Time, points int) ([]WorkerSample, error) {
 	since = ms(since)
-	width := max(time.Since(since).Milliseconds()/int64(max(points, 1)), 1)
-	rows, err := tables.WorkerSampleBuckets.Query(ctx, s.ex, workerID, since, width)
+	rows, err := workersample.New().
+		Where(workersample.WorkerID.Eq(workerID), workersample.Time.Gte(since)).
+		Order(workersample.Time.Asc()).
+		All(ctx, s.ex, nil)
 	if err != nil {
 		return nil, fmt.Errorf("store: worker samples: %w", err)
 	}
-	out := make([]WorkerSample, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, WorkerSample{
+	series := make(SampleSeries, len(rows))
+	for i, r := range rows {
+		series[i] = WorkerSample{
 			Time:        r.Time.UTC(),
-			CPUPercent:  r.CPUPercent,
+			CPUPercent:  r.CpuPercent,
 			MemoryUsed:  r.MemoryUsed,
 			MemoryTotal: r.MemoryTotal,
 			DiskUsed:    r.DiskUsed,
 			DiskTotal:   r.DiskTotal,
 			Busy:        int(r.Busy),
 			Capacity:    int(r.Capacity),
-		})
+		}
 	}
-	return out, nil
+	width := time.Duration(max(time.Since(since).Milliseconds()/int64(max(points, 1)), 1)) * time.Millisecond
+	return series.Buckets(since, width), nil
 }
 
 // Placement counts the models set to run on each worker and the runs
