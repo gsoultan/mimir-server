@@ -214,6 +214,7 @@ func _assertTrainingJobShape(m m0.TrainingJob) {
 		m.BaseModelID,
 		m.Note,
 		m.RunOn,
+		m.Layers,
 	}
 }
 

@@ -116,6 +116,9 @@ message Architecture {
   bool custom = 9;
   // items is how many a ranked answer lists.
   int32 items = 10;
+  // designable says its hidden layers can be shaped step by step when it
+  // is taught (TrainingSettings.layers).
+  bool designable = 11;
 }
 
 // Column is one column a model reads and how it becomes numbers.

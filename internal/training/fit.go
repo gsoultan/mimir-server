@@ -70,6 +70,11 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	}
 	trainSet, testSet, features := l.Train, l.Test, l.Features
 	spec := arch.Resolve(t.Arch, l.Spec)
+	if t.Arch.Designable {
+		if spec.Layers, err = arch.ParseLayers(s.Layers); err != nil {
+			return Result{}, err
+		}
+	}
 	model := t.Arch.New(spec)
 	fresh := false
 	if len(t.BaseWeights) > 0 && (!slices.Equal(t.BaseLabels, spec.Labels) || !slices.Equal(t.BaseFeatures, features)) {
@@ -138,7 +143,12 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 
 	nn.Eval(model)
 	var buf bytes.Buffer
-	if err := mim.Save(ctx, &buf, model, nil); err != nil {
+	var save *mim.SaveOptions
+	if len(spec.Layers) > 0 {
+		// The file says how it was shaped, so it rebuilds the same way.
+		save = &mim.SaveOptions{Metadata: map[string]any{arch.LayersKey: arch.FormatLayers(spec.Layers)}}
+	}
+	if err := mim.Save(ctx, &buf, model, save); err != nil {
 		return Result{}, fmt.Errorf("couldn't save the model: %w", err)
 	}
 	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features, Columns: l.Columns, Fresh: fresh}, nil

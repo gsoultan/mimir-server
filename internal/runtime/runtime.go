@@ -57,6 +57,17 @@ func Build(a arch.Architecture, spec arch.Spec, weights []byte) (nn.Module, erro
 		return nil, fmt.Errorf("%w: not a Mimir Model file: %v", ErrBadWeights, err)
 	}
 	defer f.Close()
+	if a.Designable {
+		// A designed model carries its layers in the file.
+		md, err := f.Metadata()
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+		}
+		s, _ := md[arch.LayersKey].(string)
+		if spec.Layers, err = arch.ParseLayers(s); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+		}
+	}
 	m := a.New(spec)
 	if err := f.Load(m); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)

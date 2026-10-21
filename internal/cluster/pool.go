@@ -541,7 +541,7 @@ func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Tas
 	defer l.finish(id)
 	task := &mimirv1.TrainTask{
 		TaskId: id, JobId: jobID, Architecture: t.Arch.Name,
-		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut},
+		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: LayersToProto(t.Settings.Layers)},
 		DatasetKind: mimirv1.DatasetKind(t.Source.Kind),
 		Target:      t.Source.Target, Columns: ColumnsToProto(t.Source.Columns),
 		History:     EpochsToProto(t.History),
@@ -618,6 +618,17 @@ func wait(ctx context.Context, replies chan *mimirv1.LinkRequest, closed chan st
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// LayersToProto converts a designed model's layers, as arch.FormatLayers
+// writes them, for the wire.
+func LayersToProto(s string) []*mimirv1.Layer {
+	ls, _ := arch.ParseLayers(s) // checked when the run was made
+	out := make([]*mimirv1.Layer, len(ls))
+	for i, l := range ls {
+		out[i] = &mimirv1.Layer{Kind: l.Kind, Units: int32(l.Units), Rate: l.Rate}
+	}
+	return out
 }
 
 // EpochsToProto converts a job's history.

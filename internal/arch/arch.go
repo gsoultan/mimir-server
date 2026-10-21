@@ -58,6 +58,9 @@ type Spec struct {
 	// TargetMean and TargetStd scale the answer of a number model, so it
 	// learns as evenly for prices in millions as for counts in tens.
 	TargetMean, TargetStd float32
+	// Layers, when set, is the hidden part of a Designable architecture
+	// as someone designed it, in place of its usual shape.
+	Layers []Layer
 }
 
 // Standardize is a module that rescales each input feature to roughly zero
@@ -165,6 +168,10 @@ func size(shape []int) int {
 // it answers.
 func tableNet(s Spec, out int) []nn.Module {
 	in := size(s.InputShape)
+	if len(s.Layers) > 0 {
+		hidden, last := layerNet(in, s.Layers)
+		return append(append([]nn.Module{NewStandardize(in, s.Mean, s.Std)}, hidden...), nn.NewLinear(last, out))
+	}
 	hidden := max(16, min(256, 4*in))
 	return []nn.Module{
 		NewStandardize(in, s.Mean, s.Std),
@@ -184,6 +191,8 @@ type Architecture struct {
 	Output Output
 	// Text marks a table architecture made for rows with free text.
 	Text bool
+	// Designable says its hidden layers can be designed (Spec.Layers).
+	Designable bool
 	// Spec is the fixed shape and labels, or zero when they come from the
 	// dataset.
 	Spec Spec
@@ -256,6 +265,7 @@ var builtin = []Architecture{
 		Title:       "Table of numbers",
 		Description: "Reads one row of numbers, like a spreadsheet line, and picks a category. Learns from a CSV you upload.",
 		Input:       Table,
+		Designable:  true,
 		New: func(s Spec) nn.Module {
 			return nn.NewSequential(tableNet(s, len(s.Labels))...)
 		},
@@ -265,6 +275,7 @@ var builtin = []Architecture{
 		Title:       "Text and table",
 		Description: "Reads a row with free text, like a message or a review, next to numbers and categories, and picks a category.",
 		Input:       Table,
+		Designable:  true,
 		Text:        true,
 		New: func(s Spec) nn.Module {
 			return nn.NewSequential(tableNet(s, len(s.Labels))...)
@@ -275,6 +286,7 @@ var builtin = []Architecture{
 		Title:       "Number predictor",
 		Description: "Reads one row of a table and answers with a number, like a price, a count or a number of days.",
 		Input:       Table,
+		Designable:  true,
 		Output:      Number,
 		New: func(s Spec) nn.Module {
 			return nn.NewSequential(append(tableNet(s, 1), NewUnscale(s.TargetMean, s.TargetStd))...)
