@@ -6,6 +6,7 @@ import { IconAlertCircle, IconCheck, IconFileUpload } from "@tabler/icons-react"
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 
 import { message } from "../../../api/client";
 import { ModelService } from "../../../api/gen/mimir/v1/model_pb";
@@ -16,6 +17,8 @@ import type { Format } from "../../../lib/inspect";
 import { readFile } from "../../../lib/read-file";
 
 export const Route = createFileRoute("/_app/models/new")({
+  // kind picks the model type to start on, such as "mim" or "language-model".
+  validateSearch: z.object({ kind: z.string().optional() }),
   loader: ({ context }) => context.queryClient.ensureQueryData(listArchitectures),
   component: AddModel,
 });
@@ -31,7 +34,8 @@ function AddModel() {
   const navigate = useNavigate();
   const { queryClient } = Route.useRouteContext();
   const [step, setStep] = useState(0);
-  const [arch, setArch] = useState(data.architectures[0]?.name ?? "");
+  const { kind } = Route.useSearch();
+  const [arch, setArch] = useState(data.architectures.find((a) => a.name === kind)?.name ?? data.architectures[0]?.name ?? "");
   const [picked, setPicked] = useState<Picked>();
   const [fileError, setFileError] = useState<string>();
   const [reading, setReading] = useState(false);
