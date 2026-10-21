@@ -19,6 +19,7 @@ import (
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/auth"
+	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/dbsource"
 	"github.com/gsoultan/mimir-server/internal/s3source"
 	"github.com/gsoultan/mimir-server/internal/store"
@@ -424,6 +425,19 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 	}
 	st := req.Msg.GetSettings()
 	set := store.Settings{Epochs: int(st.GetEpochs()), BatchSize: int(st.GetBatchSize()), LearningRate: st.GetLearningRate(), HoldOut: st.GetHoldOut()}
+	if ls := st.GetLayers(); len(ls) > 0 {
+		if !a.Designable {
+			return nil, invalid("%s models can't be designed step by step. Pick a table model, or leave the shape as it is.", a.Title)
+		}
+		design := make([]arch.Layer, len(ls))
+		for i, l := range ls {
+			design[i] = arch.Layer{Kind: l.GetKind(), Units: int(l.GetUnits()), Rate: l.GetRate()}
+		}
+		if err := arch.CheckLayers(design); err != nil {
+			return nil, invalid("That design can't be built: %s.", strings.TrimPrefix(err.Error(), arch.ErrBadLayers.Error()+": "))
+		}
+		set.Layers = arch.FormatLayers(design)
+	}
 	def := training.DefaultsFor(d.Kind)
 	if set.Epochs == 0 {
 		set.Epochs = def.Epochs
@@ -689,7 +703,7 @@ func datasetProto(d store.Dataset) *mimirv1.Dataset {
 func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 	out := &mimirv1.Job{
 		Id: j.ID, Name: j.Name, Description: j.Description, Architecture: j.Architecture, DatasetId: j.DatasetID, DatasetName: datasetName,
-		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut},
+		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut, Layers: cluster.LayersToProto(j.Settings.Layers)},
 		Status:   mimirv1.JobStatus(j.Status), Error: j.Error, Epoch: int32(j.Epoch), ModelId: j.ModelID, Worker: j.Worker, CreatedBy: j.CreatedBy,
 		RepeatSeconds: j.RepeatSeconds, ParentId: j.ParentID, BaseModelId: j.BaseModelID, Note: j.Note, RunOn: j.RunOn,
 		CreateTime: timestamppb.New(j.Created), Accuracy: accuracy(j), StepsPerEpoch: int32(j.StepsPerEpoch), Step: int32(j.Step),

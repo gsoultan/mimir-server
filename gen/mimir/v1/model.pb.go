@@ -413,7 +413,10 @@ type Architecture struct {
 	// it answer and teach its models.
 	Custom bool `protobuf:"varint,9,opt,name=custom,proto3" json:"custom,omitempty"`
 	// items is how many a ranked answer lists.
-	Items         int32 `protobuf:"varint,10,opt,name=items,proto3" json:"items,omitempty"`
+	Items int32 `protobuf:"varint,10,opt,name=items,proto3" json:"items,omitempty"`
+	// designable says its hidden layers can be shaped step by step when it
+	// is taught (TrainingSettings.layers).
+	Designable    bool `protobuf:"varint,11,opt,name=designable,proto3" json:"designable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -516,6 +519,13 @@ func (x *Architecture) GetItems() int32 {
 		return x.Items
 	}
 	return 0
+}
+
+func (x *Architecture) GetDesignable() bool {
+	if x != nil {
+		return x.Designable
+	}
+	return false
 }
 
 // Column is one column a model reads and how it becomes numbers.
@@ -2310,7 +2320,7 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tworker_id\x18\x02 \x01(\tR\bworkerId\"?\n" +
 	"\x16SetModelWorkerResponse\x12%\n" +
-	"\x05model\x18\x01 \x01(\v2\x0f.mimir.v1.ModelR\x05model\"\x8d\x02\n" +
+	"\x05model\x18\x01 \x01(\v2\x0f.mimir.v1.ModelR\x05model\"\xad\x02\n" +
 	"\fArchitecture\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -2323,7 +2333,10 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\x06output\x18\b \x01(\tR\x06output\x12\x16\n" +
 	"\x06custom\x18\t \x01(\bR\x06custom\x12\x14\n" +
 	"\x05items\x18\n" +
-	" \x01(\x05R\x05items\"\\\n" +
+	" \x01(\x05R\x05items\x12\x1e\n" +
+	"\n" +
+	"designable\x18\v \x01(\bR\n" +
+	"designable\"\\\n" +
 	"\x06Column\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +

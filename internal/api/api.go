@@ -129,6 +129,7 @@ func archProto(a arch.Architecture) *mimirv1.Architecture {
 		Output:      string(a.Answers()),
 		Custom:      a.Custom,
 		Items:       int32(a.Items),
+		Designable:  a.Designable,
 	}
 }
 

@@ -147,6 +147,9 @@ function Run() {
             <Fact label="Examples per step" value={String(j.settings?.batchSize)} />
             <Fact label="Learning rate" value={String(j.settings?.learningRate)} />
             <Fact label="Kept aside for scoring" value={`${Math.round((j.settings?.holdOut ?? 0) * 100)}%`} />
+            {(j.settings?.layers.length ?? 0) > 0 && (
+              <Fact label="Shape, designed" value={j.settings!.layers.map((l) => (l.kind === "dense" ? `${l.units} units` : `forget ${Math.round(l.rate * 100)}%`)).join(" → ")} />
+            )}
             {j.description && <Fact label="Description" value={j.description} />}
           </Stack>
         </Card>

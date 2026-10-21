@@ -279,6 +279,18 @@ message TrainingSettings {
   // HoldOut is the share of examples kept aside to score the model,
   // between 0 and 0.5. Ignored for datasets with their own test split.
   double hold_out = 4;
+  // layers, when set, shapes a table model in place of its usual hidden
+  // layers: at most 8 steps, with at least one dense.
+  repeated Layer layers = 5;
+}
+
+// Layer is one step of a designed table model.
+message Layer {
+  // kind is "dense" (learn patterns with units numbers) or "dropout"
+  // (forget a rate of them while learning, so it doesn't memorise).
+  string kind = 1;
+  int32 units = 2;
+  double rate = 3;
 }
 
 // EpochResult is how one pass over the examples went.

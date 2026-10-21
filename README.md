@@ -232,7 +232,12 @@ models first says what their data looks like, then trains in three steps:
 2. **What kind.** The model types that fit the examples, plus a name:
    a table or text classifier, a **number predictor** when the answer is
    a number, a **picture classifier** for photo folders, and a **photo
-   and table classifier** when each row has a photo too.
+   and table classifier** when each row has a photo too. A table model
+   can be Small, Medium (the usual) or Large, or **designed** step by
+   step: up to 8 "learn patterns" (dense, 1 to 1024 units) and "forget a
+   little" (dropout) steps, with how many numbers it learns and how many
+   examples that wants shown as you go. The design is saved in the model
+   file, so any server or worker rebuilds it the same way.
 3. **How long.** Quick look (3 passes), Normal (10) or Thorough (30), with
    batch size, learning rate and the share kept aside for scoring under
    *Expert settings*.
