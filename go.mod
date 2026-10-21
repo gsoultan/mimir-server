@@ -2,6 +2,8 @@ module github.com/gsoultan/mimir-server
 
 go 1.27.0
 
+toolchain go1.27.2
+
 require (
 	connectrpc.com/connect v1.21.1
 	connectrpc.com/grpchealth v1.5.0
