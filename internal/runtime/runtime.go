@@ -5,11 +5,18 @@ import (
 	"cmp"
 	"container/list"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"sync"
+	"sync/atomic"
+	"time"
 
+	mimfile "github.com/gsoultan/mimir-model"
+	"github.com/gsoultan/mimir-model/interp"
+	"github.com/gsoultan/mimir-model/ref"
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir/io/mim"
 	"github.com/gsoultan/mimir/nn"
@@ -82,10 +89,22 @@ const LabelsKey = "mimir.labels"
 
 // File is a loaded Mimir Model (.mim) file, which runs as a model of one
 // input.
+//
+// On the CPU it runs on mimir-model's interpreter, whose kernels and
+// low cost per op suit the small networks imported from ONNX; on a GPU,
+// or for a file the interpreter cannot run, it runs on mimir.
 type File struct {
 	m     *mim.Model
 	input mim.ValueInfo
 	shape []int // the input's declared shape
+	// batch is the most inputs one run takes: the bound of a free
+	// leading dimension, 0 for no bound, or 1 when the leading dimension
+	// is fixed.
+	batch int
+	prog  *interp.Program // nil when the interpreter cannot run the file
+	// noInterp is set once the interpreter has failed a run for want of
+	// an op, after which mimir runs the file.
+	noInterp atomic.Bool
 	// Spec is what the file reads and answers: the shape of its input,
 	// without a leading batch dimension of 1, and the labels its metadata
 	// holds under LabelsKey, if any.
@@ -105,7 +124,27 @@ func OpenFile(b []byte) (*File, error) {
 		m.Close()
 		return nil, err
 	}
+	f.prog = interpreter(b, f)
 	return f, nil
+}
+
+// interpreter loads b on mimir-model's interpreter for f, or returns nil
+// when it should not run there: a float32 input and first output are all
+// it takes.
+func interpreter(b []byte, f *File) *interp.Program {
+	if f.input.Type != mimfile.F32 || f.m.Outputs()[0].Type != mimfile.F32 {
+		return nil
+	}
+	mf, err := mimfile.Parse(b)
+	if err != nil {
+		return nil
+	}
+	p, err := interp.Load(mf)
+	if err != nil {
+		return nil
+	}
+	p.FastPaths = true
+	return p
 }
 
 func newFile(m *mim.Model) (*File, error) {
@@ -118,14 +157,16 @@ func newFile(m *mim.Model) (*File, error) {
 		return nil, fmt.Errorf("%w: input %s does not read numbers", ErrBadWeights, in)
 	}
 	shape := make([]int, len(in.Shape))
+	batch := 1
 	for i, d := range in.Shape {
 		switch {
 		case d.Size >= 0:
 			shape[i] = d.Size
 		case i == 0 && len(in.Shape) > 1:
 			// A free batch size, as most ONNX models declare: one
-			// question at a time.
+			// question, or a batch of them.
 			shape[i] = 1
+			batch = max(d.Bound, 0)
 		default:
 			return nil, fmt.Errorf("%w: input %s has a dimension of variable size", ErrBadWeights, in)
 		}
@@ -139,7 +180,80 @@ func newFile(m *mim.Model) (*File, error) {
 	if len(shape) > 1 && shape[0] == 1 {
 		spec.InputShape = shape[1:]
 	}
-	return &File{m: m, input: in, shape: shape, Spec: spec}, nil
+	return &File{m: m, input: in, shape: shape, batch: batch, Spec: spec}, nil
+}
+
+// onInterpreter reports whether the file's runs go to the interpreter.
+func (f *File) onInterpreter() bool {
+	return f.prog != nil && !f.noInterp.Load() && tensor.DefaultDevice().Name() == "cpu"
+}
+
+// Engine names what runs the file: "interpreter" or "mimir".
+func (f *File) Engine() string {
+	if f.onInterpreter() {
+		return "interpreter"
+	}
+	return "mimir"
+}
+
+// Run computes the file's first output for n inputs laid end to end in x,
+// each of Spec.InputShape, and returns each input's. Unless the file's
+// batch dimension is free, n must be 1.
+func (f *File) Run(ctx context.Context, x []float32, n int) ([][]float32, error) {
+	if n != 1 && (f.batch == 1 || f.batch > 0 && n > f.batch) {
+		return nil, fmt.Errorf("%w: the file takes %d inputs at once, not %d", ErrBadInput, f.batch, n)
+	}
+	shape := slices.Clone(f.shape)
+	if n != 1 {
+		shape[0] = n
+	}
+	if f.onInterpreter() {
+		out, err := f.runInterpreter(ctx, x, shape)
+		if err == nil || ctx.Err() != nil || errors.Is(err, ErrBadInput) {
+			return split(out, n), err
+		}
+		// An op the interpreter does not have: mimir runs this file from
+		// now on.
+		f.noInterp.Store(true)
+	}
+	out, err := f.forward(ctx, tensor.FromSlice(x, shape...)).Reshape(-1).Data[float32](ctx)
+	if err != nil {
+		return nil, err
+	}
+	return split(out, n), nil
+}
+
+func (f *File) runInterpreter(ctx context.Context, x []float32, shape []int) ([]float32, error) {
+	in := &ref.Tensor{DType: mimfile.F32, Shape: shape, Data: make([]byte, 4*len(x))}
+	for i, v := range x {
+		binary.LittleEndian.PutUint32(in.Data[4*i:], math.Float32bits(v))
+	}
+	outs, err := f.prog.NewSession().RunContext(ctx, map[string]*ref.Tensor{f.input.Name: in})
+	if err != nil {
+		return nil, err
+	}
+	t := outs[f.m.Outputs()[0].Name]
+	if t == nil || t.DType != mimfile.F32 {
+		return nil, fmt.Errorf("runtime: the interpreter gave no float32 output")
+	}
+	out := make([]float32, len(t.Data)/4)
+	for i := range out {
+		out[i] = math.Float32frombits(binary.LittleEndian.Uint32(t.Data[4*i:]))
+	}
+	return out, nil
+}
+
+// split cuts out into n rows of equal length; nil when it does not divide.
+func split(out []float32, n int) [][]float32 {
+	if n < 1 || len(out)%n != 0 {
+		return nil
+	}
+	rows := make([][]float32, n)
+	w := len(out) / n
+	for i := range rows {
+		rows[i] = out[i*w : (i+1)*w : (i+1)*w]
+	}
+	return rows
 }
 
 // Forward runs the file on x, reshaped to its input's shape, and returns
@@ -147,7 +261,12 @@ func newFile(m *mim.Model) (*File, error) {
 // to one model are answered at once rather than one after another, and
 // none sees the variables another left.
 func (f *File) Forward(ctx context.Context, x *tensor.Tensor) *tensor.Tensor {
-	out, err := f.m.NewSession().Run(ctx, map[string]*tensor.Tensor{f.input.Name: x.Reshape(f.shape...).Cast(f.input.DType())})
+	return f.forward(ctx, x.Reshape(f.shape...))
+}
+
+// forward runs the file on mimir with x as its input.
+func (f *File) forward(ctx context.Context, x *tensor.Tensor) *tensor.Tensor {
+	out, err := f.m.NewSession().Run(ctx, map[string]*tensor.Tensor{f.input.Name: x.Cast(f.input.DType())})
 	if err != nil {
 		return tensor.Failed(err)
 	}
@@ -172,14 +291,42 @@ type Cache struct {
 	lru    list.List // loaded entries, most recently used first
 	used   int64     // bytes of the entries in lru
 	limit  int64     // 0 means no limit
+
+	batching atomic.Pointer[Batching]
+	observer atomic.Pointer[Observer]
+}
+
+// SetBatching changes how predictions are batched (see Batching), for
+// models loaded and loading alike.
+func (c *Cache) SetBatching(b Batching) { c.batching.Store(&b) }
+
+func (c *Cache) batchingNow() Batching {
+	if b := c.batching.Load(); b != nil {
+		return *b
+	}
+	if b := defaultBatching.Load(); b != nil {
+		return *b
+	}
+	return DefaultBatching
+}
+
+// SetObserver makes o the observer of the cache's batches and loads.
+func (c *Cache) SetObserver(o Observer) { c.observer.Store(&o) }
+
+func (c *Cache) observerNow() Observer {
+	if o := c.observer.Load(); o != nil {
+		return *o
+	}
+	return nil
 }
 
 type entry struct {
 	id   string
 	ver  string // the weights' version, such as their SHA-256
-	once sync.Once
-	run  func(ctx context.Context, x *tensor.Tensor) *tensor.Tensor
-	lm   *LanguageModel // for a language model, instead of run
+	once  sync.Once
+	batch *batcher       // runs the model's predictions
+	lm    *LanguageModel // for a language model, instead of batch
+	kind  string         // "language", "file" or "built", for metrics
 	err  error
 	size int64         // bytes of the file it was loaded from
 	elem *list.Element // its place in lru, once loaded; guarded by Cache.mu
@@ -187,12 +334,14 @@ type entry struct {
 
 // load builds the model of architecture a from weights, a weights file
 // or, for a File architecture, a Mimir Model file.
-func (e *entry) load(a arch.Architecture, spec arch.Spec, weights []byte) {
+func (e *entry) load(c *Cache, a arch.Architecture, spec arch.Spec, weights []byte) {
 	if a.Answers() == arch.Written {
+		e.kind = "language"
 		e.lm, e.err = OpenLanguageModel(weights)
 		return
 	}
 	if a.File {
+		e.kind = "file"
 		f, err := OpenFile(weights)
 		if err != nil {
 			e.err = err
@@ -203,15 +352,24 @@ func (e *entry) load(a arch.Architecture, spec arch.Spec, weights []byte) {
 			e.err = fmt.Errorf("%w: the file reads shape %v, the model %v", ErrBadWeights, f.Spec.InputShape, spec.InputShape)
 			return
 		}
-		e.run = f.Forward
+		e.batch = newBatcher(f.Run, f.Engine(), f.batch, c.batchingNow, c.observerNow)
 		return
 	}
+	e.kind = "built"
 	mod, err := Build(a, spec, weights)
 	if err != nil {
 		e.err = err
 		return
 	}
-	e.run = func(_ context.Context, x *tensor.Tensor) *tensor.Tensor { return mod.Forward(x) }
+	run := func(ctx context.Context, x []float32, n int) ([][]float32, error) {
+		shape := append([]int{n}, spec.InputShape...)
+		out, err := mod.Forward(tensor.FromSlice(x, shape...)).Reshape(-1).Data[float32](ctx)
+		if err != nil {
+			return nil, err
+		}
+		return split(out, n), nil
+	}
+	e.batch = newBatcher(run, "mimir", 0, c.batchingNow, c.observerNow)
 }
 
 // NewCache returns an empty cache that holds at most limit bytes of
@@ -248,24 +406,33 @@ func (c *Cache) Predict(ctx context.Context, id, ver string, a arch.Architecture
 	if err != nil {
 		return Result{}, err
 	}
-	if e.run == nil {
+	if e.batch == nil {
 		return Result{}, fmt.Errorf("%w: a language model writes text; send it a prompt", ErrBadInput)
 	}
-	shape := append([]int{1}, spec.InputShape...)
-	logits := e.run(ctx, tensor.FromSlice(input, shape...)).Reshape(-1)
-	probs := logits.Softmax(-1)
-	if err := tensor.Realize(ctx, logits, probs); err != nil { // one schedule for both
-		return Result{}, fmt.Errorf("runtime: run model %s: %w", id, err)
-	}
-	out, err := logits.Data[float32](ctx)
+	out, err := e.batch.ask(ctx, input)
 	if err != nil {
 		return Result{}, fmt.Errorf("runtime: run model %s: %w", id, err)
 	}
-	p, err := probs.Data[float32](ctx)
-	if err != nil {
-		return Result{}, fmt.Errorf("runtime: run model %s: %w", id, err)
+	return Result{Output: out, Probability: softmax(out)}, nil
+}
+
+// softmax returns the softmax of v, computed in float64.
+func softmax(v []float32) []float32 {
+	m := math.Inf(-1)
+	for _, x := range v {
+		m = math.Max(m, float64(x))
 	}
-	return Result{Output: out, Probability: p}, nil
+	e := make([]float64, len(v))
+	var s float64
+	for i, x := range v {
+		e[i] = math.Exp(float64(x) - m)
+		s += e[i]
+	}
+	p := make([]float32, len(v))
+	for i := range p {
+		p[i] = float32(e[i] / s)
+	}
+	return p
 }
 
 // Load loads version ver of the model with id ahead of its first
@@ -304,7 +471,13 @@ func (c *Cache) Chat(ctx context.Context, id, ver string, a arch.Architecture, l
 // ready returns the entry of version ver of the model with id, loading it
 // with load on first use.
 func (c *Cache) ready(id, ver string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error)) (*entry, error) {
-	return c.get(id, ver, load, func(e *entry, w []byte) { e.load(a, spec, w) })
+	return c.get(id, ver, load, func(e *entry, w []byte) {
+		start := time.Now()
+		e.load(c, a, spec, w)
+		if o := c.observerNow(); o != nil {
+			o.ObserveLoad(e.kind, time.Since(start), e.err != nil)
+		}
+	})
 }
 
 // get returns the entry of version ver of the model with id, building it

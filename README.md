@@ -395,9 +395,28 @@ anything public.
   `mimir_http_errors_total` (5xx) and `mimir_http_request_duration_seconds`
   by method and route; `mimir_rpc_requests_total`, `mimir_rpc_errors_total`
   and `mimir_rpc_duration_seconds` by Connect/gRPC procedure and status
-  code; plus Go runtime and process metrics. Set `-metrics-token` (or
-  `MIMIR_METRICS_TOKEN`) to require `Authorization: Bearer <token>`;
-  without it anyone who can reach the port can read them.
+  code; the models, `mimir_models_loaded`, `mimir_model_cache_bytes`,
+  `mimir_model_loads_total` and `mimir_model_load_seconds` by kind; the
+  predictions, `mimir_predictions_total`, `mimir_prediction_batch_size`,
+  `mimir_prediction_batch_seconds` and `mimir_prediction_queue_seconds`
+  (how long a prediction waited for its batch) by engine; plus Go runtime
+  and process metrics. Set `-metrics-token` (or `MIMIR_METRICS_TOKEN`) to
+  require `Authorization: Bearer <token>`; without it anyone who can reach
+  the port can read them.
+
+### Batching predictions
+
+Predictions to one model queue up and run together as one forward pass,
+a row per request, when they arrive faster than the model answers them:
+while the model is idle a request runs at once and alone, so a lone
+request pays no latency for it, and a small model answers a batch of 32
+in little more time than one request. `-predict-batch` (or
+`MIMIR_PREDICT_BATCH`, default 32) is the most requests in one batch and
+1 turns batching off; `-predict-batch-wait` (`MIMIR_PREDICT_BATCH_WAIT`,
+default 0) makes a runner that found fewer than that waiting hold them
+for up to that long for more, trading latency for bigger batches, for a
+server whose throughput matters more than each request's time. The
+batch sizes and waits show in the metrics above.
 - Every response carries `X-Request-Id`: the caller's own when it sends a
   sensible one (up to 128 letters, digits and `-_.:+/=`), otherwise a new
   UUID. Log lines written while handling the request carry it as

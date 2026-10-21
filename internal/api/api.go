@@ -95,6 +95,14 @@ const DefaultModelCacheBytes = 4 << 30
 // bound.
 func (s *Service) SetModelCacheBytes(n int64) { s.cache.SetLimit(n) }
 
+// ObserveModels has o told about the predictions the console runs itself
+// and the models it loads, for metrics.
+func (s *Service) ObserveModels(o runtime.Observer) { s.cache.SetObserver(o) }
+
+// ModelCacheUsage returns the bytes of models the console holds loaded,
+// by file size, and how many.
+func (s *Service) ModelCacheUsage() (bytes int64, models int) { return s.cache.Used() }
+
 // DefaultPredictTimeout is how long a prediction may take, loading the
 // model included, when PredictTimeout isn't set.
 const DefaultPredictTimeout = time.Minute
