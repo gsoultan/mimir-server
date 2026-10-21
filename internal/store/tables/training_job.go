@@ -36,6 +36,9 @@ type TrainingJob struct {
 	BaseModelID   string
 	Note          string
 	RunOn         string // the worker asked to run it, by id; "" for any
+	// Layers is the design of a table model someone shaped themselves, as
+	// arch.FormatLayers writes it; "" is the usual shape.
+	Layers string
 }
 
 // Aggregates: how many runs wait for each worker.
@@ -62,6 +65,7 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Col(&j.BaseModelID).Default("''").Immutable()
 	t.Col(&j.Note).Default("''")
 	t.Col(&j.RunOn).Default("''")
+	t.Col(&j.Layers).Default("''").Immutable()
 	// A team's runs, newest first; also the team key's index.
 	t.Col(&j.Team).NoIndex()
 	t.Index(&j.Team, storm.Desc(&j.CreateTime), storm.Desc(&j.ID))
@@ -75,4 +79,5 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Index(&j.RunOn)
 	t.Index(&j.Worker)
 	t.Check(storm.RawSQL(between("status", JobQueued, JobCancelled)))
+	t.Check(storm.RawSQL(`length(layers) <= 200`))
 }

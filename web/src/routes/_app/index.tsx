@@ -33,14 +33,14 @@ function Home() {
           <Card withBorder radius="lg" padding="xl">
             <ThemeIcon size={44} radius="md" variant="light"><IconUpload /></ThemeIcon>
             <Title order={3} mt="md">Add a model you already have</Title>
-            <Text c="dimmed" mt={4} mb="lg">Upload a .mim file saved from mimir. It takes a minute.</Text>
+            <Text c="dimmed" mt={4} mb="lg">Upload a Mimir Model, ONNX or GGUF file. It takes a minute.</Text>
             <ButtonLink to="/models/new">Add a model</ButtonLink>
           </Card>
           <Card withBorder radius="lg" padding="xl">
             <ThemeIcon size={44} radius="md" variant="light" color="gray"><IconSchool /></ThemeIcon>
-            <Title order={3} mt="md">Teach a new model</Title>
-            <Text c="dimmed" mt={4} mb="lg">Upload a table of examples, or use the built-in handwritten digits, and watch it learn.</Text>
-            <ButtonLink variant="default" to="/models/teach">Teach a new model</ButtonLink>
+            <Title order={3} mt="md">Build a new model</Title>
+            <Text c="dimmed" mt={4} mb="lg">Say what it should do, like spot defects or guess who will leave. We show the easiest way there, step by step.</Text>
+            <ButtonLink variant="default" to="/models/build">Build a model</ButtonLink>
           </Card>
         </SimpleGrid>
       </Page>

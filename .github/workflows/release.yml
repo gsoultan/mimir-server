@@ -29,6 +29,8 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bun run build
+      - name: Build the browser runtime
+        run: ./scripts/wasm.sh web/dist/wasm
       - name: Build binaries
         env:
           VERSION: ${{ github.ref_name }}

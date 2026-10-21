@@ -14,11 +14,13 @@ import type { DataCheck as Check } from "../../../api/gen/mimir/v1/template_pb";
 import { DatasetKind, DatasetService, TrainingService, type Dataset } from "../../../api/gen/mimir/v1/training_pb";
 import { allDatasetQueries, allTrainingQueries, listArchitectures, listDatasets, listTemplates, whoAmI } from "../../../api/queries";
 import { DataCheck } from "../../../components/DataCheck";
+import { ModelShape } from "../../../components/ModelShape";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { useWorkerChoices, WorkerSelect } from "../../../components/Placement";
 import { bytes } from "../../../lib/format";
 import { dataTypeOf, dataTypeOfKind, dataTypes, datasetKindOf, kindLabel, type DataType } from "../../../lib/templates";
+import { layersOf, type Size, type Step } from "../../../lib/shape";
 import { repeatChoices } from "../../../lib/training";
 import { pathOf, zip } from "../../../lib/zip";
 
@@ -27,6 +29,9 @@ export const Route = createFileRoute("/_app/models/teach")({
     template: z.string().optional(),
     example: z.boolean().optional(),
     data: z.enum(["table", "text", "photos", "photo_table"]).optional(),
+    // arch is the model type to teach when the examples fit it, such as
+    // one written in someone's own code.
+    arch: z.string().optional(),
   }),
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureQueryData(listDatasets),
@@ -149,6 +154,8 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const [dataset, setDataset] = useState<Dataset>();
   const [check, setCheck] = useState<Check>();
   const [arch, setArch] = useState("");
+  const [size, setSize] = useState<Size>("medium");
+  const [shapeSteps, setShapeSteps] = useState<Step[]>([]);
   const [name, setName] = useState(tpl?.name ?? "");
   const [description, setDescription] = useState(tpl?.question ?? "");
   const [preset, setPreset] = useState("normal");
@@ -204,6 +211,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
     const allowed = archs.architectures.filter((a) => d.architectures.includes(a.name));
     setArch((cur) => {
       if (tpl && d.architectures.includes(tpl.architecture)) return tpl.architecture;
+      if (search.arch && d.architectures.includes(search.arch)) return search.arch;
       return allowed.some((a) => a.name === cur) ? cur : allowed[0]?.name ?? "";
     });
     if (!name) setName(d.kind === DatasetKind.MNIST ? "My digits model" : `${d.name.replace(/\.(csv|zip)$/i, "")} model`);
@@ -304,11 +312,18 @@ function Wizard({ data: dataType }: { data: DataType }) {
     : source === "digits" || source === "example" || (source === "existing" && !!existing) || (source === "upload" && !!upload && (archive || !!target || !!tpl)) || (source === "database" && !!dsn.trim() && !!query.trim() && (!!tpl || (!!tested.data && !!target)))
       || (source === "storage" && bucketFilled(bucket) && (archive || !!tpl || (!!looked.data && !!target)));
   const fromQuery = !!dataset?.query || !!dataset?.storage;
+  const inputs = Number((dataset?.inputShape ?? []).reduce((n, d) => n * d, 1n));
+  const answers = dataset?.numberTarget
+    ? { what: "a number", count: 1 }
+    : { what: dataset?.labels.length === 2 ? dataset.labels.join(" or ") : `one of ${dataset?.labels.length ?? 0} answers`, count: dataset?.labels.length ?? 2 };
   const chosenEpochs = expert ? Number(epochs) : presets.find((p) => p.value === preset)!.epochs;
   const start = () => dataset && createJob.mutate({
     name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n, workerId: runOn,
     // Outside the expert settings, zero lets the server pick what suits the examples.
-    settings: { epochs: chosenEpochs, batchSize: expert ? Number(batch) : 0, learningRate: expert ? Number(rate) : 0, holdOut: expert ? Number(holdOut) / 100 : 0.2 },
+    settings: {
+      epochs: chosenEpochs, batchSize: expert ? Number(batch) : 0, learningRate: expert ? Number(rate) : 0, holdOut: expert ? Number(holdOut) / 100 : 0.2,
+      layers: chosenArch?.designable ? layersOf(size, shapeSteps, inputs) : [],
+    },
   });
   const steps = tpl ? ["Your data", "Name it", "How long"] : ["The examples", "What kind", "How long"];
   const dt = dataTypeOf(dataType);
@@ -495,12 +510,23 @@ function Wizard({ data: dataType }: { data: DataType }) {
                     <Radio.Card key={a.name} value={a.name} radius="md" p="md" className="data-[checked]:border-[var(--mantine-color-teal-7)]">
                       <Group wrap="nowrap" align="flex-start">
                         <Radio.Indicator />
-                        <div><Group gap="xs"><Text fw={600}>{a.title}</Text>{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}</Group><Text size="sm" c="dimmed">{a.description}</Text></div>
+                        <div><Group gap="xs"><Text fw={600}>{a.title}</Text>{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group><Text size="sm" c="dimmed">{a.description}</Text></div>
                       </Group>
                     </Radio.Card>
                   ))}
                 </Stack>
               </Radio.Group>
+            )}
+            {chosenArch?.designable && dataset && (
+              <ModelShape
+                inputs={inputs}
+                columns={dataset.columns.length > 0 ? dataset.columns.map((c) => c.name) : dataset.features}
+                answers={answers}
+                rows={Number(dataset.rows)}
+                size={size}
+                steps={shapeSteps}
+                onChange={(sz, st) => { setSize(sz); setShapeSteps(st); }}
+              />
             )}
             <Stack mt="lg">
               <TextInput label="Name" required maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} />

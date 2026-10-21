@@ -85,6 +85,17 @@ type Settings struct {
 	BatchSize    int
 	LearningRate float64
 	HoldOut      float64
+	// Layers, when set, is how someone shaped a table model: its hidden
+	// steps in place of the usual ones.
+	Layers []Layer
+}
+
+// Layer is one step of a designed table model: "dense" learns patterns
+// with Units numbers, "dropout" forgets a Rate of them while learning.
+type Layer struct {
+	Kind  string
+	Units int
+	Rate  float64
 }
 
 // Epoch is how one pass over the examples went.
@@ -503,7 +514,7 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 	}
 	task := TrainTask{
 		JobID: t.JobId, Architecture: t.Architecture,
-		Settings:    Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut()},
+		Settings:    Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut(), Layers: layersFromProto(t.GetSettings().GetLayers())},
 		Dataset:     Dataset{Kind: kind, CSV: t.Csv, Target: t.Target, Archive: t.Archive, Columns: columnsFromProto(t.Columns)},
 		History:     epochsFromProto(t.History),
 		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
@@ -597,6 +608,14 @@ func ints(v []int64) []int {
 	out := make([]int, len(v))
 	for i, x := range v {
 		out[i] = int(x)
+	}
+	return out
+}
+
+func layersFromProto(ls []*mimirv1.Layer) []Layer {
+	out := make([]Layer, len(ls))
+	for i, l := range ls {
+		out[i] = Layer{Kind: l.GetKind(), Units: int(l.GetUnits()), Rate: l.GetRate()}
 	}
 	return out
 }

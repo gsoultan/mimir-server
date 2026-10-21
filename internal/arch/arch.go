@@ -8,6 +8,7 @@ package arch
 import (
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/tensor"
@@ -38,6 +39,9 @@ const (
 	Number Output = "number" // one number, like a price or a count
 	// Written is text a language model writes, one token at a time.
 	Written Output = "text"
+	// Ranked lists the labels that fit best, most likely first: the
+	// items a recommender suggests, say. It is answered like Class.
+	Ranked Output = "ranked"
 )
 
 // Spec is what a model reads and answers. Fixed architectures carry their
@@ -54,6 +58,9 @@ type Spec struct {
 	// TargetMean and TargetStd scale the answer of a number model, so it
 	// learns as evenly for prices in millions as for counts in tens.
 	TargetMean, TargetStd float32
+	// Layers, when set, is the hidden part of a Designable architecture
+	// as someone designed it, in place of its usual shape.
+	Layers []Layer
 }
 
 // Standardize is a module that rescales each input feature to roughly zero
@@ -161,6 +168,10 @@ func size(shape []int) int {
 // it answers.
 func tableNet(s Spec, out int) []nn.Module {
 	in := size(s.InputShape)
+	if len(s.Layers) > 0 {
+		hidden, last := layerNet(in, s.Layers)
+		return append(append([]nn.Module{NewStandardize(in, s.Mean, s.Std)}, hidden...), nn.NewLinear(last, out))
+	}
 	hidden := max(16, min(256, 4*in))
 	return []nn.Module{
 		NewStandardize(in, s.Mean, s.Std),
@@ -180,6 +191,8 @@ type Architecture struct {
 	Output Output
 	// Text marks a table architecture made for rows with free text.
 	Text bool
+	// Designable says its hidden layers can be designed (Spec.Layers).
+	Designable bool
 	// Spec is the fixed shape and labels, or zero when they come from the
 	// dataset.
 	Spec Spec
@@ -190,6 +203,11 @@ type Architecture struct {
 	// their model's graph as well as its weights and so run as they are.
 	// Their shape and labels come from the file.
 	File bool
+	// Custom marks an architecture someone wrote in their own code and
+	// described to the server. Only workers that run it can answer or
+	// teach its models; Items is how many a Ranked answer lists.
+	Custom bool
+	Items  int
 }
 
 // Answers returns what the architecture answers.
@@ -247,6 +265,7 @@ var builtin = []Architecture{
 		Title:       "Table of numbers",
 		Description: "Reads one row of numbers, like a spreadsheet line, and picks a category. Learns from a CSV you upload.",
 		Input:       Table,
+		Designable:  true,
 		New: func(s Spec) nn.Module {
 			return nn.NewSequential(tableNet(s, len(s.Labels))...)
 		},
@@ -256,6 +275,7 @@ var builtin = []Architecture{
 		Title:       "Text and table",
 		Description: "Reads a row with free text, like a message or a review, next to numbers and categories, and picks a category.",
 		Input:       Table,
+		Designable:  true,
 		Text:        true,
 		New: func(s Spec) nn.Module {
 			return nn.NewSequential(tableNet(s, len(s.Labels))...)
@@ -266,6 +286,7 @@ var builtin = []Architecture{
 		Title:       "Number predictor",
 		Description: "Reads one row of a table and answers with a number, like a price, a count or a number of days.",
 		Input:       Table,
+		Designable:  true,
 		Output:      Number,
 		New: func(s Spec) nn.Module {
 			return nn.NewSequential(append(tableNet(s, 1), NewUnscale(s.TargetMean, s.TargetStd))...)
@@ -322,13 +343,46 @@ func All() []Architecture {
 	return out
 }
 
-// Lookup returns the architecture called name.
-func Lookup(name string) (Architecture, bool) {
-	i := slices.IndexFunc(builtin, func(a Architecture) bool { return a.Name == name })
-	if i < 0 {
-		return Architecture{}, false
+// custom is the architectures described to the server, as SetCustom
+// last set them.
+var custom atomic.Pointer[[]Architecture]
+
+// SetCustom replaces the described architectures. Names a built-in one
+// already has are ignored.
+func SetCustom(as []Architecture) {
+	out := make([]Architecture, 0, len(as))
+	for _, a := range as {
+		if !slices.ContainsFunc(builtin, func(b Architecture) bool { return b.Name == a.Name }) {
+			a.Custom = true
+			out = append(out, a)
+		}
 	}
-	return builtin[i], true
+	slices.SortFunc(out, func(a, b Architecture) int { return strings.Compare(a.Name, b.Name) })
+	custom.Store(&out)
+}
+
+// Customs returns the described architectures, sorted by name.
+func Customs() []Architecture {
+	if c := custom.Load(); c != nil {
+		return slices.Clone(*c)
+	}
+	return nil
+}
+
+// Every returns the built-in architectures, then the described ones.
+func Every() []Architecture { return append(All(), Customs()...) }
+
+// Lookup returns the architecture called name, built in or described.
+func Lookup(name string) (Architecture, bool) {
+	if i := slices.IndexFunc(builtin, func(a Architecture) bool { return a.Name == name }); i >= 0 {
+		return builtin[i], true
+	}
+	if c := custom.Load(); c != nil {
+		if i := slices.IndexFunc(*c, func(a Architecture) bool { return a.Name == name }); i >= 0 {
+			return (*c)[i], true
+		}
+	}
+	return Architecture{}, false
 }
 
 // Resolve returns the spec a model of architecture a uses: the fixed one,

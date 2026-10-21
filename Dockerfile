@@ -30,6 +30,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
+# The browser runtime, for models people run on their own devices.
+RUN ./scripts/wasm.sh web/dist/wasm
 ARG VERSION=dev
 ARG TARGETOS
 ARG TARGETARCH

@@ -2,7 +2,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { useMutation } from "@connectrpc/connect-query";
 import { Alert, AppShell, Avatar, Burger, Button, Group, Menu, NavLink, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
-import { IconAlertCircle, IconChevronDown, IconDots, IconKey, IconLogout, IconShieldLock } from "@tabler/icons-react";
+import { IconAlertCircle, IconChevronDown, IconDots, IconKey, IconLogout, IconShieldLock, IconWifiOff } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 
@@ -44,6 +44,20 @@ function ErrorPage({ error, reset }: { error: unknown; reset: () => void }) {
   if (code === Code.Unauthenticated) {
     location.assign("/sign-in?next=" + encodeURIComponent(location.pathname + location.search));
     return null;
+  }
+  // Offline, models saved on this device still answer.
+  if (!navigator.onLine) {
+    return (
+      <Stack align="flex-start" p="xl" className="mx-auto max-w-2xl">
+        <Alert color="gray" icon={<IconWifiOff />} title="You're offline" className="w-full">
+          mimir needs the server for this page. Models saved on this device still answer.
+        </Alert>
+        <Group>
+          <Button component={Link} to="/device">Models on this device</Button>
+          <Button variant="default" onClick={reset}>Try again</Button>
+        </Group>
+      </Stack>
+    );
   }
   return (
     <Stack align="flex-start" p="xl" className="mx-auto max-w-2xl">

@@ -20,6 +20,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/obs"
+	"github.com/gsoultan/mimir-server/internal/openai"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -80,6 +81,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	// guards the unary calls as usual.
 	mux.Handle(mimirv1connect.NewWorkerServiceHandler(svc, guard, connect.WithReadMaxBytes(modelBytes), connect.WithSendMaxBytes(modelBytes)))
 	mux.Handle("GET /api/backup", backupHandler(st, log))
+	mux.Handle("/v1/", openai.Handler(svc, st, log))
 	mux.Handle(grpchealth.NewHandler(newHealthChecker(st.Ping), connect.WithInterceptors(metrics.Interceptor())))
 	mux.Handle("GET /healthz", liveHandler())
 	mux.Handle("GET /readyz", readyHandler(st.Ping, log))
@@ -100,6 +102,8 @@ func route(r *http.Request) string {
 		return p
 	case strings.HasPrefix(p, "/mimir.v1."), strings.HasPrefix(p, "/grpc.health.v1."):
 		return "rpc"
+	case strings.HasPrefix(p, "/v1/"):
+		return "openai"
 	}
 	return "ui"
 }
@@ -118,7 +122,7 @@ func harden(next http.Handler, svc *api.Service) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
+		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
 		if svc.Proxies.HTTPS(r) {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
@@ -207,11 +211,23 @@ func uiHandler(ui fs.FS) http.Handler {
 			return
 		}
 		switch {
-		case strings.HasPrefix(name, "assets/"):
-			// Vite fingerprints these, so they never change.
+		case strings.HasPrefix(name, "assets/"),
+			strings.HasPrefix(name, "wasm/") && name != "wasm/runtime.json":
+			// Vite and scripts/wasm.sh fingerprint these, so they never
+			// change.
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		default:
 			w.Header().Set("Cache-Control", "no-cache")
+		}
+		// The browser runtime is large; send its gzipped copy to browsers
+		// that take one.
+		if path.Ext(name) == ".wasm" && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			if _, err := fs.Stat(ui, name+".gz"); err == nil {
+				w.Header().Set("Content-Encoding", "gzip")
+				w.Header().Set("Content-Type", "application/wasm")
+				w.Header().Add("Vary", "Accept-Encoding")
+				name += ".gz"
+			}
 		}
 		r2 := r.Clone(r.Context())
 		r2.URL.Path = "/" + name

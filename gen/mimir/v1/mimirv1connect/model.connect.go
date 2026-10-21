@@ -54,10 +54,24 @@ const (
 	// ModelServiceSetModelWorkerProcedure is the fully-qualified name of the ModelService's
 	// SetModelWorker RPC.
 	ModelServiceSetModelWorkerProcedure = "/mimir.v1.ModelService/SetModelWorker"
+	// ModelServiceSaveArchitectureProcedure is the fully-qualified name of the ModelService's
+	// SaveArchitecture RPC.
+	ModelServiceSaveArchitectureProcedure = "/mimir.v1.ModelService/SaveArchitecture"
+	// ModelServiceGetDeviceModelProcedure is the fully-qualified name of the ModelService's
+	// GetDeviceModel RPC.
+	ModelServiceGetDeviceModelProcedure = "/mimir.v1.ModelService/GetDeviceModel"
+	// ModelServiceDeleteArchitectureProcedure is the fully-qualified name of the ModelService's
+	// DeleteArchitecture RPC.
+	ModelServiceDeleteArchitectureProcedure = "/mimir.v1.ModelService/DeleteArchitecture"
 	// PredictServicePredictProcedure is the fully-qualified name of the PredictService's Predict RPC.
 	PredictServicePredictProcedure = "/mimir.v1.PredictService/Predict"
 	// PredictServiceGenerateProcedure is the fully-qualified name of the PredictService's Generate RPC.
 	PredictServiceGenerateProcedure = "/mimir.v1.PredictService/Generate"
+	// PredictServiceGenerateStreamProcedure is the fully-qualified name of the PredictService's
+	// GenerateStream RPC.
+	PredictServiceGenerateStreamProcedure = "/mimir.v1.PredictService/GenerateStream"
+	// PredictServiceChatProcedure is the fully-qualified name of the PredictService's Chat RPC.
+	PredictServiceChatProcedure = "/mimir.v1.PredictService/Chat"
 )
 
 // ModelServiceClient is a client for the mimir.v1.ModelService service.
@@ -78,6 +92,14 @@ type ModelServiceClient interface {
 	// SetModelWorker picks the worker that answers a model's questions, or
 	// none to let the console choose.
 	SetModelWorker(context.Context, *connect.Request[v1.SetModelWorkerRequest]) (*connect.Response[v1.SetModelWorkerResponse], error)
+	// SaveArchitecture describes a model type written in someone's own code
+	// and run on workers, or changes how one is described.
+	SaveArchitecture(context.Context, *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error)
+	// GetDeviceModel downloads a model that may run on people's devices,
+	// with what a browser needs to answer with it.
+	GetDeviceModel(context.Context, *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error)
+	// DeleteArchitecture removes a described model type no model uses.
+	DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error)
 }
 
 // NewModelServiceClient constructs a client for the mimir.v1.ModelService service. By default, it
@@ -136,18 +158,40 @@ func NewModelServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(modelServiceMethods.ByName("SetModelWorker")),
 			connect.WithClientOptions(opts...),
 		),
+		saveArchitecture: connect.NewClient[v1.SaveArchitectureRequest, v1.SaveArchitectureResponse](
+			httpClient,
+			baseURL+ModelServiceSaveArchitectureProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("SaveArchitecture")),
+			connect.WithClientOptions(opts...),
+		),
+		getDeviceModel: connect.NewClient[v1.GetDeviceModelRequest, v1.GetDeviceModelResponse](
+			httpClient,
+			baseURL+ModelServiceGetDeviceModelProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("GetDeviceModel")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		deleteArchitecture: connect.NewClient[v1.DeleteArchitectureRequest, v1.DeleteArchitectureResponse](
+			httpClient,
+			baseURL+ModelServiceDeleteArchitectureProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("DeleteArchitecture")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // modelServiceClient implements ModelServiceClient.
 type modelServiceClient struct {
-	listArchitectures *connect.Client[v1.ListArchitecturesRequest, v1.ListArchitecturesResponse]
-	listModels        *connect.Client[v1.ListModelsRequest, v1.ListModelsResponse]
-	getModel          *connect.Client[v1.GetModelRequest, v1.GetModelResponse]
-	createModel       *connect.Client[v1.CreateModelRequest, v1.CreateModelResponse]
-	updateModel       *connect.Client[v1.UpdateModelRequest, v1.UpdateModelResponse]
-	deleteModel       *connect.Client[v1.DeleteModelRequest, v1.DeleteModelResponse]
-	setModelWorker    *connect.Client[v1.SetModelWorkerRequest, v1.SetModelWorkerResponse]
+	listArchitectures  *connect.Client[v1.ListArchitecturesRequest, v1.ListArchitecturesResponse]
+	listModels         *connect.Client[v1.ListModelsRequest, v1.ListModelsResponse]
+	getModel           *connect.Client[v1.GetModelRequest, v1.GetModelResponse]
+	createModel        *connect.Client[v1.CreateModelRequest, v1.CreateModelResponse]
+	updateModel        *connect.Client[v1.UpdateModelRequest, v1.UpdateModelResponse]
+	deleteModel        *connect.Client[v1.DeleteModelRequest, v1.DeleteModelResponse]
+	setModelWorker     *connect.Client[v1.SetModelWorkerRequest, v1.SetModelWorkerResponse]
+	saveArchitecture   *connect.Client[v1.SaveArchitectureRequest, v1.SaveArchitectureResponse]
+	getDeviceModel     *connect.Client[v1.GetDeviceModelRequest, v1.GetDeviceModelResponse]
+	deleteArchitecture *connect.Client[v1.DeleteArchitectureRequest, v1.DeleteArchitectureResponse]
 }
 
 // ListArchitectures calls mimir.v1.ModelService.ListArchitectures.
@@ -185,6 +229,21 @@ func (c *modelServiceClient) SetModelWorker(ctx context.Context, req *connect.Re
 	return c.setModelWorker.CallUnary(ctx, req)
 }
 
+// SaveArchitecture calls mimir.v1.ModelService.SaveArchitecture.
+func (c *modelServiceClient) SaveArchitecture(ctx context.Context, req *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error) {
+	return c.saveArchitecture.CallUnary(ctx, req)
+}
+
+// GetDeviceModel calls mimir.v1.ModelService.GetDeviceModel.
+func (c *modelServiceClient) GetDeviceModel(ctx context.Context, req *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error) {
+	return c.getDeviceModel.CallUnary(ctx, req)
+}
+
+// DeleteArchitecture calls mimir.v1.ModelService.DeleteArchitecture.
+func (c *modelServiceClient) DeleteArchitecture(ctx context.Context, req *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error) {
+	return c.deleteArchitecture.CallUnary(ctx, req)
+}
+
 // ModelServiceHandler is an implementation of the mimir.v1.ModelService service.
 type ModelServiceHandler interface {
 	// ListArchitectures returns the model architectures this server can build.
@@ -203,6 +262,14 @@ type ModelServiceHandler interface {
 	// SetModelWorker picks the worker that answers a model's questions, or
 	// none to let the console choose.
 	SetModelWorker(context.Context, *connect.Request[v1.SetModelWorkerRequest]) (*connect.Response[v1.SetModelWorkerResponse], error)
+	// SaveArchitecture describes a model type written in someone's own code
+	// and run on workers, or changes how one is described.
+	SaveArchitecture(context.Context, *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error)
+	// GetDeviceModel downloads a model that may run on people's devices,
+	// with what a browser needs to answer with it.
+	GetDeviceModel(context.Context, *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error)
+	// DeleteArchitecture removes a described model type no model uses.
+	DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error)
 }
 
 // NewModelServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -257,6 +324,25 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(modelServiceMethods.ByName("SetModelWorker")),
 		connect.WithHandlerOptions(opts...),
 	)
+	modelServiceSaveArchitectureHandler := connect.NewUnaryHandler(
+		ModelServiceSaveArchitectureProcedure,
+		svc.SaveArchitecture,
+		connect.WithSchema(modelServiceMethods.ByName("SaveArchitecture")),
+		connect.WithHandlerOptions(opts...),
+	)
+	modelServiceGetDeviceModelHandler := connect.NewUnaryHandler(
+		ModelServiceGetDeviceModelProcedure,
+		svc.GetDeviceModel,
+		connect.WithSchema(modelServiceMethods.ByName("GetDeviceModel")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	modelServiceDeleteArchitectureHandler := connect.NewUnaryHandler(
+		ModelServiceDeleteArchitectureProcedure,
+		svc.DeleteArchitecture,
+		connect.WithSchema(modelServiceMethods.ByName("DeleteArchitecture")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.ModelService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ModelServiceListArchitecturesProcedure:
@@ -273,6 +359,12 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 			modelServiceDeleteModelHandler.ServeHTTP(w, r)
 		case ModelServiceSetModelWorkerProcedure:
 			modelServiceSetModelWorkerHandler.ServeHTTP(w, r)
+		case ModelServiceSaveArchitectureProcedure:
+			modelServiceSaveArchitectureHandler.ServeHTTP(w, r)
+		case ModelServiceGetDeviceModelProcedure:
+			modelServiceGetDeviceModelHandler.ServeHTTP(w, r)
+		case ModelServiceDeleteArchitectureProcedure:
+			modelServiceDeleteArchitectureHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -310,6 +402,18 @@ func (UnimplementedModelServiceHandler) SetModelWorker(context.Context, *connect
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.SetModelWorker is not implemented"))
 }
 
+func (UnimplementedModelServiceHandler) SaveArchitecture(context.Context, *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.SaveArchitecture is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) GetDeviceModel(context.Context, *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.GetDeviceModel is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.DeleteArchitecture is not implemented"))
+}
+
 // PredictServiceClient is a client for the mimir.v1.PredictService service.
 type PredictServiceClient interface {
 	// Predict runs one input through a model.
@@ -317,6 +421,11 @@ type PredictServiceClient interface {
 	// Generate continues a prompt with a language model, such as one
 	// uploaded as a GGUF file.
 	Generate(context.Context, *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error)
+	// GenerateStream is Generate, sending the text as the model writes it.
+	GenerateStream(context.Context, *connect.Request[v1.GenerateStreamRequest]) (*connect.ServerStreamForClient[v1.GenerateStreamResponse], error)
+	// Chat writes a language model's next turn in a chat, sending the text
+	// as the model writes it.
+	Chat(context.Context, *connect.Request[v1.ChatRequest]) (*connect.ServerStreamForClient[v1.ChatResponse], error)
 }
 
 // NewPredictServiceClient constructs a client for the mimir.v1.PredictService service. By default,
@@ -342,13 +451,27 @@ func NewPredictServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(predictServiceMethods.ByName("Generate")),
 			connect.WithClientOptions(opts...),
 		),
+		generateStream: connect.NewClient[v1.GenerateStreamRequest, v1.GenerateStreamResponse](
+			httpClient,
+			baseURL+PredictServiceGenerateStreamProcedure,
+			connect.WithSchema(predictServiceMethods.ByName("GenerateStream")),
+			connect.WithClientOptions(opts...),
+		),
+		chat: connect.NewClient[v1.ChatRequest, v1.ChatResponse](
+			httpClient,
+			baseURL+PredictServiceChatProcedure,
+			connect.WithSchema(predictServiceMethods.ByName("Chat")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // predictServiceClient implements PredictServiceClient.
 type predictServiceClient struct {
-	predict  *connect.Client[v1.PredictRequest, v1.PredictResponse]
-	generate *connect.Client[v1.GenerateRequest, v1.GenerateResponse]
+	predict        *connect.Client[v1.PredictRequest, v1.PredictResponse]
+	generate       *connect.Client[v1.GenerateRequest, v1.GenerateResponse]
+	generateStream *connect.Client[v1.GenerateStreamRequest, v1.GenerateStreamResponse]
+	chat           *connect.Client[v1.ChatRequest, v1.ChatResponse]
 }
 
 // Predict calls mimir.v1.PredictService.Predict.
@@ -361,6 +484,16 @@ func (c *predictServiceClient) Generate(ctx context.Context, req *connect.Reques
 	return c.generate.CallUnary(ctx, req)
 }
 
+// GenerateStream calls mimir.v1.PredictService.GenerateStream.
+func (c *predictServiceClient) GenerateStream(ctx context.Context, req *connect.Request[v1.GenerateStreamRequest]) (*connect.ServerStreamForClient[v1.GenerateStreamResponse], error) {
+	return c.generateStream.CallServerStream(ctx, req)
+}
+
+// Chat calls mimir.v1.PredictService.Chat.
+func (c *predictServiceClient) Chat(ctx context.Context, req *connect.Request[v1.ChatRequest]) (*connect.ServerStreamForClient[v1.ChatResponse], error) {
+	return c.chat.CallServerStream(ctx, req)
+}
+
 // PredictServiceHandler is an implementation of the mimir.v1.PredictService service.
 type PredictServiceHandler interface {
 	// Predict runs one input through a model.
@@ -368,6 +501,11 @@ type PredictServiceHandler interface {
 	// Generate continues a prompt with a language model, such as one
 	// uploaded as a GGUF file.
 	Generate(context.Context, *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error)
+	// GenerateStream is Generate, sending the text as the model writes it.
+	GenerateStream(context.Context, *connect.Request[v1.GenerateStreamRequest], *connect.ServerStream[v1.GenerateStreamResponse]) error
+	// Chat writes a language model's next turn in a chat, sending the text
+	// as the model writes it.
+	Chat(context.Context, *connect.Request[v1.ChatRequest], *connect.ServerStream[v1.ChatResponse]) error
 }
 
 // NewPredictServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -389,12 +527,28 @@ func NewPredictServiceHandler(svc PredictServiceHandler, opts ...connect.Handler
 		connect.WithSchema(predictServiceMethods.ByName("Generate")),
 		connect.WithHandlerOptions(opts...),
 	)
+	predictServiceGenerateStreamHandler := connect.NewServerStreamHandler(
+		PredictServiceGenerateStreamProcedure,
+		svc.GenerateStream,
+		connect.WithSchema(predictServiceMethods.ByName("GenerateStream")),
+		connect.WithHandlerOptions(opts...),
+	)
+	predictServiceChatHandler := connect.NewServerStreamHandler(
+		PredictServiceChatProcedure,
+		svc.Chat,
+		connect.WithSchema(predictServiceMethods.ByName("Chat")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.PredictService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PredictServicePredictProcedure:
 			predictServicePredictHandler.ServeHTTP(w, r)
 		case PredictServiceGenerateProcedure:
 			predictServiceGenerateHandler.ServeHTTP(w, r)
+		case PredictServiceGenerateStreamProcedure:
+			predictServiceGenerateStreamHandler.ServeHTTP(w, r)
+		case PredictServiceChatProcedure:
+			predictServiceChatHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -410,4 +564,12 @@ func (UnimplementedPredictServiceHandler) Predict(context.Context, *connect.Requ
 
 func (UnimplementedPredictServiceHandler) Generate(context.Context, *connect.Request[v1.GenerateRequest]) (*connect.Response[v1.GenerateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.Generate is not implemented"))
+}
+
+func (UnimplementedPredictServiceHandler) GenerateStream(context.Context, *connect.Request[v1.GenerateStreamRequest], *connect.ServerStream[v1.GenerateStreamResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.GenerateStream is not implemented"))
+}
+
+func (UnimplementedPredictServiceHandler) Chat(context.Context, *connect.Request[v1.ChatRequest], *connect.ServerStream[v1.ChatResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.Chat is not implemented"))
 }

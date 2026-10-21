@@ -130,6 +130,10 @@ func run() error {
 	log.Info("database ready", "database", store.Redact(*databaseURL), "migration_steps", st.Applied(), "secrets_encrypted", st.Sealed())
 
 	svc := api.New(st, log)
+	if err := svc.LoadArchitectures(ctx); err != nil {
+		log.Error("couldn't read the described model types", "error", err)
+		os.Exit(1)
+	}
 	svc.AllowPrivateWebhooks = *allowPrivate
 	svc.Pool = cluster.New(log)
 	svc.Pool.IdleTimeout = *workerIdle

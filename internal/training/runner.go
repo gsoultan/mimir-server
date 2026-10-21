@@ -333,7 +333,8 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		}
 	}
 	if !ran {
-		if !r.Local || j.RunOn != "" {
+		// A custom architecture's code is only on the workers that run it.
+		if !r.Local || j.RunOn != "" || a.Custom {
 			return "", errNoWorker
 		}
 		select {

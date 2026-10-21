@@ -6,7 +6,11 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // API paths the dev server forwards to the Go server, and the service
 // worker must never answer from its cache.
-const api = ["/mimir.v1.", "/grpc.", "/api/"];
+const api = ["/mimir.v1.", "/grpc.", "/api/", "/v1/"];
+
+// The browser runtime, which scripts/wasm.sh builds into the Go server's
+// web/dist/wasm.
+const wasm = "/wasm/";
 
 // Where the dev server finds the Go server; scripts/dev.sh sets it.
 const apiTarget = process.env.MIMIR_API ?? "http://localhost:8080";
@@ -37,7 +41,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    proxy: Object.fromEntries(api.map((p) => [p, apiTarget])),
+    proxy: Object.fromEntries([...api, wasm].map((p) => [p, apiTarget])),
   },
   worker: { format: "es" },
   build: { target: "es2024" },

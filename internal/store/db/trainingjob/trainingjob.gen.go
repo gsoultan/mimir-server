@@ -48,6 +48,7 @@ type Row struct {
 	BaseModelID   string
 	Note          string
 	RunOn         string
+	Layers        string
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -86,7 +87,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 28
+const nCols = 29
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -390,6 +391,13 @@ func (q *Query) cursor(col uint32, r Row) {
 		}
 		q.strs[q.ns] = r.RunOn
 		q.ns++
+	case 28:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Layers
+		q.ns++
 	}
 }
 
@@ -578,6 +586,7 @@ var (
 	BaseModelID   = TextCol{25}
 	Note          = TextCol{26}
 	RunOn         = TextCol{27}
+	Layers        = TextCol{28}
 )
 
 // TextCol addresses a text column.
@@ -1061,6 +1070,13 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 28:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
 		}
 		q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 		return
@@ -1260,6 +1276,13 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 27:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 28:
 		if int(q.ns) >= 6 {
 			q.over = true
 			return
@@ -1529,8 +1552,19 @@ func (q Query) RunOnLike(v string) Query                { return q.Where(RunOn.L
 func (q Query) RunOnILike(v string) Query               { return q.Where(RunOn.ILike(v)) }
 func (q Query) RunOnIn(v ...string) Query               { return q.Where(RunOn.In(v...)) }
 func (q Query) RunOnNotIn(v ...string) Query            { return q.Where(RunOn.NotIn(v...)) }
+func (q Query) LayersEq(v string) Query                 { return q.Where(Layers.Eq(v)) }
+func (q Query) LayersNotEq(v string) Query              { return q.Where(Layers.NotEq(v)) }
+func (q Query) LayersGt(v string) Query                 { return q.Where(Layers.Gt(v)) }
+func (q Query) LayersGte(v string) Query                { return q.Where(Layers.Gte(v)) }
+func (q Query) LayersLt(v string) Query                 { return q.Where(Layers.Lt(v)) }
+func (q Query) LayersLte(v string) Query                { return q.Where(Layers.Lte(v)) }
+func (q Query) LayersEqLower(v string) Query            { return q.Where(Layers.EqLower(v)) }
+func (q Query) LayersLike(v string) Query               { return q.Where(Layers.Like(v)) }
+func (q Query) LayersILike(v string) Query              { return q.Where(Layers.ILike(v)) }
+func (q Query) LayersIn(v ...string) Query              { return q.Where(Layers.In(v...)) }
+func (q Query) LayersNotIn(v ...string) Query           { return q.Where(Layers.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on" FROM "training_jobs"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers" FROM "training_jobs"`
 const countPrefix = `SELECT count(*) FROM "training_jobs"`
 const existsPrefix = `SELECT 1 FROM "training_jobs"`
 const existsSuffix = ` LIMIT 1`
@@ -1735,6 +1769,12 @@ var orderTable = [nCols][4]string{
 		"\"run_on\" ASC NULLS FIRST",
 		"\"run_on\" DESC NULLS LAST",
 	},
+	{ // layers
+		"\"layers\"",
+		"\"layers\" DESC",
+		"\"layers\" ASC NULLS FIRST",
+		"\"layers\" DESC NULLS LAST",
+	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
@@ -1768,6 +1808,7 @@ var identTable = [nCols]string{
 	"\"base_model_id\"",
 	"\"note\"",
 	"\"run_on\"",
+	"\"layers\"",
 }
 
 var lowering = runtime.Lowering{
@@ -1800,7 +1841,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [28][28]runtime.Frag{
+var fragTable = [29][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -2641,6 +2682,36 @@ var fragTable = [28][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // layers
+		{}, // opNone
+		{A: "\"layers\" = $", B: ""},
+		{A: "\"layers\" <> $", B: ""},
+		{A: "\"layers\" > $", B: ""},
+		{A: "\"layers\" >= $", B: ""},
+		{A: "\"layers\" < $", B: ""},
+		{A: "\"layers\" <= $", B: ""},
+		{A: "lower(\"layers\") = lower($", B: ")"},
+		{A: "\"layers\" LIKE $", B: ""},
+		{A: "\"layers\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"layers\" = ANY($", B: ")"},
+		{A: "\"layers\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 }
 
 func fragOf(op, col uint32) runtime.Frag {
@@ -2825,6 +2896,7 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.BaseModelID = sl.Str(rv[25])
 	r.Note = sl.Str(rv[26])
 	r.RunOn = sl.Str(rv[27])
+	r.Layers = sl.Str(rv[28])
 	return nil
 }
 
@@ -2983,6 +3055,10 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 28:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
 			}
 			continue
 		}
@@ -3096,6 +3172,10 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 27:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 28:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
@@ -3320,7 +3400,7 @@ var errPerRunOnOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "training_jobs" ("id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on"`
+const insertSQL = `INSERT INTO "training_jobs" ("id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers"`
 
 const updatePrefix = `UPDATE "training_jobs" SET `
 const deletePrefix = `DELETE FROM "training_jobs"`
@@ -3439,9 +3519,10 @@ const (
 	iBaseModelID   uint64 = 1 << 25
 	iNote          uint64 = 1 << 26
 	iRunOn         uint64 = 1 << 27
+	iLayers        uint64 = 1 << 28
 )
 
-const nInsertable = 28
+const nInsertable = 29
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -3473,6 +3554,7 @@ var insCols = [nInsertable]string{
 	"\"base_model_id\"",
 	"\"note\"",
 	"\"run_on\"",
+	"\"layers\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -3481,7 +3563,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"training_jobs\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -3500,7 +3582,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -4136,6 +4218,11 @@ func (n *Ins) SetRunOn(v string) {
 	n.set |= iRunOn
 }
 
+func (n *Ins) SetLayers(v string) {
+	n.row.Layers = v
+	n.set |= iLayers
+}
+
 // The conflict encoding. One byte holds both which unique index an
 // upsert names and what it does on collision, so the insert statement
 // cache stays keyed by one mask and one byte:
@@ -4454,6 +4541,8 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 			args = append(args, n.row.Note)
 		case 27:
 			args = append(args, n.row.RunOn)
+		case 28:
+			args = append(args, n.row.Layers)
 		}
 	}
 	var out Row
@@ -4491,7 +4580,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 28)
+	args := make([]any, 0, 29)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -4520,6 +4609,7 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.BaseModelID)
 	args = append(args, r.Note)
 	args = append(args, r.RunOn)
+	args = append(args, r.Layers)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -4574,13 +4664,14 @@ var copyCols = []string{
 	"base_model_id",
 	"note",
 	"run_on",
+	"layers",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [28]any
+	buf  [29]any
 }
 
 func (s *rowSource) Next() bool {
@@ -4626,6 +4717,7 @@ func (s *rowSource) Values() []any {
 	s.buf[25] = &r.BaseModelID
 	s.buf[26] = &r.Note
 	s.buf[27] = &r.RunOn
+	s.buf[28] = &r.Layers
 	return s.buf[:]
 }
 
@@ -4684,8 +4776,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 25
 	mask |= 1 << 26
 	mask |= 1 << 27
+	mask |= 1 << 28
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 28)
+	args := make([]any, 0, 29)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -4714,6 +4807,7 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.BaseModelID)
 	args = append(args, r.Note)
 	args = append(args, r.RunOn)
+	args = append(args, r.Layers)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -4803,6 +4897,8 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 			args = append(args, n.row.Note)
 		case 27:
 			args = append(args, n.row.RunOn)
+		case 28:
+			args = append(args, n.row.Layers)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
