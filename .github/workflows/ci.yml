@@ -44,6 +44,10 @@ jobs:
       - name: Web unit tests
         working-directory: web
         run: bun run test
+      - name: Build the browser runtime
+        run: |
+          GOOS=js GOARCH=wasm go vet ./cmd/mimir-wasm
+          ./scripts/wasm.sh web/dist/wasm
       - name: Check generated code is current
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12

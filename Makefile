@@ -5,7 +5,7 @@ export GOTOOLCHAIN := auto
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X main.version=$(VERSION)
 
-.PHONY: all gen web build test run dev clean
+.PHONY: all gen web wasm build test run dev clean
 
 all: web build
 
@@ -17,6 +17,11 @@ gen:
 
 web:
 	cd web && bun install --frozen-lockfile && bun run build
+	./scripts/wasm.sh web/dist/wasm
+
+# The browser runtime alone, into the built web UI.
+wasm:
+	./scripts/wasm.sh web/dist/wasm
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/mimir-server ./cmd/mimir-server
@@ -34,4 +39,4 @@ dev:
 	./scripts/dev.sh
 
 clean:
-	rm -rf bin web/dist/assets web/dist/*.html web/dist/*.js web/dist/*.webmanifest
+	rm -rf bin web/dist/assets web/dist/wasm web/dist/*.html web/dist/*.js web/dist/*.webmanifest

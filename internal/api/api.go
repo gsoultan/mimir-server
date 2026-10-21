@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/alert"
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/ask"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/convert"
@@ -260,9 +260,13 @@ func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if err != nil {
 		return nil, err
 	}
-	name, desc, err := cleanText("model", req.Msg.GetName(), req.Msg.GetDescription())
-	if err != nil {
-		return nil, err
+	// A request that only says where the model runs keeps its name.
+	onlyWhere := req.Msg.OnDevice != nil && req.Msg.GetName() == "" && req.Msg.GetDescription() == "" && req.Msg.GetLanguage() == nil
+	name, desc := old.Name, old.Description
+	if !onlyWhere {
+		if name, desc, err = cleanText("model", req.Msg.GetName(), req.Msg.GetDescription()); err != nil {
+			return nil, err
+		}
 	}
 	var lang *store.Language
 	if l := req.Msg.GetLanguage(); l != nil {
@@ -275,6 +279,21 @@ func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.
 		}
 		lang = &v
 	}
+	if req.Msg.OnDevice != nil && req.Msg.GetOnDevice() && !old.OnDevice {
+		if why := deviceRefusal(old); why != "" {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(why))
+		}
+	}
+	if req.Msg.OnDevice != nil && req.Msg.GetOnDevice() != old.OnDevice {
+		if err := s.store.SetOnDevice(ctx, id, req.Msg.GetOnDevice()); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return nil, notFound(id)
+			}
+			return nil, s.internal(ctx, err)
+		}
+		p, _ := auth.From(ctx)
+		s.audit(ctx, p.Actor(), "model.on_device", old.Name, map[bool]string{true: "may run on devices", false: "runs on the server only"}[req.Msg.GetOnDevice()])
+	}
 	if lang != nil {
 		if err := s.store.SetLanguage(ctx, id, *lang); err != nil {
 			if errors.Is(err, store.ErrNotFound) {
@@ -282,6 +301,13 @@ func (s *Service) UpdateModel(ctx context.Context, req *connect.Request[mimirv1.
 			}
 			return nil, s.internal(ctx, err)
 		}
+	}
+	if onlyWhere {
+		m, err := s.get(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		return connect.NewResponse(&mimirv1.UpdateModelResponse{Model: toProto(m)}), nil
 	}
 	m, err := s.store.Update(ctx, id, name, desc)
 	if errors.Is(err, store.ErrNotFound) {
@@ -425,43 +451,11 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 // encode turns a question asked by column name, and a photo, into the
 // numbers model m reads, the same way its examples were.
 func encode(m store.Model, a arch.Architecture, fields map[string]string, photo []byte) ([]float32, error) {
-	var out []float32
-	if a.Input == arch.Image && a.Fixed() || a.Input == arch.Tensor {
-		return nil, invalid("This model reads numbers; send them as input.")
+	in, err := ask.Encode(a, m.Columns, m.Features, fields, photo)
+	if err != nil {
+		return nil, invalid("%s", ask.Reason(err))
 	}
-	if a.Input == arch.Image || a.Input == arch.PhotoTable {
-		if len(photo) == 0 {
-			return nil, invalid("This model looks at a photo. Send one.")
-		}
-		px, err := schema.DecodePhoto(photo)
-		if err != nil {
-			return nil, invalid("That photo can't be read. Send a JPG, PNG or GIF.")
-		}
-		out = schema.Floats(out, px)
-	}
-	if a.Input == arch.Image {
-		return out, nil
-	}
-	cols := m.Columns
-	if len(cols) == 0 {
-		// Taught before columns had kinds: every column is a number.
-		for _, f := range m.Features {
-			cols = append(cols, schema.Column{Name: f, Kind: schema.Number})
-		}
-	}
-	for name := range fields {
-		if !slices.ContainsFunc(cols, func(c schema.Column) bool { return c.Name == name }) {
-			return nil, invalid("This model has no column called %q.", name)
-		}
-	}
-	for _, c := range cols {
-		if v := strings.TrimSpace(fields[c.Name]); c.Kind == schema.Number && v != "" {
-			if _, ok := schema.ParseNumber(v); !ok {
-				return nil, invalid("%s needs a number; %q isn't one.", c.Name, v)
-			}
-		}
-	}
-	return schema.Encode(out, cols, func(i int) string { return fields[cols[i].Name] }), nil
+	return in, nil
 }
 
 // DataDir is the server's data folder.
@@ -566,6 +560,8 @@ func toProto(m store.Model) *mimirv1.Model {
 		WorkerId:     m.WorkerID,
 		Columns:      columnsProto(m.Columns),
 		Language:     languageProto(m),
+		OnDevice:     m.OnDevice,
+		Version:      m.WeightsVersion(),
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {

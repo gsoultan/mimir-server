@@ -132,6 +132,7 @@ func _assertModelShape(m m0.Model) {
 		m.Instructions,
 		m.Temperature,
 		m.MaxTokens,
+		m.OnDevice,
 	}
 }
 

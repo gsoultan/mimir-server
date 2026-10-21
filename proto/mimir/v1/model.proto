@@ -33,6 +33,11 @@ service ModelService {
   // SaveArchitecture describes a model type written in someone's own code
   // and run on workers, or changes how one is described.
   rpc SaveArchitecture(SaveArchitectureRequest) returns (SaveArchitectureResponse);
+  // GetDeviceModel downloads a model that may run on people's devices,
+  // with what a browser needs to answer with it.
+  rpc GetDeviceModel(GetDeviceModelRequest) returns (GetDeviceModelResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
   // DeleteArchitecture removes a described model type no model uses.
   rpc DeleteArchitecture(DeleteArchitectureRequest) returns (DeleteArchitectureResponse);
 }
@@ -173,6 +178,12 @@ message Model {
   // language is how a language model answers by default; unset for other
   // models.
   LanguageSettings language = 17;
+  // on_device says people may download the model and answer with it in
+  // their own browser (GetDeviceModel), offline too.
+  bool on_device = 18;
+  // version identifies the weights: the SHA-256 of the stored file. It
+  // changes when the model is retrained in place.
+  string version = 19;
 }
 
 // LanguageSettings are how a language model answers when a chat or an app
@@ -250,6 +261,10 @@ message UpdateModelRequest {
   string description = 3;
   // language, when set, replaces a language model's default settings.
   LanguageSettings language = 4;
+  // on_device, when set, lets people run the model in their browser, or
+  // stops them. A request with only on_device keeps the name and
+  // description.
+  optional bool on_device = 5;
 }
 
 message UpdateModelResponse {
@@ -378,4 +393,15 @@ message GenerateResponse {
   bool finished = 4;
   // DurationMicros is how long the model took.
   int64 duration_micros = 5;
+}
+
+message GetDeviceModelRequest {
+  string id = 1;
+}
+
+message GetDeviceModelResponse {
+  // model is the model as GetModel returns it; weights its stored file,
+  // whose SHA-256 is model.version.
+  Model model = 1;
+  bytes weights = 2;
 }
