@@ -1,5 +1,5 @@
 import { Badge, Card, Group, SimpleGrid, Text, TextInput } from "@mantine/core";
-import { IconPlayerPlay, IconSchool, IconSearch, IconUpload } from "@tabler/icons-react";
+import { IconPlayerPlay, IconPlus, IconSearch, IconUpload } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useDeferredValue, useState } from "react";
@@ -33,8 +33,8 @@ function Models() {
       intro="Everything this server can answer with."
       actions={canWrite &&
         <Group gap="sm">
-          <ButtonLink variant="default" leftSection={<IconSchool size={18} />} to="/models/teach">Teach a new model</ButtonLink>
-          <ButtonLink to="/models/new" leftSection={<IconUpload size={18} />}>Add a model</ButtonLink>
+          <ButtonLink variant="default" leftSection={<IconUpload size={18} />} to="/models/new">Upload a model file</ButtonLink>
+          <ButtonLink to="/models/build" leftSection={<IconPlus size={18} />}>Build a model</ButtonLink>
         </Group>
       }
     >
@@ -51,8 +51,8 @@ function Models() {
       {data.models.length === 0 ? (
         <Card withBorder radius="lg" padding="xl" className="text-center">
           <Text fw={600}>No models yet</Text>
-          <Text c="dimmed" mb="md">{canWrite ? "Add one and it shows up here." : "Ask an editor or admin to share one with you."}</Text>
-          {canWrite && <Group justify="center"><ButtonLink to="/models/new">Add a model</ButtonLink></Group>}
+          <Text c="dimmed" mb="md">{canWrite ? "Build one and it shows up here. We walk you through it." : "Ask an editor or admin to share one with you."}</Text>
+          {canWrite && <Group justify="center"><ButtonLink to="/models/build" leftSection={<IconPlus size={18} />}>Build a model</ButtonLink></Group>}
         </Card>
       ) : shown.length === 0 ? (
         <Text c="dimmed">No model matches "{query}".</Text>

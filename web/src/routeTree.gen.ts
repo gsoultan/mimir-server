@@ -27,6 +27,9 @@ import { Route as AppTemplatesIdRouteImport } from './routes/_app/templates/$id'
 import { Route as AppTrainingIndexRouteImport } from './routes/_app/training/index'
 import { Route as AppTrainingIdRouteImport } from './routes/_app/training/$id'
 import { Route as AppWorkersIdRouteImport } from './routes/_app/workers/$id'
+import { Route as AppModelsBuildIndexRouteImport } from './routes/_app/models/build/index'
+import { Route as AppModelsBuildGoalRouteImport } from './routes/_app/models/build/$goal'
+import { Route as AppModelsBuildCodeRouteImport } from './routes/_app/models/build/code'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -117,6 +120,21 @@ const AppWorkersIdRoute = AppWorkersIdRouteImport.update({
   path: '/workers/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppModelsBuildIndexRoute = AppModelsBuildIndexRouteImport.update({
+  id: '/models/build/',
+  path: '/models/build/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppModelsBuildGoalRoute = AppModelsBuildGoalRouteImport.update({
+  id: '/models/build/$goal',
+  path: '/models/build/$goal',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppModelsBuildCodeRoute = AppModelsBuildCodeRouteImport.update({
+  id: '/models/build/code',
+  path: '/models/build/code',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -136,6 +154,9 @@ export interface FileRoutesByFullPath {
   '/models/': typeof AppModelsIndexRoute
   '/templates/': typeof AppTemplatesIndexRoute
   '/training/': typeof AppTrainingIndexRoute
+  '/models/build/$goal': typeof AppModelsBuildGoalRoute
+  '/models/build/code': typeof AppModelsBuildCodeRoute
+  '/models/build/': typeof AppModelsBuildIndexRoute
 }
 export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
@@ -155,6 +176,9 @@ export interface FileRoutesByTo {
   '/models': typeof AppModelsIndexRoute
   '/templates': typeof AppTemplatesIndexRoute
   '/training': typeof AppTrainingIndexRoute
+  '/models/build/$goal': typeof AppModelsBuildGoalRoute
+  '/models/build/code': typeof AppModelsBuildCodeRoute
+  '/models/build': typeof AppModelsBuildIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -176,6 +200,9 @@ export interface FileRoutesById {
   '/_app/models/': typeof AppModelsIndexRoute
   '/_app/templates/': typeof AppTemplatesIndexRoute
   '/_app/training/': typeof AppTrainingIndexRoute
+  '/_app/models/build/$goal': typeof AppModelsBuildGoalRoute
+  '/_app/models/build/code': typeof AppModelsBuildCodeRoute
+  '/_app/models/build/': typeof AppModelsBuildIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -197,6 +224,9 @@ export interface FileRouteTypes {
     | '/models/'
     | '/templates/'
     | '/training/'
+    | '/models/build/$goal'
+    | '/models/build/code'
+    | '/models/build/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/setup'
@@ -216,6 +246,9 @@ export interface FileRouteTypes {
     | '/models'
     | '/templates'
     | '/training'
+    | '/models/build/$goal'
+    | '/models/build/code'
+    | '/models/build'
   id:
     | '__root__'
     | '/_app'
@@ -236,6 +269,9 @@ export interface FileRouteTypes {
     | '/_app/models/'
     | '/_app/templates/'
     | '/_app/training/'
+    | '/_app/models/build/$goal'
+    | '/_app/models/build/code'
+    | '/_app/models/build/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -372,6 +408,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkersIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/models/build/': {
+      id: '/_app/models/build/'
+      path: '/models/build'
+      fullPath: '/models/build/'
+      preLoaderRoute: typeof AppModelsBuildIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/models/build/$goal': {
+      id: '/_app/models/build/$goal'
+      path: '/models/build/$goal'
+      fullPath: '/models/build/$goal'
+      preLoaderRoute: typeof AppModelsBuildGoalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/models/build/code': {
+      id: '/_app/models/build/code'
+      path: '/models/build/code'
+      fullPath: '/models/build/code'
+      preLoaderRoute: typeof AppModelsBuildCodeRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -391,6 +448,9 @@ interface AppRouteChildren {
   AppModelsIndexRoute: typeof AppModelsIndexRoute
   AppTemplatesIndexRoute: typeof AppTemplatesIndexRoute
   AppTrainingIndexRoute: typeof AppTrainingIndexRoute
+  AppModelsBuildGoalRoute: typeof AppModelsBuildGoalRoute
+  AppModelsBuildCodeRoute: typeof AppModelsBuildCodeRoute
+  AppModelsBuildIndexRoute: typeof AppModelsBuildIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -409,6 +469,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppModelsIndexRoute: AppModelsIndexRoute,
   AppTemplatesIndexRoute: AppTemplatesIndexRoute,
   AppTrainingIndexRoute: AppTrainingIndexRoute,
+  AppModelsBuildGoalRoute: AppModelsBuildGoalRoute,
+  AppModelsBuildCodeRoute: AppModelsBuildCodeRoute,
+  AppModelsBuildIndexRoute: AppModelsBuildIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

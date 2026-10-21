@@ -56,8 +56,8 @@ function Try() {
     return (
       <Page title="Try a model">
         <Card withBorder radius="lg" padding="xl">
-          <Text mb="md">Add a model first, then come back to try it.</Text>
-          <ButtonLink to="/models/new">Add a model</ButtonLink>
+          <Text mb="md">Build or upload a model first, then come back to try it.</Text>
+          <ButtonLink to="/models/build">Build a model</ButtonLink>
         </Card>
       </Page>
     );
