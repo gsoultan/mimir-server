@@ -57,6 +57,9 @@ const (
 	// ModelServiceSaveArchitectureProcedure is the fully-qualified name of the ModelService's
 	// SaveArchitecture RPC.
 	ModelServiceSaveArchitectureProcedure = "/mimir.v1.ModelService/SaveArchitecture"
+	// ModelServiceGetDeviceModelProcedure is the fully-qualified name of the ModelService's
+	// GetDeviceModel RPC.
+	ModelServiceGetDeviceModelProcedure = "/mimir.v1.ModelService/GetDeviceModel"
 	// ModelServiceDeleteArchitectureProcedure is the fully-qualified name of the ModelService's
 	// DeleteArchitecture RPC.
 	ModelServiceDeleteArchitectureProcedure = "/mimir.v1.ModelService/DeleteArchitecture"
@@ -92,6 +95,9 @@ type ModelServiceClient interface {
 	// SaveArchitecture describes a model type written in someone's own code
 	// and run on workers, or changes how one is described.
 	SaveArchitecture(context.Context, *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error)
+	// GetDeviceModel downloads a model that may run on people's devices,
+	// with what a browser needs to answer with it.
+	GetDeviceModel(context.Context, *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error)
 	// DeleteArchitecture removes a described model type no model uses.
 	DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error)
 }
@@ -158,6 +164,13 @@ func NewModelServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(modelServiceMethods.ByName("SaveArchitecture")),
 			connect.WithClientOptions(opts...),
 		),
+		getDeviceModel: connect.NewClient[v1.GetDeviceModelRequest, v1.GetDeviceModelResponse](
+			httpClient,
+			baseURL+ModelServiceGetDeviceModelProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("GetDeviceModel")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		deleteArchitecture: connect.NewClient[v1.DeleteArchitectureRequest, v1.DeleteArchitectureResponse](
 			httpClient,
 			baseURL+ModelServiceDeleteArchitectureProcedure,
@@ -177,6 +190,7 @@ type modelServiceClient struct {
 	deleteModel        *connect.Client[v1.DeleteModelRequest, v1.DeleteModelResponse]
 	setModelWorker     *connect.Client[v1.SetModelWorkerRequest, v1.SetModelWorkerResponse]
 	saveArchitecture   *connect.Client[v1.SaveArchitectureRequest, v1.SaveArchitectureResponse]
+	getDeviceModel     *connect.Client[v1.GetDeviceModelRequest, v1.GetDeviceModelResponse]
 	deleteArchitecture *connect.Client[v1.DeleteArchitectureRequest, v1.DeleteArchitectureResponse]
 }
 
@@ -220,6 +234,11 @@ func (c *modelServiceClient) SaveArchitecture(ctx context.Context, req *connect.
 	return c.saveArchitecture.CallUnary(ctx, req)
 }
 
+// GetDeviceModel calls mimir.v1.ModelService.GetDeviceModel.
+func (c *modelServiceClient) GetDeviceModel(ctx context.Context, req *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error) {
+	return c.getDeviceModel.CallUnary(ctx, req)
+}
+
 // DeleteArchitecture calls mimir.v1.ModelService.DeleteArchitecture.
 func (c *modelServiceClient) DeleteArchitecture(ctx context.Context, req *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error) {
 	return c.deleteArchitecture.CallUnary(ctx, req)
@@ -246,6 +265,9 @@ type ModelServiceHandler interface {
 	// SaveArchitecture describes a model type written in someone's own code
 	// and run on workers, or changes how one is described.
 	SaveArchitecture(context.Context, *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error)
+	// GetDeviceModel downloads a model that may run on people's devices,
+	// with what a browser needs to answer with it.
+	GetDeviceModel(context.Context, *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error)
 	// DeleteArchitecture removes a described model type no model uses.
 	DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error)
 }
@@ -308,6 +330,13 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(modelServiceMethods.ByName("SaveArchitecture")),
 		connect.WithHandlerOptions(opts...),
 	)
+	modelServiceGetDeviceModelHandler := connect.NewUnaryHandler(
+		ModelServiceGetDeviceModelProcedure,
+		svc.GetDeviceModel,
+		connect.WithSchema(modelServiceMethods.ByName("GetDeviceModel")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	modelServiceDeleteArchitectureHandler := connect.NewUnaryHandler(
 		ModelServiceDeleteArchitectureProcedure,
 		svc.DeleteArchitecture,
@@ -332,6 +361,8 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 			modelServiceSetModelWorkerHandler.ServeHTTP(w, r)
 		case ModelServiceSaveArchitectureProcedure:
 			modelServiceSaveArchitectureHandler.ServeHTTP(w, r)
+		case ModelServiceGetDeviceModelProcedure:
+			modelServiceGetDeviceModelHandler.ServeHTTP(w, r)
 		case ModelServiceDeleteArchitectureProcedure:
 			modelServiceDeleteArchitectureHandler.ServeHTTP(w, r)
 		default:
@@ -373,6 +404,10 @@ func (UnimplementedModelServiceHandler) SetModelWorker(context.Context, *connect
 
 func (UnimplementedModelServiceHandler) SaveArchitecture(context.Context, *connect.Request[v1.SaveArchitectureRequest]) (*connect.Response[v1.SaveArchitectureResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.SaveArchitecture is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) GetDeviceModel(context.Context, *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.GetDeviceModel is not implemented"))
 }
 
 func (UnimplementedModelServiceHandler) DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error) {

@@ -13,6 +13,7 @@ import { allModelQueries, getModel, listArchitectures, whoAmI } from "../../../a
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { LanguageDefaults } from "../../../components/LanguageDefaults";
+import { OnDevice } from "../../../components/OnDevice";
 import { RunsOn } from "../../../components/Placement";
 import { ago, bytes } from "../../../lib/format";
 import { score } from "../../../lib/training";
@@ -126,6 +127,7 @@ function ModelDetails() {
           </Tabs>
         </Card>
         {!writes && <RunsOn model={m} canWrite={canWrite} />}
+        {!writes && <OnDevice model={m} arch={arch} canWrite={canWrite} />}
         {writes && m.language && <LanguageDefaults model={m} canWrite={canWrite} />}
       </SimpleGrid>
 

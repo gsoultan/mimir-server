@@ -80,6 +80,8 @@ type Model struct {
 	Columns []schema.Column
 	// Language is how a language model answers by default.
 	Language Language
+	// OnDevice lets people download it and answer in their own browser.
+	OnDevice bool
 }
 
 // Language is how a language model answers when a chat or an app doesn't
@@ -296,6 +298,7 @@ func fromModel(r model.Row) Model {
 		WorkerID:     r.WorkerID,
 		Columns:      fromDoc[schema.Column](r.Columns),
 		Language:     Language{Instructions: r.Instructions, Temperature: r.Temperature, MaxTokens: int(r.MaxTokens)},
+		OnDevice:     r.OnDevice,
 	}
 }
 
@@ -433,6 +436,19 @@ func (s *Store) SetLanguage(ctx context.Context, id string, l Language) error {
 			return ErrNotFound
 		}
 		return fmt.Errorf("store: set language %s: %w", id, err)
+	}
+	return nil
+}
+
+// SetOnDevice lets people run a model in their browser, or stops them.
+func (s *Store) SetOnDevice(ctx context.Context, id string, on bool) error {
+	u := model.MutateKey(id)
+	u.SetOnDevice(on)
+	if err := u.Update(ctx, s.ex); err != nil {
+		if errors.Is(err, runtime.ErrNoRow) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("store: set on device %s: %w", id, err)
 	}
 	return nil
 }

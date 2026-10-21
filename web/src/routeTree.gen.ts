@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as DeviceRouteImport } from './routes/device'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
@@ -33,6 +34,11 @@ import { Route as AppModelsBuildCodeRouteImport } from './routes/_app/models/bui
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeviceRoute = DeviceRouteImport.update({
+  id: '/device',
+  path: '/device',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -138,6 +144,7 @@ const AppModelsBuildCodeRoute = AppModelsBuildCodeRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/device': typeof DeviceRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/apps': typeof AppAppsRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/models/build/': typeof AppModelsBuildIndexRoute
 }
 export interface FileRoutesByTo {
+  '/device': typeof DeviceRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/apps': typeof AppAppsRoute
@@ -183,6 +191,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/device': typeof DeviceRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/_app/apps': typeof AppAppsRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/device'
     | '/setup'
     | '/sign-in'
     | '/apps'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/models/build/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/device'
     | '/setup'
     | '/sign-in'
     | '/apps'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/device'
     | '/setup'
     | '/sign-in'
     | '/_app/apps'
@@ -276,6 +288,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  DeviceRoute: typeof DeviceRoute
   SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
 }
@@ -287,6 +300,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/device': {
+      id: '/device'
+      path: '/device'
+      fullPath: '/device'
+      preLoaderRoute: typeof DeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -478,6 +498,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  DeviceRoute: DeviceRoute,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
 }

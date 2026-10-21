@@ -337,6 +337,22 @@ answers a list of `{role, content}` messages the same way, using the
 model's default instructions, temperature and answer length unless the
 request sets them.
 
+### On people's own devices
+
+A model can also answer in the browser, with no server and no network.
+Turn on **Run on people's devices** on its page; then anyone who may use
+it can pick **On this device** in Try a model. The first question saves
+the model in their browser, and after that it answers there, offline too.
+Their questions never reach the server, so they don't count in usage.
+**On this device** in the menu lists what a browser has saved, offers the
+new version after a model learns again, and opens with no network.
+
+Table, photo and digits models up to 50 MB can run on devices. Language
+models and models in your own code stay on the server. The browser runs
+the same Go code as the server, built for WebAssembly (`cmd/mimir-wasm`),
+so a model answers the same in both places. Apps can download a model
+someone allowed onto devices with `ModelService/GetDeviceModel`.
+
 ### OpenAI-compatible API
 
 Apps and libraries made for OpenAI work with the language models: point
@@ -556,7 +572,12 @@ drops it after. Without it those tests are skipped.
 make test       # go vet, go test, web typecheck and unit tests
 make gen        # regenerate code after editing proto/ (needs protoc-gen-go
                 # and protoc-gen-connect-go on PATH)
+make wasm       # rebuild the browser runtime into web/dist/wasm
 ```
+
+`make web` builds the browser runtime too. The web app bundles Go's
+`wasm_exec.js` from `web/src/workers`; after moving to a new Go version,
+`make wasm` says to copy it again.
 
 | Path | What's there |
 | --- | --- |
@@ -566,6 +587,8 @@ make gen        # regenerate code after editing proto/ (needs protoc-gen-go
 | `internal/alert` | Email and Telegram alerts |
 | `internal/auth` | Passwords, sessions, API keys, permissions |
 | `internal/runtime` | Loads weights into mimir and runs them |
+| `internal/ask` | Turns a question by column name into the numbers a model reads |
+| `internal/device`, `cmd/mimir-wasm` | Models answering in the browser |
 | `internal/store` | PostgreSQL metadata (through [storm](https://github.com/gsoultan/storm)) and weight files |
 | `internal/webhook` | Signing, delivery and retries |
 | `internal/server` | HTTP wiring, health, web UI serving |

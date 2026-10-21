@@ -39,6 +39,7 @@ type Row struct {
 	Instructions string
 	Temperature  float64
 	MaxTokens    int32
+	OnDevice     bool
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -77,7 +78,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 19
+const nCols = 20
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -87,12 +88,13 @@ type Query struct {
 	nt   uint8
 	top  uint8 // top-level conjuncts, ANDed at compile time
 
-	strs                 [6]string
-	nums                 [6]int64
-	tims                 [4]time.Time
-	f64s                 [4]float64
-	jsns                 [2]runtime.JSON
-	ns, nn, ntm, nf, njs uint8
+	strs                      [6]string
+	nums                      [6]int64
+	tims                      [4]time.Time
+	f64s                      [4]float64
+	bools                     [4]bool
+	jsns                      [2]runtime.JSON
+	ns, nn, ntm, nf, nbo, njs uint8
 
 	anyStr            [3][]string
 	anyI32            [3][]int32
@@ -297,6 +299,13 @@ func (q *Query) cursor(col uint32, r Row) {
 		}
 		q.nums[q.nn] = int64(r.MaxTokens)
 		q.nn++
+	case 19:
+		if int(q.nbo) >= len(q.bools) {
+			q.over = true
+			return
+		}
+		q.bools[q.nbo] = r.OnDevice
+		q.nbo++
 	}
 }
 
@@ -448,10 +457,19 @@ type Pred struct {
 	str    string
 	tim    time.Time
 	f64    float64
+	bol    bool
 	jsn    runtime.JSON
 	anyStr []string
 	anyI32 []int32
 	anyI64 []int64
+}
+
+// b2i lets a bool ride in the numeric slot of a Pred.
+func b2i(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // Typed column handles. The type of the handle is what makes
@@ -476,6 +494,7 @@ var (
 	Instructions = TextCol{16}
 	Temperature  = Float64Col{17}
 	MaxTokens    = Int32Col{18}
+	OnDevice     = BoolCol{19}
 )
 
 // TextCol addresses a text column.
@@ -700,6 +719,21 @@ func (h Int32Col) In(v ...int32) Pred { return Pred{col: h.c, op: opIn, anyI32: 
 // comparison NULL for every row and the result empty —
 // PostgreSQL's rule for NOT IN, not storm's.
 func (h Int32Col) NotIn(v ...int32) Pred { return Pred{col: h.c, op: opNotIn, anyI32: v} }
+
+// BoolCol addresses a bool column.
+type BoolCol struct{ c uint8 }
+
+func (h BoolCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h BoolCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h BoolCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h BoolCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+func (h BoolCol) Eq(v bool) Pred    { return Pred{col: h.c, op: opEq, bol: v} }
+func (h BoolCol) NotEq(v bool) Pred { return Pred{col: h.c, op: opNotEq, bol: v} }
 
 // Where applies predicates, ANDed together.
 func (q Query) Where(ps ...Pred) Query {
@@ -1068,6 +1102,13 @@ func (q *Query) leaf(p Pred) {
 		}
 		q.nums[q.nn] = p.num
 		q.nn++
+	case 19:
+		if int(q.nbo) >= 4 {
+			q.over = true
+			return
+		}
+		q.bools[q.nbo] = p.bol
+		q.nbo++
 	}
 	q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 }
@@ -1227,8 +1268,10 @@ func (q Query) MaxTokensLt(v int32) Query               { return q.Where(MaxToke
 func (q Query) MaxTokensLte(v int32) Query              { return q.Where(MaxTokens.Lte(v)) }
 func (q Query) MaxTokensIn(v ...int32) Query            { return q.Where(MaxTokens.In(v...)) }
 func (q Query) MaxTokensNotIn(v ...int32) Query         { return q.Where(MaxTokens.NotIn(v...)) }
+func (q Query) OnDeviceEq(v bool) Query                 { return q.Where(OnDevice.Eq(v)) }
+func (q Query) OnDeviceNotEq(v bool) Query              { return q.Where(OnDevice.NotEq(v)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens" FROM "models"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device" FROM "models"`
 const countPrefix = `SELECT count(*) FROM "models"`
 const existsPrefix = `SELECT 1 FROM "models"`
 const existsSuffix = ` LIMIT 1`
@@ -1379,6 +1422,12 @@ var orderTable = [nCols][4]string{
 		"\"max_tokens\" ASC NULLS FIRST",
 		"\"max_tokens\" DESC NULLS LAST",
 	},
+	{ // on_device
+		"\"on_device\"",
+		"\"on_device\" DESC",
+		"\"on_device\" ASC NULLS FIRST",
+		"\"on_device\" DESC NULLS LAST",
+	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
@@ -1403,6 +1452,7 @@ var identTable = [nCols]string{
 	"\"instructions\"",
 	"\"temperature\"",
 	"\"max_tokens\"",
+	"\"on_device\"",
 }
 
 var lowering = runtime.Lowering{
@@ -1435,7 +1485,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [19][28]runtime.Frag{
+var fragTable = [20][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -2006,6 +2056,36 @@ var fragTable = [19][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // on_device
+		{}, // opNone
+		{A: "\"on_device\" = $", B: ""},
+		{A: "\"on_device\" <> $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 }
 
 func fragOf(op, col uint32) runtime.Frag {
@@ -2191,6 +2271,7 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.Instructions = sl.Str(rv[16])
 	r.Temperature = runtime.Float8(rv[17])
 	r.MaxTokens = runtime.Int4(rv[18])
+	r.OnDevice = runtime.Bool(rv[19])
 	return decErr
 }
 
@@ -2200,6 +2281,7 @@ type binder struct {
 	nums   [6]int64
 	tims   [4]time.Time
 	f64s   [4]float64
+	bools  [4]bool
 	jsns   [2]runtime.JSON
 	anyStr [3][]string
 	anyI32 [3][]int32
@@ -2245,7 +2327,7 @@ func putBinder(b *binder) {
 // Count and Exists stop here: their statements carry no LIMIT or OFFSET.
 func (q Query) bindPreds(b *binder) []any {
 	v := b.vals[:0]
-	var ns, nn, ntm, nf, njs, nas, nai32, nai64 uint8
+	var ns, nn, ntm, nf, nbo, njs, nas, nai32, nai64 uint8
 	for i := uint8(0); i < q.nt; i++ {
 		t := q.toks[i]
 		// KLeaf binds a predicate's value; KCol binds a keyset cursor's.
@@ -2389,6 +2471,10 @@ func (q Query) bindPreds(b *binder) []any {
 			b.nums[nn] = q.nums[nn]
 			v = append(v, &b.nums[nn])
 			nn++
+		case 19:
+			b.bools[nbo] = q.bools[nbo]
+			v = append(v, &b.bools[nbo])
+			nbo++
 		}
 	}
 	b.vals = v
@@ -2694,7 +2780,7 @@ var errPerWorkerOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "models" ("id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens"`
+const insertSQL = `INSERT INTO "models" ("id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device"`
 
 const updatePrefix = `UPDATE "models" SET `
 const deletePrefix = `DELETE FROM "models"`
@@ -2718,9 +2804,10 @@ const (
 	dInstructions uint64 = 1 << 13
 	dTemperature  uint64 = 1 << 14
 	dMaxTokens    uint64 = 1 << 15
+	dOnDevice     uint64 = 1 << 16
 )
 
-const nUpdatable = 16
+const nUpdatable = 17
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
@@ -2740,6 +2827,7 @@ var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"instructions\" = $", B: ""}, // instructions
 	{A: "\"temperature\" = $", B: ""},  // temperature
 	{A: "\"max_tokens\" = $", B: ""},   // max_tokens
+	{A: "\"on_device\" = $", B: ""},    // on_device
 }
 
 // exprFrags is the SERVER-side assignment each column may take instead
@@ -2762,6 +2850,7 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{},                                    // instructions has no server-side form
 	{},                                    // temperature has no server-side form
 	{A: "\"max_tokens\" = \"max_tokens\" + 1", B: ""}, // max_tokens = its own value plus one
+	{}, // on_device has no server-side form
 }
 
 // pkFrags addresses one row.
@@ -2792,9 +2881,10 @@ const (
 	iInstructions uint64 = 1 << 16
 	iTemperature  uint64 = 1 << 17
 	iMaxTokens    uint64 = 1 << 18
+	iOnDevice     uint64 = 1 << 19
 )
 
-const nInsertable = 19
+const nInsertable = 20
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -2817,6 +2907,7 @@ var insCols = [nInsertable]string{
 	"\"instructions\"",
 	"\"temperature\"",
 	"\"max_tokens\"",
+	"\"on_device\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -2825,7 +2916,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"models\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -2844,7 +2935,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -3017,6 +3108,12 @@ func (m *Mut) SetMaxTokens(v int32) {
 func (m *Mut) IncMaxTokens() {
 	m.expr |= dMaxTokens
 	m.dirty &^= dMaxTokens
+}
+
+func (m *Mut) SetOnDevice(v bool) {
+	m.row.OnDevice = v
+	m.dirty |= dOnDevice
+	m.expr &^= dOnDevice
 }
 
 // Ins stages a new row. Unlike Mut it has a setter for every insertable
@@ -3214,6 +3311,11 @@ func (n *Ins) AddMaxTokensOnConflict(v int32) {
 	n.add |= iMaxTokens
 }
 
+func (n *Ins) SetOnDevice(v bool) {
+	n.row.OnDevice = v
+	n.set |= iOnDevice
+}
+
 // The conflict encoding. One byte holds both which unique index an
 // upsert names and what it does on collision, so the insert statement
 // cache stays keyed by one mask and one byte:
@@ -3263,7 +3365,7 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 16)
+	set := make([]string, 0, 17)
 	switch i {
 	case 0:
 		if mask&(1<<2) != 0 {
@@ -3313,6 +3415,9 @@ func assignable(i uint8, mask uint64) []string {
 		}
 		if mask&(1<<18) != 0 {
 			set = append(set, "max_tokens")
+		}
+		if mask&(1<<19) != 0 {
+			set = append(set, "on_device")
 		}
 	}
 	return set
@@ -3400,6 +3505,7 @@ var assignFor = map[string]string{
 	"instructions": "\"instructions\" = EXCLUDED.\"instructions\"",
 	"temperature":  "\"temperature\" = EXCLUDED.\"temperature\"",
 	"max_tokens":   "\"max_tokens\" = EXCLUDED.\"max_tokens\"",
+	"on_device":    "\"on_device\" = EXCLUDED.\"on_device\"",
 }
 
 func assignExcluded(c string) string { return assignFor[c] }
@@ -3488,6 +3594,8 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 			args = append(args, n.row.Temperature)
 		case 18:
 			args = append(args, n.row.MaxTokens)
+		case 19:
+			args = append(args, n.row.OnDevice)
 		}
 	}
 	var out Row
@@ -3525,7 +3633,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 19)
+	args := make([]any, 0, 20)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -3545,6 +3653,7 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.Instructions)
 	args = append(args, r.Temperature)
 	args = append(args, r.MaxTokens)
+	args = append(args, r.OnDevice)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -3590,13 +3699,14 @@ var copyCols = []string{
 	"instructions",
 	"temperature",
 	"max_tokens",
+	"on_device",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [19]any
+	buf  [20]any
 }
 
 func (s *rowSource) Next() bool {
@@ -3633,6 +3743,7 @@ func (s *rowSource) Values() []any {
 	s.buf[16] = &r.Instructions
 	s.buf[17] = &r.Temperature
 	s.buf[18] = &r.MaxTokens
+	s.buf[19] = &r.OnDevice
 	return s.buf[:]
 }
 
@@ -3682,8 +3793,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 16
 	mask |= 1 << 17
 	mask |= 1 << 18
+	mask |= 1 << 19
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 19)
+	args := make([]any, 0, 20)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -3703,6 +3815,7 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.Instructions)
 	args = append(args, r.Temperature)
 	args = append(args, r.MaxTokens)
+	args = append(args, r.OnDevice)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -3774,6 +3887,8 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 			args = append(args, n.row.Temperature)
 		case 18:
 			args = append(args, n.row.MaxTokens)
+		case 19:
+			args = append(args, n.row.OnDevice)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
@@ -3861,6 +3976,8 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 			args = append(args, m.row.Temperature)
 		case 15:
 			args = append(args, m.row.MaxTokens)
+		case 16:
+			args = append(args, m.row.OnDevice)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -3975,6 +4092,8 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 			args = append(args, m.row.Temperature)
 		case 15:
 			args = append(args, m.row.MaxTokens)
+		case 16:
+			args = append(args, m.row.OnDevice)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -4155,6 +4274,8 @@ func (q Query) UpdateAll(ctx context.Context, ex runtime.Executor, m Mut) (int64
 			args = append(args, m.row.Temperature)
 		case 15:
 			args = append(args, m.row.MaxTokens)
+		case 16:
+			args = append(args, m.row.OnDevice)
 		}
 	}
 	args = append(args, q.bindPreds(b)...)

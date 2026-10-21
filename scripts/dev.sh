@@ -68,6 +68,12 @@ sources() {
 	find cmd internal worker gen go.mod go.sum -type f \( -name '*.go' -o -name '*.sql' -o -name 'go.mod' -o -name 'go.sum' \) "$@" 2>/dev/null
 }
 
+# The browser runtime; rebuild it with `make wasm` after changing it.
+if [ ! -f web/dist/wasm/runtime.json ]; then
+	echo "dev: building the browser runtime"
+	./scripts/wasm.sh web/dist/wasm
+fi
+
 start_server() {
 	touch "$stamp"
 	echo "dev: building the server"

@@ -30,6 +30,9 @@ type Model struct {
 	Instructions string
 	Temperature  float64
 	MaxTokens    int32
+	// OnDevice lets people download the model and answer with it in their
+	// own browser, offline too.
+	OnDevice bool
 }
 
 // Aggregates: how many models each team has, and how many are placed on
@@ -56,6 +59,7 @@ func (m *Model) Schema(t *storm.Table) {
 	t.Col(&m.Instructions).Default("''")
 	t.Col(&m.Temperature).Default("0.7")
 	t.Col(&m.MaxTokens).Default("256")
+	t.Col(&m.OnDevice).Default("false")
 	// A team's models, newest first; also the team key's index.
 	t.Col(&m.Team).NoIndex()
 	t.Index(&m.Team, storm.Desc(&m.CreateTime), storm.Desc(&m.ID))
