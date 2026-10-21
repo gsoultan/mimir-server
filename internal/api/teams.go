@@ -3,8 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"strings"
-	"unicode/utf8"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -100,11 +98,7 @@ func (s *Service) getTeam(ctx context.Context, id string) (store.Team, error) {
 }
 
 func teamName(name string) (string, error) {
-	name = strings.TrimSpace(name)
-	if name == "" || !utf8.ValidString(name) || utf8.RuneCountInString(name) > maxName {
-		return "", invalid("Give the team a name of up to %d characters.", maxName)
-	}
-	return name, nil
+	return cleanName("team", name)
 }
 
 func teamProto(t store.Team) *mimirv1.Team {

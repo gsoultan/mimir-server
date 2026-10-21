@@ -132,9 +132,11 @@ func newFile(m *mim.Model) (*File, error) {
 }
 
 // Forward runs the file on x, reshaped to its input's shape, and returns
-// its first output.
+// its first output. Each call runs in a session of its own, so questions
+// to one model are answered at once rather than one after another, and
+// none sees the variables another left.
 func (f *File) Forward(ctx context.Context, x *tensor.Tensor) *tensor.Tensor {
-	out, err := f.m.Run(ctx, map[string]*tensor.Tensor{f.input.Name: x.Reshape(f.shape...).Cast(f.input.DType())})
+	out, err := f.m.NewSession().Run(ctx, map[string]*tensor.Tensor{f.input.Name: x.Reshape(f.shape...).Cast(f.input.DType())})
 	if err != nil {
 		return tensor.Failed(err)
 	}

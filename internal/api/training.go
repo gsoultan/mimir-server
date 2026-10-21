@@ -74,7 +74,7 @@ func (s *Service) GetDataset(ctx context.Context, req *connect.Request[mimirv1.G
 
 func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv1.CreateDatasetRequest]) (*connect.Response[mimirv1.CreateDatasetResponse], error) {
 	p, _ := auth.From(ctx)
-	name, _, err := cleanText(req.Msg.GetName(), "")
+	name, err := cleanName("dataset", req.Msg.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +407,7 @@ func (s *Service) GetJob(ctx context.Context, req *connect.Request[mimirv1.GetJo
 
 func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.CreateJobRequest]) (*connect.Response[mimirv1.CreateJobResponse], error) {
 	p, _ := auth.From(ctx)
-	name, desc, err := cleanText(req.Msg.GetName(), req.Msg.GetDescription())
+	name, desc, err := cleanText("run", req.Msg.GetName(), req.Msg.GetDescription())
 	if err != nil {
 		return nil, err
 	}

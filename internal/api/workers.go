@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -42,9 +41,9 @@ func (s *Service) ListWorkers(ctx context.Context, _ *connect.Request[mimirv1.Li
 
 func (s *Service) CreateWorker(ctx context.Context, req *connect.Request[mimirv1.CreateWorkerRequest]) (*connect.Response[mimirv1.CreateWorkerResponse], error) {
 	p, _ := auth.From(ctx)
-	name := strings.TrimSpace(req.Msg.GetName())
-	if name == "" || utf8.RuneCountInString(name) > maxName {
-		return nil, invalid("Give the worker a name of up to %d characters.", maxName)
+	name, err := cleanName("worker", req.Msg.GetName())
+	if err != nil {
+		return nil, err
 	}
 	token, hash, err := auth.NewToken(WorkerPrefix)
 	if err != nil {
