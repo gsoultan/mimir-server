@@ -30,7 +30,38 @@ service ModelService {
   // SetModelWorker picks the worker that answers a model's questions, or
   // none to let the console choose.
   rpc SetModelWorker(SetModelWorkerRequest) returns (SetModelWorkerResponse);
+  // SaveArchitecture describes a model type written in someone's own code
+  // and run on workers, or changes how one is described.
+  rpc SaveArchitecture(SaveArchitectureRequest) returns (SaveArchitectureResponse);
+  // DeleteArchitecture removes a described model type no model uses.
+  rpc DeleteArchitecture(DeleteArchitectureRequest) returns (DeleteArchitectureResponse);
 }
+
+message SaveArchitectureRequest {
+  // name is what workers run it under: lower case letters, digits and
+  // dashes, at most 40. Saving under a name already described changes it.
+  string name = 1;
+  string title = 2;
+  string description = 3;
+  // input is "table" (a row of columns), "image" (a photo) or "tensor"
+  // (a list of numbers).
+  string input = 4;
+  // output is "class" (one of a few labels), "number" or "ranked" (the
+  // labels that fit best, most likely first).
+  string output = 5;
+  // items is how many a ranked answer lists, 1 to 100.
+  int32 items = 6;
+}
+
+message SaveArchitectureResponse {
+  Architecture architecture = 1;
+}
+
+message DeleteArchitectureRequest {
+  string name = 1;
+}
+
+message DeleteArchitectureResponse {}
 
 message SetModelWorkerRequest {
   string id = 1;
@@ -77,8 +108,14 @@ message Architecture {
   // "tensor" for raw numbers and "text" for a prompt.
   string input = 7;
   // Output says what the model answers: "class" picks a label, "number"
-  // answers with a number and "text" writes text (see Generate).
+  // answers with a number, "ranked" lists the labels that fit best and
+  // "text" writes text (see Generate).
   string output = 8;
+  // custom says someone wrote it in their own code: only workers that run
+  // it answer and teach its models.
+  bool custom = 9;
+  // items is how many a ranked answer lists.
+  int32 items = 10;
 }
 
 // Column is one column a model reads and how it becomes numbers.
@@ -191,8 +228,13 @@ message CreateModelRequest {
   // architecture the whole model. For the mim and language-model
   // architectures it may also be an ONNX or GGUF file, which the server
   // converts to a Mimir Model file and stores that way; a GGUF language
-  // model uploaded as mim becomes a language-model model.
+  // model uploaded as mim becomes a language-model model. For a custom
+  // architecture it is whatever its own code reads, kept as it is.
   bytes weights = 4;
+  // labels and input_shape say what a custom architecture's model
+  // answers and reads; other architectures take them from the file.
+  repeated string labels = 5;
+  repeated int64 input_shape = 6;
 }
 
 message CreateModelResponse {

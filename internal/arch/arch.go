@@ -8,6 +8,7 @@ package arch
 import (
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/tensor"
@@ -38,6 +39,9 @@ const (
 	Number Output = "number" // one number, like a price or a count
 	// Written is text a language model writes, one token at a time.
 	Written Output = "text"
+	// Ranked lists the labels that fit best, most likely first: the
+	// items a recommender suggests, say. It is answered like Class.
+	Ranked Output = "ranked"
 )
 
 // Spec is what a model reads and answers. Fixed architectures carry their
@@ -190,6 +194,11 @@ type Architecture struct {
 	// their model's graph as well as its weights and so run as they are.
 	// Their shape and labels come from the file.
 	File bool
+	// Custom marks an architecture someone wrote in their own code and
+	// described to the server. Only workers that run it can answer or
+	// teach its models; Items is how many a Ranked answer lists.
+	Custom bool
+	Items  int
 }
 
 // Answers returns what the architecture answers.
@@ -322,13 +331,46 @@ func All() []Architecture {
 	return out
 }
 
-// Lookup returns the architecture called name.
-func Lookup(name string) (Architecture, bool) {
-	i := slices.IndexFunc(builtin, func(a Architecture) bool { return a.Name == name })
-	if i < 0 {
-		return Architecture{}, false
+// custom is the architectures described to the server, as SetCustom
+// last set them.
+var custom atomic.Pointer[[]Architecture]
+
+// SetCustom replaces the described architectures. Names a built-in one
+// already has are ignored.
+func SetCustom(as []Architecture) {
+	out := make([]Architecture, 0, len(as))
+	for _, a := range as {
+		if !slices.ContainsFunc(builtin, func(b Architecture) bool { return b.Name == a.Name }) {
+			a.Custom = true
+			out = append(out, a)
+		}
 	}
-	return builtin[i], true
+	slices.SortFunc(out, func(a, b Architecture) int { return strings.Compare(a.Name, b.Name) })
+	custom.Store(&out)
+}
+
+// Customs returns the described architectures, sorted by name.
+func Customs() []Architecture {
+	if c := custom.Load(); c != nil {
+		return slices.Clone(*c)
+	}
+	return nil
+}
+
+// Every returns the built-in architectures, then the described ones.
+func Every() []Architecture { return append(All(), Customs()...) }
+
+// Lookup returns the architecture called name, built in or described.
+func Lookup(name string) (Architecture, bool) {
+	if i := slices.IndexFunc(builtin, func(a Architecture) bool { return a.Name == name }); i >= 0 {
+		return builtin[i], true
+	}
+	if c := custom.Load(); c != nil {
+		if i := slices.IndexFunc(*c, func(a Architecture) bool { return a.Name == name }); i >= 0 {
+			return (*c)[i], true
+		}
+	}
+	return Architecture{}, false
 }
 
 // Resolve returns the spec a model of architecture a uses: the fixed one,

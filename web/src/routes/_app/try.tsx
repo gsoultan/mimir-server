@@ -96,14 +96,27 @@ function Try() {
   const columns: Column[] = draw || arch?.input === "image" ? [] : model.columns.length > 0
     ? model.columns.filter((c) => c.kind !== "photo")
     : model.features.map((name) => ({ name, kind: "number", values: [], fill: 0 }) as unknown as Column);
-  const table = columns.length > 0 || wantsPhoto;
   const shape = model.inputShape.length > 0 ? model.inputShape : arch?.inputShape ?? [];
-  const filled = (!wantsPhoto || !!photo) && columns.every((c) => c.kind !== "number" || (values[c.name] ?? "") !== "");
+  // A model that reads plain numbers, with no columns to name them, takes
+  // a list of them.
+  const raw = !draw && !wantsPhoto && columns.length === 0;
+  const table = columns.length > 0 || wantsPhoto || raw;
+  const want = shape.reduce((n, d) => n * Number(d), 1);
+  const rawValues = String(values[""] ?? "").split(/[\s,]+/).filter(Boolean).map(Number);
+  // A custom model's own code reads its columns as numbers, in order.
+  const inOrder = !!arch?.custom && model.columns.length === 0;
+  const ranked = arch?.output === "ranked";
+  const topK = ranked ? Math.max(Math.min(arch.items, model.labels.length), 1) : 3;
+  const filled = raw
+    ? rawValues.length === want && rawValues.every(Number.isFinite)
+    : (!wantsPhoto || !!photo) && columns.every((c) => c.kind !== "number" || (values[c.name] ?? "") !== "");
   const ask = async () => {
     if (draw) return predict.mutate({ modelId: model.id, input: { shape, values: Array.from(pad.current!.read()) }, topK: 3 });
+    if (raw) return predict.mutate({ modelId: model.id, input: { shape, values: rawValues }, topK });
+    if (inOrder) return predict.mutate({ modelId: model.id, input: { shape, values: columns.map((c) => Number(values[c.name] ?? 0)) }, topK });
     const fields: Record<string, string> = {};
     for (const c of columns) fields[c.name] = String(values[c.name] ?? "");
-    predict.mutate({ modelId: model.id, fields, photo: photo ? new Uint8Array(await photo.arrayBuffer()) : new Uint8Array(), topK: 3 });
+    predict.mutate({ modelId: model.id, fields, photo: photo ? new Uint8Array(await photo.arrayBuffer()) : new Uint8Array(), topK });
   };
   const change = (name: string, v: number | string) => { predict.reset(); setValues({ ...values, [name]: v }); };
   const number = predict.data?.number;
@@ -130,6 +143,17 @@ function Try() {
                 )}
                 {preview && <img src={preview} alt="The photo you picked" className="max-h-48 self-start rounded-lg object-contain" />}
                 {columns.map((c) => <Field key={c.name} column={c} value={values[c.name] ?? ""} onChange={(v) => change(c.name, v)} />)}
+                {raw && (
+                  <Textarea
+                    label={`The ${want === 1 ? "number" : `${want} numbers`} it reads`}
+                    description={want === 1 ? "One number" : "Separated by commas or spaces"}
+                    autosize
+                    minRows={2}
+                    value={String(values[""] ?? "")}
+                    onChange={(e) => change("", e.currentTarget.value)}
+                    error={rawValues.length > want ? `That's ${rawValues.length}; it reads ${want}.` : undefined}
+                  />
+                )}
               </Stack>
             </Card>
             <Button size="lg" loading={predict.isPending} disabled={!filled} onClick={() => void ask()}>What is it?</Button>
@@ -165,15 +189,15 @@ function Try() {
                   {best.label}
                 </div>
                 <div>
-                  <Title order={2} fz={22}>{table ? best.label : `It's a ${best.label}`}</Title>
+                  <Title order={2} fz={22}>{ranked ? `First pick: ${best.label}` : table ? best.label : `It's a ${best.label}`}</Title>
                   <Text c="dimmed">{sureness(best.probability)}: {Math.round(best.probability * 100)} out of 100.</Text>
                 </div>
               </Group>
               <Stack gap="xs" mt="lg">
-                <Text size="sm" fw={600}>Top guesses</Text>
-                {predict.data!.guesses.map((g) => (
+                <Text size="sm" fw={600}>{ranked ? `Top ${predict.data!.guesses.length}, best first` : "Top guesses"}</Text>
+                {predict.data!.guesses.map((g, i) => (
                   <Group key={g.label} wrap="nowrap" gap="sm">
-                    <Text w={table ? 96 : 24} fw={600} truncate>{g.label}</Text>
+                    <Text w={table ? 96 : 24} fw={600} truncate>{ranked ? `${i + 1}. ${g.label}` : g.label}</Text>
                     <Progress value={g.probability * 100} className="flex-1" size="lg" radius="xl" aria-label={`${g.label}: ${percent(g.probability)}`} />
                     <Text w={44} size="sm" ta="right">{percent(g.probability)}</Text>
                   </Group>
@@ -183,7 +207,7 @@ function Try() {
             </Card>
           ) : (
             <Card withBorder radius="lg" padding="lg" className="border-dashed">
-              <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : "Fill in the details"}, then press "What is it?". ${arch?.output === "number" ? "The answer will be a number." : `The answer will be one of: ${model.labels.join(", ")}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
+              <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : "Fill in the details"}, then press "What is it?". ${arch?.output === "number" ? "The answer will be a number." : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
             </Card>
           )}
         </Stack>

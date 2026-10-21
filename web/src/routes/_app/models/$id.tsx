@@ -112,6 +112,8 @@ function ModelDetails() {
               ? "Send the start of a text as prompt; get back how the model carries on, in text."
               : named
               ? `Send ${[columns.length > 0 && "each column by name in fields", wantsPhoto && "the photo as a JPG, PNG or GIF"].filter(Boolean).join(", and ")}. ${answer}`
+              : arch?.custom
+              ? `Send the ${input.toString() === "1" ? "number" : `${input.toString()} numbers`} its code reads; get back ${number ? "a number in value" : arch.output === "ranked" ? `the top ${arch.items}, best first, in guesses` : "the likeliest answers"}.`
               : `Send ${input.toString()} numbers between 0 and 1; get back the likeliest answers.`} Make a key under Connect your apps.
           </Text>
           <Tabs defaultValue="http">

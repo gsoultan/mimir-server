@@ -56,6 +56,8 @@ var Public = map[string]bool{
 // checks happen in the handlers, which know which model a call touches.
 var Required = map[string]Permission{
 	"/mimir.v1.ModelService/ListArchitectures":     ModelsRead,
+	"/mimir.v1.ModelService/SaveArchitecture":      ModelsWrite,
+	"/mimir.v1.ModelService/DeleteArchitecture":    ModelsWrite,
 	"/mimir.v1.ModelService/ListModels":            ModelsRead,
 	"/mimir.v1.ModelService/GetModel":              ModelsRead,
 	"/mimir.v1.ModelService/CreateModel":           ModelsWrite,
