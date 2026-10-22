@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"maps"
 	"math"
 	"math/rand/v2"
 	"path/filepath"
@@ -73,8 +74,24 @@ type Profile struct {
 // ParseTable reads a CSV with a header row. target names the answer
 // column; empty means the last column. hints, when set, give a column's
 // kind instead of guessing it from its cells.
+//
+// It reads the CSV twice, once to find the columns and once to turn the
+// rows into numbers, so a table's cells are never all in memory at once:
+// r is read whole first unless it can seek.
 func ParseTable(r io.Reader, target string, hints map[string]schema.Kind) (*Table, error) {
-	cr := csv.NewReader(r)
+	rs, ok := r.(io.ReadSeeker)
+	if !ok {
+		b, err := io.ReadAll(r)
+		if err != nil {
+			return nil, err
+		}
+		rs = bytes.NewReader(b)
+	}
+	start, err := rs.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, err
+	}
+	cr := csv.NewReader(rs)
 	cr.TrimLeadingSpace = true
 	header, err := cr.Read()
 	if err != nil {
@@ -109,122 +126,169 @@ func ParseTable(r io.Reader, target string, hints map[string]schema.Kind) (*Tabl
 	}
 	t := &Table{Header: header, Target: header[ti]}
 	inputs := slices.Delete(slices.Clone(header), ti, ti+1)
-	cells := make([][]string, len(inputs))
-	var answers []string
-	skipped := 0
-	for line := 2; ; line++ {
-		rec, err := cr.Read()
-		if errors.Is(err, io.EOF) {
-			break
+	// rows calls fn with the input cells and the answer of every row that
+	// has an answer, reading the CSV from just after its header.
+	rows := func(fn func(cells []string, answer string) error) error {
+		if _, err := rs.Seek(start, io.SeekStart); err != nil {
+			return err
 		}
-		if err != nil {
-			return nil, fmt.Errorf("%w: line %d: %v", ErrBadTable, line, err)
+		cr := csv.NewReader(rs)
+		cr.TrimLeadingSpace = true
+		cr.ReuseRecord = true
+		if _, err := cr.Read(); err != nil {
+			return err
 		}
-		if len(answers) >= MaxRows {
-			return nil, fmt.Errorf("%w: at most %d rows", ErrBadTable, MaxRows)
-		}
-		answer := strings.TrimSpace(rec[ti])
-		if answer == "" {
-			skipped++
-			continue
-		}
-		answers = append(answers, answer)
-		j := 0
-		for i, field := range rec {
-			if i != ti {
-				cells[j] = append(cells[j], strings.TrimSpace(field))
-				j++
+		cells := make([]string, len(inputs))
+		for line := 2; ; line++ {
+			rec, err := cr.Read()
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			if err != nil {
+				return fmt.Errorf("%w: line %d: %v", ErrBadTable, line, err)
+			}
+			answer := strings.TrimSpace(rec[ti])
+			if answer == "" {
+				t.Skipped++
+				continue
+			}
+			j := 0
+			for i, field := range rec {
+				if i != ti {
+					cells[j] = strings.TrimSpace(field)
+					j++
+				}
+			}
+			if err := fn(cells, answer); err != nil {
+				return err
 			}
 		}
 	}
-	t.Rows, t.Skipped = len(answers), skipped
+
+	// First pass: the columns, and the answers.
+	detect := schema.NewDetector(inputs, hints)
+	t.Answers = map[string]int{}
+	t.Numeric = true
+	var (
+		classOf = map[string]int32{} // each answer's index in first, while there are few
+		first   []string
+		ids     []int32 // each row's answer, as an index into first
+	)
+	err = rows(func(cells []string, answer string) error {
+		if t.Rows >= MaxRows {
+			return fmt.Errorf("%w: at most %d rows", ErrBadTable, MaxRows)
+		}
+		t.Rows++
+		for j, v := range cells {
+			detect.Add(j, v)
+		}
+		if t.Numeric {
+			if f, ok := schema.ParseNumber(answer); ok {
+				t.V = append(t.V, float32(f))
+			} else {
+				t.Numeric, t.V = false, nil
+			}
+		}
+		if n, ok := t.Answers[answer]; ok {
+			t.Answers[answer] = n + 1
+		} else if len(t.Answers) <= MaxClasses {
+			t.Answers[strings.Clone(answer)] = 1
+		}
+		if classOf != nil {
+			c, ok := classOf[answer]
+			if !ok && len(classOf) == MaxClasses {
+				classOf, first, ids = nil, nil, nil
+				return nil
+			}
+			if !ok {
+				c = int32(len(first))
+				first = append(first, strings.Clone(answer))
+				classOf[first[c]] = c
+			}
+			ids = append(ids, c)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
 	if t.Rows < MinRows {
 		return nil, fmt.Errorf("%w: at least %d rows with an answer are needed to learn anything", ErrBadTable, MinRows)
 	}
-
-	t.Columns = schema.Detect(inputs, cells, hints)
-	if photos := slices.IndexFunc(t.Columns, func(c schema.Column) bool { return c.Kind == schema.Photo }); photos >= 0 {
-		t.Photos = cells[photos]
-		if slices.ContainsFunc(t.Columns[photos+1:], func(c schema.Column) bool { return c.Kind == schema.Photo }) {
-			return nil, fmt.Errorf("%w: only one photo column per row works here", ErrBadTable)
-		}
+	t.Columns = detect.Columns(func(add func(j int, v string)) {
+		t.Skipped = 0
+		rows(func(cells []string, _ string) error {
+			for j, v := range cells {
+				add(j, v)
+			}
+			return nil
+		})
+	})
+	photos := slices.IndexFunc(t.Columns, func(c schema.Column) bool { return c.Kind == schema.Photo })
+	if photos >= 0 && slices.ContainsFunc(t.Columns[photos+1:], func(c schema.Column) bool { return c.Kind == schema.Photo }) {
+		return nil, fmt.Errorf("%w: only one photo column per row works here", ErrBadTable)
 	}
 	t.Features = schema.Features(t.Columns)
 	if len(t.Features) > schema.MaxWidth {
 		return nil, fmt.Errorf("%w: the columns make %d numbers per row; at most %d. Leave out some text or category columns", ErrBadTable, len(t.Features), schema.MaxWidth)
 	}
-	t.Profile = profile(t.Columns, cells)
 
 	// The answer: a class, a number, or both.
-	t.Answers = map[string]int{}
-	t.Numeric = true
-	for _, a := range answers {
-		if t.Numeric {
-			if _, ok := schema.ParseNumber(a); !ok {
-				t.Numeric = false
-			}
-		}
-		if _, ok := t.Answers[a]; ok || len(t.Answers) <= MaxClasses {
-			t.Answers[a]++
-		}
-	}
 	if len(t.Answers) < 2 {
 		return nil, fmt.Errorf("%w: the %q column has only one value, so there is nothing to tell apart", ErrBadTable, t.Target)
 	}
 	if len(t.Answers) <= MaxClasses {
-		t.Classes = slices.Sorted(func(yield func(string) bool) {
-			for a := range t.Answers {
-				if !yield(a) {
-					return
-				}
-			}
-		})
+		t.Classes = slices.Sorted(maps.Keys(t.Answers))
+		rank := make([]int32, len(first))
+		for c, a := range first {
+			i, _ := slices.BinarySearch(t.Classes, a)
+			rank[c] = int32(i)
+		}
 		t.Y = make([]int32, t.Rows)
-		for i, a := range answers {
-			c, _ := slices.BinarySearch(t.Classes, a)
-			t.Y[i] = int32(c)
+		for i, c := range ids {
+			t.Y[i] = rank[c]
 		}
 	}
 	if !t.Numeric && t.Classes == nil {
 		return nil, fmt.Errorf("%w: the %q column has more than %d different values; for a category answer, at most %d", ErrBadTable, t.Target, MaxClasses, MaxClasses)
 	}
-	if t.Numeric {
-		t.V = make([]float32, t.Rows)
-		for i, a := range answers {
-			f, _ := schema.ParseNumber(a)
-			t.V[i] = float32(f)
-		}
-	}
 
+	// Second pass: the numbers of every row, and how full each column is.
+	t.Profile = make([]Profile, len(t.Columns))
+	words := make([]int, len(t.Columns))
 	t.X = make([]float32, 0, t.Rows*len(t.Features))
-	for i := range t.Rows {
-		t.X = schema.Encode(t.X, t.Columns, func(j int) string { return cells[j][i] })
+	if photos >= 0 {
+		t.Photos = make([]string, 0, t.Rows)
 	}
-	return t, nil
-}
-
-// profile counts the empty and unreadable cells of each column.
-func profile(cols []schema.Column, cells [][]string) []Profile {
-	out := make([]Profile, len(cols))
-	for j, c := range cols {
-		words := 0
-		for _, v := range cells[j] {
-			switch {
+	t.Skipped = 0
+	err = rows(func(cells []string, _ string) error {
+		for j, v := range cells {
+			switch c := t.Columns[j]; {
 			case v == "":
-				out[j].Empty++
+				t.Profile[j].Empty++
 			case c.Kind == schema.Number:
 				if _, ok := schema.ParseNumber(v); !ok {
-					out[j].Unreadable++
+					t.Profile[j].Unreadable++
 				}
 			case c.Kind == schema.Text:
-				words += len(schema.Words(v))
+				words[j] += len(schema.Words(v))
 			}
 		}
-		if n := len(cells[j]) - out[j].Empty; c.Kind == schema.Text && n > 0 {
-			out[j].Words = float64(words) / float64(n)
+		if photos >= 0 {
+			t.Photos = append(t.Photos, strings.Clone(cells[photos]))
+		}
+		t.X = schema.Encode(t.X, t.Columns, func(j int) string { return cells[j] })
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for j, c := range t.Columns {
+		if n := t.Rows - t.Profile[j].Empty; c.Kind == schema.Text && n > 0 {
+			t.Profile[j].Words = float64(words[j]) / float64(n)
 		}
 	}
-	return out
+	return t, nil
 }
 
 // keep narrows the table to the given rows, in order.

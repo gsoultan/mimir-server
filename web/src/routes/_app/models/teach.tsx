@@ -70,6 +70,14 @@ const bucketFilled = (b: Bucket) => !!b.bucket.trim() && !!b.accessKeyId.trim() 
   && (b.provider !== "r2" || !!b.accountId.trim()) && (b.provider !== "other" || !!b.endpoint.trim());
 type Upload = { name: string; size: number; bytes: Uint8Array; columns: string[]; rows: string[][]; summary: string; zip: boolean };
 
+// The batch size the server picks for a table of rows examples when it is
+// left unset (training.SettingsFor): larger for large tables.
+function tableBatch(rows: number) {
+  let b = 32;
+  while (b < 512 && b * 2 * 1000 <= rows) b *= 2;
+  return b;
+}
+
 // Reads the header and first rows of a CSV without a parser; enough to pick a
 // column and show a preview. The server does the real checking.
 function peek(text: string) {
@@ -216,6 +224,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
     });
     if (!name) setName(d.kind === DatasetKind.MNIST ? "My digits model" : `${d.name.replace(/\.(csv|zip)$/i, "")} model`);
     if (d.kind === DatasetKind.MNIST) { setBatch(64); setRate(0.001); }
+    if (d.kind === DatasetKind.TABLE) setBatch(tableBatch(Number(d.rows)));
     if (!c) setStep(1);
   }
 
