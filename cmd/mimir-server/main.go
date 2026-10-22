@@ -82,7 +82,7 @@ func run() error {
 	token := flag.String("token", os.Getenv("MIMIR_WORKER_TOKEN"), "worker: the token made under Settings → Workers ($MIMIR_WORKER_TOKEN)")
 	name := flag.String("name", "", "worker: a name for the logs")
 	capacity := flag.Int("capacity", 0, "worker: how many tasks to run at once (default: the CPU count)")
-	maxModelMB := flag.Int("max-model-mb", 256, "console: the largest model file an upload may be, in MB; a GGUF language model is often larger, and an upload needs about three times its size in memory while it is converted")
+	maxModelMB := flag.Int("max-model-mb", 256, "console: the largest model file an upload may be, in MB; a GGUF language model is often larger. The console streams uploads to disk, so their size takes disk rather than memory")
 	trustedProxies := flag.String("trusted-proxies", os.Getenv("MIMIR_TRUSTED_PROXIES"), "console: comma-separated addresses and CIDR ranges of reverse proxies whose X-Forwarded-For and X-Forwarded-Proto headers to believe, such as 10.0.0.0/8,127.0.0.1; by default no one's are ($MIMIR_TRUSTED_PROXIES)")
 	secretKeyFile := flag.String("secret-key-file", os.Getenv("MIMIR_SECRET_KEY_FILE"), "console: file holding the key stored secrets are encrypted with, 32 bytes as base64 or hex ($MIMIR_SECRET_KEY_FILE); $MIMIR_SECRET_KEY, the key itself, comes first; with neither, the key is <data>/secret.key, made on first start")
 	metricsToken := flag.String("metrics-token", os.Getenv("MIMIR_METRICS_TOKEN"), "console: require this bearer token to read /metrics ($MIMIR_METRICS_TOKEN); empty serves it to anyone who can reach the port")

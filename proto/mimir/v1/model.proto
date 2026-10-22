@@ -249,6 +249,12 @@ message CreateModelRequest {
   // answers and reads; other architectures take them from the file.
   repeated string labels = 5;
   repeated int64 input_shape = 6;
+  // upload names a file sent beforehand to POST /api/uploads, in place of
+  // weights. A large model goes that way: the server writes it straight
+  // to disk as it arrives, where weights is read into memory whole and
+  // can be at most a few hundred megabytes. An upload can be used once,
+  // by whoever sent it, within an hour.
+  string upload = 7;
 }
 
 message CreateModelResponse {

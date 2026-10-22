@@ -8,6 +8,16 @@ export type Inspection =
   | { ok: true; format: Format; tensors?: number; parameters?: number }
   | { ok: false; reason: string };
 
+// headLength returns how much of the start of a file inspect needs, given
+// its first 64 bytes: a .mim file's preamble and index, or just those 64
+// bytes for the other formats. The rest is weights, which inspect never
+// reads, so a large model isn't read into memory to look at it.
+export function headLength(first: Uint8Array): number {
+  if (first.length < mimPreamble || !isMim(first)) return mimPreamble;
+  const view = new DataView(first.buffer, first.byteOffset, first.byteLength);
+  return Number(view.getBigUint64(16, true) + view.getBigUint64(24, true));
+}
+
 export function inspect(bytes: Uint8Array, name = ""): Inspection {
   if (bytes.length >= mimPreamble && isMim(bytes)) {
     return inspectMim(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength));

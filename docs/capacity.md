@@ -65,12 +65,25 @@ Run language models on workers to keep them off the console.
 | idle, no models loaded | 40 MB |
 | predictions, 2–64 small models loaded | 100–250 MB |
 | 1B language model loaded, chatting | 2.7–3.1 GB |
-| uploading a 1.1 GB GGUF (converted on upload) | peak 7.7 GB |
+| uploading a 1.1 GB GGUF (converted on upload) | 65 MB heap, plus 1.1 GB of cached file pages |
 
-An upload needs about **7 times the GGUF's size** while it converts, more
-than the "about three times" the `-max-model-mb` help says; with
-`-max-uploads` at its default of 4, size the machine for that or lower it.
-The upload of 1.1 GB took 85 s.
+The console sends a model to `/api/uploads`, which writes it to disk as it
+arrives; the server then converts it from a memory-mapped file to a new
+file on disk and moves that into place. Memory the server allocates stays
+at about 65 MB whatever the file's size. The file's pages count towards
+its RSS while it is read (1.2 GB peak here), but they are the system's
+file cache, which it drops again whenever it needs the memory.
+
+| uploading the 1.1 GB GGUF | before | after |
+| --- | ---: | ---: |
+| time, upload to model ready | 85–102 s | 12 s |
+| server memory, peak | 7.5 GB | 65 MB heap (1.2 GB RSS with file cache) |
+| server CPU | 149 s | 2.3 s, plus 10 s of kernel time writing to disk |
+
+On the machine measured, writing to disk runs at about 180 MB/s, and the
+file is written twice (as sent, and converted), so disk speed sets most of
+the 12 s. Apps that still send the file inside `CreateModel` as `weights`
+take about 5 GB for the same file, from reading the request into memory.
 
 ## Database connections
 
@@ -85,8 +98,6 @@ the log database 2, within the default pool of 16. No run needed more.
 2. **CPU for predictions.** mimir's CPU helper goroutines spin while
    waiting for the next loop, 17–30% of the console's CPU under steady
    predictions.
-3. **Upload memory** for large GGUF files.
-
 PostgreSQL, the pool and the number of teams were not limits at these
 loads.
 
