@@ -1,8 +1,9 @@
 name: release
 
-# Pushing a tag such as v1.2.3 builds mimir-server for Linux, macOS and
-# Windows on amd64 and arm64, with the version set from the tag, and
-# attaches the archives and their SHA-256 sums to a GitHub release.
+# Pushing a tag such as v1.2.3 runs GoReleaser (.goreleaser.yaml): it builds
+# mimir-server for Linux, macOS and Windows on amd64 and arm64 with the
+# version set from the tag, attaches the archives and their SHA-256 sums to
+# a GitHub release with notes from the merged pull requests.
 
 on:
   push:
@@ -18,50 +19,17 @@ jobs:
       contents: write # create the release and upload its files
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # GoReleaser needs the tags and history
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Build web UI
-        working-directory: web
-        run: |
-          bun install --frozen-lockfile
-          bun run build
-      - name: Build the browser runtime
-        run: ./scripts/wasm.sh web/dist/wasm
-      - name: Build binaries
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
         env:
-          VERSION: ${{ github.ref_name }}
-          CGO_ENABLED: "0"
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
-            os=${target%/*}
-            arch=${target#*/}
-            name=mimir-server_${VERSION}_${os}_${arch}
-            ext=
-            [ "$os" = windows ] && ext=.exe
-            mkdir -p "build/$name"
-            GOOS=$os GOARCH=$arch go build -trimpath \
-              -ldflags "-s -w -X main.version=${VERSION}" \
-              -o "build/$name/mimir-server$ext" ./cmd/mimir-server
-            cp README.md "build/$name/"
-            if [ "$os" = windows ]; then
-              (cd build && zip -qr "../dist/$name.zip" "$name")
-            else
-              tar -C build -czf "dist/$name.tar.gz" "$name"
-            fi
-          done
-          (cd dist && sha256sum * > SHA256SUMS)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mimir-server-${{ github.ref_name }}
-          path: dist/*
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

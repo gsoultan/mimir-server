@@ -1,0 +1,48 @@
+# Release builds, run by .github/workflows/release.yml when a v* tag is
+# pushed. Try it locally with `goreleaser release --snapshot --clean`.
+version: 2
+
+project_name: mimir-server
+
+before:
+  hooks:
+    # The web UI and the browser runtime are embedded in the binary, so
+    # build them first.
+    - sh -c "cd web && bun install --frozen-lockfile && bun run build"
+    - ./scripts/wasm.sh web/dist/wasm
+
+builds:
+  # The release archives. These keep the GPU backends, so on Linux they
+  # need glibc.
+  - id: mimir-server
+    main: ./cmd/mimir-server
+    binary: mimir-server
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
+    wrap_in_directory: true
+    files:
+      - README.md
+
+checksum:
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+changelog:
+  # Release notes from the merged pull requests.
+  use: github-native
+
+release:
+  prerelease: auto
