@@ -284,21 +284,22 @@ lost, so roll back soon or not at all.
 
 ## 9. How much one console handles
 
-_The figures below come from the load test of the release build and will
-be filled in when it is done._
+Measured on a 4-core, 15 GB VM with PostgreSQL and the load generator on
+the same machine; [capacity.md](capacity.md) has the details and how to
+rerun it with `cmd/mimir-load`.
 
-| Workload | One console (TBD cores, TBD GB) |
+| Workload | One console (4 cores, 15 GB) |
 | --- | --- |
-| Predictions per second, small table model | TBD |
-| Chat: concurrent streaming answers, small language model | TBD |
-| Training runs alongside requests | TBD |
-| Teams and people active at once | TBD |
-| Database connections needed | TBD |
+| Predictions per second, small models | about 2,800 a second from 32 callers on; p99 under 50 ms up to 64 callers |
+| Chat: concurrent streaming answers, 1B language model | about 2 tokens a second in all; up to 4 answers per model at once, the rest wait |
+| Training runs alongside requests | 2 at once by default, about 1 epoch a second each on a 20,000-row table; predictions keep 2,200 a second beside them |
+| Teams and people active at once | 32 teams with a signed-in admin each and 64 API callers: no errors, console pages p99 141 ms |
+| Database connections needed | at most 11 on the main database and 2 on the log database; the default pool of 16 is enough |
 
-Until then: the database pool defaults to 16 connections
-(`pool_max_conns=` in the URL changes it), `-training-jobs` and
-`-model-cache-mb` bound the work and memory, and workers take running and
-teaching off the console.
+Memory: 40 MB idle, under 250 MB serving small models, about 3 GB with a
+1B language model loaded, and about 7 times a GGUF's size while it is
+uploaded and converted. Language models are the first limit: run them on
+workers. `-training-jobs` and `-model-cache-mb` bound the rest.
 
 ## 10. Keeping an eye on it
 
