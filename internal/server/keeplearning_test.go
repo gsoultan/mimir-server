@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,8 +81,11 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 		}
 	}
 	// So is its own PostgreSQL database, which holds password hashes and
-	// sessions, however the URL is spelled.
-	for _, dsn := range []string{dbURL, strings.Replace(dbURL, "127.0.0.1", "localhost", 1)} {
+	// sessions, however the URL is spelled: by another name for this
+	// machine, or as the fallback after a host that can't be reached.
+	u, _ := url.Parse(dbURL)
+	fallback := strings.Replace(dbURL, u.Host, "127.0.0.1:1,"+u.Host, 1)
+	for _, dsn := range []string{dbURL, strings.Replace(dbURL, "127.0.0.1", "localhost", 1), fallback} {
 		ours := &mimirv1.Connection{Driver: "postgres", Dsn: dsn}
 		if _, err := own.datasets.TestQuery(ctx, connect.NewRequest(&mimirv1.TestQueryRequest{Connection: ours, Query: "SELECT email, password_hash FROM users"})); code(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "own database") {
 			t.Fatalf("own database %s: %v", dsn, err)
