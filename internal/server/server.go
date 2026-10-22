@@ -58,8 +58,12 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 
 	// Every RPC is counted and timed, then goes through the auth
 	// interceptor, which signs callers in from their cookie or API key and
-	// checks the procedure's permission.
-	guard := connect.WithInterceptors(metrics.Interceptor(), auth.Interceptor(st, svc.MustEnroll))
+	// checks the procedure's permission. Answers under a kilobyte, such as
+	// a prediction, go uncompressed: gzip costs more CPU than it saves.
+	guard := connect.WithHandlerOptions(
+		connect.WithInterceptors(metrics.Interceptor(), auth.Interceptor(st, svc.MustEnroll)),
+		connect.WithCompressMinBytes(1024),
+	)
 	// Uploads take the configured limit, lower or higher than the default.
 	// Workers fetch and send models already stored, which may predate a
 	// lowered limit, so their link keeps at least the default.
