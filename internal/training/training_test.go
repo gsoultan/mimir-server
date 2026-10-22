@@ -1,6 +1,11 @@
 package training
 
 import (
+	"cmp"
+	"fmt"
+	"io"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
@@ -39,5 +44,40 @@ func TestParseTable(t *testing.T) {
 	rows := Sample([]byte(csv), 2)
 	if len(rows) != 3 || rows[0][1] != "b" {
 		t.Fatalf("sample %v", rows)
+	}
+}
+
+// TestParseTableStreams checks what the two passes over a table must
+// agree on: rows without an answer, a category column with more values
+// than are counted at first, and a reader that can't seek.
+func TestParseTableStreams(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("id,shade,note,label\n")
+	count := map[string]int{}
+	for i := range 3000 {
+		label, shade := []string{"a", "b", ""}[i%3], fmt.Sprintf("s%d", i%1500+i%7)
+		if label != "" {
+			count[shade]++
+		}
+		fmt.Fprintf(&b, "%d,%s,%s,%s\n", i, shade, []string{"", "fine day", "oops"}[i%3], label)
+	}
+	top := slices.SortedFunc(maps.Keys(count), func(x, y string) int { return cmp.Or(count[y]-count[x], strings.Compare(x, y)) })
+	hints := map[string]schema.Kind{"shade": schema.Category}
+	tb, err := ParseTable(struct{ io.Reader }{strings.NewReader(b.String())}, "", hints)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tb.Rows != 2000 || tb.Skipped != 1000 || len(tb.Y) != 2000 || tb.Y[0] != 0 || tb.Y[1] != 1 {
+		t.Fatalf("rows %d, skipped %d, answers %v", tb.Rows, tb.Skipped, tb.Y[:2])
+	}
+	shade := tb.Columns[1]
+	if shade.Kind != schema.Category || !slices.Equal(shade.Values, top[:schema.MaxValues]) {
+		t.Fatalf("shade %+v", shade)
+	}
+	if tb.Columns[2].Kind != schema.Category || tb.Profile[2].Empty != 1000 {
+		t.Fatalf("note %+v, profile %+v", tb.Columns[2], tb.Profile[2])
+	}
+	if want := 2000 * len(tb.Features); len(tb.X) != want {
+		t.Fatalf("%d numbers, want %d", len(tb.X), want)
 	}
 }

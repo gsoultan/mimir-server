@@ -438,7 +438,7 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 		}
 		set.Layers = arch.FormatLayers(design)
 	}
-	def := training.DefaultsFor(d.Kind)
+	def := training.SettingsFor(d)
 	if set.Epochs == 0 {
 		set.Epochs = def.Epochs
 	}

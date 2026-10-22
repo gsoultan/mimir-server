@@ -134,106 +134,191 @@ func HasText(cols []Column) bool {
 // Detect works out each column's kind from its values: values[j] holds
 // every cell of column j. A hint, when given for a column, wins.
 func Detect(names []string, values [][]string, hints map[string]Kind) []Column {
-	cols := make([]Column, len(names))
-	for j, name := range names {
-		k, ok := hints[name]
-		if !ok || !k.Valid() {
-			k = guess(values[j])
+	d := NewDetector(names, hints)
+	for j, cells := range values {
+		for _, v := range cells {
+			d.Add(j, v)
 		}
-		cols[j] = finish(Column{Name: name, Kind: k}, values[j])
+	}
+	return d.Columns(func(add func(j int, v string)) {
+		for j, cells := range values {
+			for _, v := range cells {
+				add(j, v)
+			}
+		}
+	})
+}
+
+// countCap bounds how many distinct values a Detector counts per column
+// while it reads. A category column with more is counted again, on its
+// own, once its kind is known.
+const countCap = 1024
+
+// Detector finds a table's columns from its cells, read one at a time, so
+// a large table never needs all of its cells in memory at once. It reads
+// the same as Detect.
+type Detector struct {
+	names []string
+	hints map[string]Kind
+	cols  []detected
+}
+
+// detected is what a Detector knows about one column so far.
+type detected struct {
+	kind                    Kind // from a hint, or "" to guess
+	filled, length          int
+	numbers, yesno, photos  bool
+	seen                    map[string]bool
+	sentences, sentenceLong int // cells looked at for wordy, and long ones
+	sum                     float64
+	nums                    int
+	count                   map[string]int
+	overflow                bool // count stopped at countCap
+}
+
+// NewDetector returns a Detector for the columns names. hints, when set,
+// give a column's kind instead of guessing it from its cells.
+func NewDetector(names []string, hints map[string]Kind) *Detector {
+	d := &Detector{names: names, hints: hints, cols: make([]detected, len(names))}
+	for j, name := range names {
+		c := &d.cols[j]
+		if k, ok := hints[name]; ok && k.Valid() {
+			c.kind = k
+		}
+		c.numbers, c.yesno, c.photos = true, true, true
+		c.seen, c.count = map[string]bool{}, map[string]int{}
+	}
+	return d
+}
+
+// Add reads cell v of column j.
+func (d *Detector) Add(j int, v string) {
+	c := &d.cols[j]
+	v = strings.TrimSpace(v)
+	if c.kind == Number {
+		if f, ok := parseNumber(v); ok {
+			c.sum += f
+			c.nums++
+		}
+	}
+	if v == "" {
+		return
+	}
+	if (c.kind == "" || c.kind == Category) && !c.overflow {
+		if _, ok := c.count[v]; ok {
+			c.count[v]++
+		} else if len(c.count) < countCap {
+			c.count[strings.Clone(v)] = 1
+		} else {
+			c.overflow, c.count = true, nil
+		}
+	}
+	if c.kind != "" {
+		return
+	}
+	c.filled++
+	c.length += len(v)
+	if c.numbers {
+		// A column guessed to hold numbers has only cells ParseFloat reads,
+		// so its average needs nothing parseNumber reads besides.
+		f, err := strconv.ParseFloat(v, 64)
+		switch {
+		case err != nil:
+			c.numbers = false
+		case !math.IsNaN(f) && !math.IsInf(f, 0):
+			c.sum += f
+			c.nums++
+		}
+	}
+	if c.yesno {
+		if _, ok := parseYesNo(v); !ok {
+			c.yesno = false
+		}
+	}
+	c.photos = c.photos && IsPhotoName(v)
+	if len(c.seen) <= MaxValues*4 {
+		if k := strings.ToLower(v); !c.seen[k] {
+			c.seen[strings.Clone(k)] = true
+		}
+	}
+	if c.sentences < 1000 {
+		c.sentences++
+		if len(strings.Fields(v)) >= 3 {
+			c.sentenceLong++
+		}
+	}
+}
+
+// Columns returns the columns of every cell added. replay adds the cells
+// again, in any order, to count the values of a category column with too
+// many to count the first time; it is not called otherwise.
+func (d *Detector) Columns(replay func(add func(j int, v string))) []Column {
+	cols := make([]Column, len(d.names))
+	var recount []int
+	for j, name := range d.names {
+		c := &d.cols[j]
+		k := c.kind
+		if k == "" {
+			k = c.guess()
+		}
+		cols[j] = Column{Name: name, Kind: k}
+		switch {
+		case k == Number && c.nums > 0:
+			cols[j].Fill = c.sum / float64(c.nums)
+		case k == Category && c.overflow:
+			recount = append(recount, j)
+		case k == Category:
+			cols[j].Values = topValues(c.count)
+		}
+	}
+	if len(recount) > 0 {
+		counts := map[int]map[string]int{}
+		for _, j := range recount {
+			counts[j] = map[string]int{}
+		}
+		replay(func(j int, v string) {
+			if count, ok := counts[j]; ok {
+				if v = strings.TrimSpace(v); v != "" {
+					if _, ok := count[v]; ok {
+						count[v]++
+					} else {
+						count[strings.Clone(v)] = 1
+					}
+				}
+			}
+		})
+		for _, j := range recount {
+			cols[j].Values = topValues(counts[j])
+		}
 	}
 	return cols
 }
 
-// guess picks a column's kind from its cells.
-func guess(cells []string) Kind {
-	seen := map[string]bool{}
-	numbers, yesno, photos, filled, length := true, true, true, 0, 0
-	for _, v := range cells {
-		v = strings.TrimSpace(v)
-		if v == "" {
-			continue
-		}
-		filled++
-		length += len(v)
-		if numbers {
-			if _, err := strconv.ParseFloat(v, 64); err != nil {
-				numbers = false
-			}
-		}
-		if yesno {
-			if _, ok := parseYesNo(v); !ok {
-				yesno = false
-			}
-		}
-		photos = photos && IsPhotoName(v)
-		if len(seen) <= MaxValues*4 {
-			seen[strings.ToLower(v)] = true
-		}
-	}
+// guess picks a column's kind from what Add saw of its cells.
+func (c *detected) guess() Kind {
 	switch {
-	case filled == 0 || numbers:
+	case c.filled == 0 || c.numbers:
 		return Number
-	case yesno:
+	case c.yesno:
 		return YesNo
-	case photos:
+	case c.photos:
 		return Photo
-	case len(seen) <= MaxValues*4 && length/filled <= 30 && !wordy(cells):
+	case len(c.seen) <= MaxValues*4 && c.length/c.filled <= 30 && !(c.sentences > 0 && c.sentenceLong*2 > c.sentences):
 		return Category
 	}
 	return Text
 }
 
-// wordy reports whether a column's cells read like sentences: most of
-// them hold three words or more.
-func wordy(cells []string) bool {
-	n, long := 0, 0
-	for _, v := range cells {
-		if v = strings.TrimSpace(v); v == "" {
-			continue
-		}
-		n++
-		if len(strings.Fields(v)) >= 3 {
-			long++
-		}
-		if n >= 1000 {
-			break
-		}
+// topValues returns the MaxValues most common values, most common first.
+func topValues(count map[string]int) []string {
+	vals := make([]string, 0, len(count))
+	for v := range count {
+		vals = append(vals, v)
 	}
-	return n > 0 && long*2 > n
-}
-
-// finish fills in what encoding a column needs from its cells.
-func finish(c Column, cells []string) Column {
-	switch c.Kind {
-	case Number:
-		sum, n := 0.0, 0
-		for _, v := range cells {
-			if f, ok := parseNumber(v); ok {
-				sum += f
-				n++
-			}
-		}
-		if n > 0 {
-			c.Fill = sum / float64(n)
-		}
-	case Category:
-		count := map[string]int{}
-		for _, v := range cells {
-			if v = strings.TrimSpace(v); v != "" {
-				count[v]++
-			}
-		}
-		vals := make([]string, 0, len(count))
-		for v := range count {
-			vals = append(vals, v)
-		}
-		slices.SortFunc(vals, func(a, b string) int {
-			return cmp.Or(cmp.Compare(count[b], count[a]), cmp.Compare(a, b))
-		})
-		c.Values = vals[:min(len(vals), MaxValues)]
-	}
-	return c
+	slices.SortFunc(vals, func(a, b string) int {
+		return cmp.Or(cmp.Compare(count[b], count[a]), cmp.Compare(a, b))
+	})
+	return vals[:min(len(vals), MaxValues)]
 }
 
 // Encode appends the numbers for one row to dst. cell returns the row's
@@ -267,6 +352,9 @@ func Encode(dst []float32, cols []Column, cell func(i int) string) []float32 {
 // allowed; empty or unreadable cells are not ok.
 func ParseNumber(v string) (float64, bool) { return parseNumber(v) }
 
+// separators are what a number cell may hold between its digits.
+var separators = strings.NewReplacer(",", "", " ", "", "_", "")
+
 func parseNumber(v string) (float64, bool) {
 	v = strings.TrimSpace(v)
 	if v == "" {
@@ -274,7 +362,7 @@ func parseNumber(v string) (float64, bool) {
 	}
 	f, err := strconv.ParseFloat(v, 64)
 	if err != nil {
-		f, err = strconv.ParseFloat(strings.NewReplacer(",", "", " ", "", "_", "").Replace(v), 64)
+		f, err = strconv.ParseFloat(separators.Replace(v), 64)
 	}
 	if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
 		return 0, false
