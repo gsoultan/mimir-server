@@ -51,6 +51,25 @@ func LoadRetention(ctx context.Context, st *store.Store) (Retention, error) {
 	return r, json.Unmarshal([]byte(raw), &r)
 }
 
+// CheckRetention returns the retention for the given days, or an error fit
+// to show when they are out of range.
+func CheckRetention(auditDays, deliveryDays int) (Retention, error) {
+	r := Retention{AuditDays: auditDays, DeliveryDays: deliveryDays}
+	if r.AuditDays < 0 || r.AuditDays > 3650 || r.DeliveryDays < 1 || r.DeliveryDays > 3650 {
+		return r, invalid("Keep audit events for 0 (forever) to 3650 days, and deliveries for 1 to 3650 days.")
+	}
+	return r, nil
+}
+
+// SaveRetention stores the retention setting.
+func SaveRetention(ctx context.Context, st *store.Store, r Retention) error {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	return st.SetSetting(ctx, KeyRetention, string(b))
+}
+
 func (s *Service) GetSettings(ctx context.Context, _ *connect.Request[mimirv1.GetSettingsRequest]) (*connect.Response[mimirv1.GetSettingsResponse], error) {
 	e, t, err := alert.Load(ctx, s.store)
 	if err != nil {
@@ -144,14 +163,14 @@ func (s *Service) SendTestAlert(ctx context.Context, req *connect.Request[mimirv
 
 func (s *Service) UpdateRetention(ctx context.Context, req *connect.Request[mimirv1.UpdateRetentionRequest]) (*connect.Response[mimirv1.UpdateRetentionResponse], error) {
 	p, _ := auth.From(ctx)
-	r := Retention{AuditDays: int(req.Msg.GetRetention().GetAuditDays()), DeliveryDays: int(req.Msg.GetRetention().GetDeliveryDays())}
-	if r.AuditDays < 0 || r.AuditDays > 3650 || r.DeliveryDays < 1 || r.DeliveryDays > 3650 {
-		return nil, invalid("Keep audit events for 0 (forever) to 3650 days, and deliveries for 1 to 3650 days.")
+	r, err := CheckRetention(int(req.Msg.GetRetention().GetAuditDays()), int(req.Msg.GetRetention().GetDeliveryDays()))
+	if err != nil {
+		return nil, err
 	}
-	b, _ := json.Marshal(r)
-	if err := s.store.SetSetting(ctx, KeyRetention, string(b)); err != nil {
+	if err := SaveRetention(ctx, s.store, r); err != nil {
 		return nil, s.internal(ctx, err)
 	}
+	b, _ := json.Marshal(r)
 	s.audit(ctx, p.Actor(), "settings.retention", "", string(b))
 	return connect.NewResponse(&mimirv1.UpdateRetentionResponse{Retention: retentionProto(r)}), nil
 }
@@ -165,6 +184,7 @@ func (s *Service) GetDatabaseInfo(ctx context.Context, _ *connect.Request[mimirv
 		Kind: "postgres", Path: st.Path, SizeBytes: st.SizeBytes,
 		SchemaVersion: int32(st.SchemaVersion), LatestSchemaVersion: int32(store.LatestSchemaVersion()),
 		Models: int32(st.Models), Users: int32(st.Users), AuditEvents: int32(st.AuditEvents), Deliveries: int32(st.Deliveries),
+		LogPath: st.LogPath,
 	}
 	if raw, err := s.store.GetSetting(ctx, KeyTrim); err == nil && raw != "" {
 		var tr TrimRecord

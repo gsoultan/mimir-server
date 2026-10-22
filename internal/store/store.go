@@ -33,6 +33,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/store/db/model"
 	"github.com/gsoultan/mimir-server/internal/store/db/team"
+	"github.com/gsoultan/mimir-server/internal/store/db/user"
 	"github.com/gsoultan/mimir-server/internal/store/tables"
 )
 
@@ -110,9 +111,14 @@ func (m Model) PinnedWorker() (id string, pinned bool) { return m.WorkerID, m.Wo
 
 // Store is safe for concurrent use.
 type Store struct {
-	pool    *pgxpool.Pool
-	ex      pgxdrv.Pool
-	url     string
+	pool *pgxpool.Pool
+	ex   pgxdrv.Pool
+	url  string
+	// logPool and logURL are the separate log database, nil and "" when
+	// the audit log is in the main one; logEx runs audit queries either way.
+	logPool *pgxpool.Pool
+	logEx   pgxdrv.Pool
+	logURL  string
 	weights string // directory holding <id>.mim files
 	applied int    // migration steps Open applied
 	box     *secret.Box
@@ -162,6 +168,31 @@ func Open(ctx context.Context, databaseURL, dir string, opts ...Option) (*Store,
 	if err := os.MkdirAll(weights, 0o750); err != nil {
 		return nil, fmt.Errorf("store: create %s: %w", weights, err)
 	}
+	pool, err := connect(ctx, databaseURL)
+	if err != nil {
+		return nil, err
+	}
+	s := &Store{pool: pool, ex: pgxdrv.Pool{P: pool}, url: databaseURL, weights: weights, box: box}
+	s.logEx = s.ex
+	if err := s.migrate(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	if s.sealed, err = s.sealLegacy(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	if o.logURL != "" {
+		if err := s.openLog(ctx, o.logURL); err != nil {
+			pool.Close()
+			return nil, err
+		}
+	}
+	return s, nil
+}
+
+// connect opens a pool on databaseURL and checks the database answers.
+func connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("store: database URL: %w", err)
@@ -175,16 +206,53 @@ func Open(ctx context.Context, databaseURL, dir string, opts ...Option) (*Store,
 		pool.Close()
 		return nil, fmt.Errorf("store: connect to %s: %w", Redact(databaseURL), err)
 	}
-	s := &Store{pool: pool, ex: pgxdrv.Pool{P: pool}, url: databaseURL, weights: weights, box: box}
-	if err := s.migrate(ctx); err != nil {
-		pool.Close()
-		return nil, err
+	return pool, nil
+}
+
+// openLog connects the separate log database and brings its schema up to
+// the log model.
+func (s *Store) openLog(ctx context.Context, databaseURL string) error {
+	pool, err := connect(ctx, databaseURL)
+	if err != nil {
+		return fmt.Errorf("log database: %w", err)
 	}
-	if s.sealed, err = s.sealLegacy(ctx); err != nil {
+	want, err := storm.Build(tables.LogAll()...)
+	if err != nil {
 		pool.Close()
-		return nil, err
+		return fmt.Errorf("store: log model: %w", err)
 	}
-	return s, nil
+	res, err := migrate.AutoPool(ctx, pool, want, migrate.AutoOptions{Accept: acceptReplaced})
+	if err != nil {
+		pool.Close()
+		return fmt.Errorf("store: migrate log database: %w", err)
+	}
+	s.applied += len(res.Applied)
+	s.logPool, s.logEx, s.logURL = pool, pgxdrv.Pool{P: pool}, databaseURL
+	return nil
+}
+
+// CheckDatabase connects to the PostgreSQL database at databaseURL without
+// changing it, for first-run setup. It returns the server's version and
+// whether the database already holds mimir accounts.
+func CheckDatabase(ctx context.Context, databaseURL string) (version string, hasAccounts bool, err error) {
+	pool, err := connect(ctx, databaseURL)
+	if err != nil {
+		return "", false, err
+	}
+	defer pool.Close()
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return "", false, fmt.Errorf("store: connect: %w", err)
+	}
+	// The server reports its version when a connection starts.
+	version = "PostgreSQL " + conn.Conn().PgConn().ParameterStatus("server_version")
+	conn.Release()
+	n, err := user.New().Count(ctx, pgxdrv.Pool{P: pool})
+	if err != nil {
+		// A new database has no users table yet.
+		return version, false, nil
+	}
+	return version, n > 0, nil
 }
 
 // poolDefaults sets the pool's limits, leaving any the URL names alone.
@@ -257,12 +325,25 @@ func LatestSchemaVersion() int {
 	return latest
 }
 
-// Ping checks the database answers, for readiness checks.
-func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
+// Ping checks the databases answer, for readiness checks.
+func (s *Store) Ping(ctx context.Context) error {
+	if err := s.pool.Ping(ctx); err != nil {
+		return err
+	}
+	if s.logPool != nil {
+		if err := s.logPool.Ping(ctx); err != nil {
+			return fmt.Errorf("log database: %w", err)
+		}
+	}
+	return nil
+}
 
-// Close closes the database pool.
+// Close closes the database pools.
 func (s *Store) Close() error {
 	s.pool.Close()
+	if s.logPool != nil {
+		s.logPool.Close()
+	}
 	return nil
 }
 

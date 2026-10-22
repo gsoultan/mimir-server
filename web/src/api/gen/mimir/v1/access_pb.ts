@@ -6,13 +6,15 @@ import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobu
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Retention } from "./settings_pb";
+import { file_mimir_v1_settings } from "./settings_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file mimir/v1/access.proto.
  */
 export const file_mimir_v1_access: GenFile = /*@__PURE__*/
-  fileDesc("ChVtaW1pci92MS9hY2Nlc3MucHJvdG8SCG1pbWlyLnYxIk0KBkFjY2VzcxIcCgRyb2xlGAEgASgOMg4ubWltaXIudjEuUm9sZRISCgphbGxfbW9kZWxzGAIgASgIEhEKCW1vZGVsX2lkcxgDIAMoCSKDAgoEVXNlchIKCgJpZBgBIAEoCRINCgVlbWFpbBgCIAEoCRIMCgRuYW1lGAMgASgJEiAKBmFjY2VzcxgEIAEoCzIQLm1pbWlyLnYxLkFjY2VzcxIQCghkaXNhYmxlZBgFIAEoCBIvCgtjcmVhdGVfdGltZRgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASNQoRbGFzdF9zaWduX2luX3RpbWUYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCnR3b19mYWN0b3IYCCABKAgSDwoHdGVhbV9pZBgJIAEoCRIRCgl0ZWFtX25hbWUYCiABKAkiFgoUR2V0U2V0dXBTdGF0ZVJlcXVlc3QiLAoVR2V0U2V0dXBTdGF0ZVJlc3BvbnNlEhMKC25lZWRzX3NldHVwGAEgASgIIlIKDFNldHVwUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCHBhc3N3b3JkGAMgASgJEhMKC3NldHVwX3Rva2VuGAQgASgJIi0KDVNldHVwUmVzcG9uc2USHAoEdXNlchgBIAEoCzIOLm1pbWlyLnYxLlVzZXIiMAoNU2lnbkluUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIQCghwYXNzd29yZBgCIAEoCSJOCg5TaWduSW5SZXNwb25zZRIcCgR1c2VyGAEgASgLMg4ubWltaXIudjEuVXNlchIeChZzZWNvbmRfZmFjdG9yX3JlcXVpcmVkGAIgASgIIhAKDlNpZ25PdXRSZXF1ZXN0IhEKD1NpZ25PdXRSZXNwb25zZSIPCg1XaG9BbUlSZXF1ZXN0IncKDldob0FtSVJlc3BvbnNlEhwKBHVzZXIYASABKAsyDi5taW1pci52MS5Vc2VyEhMKC3Blcm1pc3Npb25zGAIgAygJEhIKCnNlc3Npb25faWQYAyABKAkSHgoWbXVzdF9zZXRfdXBfdHdvX2ZhY3RvchgEIAEoCCJHChVDaGFuZ2VQYXNzd29yZFJlcXVlc3QSGAoQY3VycmVudF9wYXNzd29yZBgBIAEoCRIUCgxuZXdfcGFzc3dvcmQYAiABKAkiGAoWQ2hhbmdlUGFzc3dvcmRSZXNwb25zZSIpChlWZXJpZnlTZWNvbmRGYWN0b3JSZXF1ZXN0EgwKBGNvZGUYASABKAkicwoaVmVyaWZ5U2Vjb25kRmFjdG9yUmVzcG9uc2USHAoEdXNlchgBIAEoCzIOLm1pbWlyLnYxLlVzZXISGwoTcmVjb3ZlcnlfY29kZXNfbGVmdBgCIAEoBRIaChJ1c2VkX3JlY292ZXJ5X2NvZGUYAyABKAgiKQoVU3RhcnRUd29GYWN0b3JSZXF1ZXN0EhAKCHBhc3N3b3JkGAEgASgJIj0KFlN0YXJ0VHdvRmFjdG9yUmVzcG9uc2USDgoGc2VjcmV0GAEgASgJEhMKC290cGF1dGhfdXJsGAIgASgJIiYKFkVuYWJsZVR3b0ZhY3RvclJlcXVlc3QSDAoEY29kZRgBIAEoCSIxChdFbmFibGVUd29GYWN0b3JSZXNwb25zZRIWCg5yZWNvdmVyeV9jb2RlcxgBIAMoCSIrChdEaXNhYmxlVHdvRmFjdG9yUmVxdWVzdBIQCghwYXNzd29yZBgBIAEoCSIaChhEaXNhYmxlVHdvRmFjdG9yUmVzcG9uc2UipwEKB1Nlc3Npb24SCgoCaWQYASABKAkSDgoGZGV2aWNlGAIgASgJEgoKAmlwGAMgASgJEi8KC2NyZWF0ZV90aW1lGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3NlZW5fdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHY3VycmVudBgGIAEoCCIVChNMaXN0U2Vzc2lvbnNSZXF1ZXN0IjsKFExpc3RTZXNzaW9uc1Jlc3BvbnNlEiMKCHNlc3Npb25zGAEgAygLMhEubWltaXIudjEuU2Vzc2lvbiIjChVSZXZva2VTZXNzaW9uc1JlcXVlc3QSCgoCaWQYASABKAkiKQoWUmV2b2tlU2Vzc2lvbnNSZXNwb25zZRIPCgdyZXZva2VkGAEgASgFIhIKEExpc3RVc2Vyc1JlcXVlc3QiMgoRTGlzdFVzZXJzUmVzcG9uc2USHQoFdXNlcnMYASADKAsyDi5taW1pci52MS5Vc2VyInUKEUNyZWF0ZVVzZXJSZXF1ZXN0Eg0KBWVtYWlsGAEgASgJEgwKBG5hbWUYAiABKAkSEAoIcGFzc3dvcmQYAyABKAkSIAoGYWNjZXNzGAQgASgLMhAubWltaXIudjEuQWNjZXNzEg8KB3RlYW1faWQYBSABKAkiMgoSQ3JlYXRlVXNlclJlc3BvbnNlEhwKBHVzZXIYASABKAsyDi5taW1pci52MS5Vc2VyIqIBChFVcGRhdGVVc2VyUmVxdWVzdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEiAKBmFjY2VzcxgDIAEoCzIQLm1pbWlyLnYxLkFjY2VzcxIQCghkaXNhYmxlZBgEIAEoCBIUCgxuZXdfcGFzc3dvcmQYBSABKAkSGAoQcmVzZXRfdHdvX2ZhY3RvchgGIAEoCBIPCgd0ZWFtX2lkGAcgASgJIjIKElVwZGF0ZVVzZXJSZXNwb25zZRIcCgR1c2VyGAEgASgLMg4ubWltaXIudjEuVXNlciIfChFEZWxldGVVc2VyUmVxdWVzdBIKCgJpZBgBIAEoCSIUChJEZWxldGVVc2VyUmVzcG9uc2UiuQEKBkFwaUtleRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnByZWZpeBgDIAEoCRIgCgZhY2Nlc3MYBCABKAsyEC5taW1pci52MS5BY2Nlc3MSLwoLY3JlYXRlX3RpbWUYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjIKDmxhc3RfdXNlZF90aW1lGAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCIUChJMaXN0QXBpS2V5c1JlcXVlc3QiOQoTTGlzdEFwaUtleXNSZXNwb25zZRIiCghhcGlfa2V5cxgBIAMoCzIQLm1pbWlyLnYxLkFwaUtleSJFChNDcmVhdGVBcGlLZXlSZXF1ZXN0EgwKBG5hbWUYASABKAkSIAoGYWNjZXNzGAIgASgLMhAubWltaXIudjEuQWNjZXNzIkkKFENyZWF0ZUFwaUtleVJlc3BvbnNlEiEKB2FwaV9rZXkYASABKAsyEC5taW1pci52MS5BcGlLZXkSDgoGc2VjcmV0GAIgASgJIiEKE1Jldm9rZUFwaUtleVJlcXVlc3QSCgoCaWQYASABKAkiFgoUUmV2b2tlQXBpS2V5UmVzcG9uc2UilAEKCkF1ZGl0RXZlbnQSCgoCaWQYASABKAkSKAoEdGltZRgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFYWN0b3IYAyABKAkSDgoGYWN0aW9uGAQgASgJEg4KBnRhcmdldBgFIAEoCRIOCgZkZXRhaWwYBiABKAkSEQoJdGVhbV9uYW1lGAcgASgJIj8KFkxpc3RBdWRpdEV2ZW50c1JlcXVlc3QSEQoJcGFnZV9zaXplGAEgASgFEhIKCnBhZ2VfdG9rZW4YAiABKAkiWAoXTGlzdEF1ZGl0RXZlbnRzUmVzcG9uc2USJAoGZXZlbnRzGAEgAygLMhQubWltaXIudjEuQXVkaXRFdmVudBIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkqXgoEUm9sZRIUChBST0xFX1VOU1BFQ0lGSUVEEAASDwoLUk9MRV9WSUVXRVIQARIPCgtST0xFX0VESVRPUhACEg4KClJPTEVfQURNSU4QAxIOCgpST0xFX09XTkVSEAQyxAcKC0F1dGhTZXJ2aWNlElUKDUdldFNldHVwU3RhdGUSHi5taW1pci52MS5HZXRTZXR1cFN0YXRlUmVxdWVzdBofLm1pbWlyLnYxLkdldFNldHVwU3RhdGVSZXNwb25zZSIDkAIBEjgKBVNldHVwEhYubWltaXIudjEuU2V0dXBSZXF1ZXN0GhcubWltaXIudjEuU2V0dXBSZXNwb25zZRI7CgZTaWduSW4SFy5taW1pci52MS5TaWduSW5SZXF1ZXN0GhgubWltaXIudjEuU2lnbkluUmVzcG9uc2USPgoHU2lnbk91dBIYLm1pbWlyLnYxLlNpZ25PdXRSZXF1ZXN0GhkubWltaXIudjEuU2lnbk91dFJlc3BvbnNlEkAKBldob0FtSRIXLm1pbWlyLnYxLldob0FtSVJlcXVlc3QaGC5taW1pci52MS5XaG9BbUlSZXNwb25zZSIDkAIBElMKDkNoYW5nZVBhc3N3b3JkEh8ubWltaXIudjEuQ2hhbmdlUGFzc3dvcmRSZXF1ZXN0GiAubWltaXIudjEuQ2hhbmdlUGFzc3dvcmRSZXNwb25zZRJfChJWZXJpZnlTZWNvbmRGYWN0b3ISIy5taW1pci52MS5WZXJpZnlTZWNvbmRGYWN0b3JSZXF1ZXN0GiQubWltaXIudjEuVmVyaWZ5U2Vjb25kRmFjdG9yUmVzcG9uc2USUwoOU3RhcnRUd29GYWN0b3ISHy5taW1pci52MS5TdGFydFR3b0ZhY3RvclJlcXVlc3QaIC5taW1pci52MS5TdGFydFR3b0ZhY3RvclJlc3BvbnNlElYKD0VuYWJsZVR3b0ZhY3RvchIgLm1pbWlyLnYxLkVuYWJsZVR3b0ZhY3RvclJlcXVlc3QaIS5taW1pci52MS5FbmFibGVUd29GYWN0b3JSZXNwb25zZRJZChBEaXNhYmxlVHdvRmFjdG9yEiEubWltaXIudjEuRGlzYWJsZVR3b0ZhY3RvclJlcXVlc3QaIi5taW1pci52MS5EaXNhYmxlVHdvRmFjdG9yUmVzcG9uc2USUgoMTGlzdFNlc3Npb25zEh0ubWltaXIudjEuTGlzdFNlc3Npb25zUmVxdWVzdBoeLm1pbWlyLnYxLkxpc3RTZXNzaW9uc1Jlc3BvbnNlIgOQAgESUwoOUmV2b2tlU2Vzc2lvbnMSHy5taW1pci52MS5SZXZva2VTZXNzaW9uc1JlcXVlc3QaIC5taW1pci52MS5SZXZva2VTZXNzaW9uc1Jlc3BvbnNlMrMCCgtVc2VyU2VydmljZRJJCglMaXN0VXNlcnMSGi5taW1pci52MS5MaXN0VXNlcnNSZXF1ZXN0GhsubWltaXIudjEuTGlzdFVzZXJzUmVzcG9uc2UiA5ACARJHCgpDcmVhdGVVc2VyEhsubWltaXIudjEuQ3JlYXRlVXNlclJlcXVlc3QaHC5taW1pci52MS5DcmVhdGVVc2VyUmVzcG9uc2USRwoKVXBkYXRlVXNlchIbLm1pbWlyLnYxLlVwZGF0ZVVzZXJSZXF1ZXN0GhwubWltaXIudjEuVXBkYXRlVXNlclJlc3BvbnNlEkcKCkRlbGV0ZVVzZXISGy5taW1pci52MS5EZWxldGVVc2VyUmVxdWVzdBocLm1pbWlyLnYxLkRlbGV0ZVVzZXJSZXNwb25zZTL+AQoNQXBpS2V5U2VydmljZRJPCgtMaXN0QXBpS2V5cxIcLm1pbWlyLnYxLkxpc3RBcGlLZXlzUmVxdWVzdBodLm1pbWlyLnYxLkxpc3RBcGlLZXlzUmVzcG9uc2UiA5ACARJNCgxDcmVhdGVBcGlLZXkSHS5taW1pci52MS5DcmVhdGVBcGlLZXlSZXF1ZXN0Gh4ubWltaXIudjEuQ3JlYXRlQXBpS2V5UmVzcG9uc2USTQoMUmV2b2tlQXBpS2V5Eh0ubWltaXIudjEuUmV2b2tlQXBpS2V5UmVxdWVzdBoeLm1pbWlyLnYxLlJldm9rZUFwaUtleVJlc3BvbnNlMmsKDEF1ZGl0U2VydmljZRJbCg9MaXN0QXVkaXRFdmVudHMSIC5taW1pci52MS5MaXN0QXVkaXRFdmVudHNSZXF1ZXN0GiEubWltaXIudjEuTGlzdEF1ZGl0RXZlbnRzUmVzcG9uc2UiA5ACAUI3WjVnaXRodWIuY29tL2dzb3VsdGFuL21pbWlyLXNlcnZlci9nZW4vbWltaXIvdjE7bWltaXJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChVtaW1pci92MS9hY2Nlc3MucHJvdG8SCG1pbWlyLnYxIk0KBkFjY2VzcxIcCgRyb2xlGAEgASgOMg4ubWltaXIudjEuUm9sZRISCgphbGxfbW9kZWxzGAIgASgIEhEKCW1vZGVsX2lkcxgDIAMoCSKDAgoEVXNlchIKCgJpZBgBIAEoCRINCgVlbWFpbBgCIAEoCRIMCgRuYW1lGAMgASgJEiAKBmFjY2VzcxgEIAEoCzIQLm1pbWlyLnYxLkFjY2VzcxIQCghkaXNhYmxlZBgFIAEoCBIvCgtjcmVhdGVfdGltZRgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASNQoRbGFzdF9zaWduX2luX3RpbWUYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCnR3b19mYWN0b3IYCCABKAgSDwoHdGVhbV9pZBgJIAEoCRIRCgl0ZWFtX25hbWUYCiABKAkiFgoUR2V0U2V0dXBTdGF0ZVJlcXVlc3QimQEKFUdldFNldHVwU3RhdGVSZXNwb25zZRITCgtuZWVkc19zZXR1cBgBIAEoCBIUCgxuZWVkc19jb25maWcYAiABKAgSLQoKc2VjcmV0X2tleRgDIAEoDjIZLm1pbWlyLnYxLlNlY3JldEtleVNvdXJjZRImCglyZXRlbnRpb24YBCABKAsyEy5taW1pci52MS5SZXRlbnRpb24iQQoUQ2hlY2tEYXRhYmFzZVJlcXVlc3QSEwoLc2V0dXBfdG9rZW4YASABKAkSFAoMZGF0YWJhc2VfdXJsGAIgASgJIj4KFUNoZWNrRGF0YWJhc2VSZXNwb25zZRIPCgd2ZXJzaW9uGAEgASgJEhQKDGhhc19hY2NvdW50cxgCIAEoCCK+AQoMU2V0dXBSZXF1ZXN0Eg0KBWVtYWlsGAEgASgJEgwKBG5hbWUYAiABKAkSEAoIcGFzc3dvcmQYAyABKAkSEwoLc2V0dXBfdG9rZW4YBCABKAkSFAoMZGF0YWJhc2VfdXJsGAUgASgJEhgKEGxvZ19kYXRhYmFzZV91cmwYBiABKAkSEgoKc2VjcmV0X2tleRgHIAEoCRImCglyZXRlbnRpb24YCCABKAsyEy5taW1pci52MS5SZXRlbnRpb24iQwoNU2V0dXBSZXNwb25zZRIcCgR1c2VyGAEgASgLMg4ubWltaXIudjEuVXNlchIUCgxzaWduX2luX25leHQYAiABKAgiMAoNU2lnbkluUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIQCghwYXNzd29yZBgCIAEoCSJOCg5TaWduSW5SZXNwb25zZRIcCgR1c2VyGAEgASgLMg4ubWltaXIudjEuVXNlchIeChZzZWNvbmRfZmFjdG9yX3JlcXVpcmVkGAIgASgIIhAKDlNpZ25PdXRSZXF1ZXN0IhEKD1NpZ25PdXRSZXNwb25zZSIPCg1XaG9BbUlSZXF1ZXN0IncKDldob0FtSVJlc3BvbnNlEhwKBHVzZXIYASABKAsyDi5taW1pci52MS5Vc2VyEhMKC3Blcm1pc3Npb25zGAIgAygJEhIKCnNlc3Npb25faWQYAyABKAkSHgoWbXVzdF9zZXRfdXBfdHdvX2ZhY3RvchgEIAEoCCJHChVDaGFuZ2VQYXNzd29yZFJlcXVlc3QSGAoQY3VycmVudF9wYXNzd29yZBgBIAEoCRIUCgxuZXdfcGFzc3dvcmQYAiABKAkiGAoWQ2hhbmdlUGFzc3dvcmRSZXNwb25zZSIpChlWZXJpZnlTZWNvbmRGYWN0b3JSZXF1ZXN0EgwKBGNvZGUYASABKAkicwoaVmVyaWZ5U2Vjb25kRmFjdG9yUmVzcG9uc2USHAoEdXNlchgBIAEoCzIOLm1pbWlyLnYxLlVzZXISGwoTcmVjb3ZlcnlfY29kZXNfbGVmdBgCIAEoBRIaChJ1c2VkX3JlY292ZXJ5X2NvZGUYAyABKAgiKQoVU3RhcnRUd29GYWN0b3JSZXF1ZXN0EhAKCHBhc3N3b3JkGAEgASgJIj0KFlN0YXJ0VHdvRmFjdG9yUmVzcG9uc2USDgoGc2VjcmV0GAEgASgJEhMKC290cGF1dGhfdXJsGAIgASgJIiYKFkVuYWJsZVR3b0ZhY3RvclJlcXVlc3QSDAoEY29kZRgBIAEoCSIxChdFbmFibGVUd29GYWN0b3JSZXNwb25zZRIWCg5yZWNvdmVyeV9jb2RlcxgBIAMoCSIrChdEaXNhYmxlVHdvRmFjdG9yUmVxdWVzdBIQCghwYXNzd29yZBgBIAEoCSIaChhEaXNhYmxlVHdvRmFjdG9yUmVzcG9uc2UipwEKB1Nlc3Npb24SCgoCaWQYASABKAkSDgoGZGV2aWNlGAIgASgJEgoKAmlwGAMgASgJEi8KC2NyZWF0ZV90aW1lGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3NlZW5fdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHY3VycmVudBgGIAEoCCIVChNMaXN0U2Vzc2lvbnNSZXF1ZXN0IjsKFExpc3RTZXNzaW9uc1Jlc3BvbnNlEiMKCHNlc3Npb25zGAEgAygLMhEubWltaXIudjEuU2Vzc2lvbiIjChVSZXZva2VTZXNzaW9uc1JlcXVlc3QSCgoCaWQYASABKAkiKQoWUmV2b2tlU2Vzc2lvbnNSZXNwb25zZRIPCgdyZXZva2VkGAEgASgFIhIKEExpc3RVc2Vyc1JlcXVlc3QiMgoRTGlzdFVzZXJzUmVzcG9uc2USHQoFdXNlcnMYASADKAsyDi5taW1pci52MS5Vc2VyInUKEUNyZWF0ZVVzZXJSZXF1ZXN0Eg0KBWVtYWlsGAEgASgJEgwKBG5hbWUYAiABKAkSEAoIcGFzc3dvcmQYAyABKAkSIAoGYWNjZXNzGAQgASgLMhAubWltaXIudjEuQWNjZXNzEg8KB3RlYW1faWQYBSABKAkiMgoSQ3JlYXRlVXNlclJlc3BvbnNlEhwKBHVzZXIYASABKAsyDi5taW1pci52MS5Vc2VyIqIBChFVcGRhdGVVc2VyUmVxdWVzdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEiAKBmFjY2VzcxgDIAEoCzIQLm1pbWlyLnYxLkFjY2VzcxIQCghkaXNhYmxlZBgEIAEoCBIUCgxuZXdfcGFzc3dvcmQYBSABKAkSGAoQcmVzZXRfdHdvX2ZhY3RvchgGIAEoCBIPCgd0ZWFtX2lkGAcgASgJIjIKElVwZGF0ZVVzZXJSZXNwb25zZRIcCgR1c2VyGAEgASgLMg4ubWltaXIudjEuVXNlciIfChFEZWxldGVVc2VyUmVxdWVzdBIKCgJpZBgBIAEoCSIUChJEZWxldGVVc2VyUmVzcG9uc2UiuQEKBkFwaUtleRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnByZWZpeBgDIAEoCRIgCgZhY2Nlc3MYBCABKAsyEC5taW1pci52MS5BY2Nlc3MSLwoLY3JlYXRlX3RpbWUYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjIKDmxhc3RfdXNlZF90aW1lGAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCIUChJMaXN0QXBpS2V5c1JlcXVlc3QiOQoTTGlzdEFwaUtleXNSZXNwb25zZRIiCghhcGlfa2V5cxgBIAMoCzIQLm1pbWlyLnYxLkFwaUtleSJFChNDcmVhdGVBcGlLZXlSZXF1ZXN0EgwKBG5hbWUYASABKAkSIAoGYWNjZXNzGAIgASgLMhAubWltaXIudjEuQWNjZXNzIkkKFENyZWF0ZUFwaUtleVJlc3BvbnNlEiEKB2FwaV9rZXkYASABKAsyEC5taW1pci52MS5BcGlLZXkSDgoGc2VjcmV0GAIgASgJIiEKE1Jldm9rZUFwaUtleVJlcXVlc3QSCgoCaWQYASABKAkiFgoUUmV2b2tlQXBpS2V5UmVzcG9uc2UilAEKCkF1ZGl0RXZlbnQSCgoCaWQYASABKAkSKAoEdGltZRgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFYWN0b3IYAyABKAkSDgoGYWN0aW9uGAQgASgJEg4KBnRhcmdldBgFIAEoCRIOCgZkZXRhaWwYBiABKAkSEQoJdGVhbV9uYW1lGAcgASgJIj8KFkxpc3RBdWRpdEV2ZW50c1JlcXVlc3QSEQoJcGFnZV9zaXplGAEgASgFEhIKCnBhZ2VfdG9rZW4YAiABKAkiWAoXTGlzdEF1ZGl0RXZlbnRzUmVzcG9uc2USJAoGZXZlbnRzGAEgAygLMhQubWltaXIudjEuQXVkaXRFdmVudBIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkqXgoEUm9sZRIUChBST0xFX1VOU1BFQ0lGSUVEEAASDwoLUk9MRV9WSUVXRVIQARIPCgtST0xFX0VESVRPUhACEg4KClJPTEVfQURNSU4QAxIOCgpST0xFX09XTkVSEAQqjwEKD1NlY3JldEtleVNvdXJjZRIhCh1TRUNSRVRfS0VZX1NPVVJDRV9VTlNQRUNJRklFRBAAEhoKFlNFQ1JFVF9LRVlfU09VUkNFX05PTkUQARIhCh1TRUNSRVRfS0VZX1NPVVJDRV9FTlZJUk9OTUVOVBACEhoKFlNFQ1JFVF9LRVlfU09VUkNFX0ZJTEUQAzKWCAoLQXV0aFNlcnZpY2USVQoNR2V0U2V0dXBTdGF0ZRIeLm1pbWlyLnYxLkdldFNldHVwU3RhdGVSZXF1ZXN0Gh8ubWltaXIudjEuR2V0U2V0dXBTdGF0ZVJlc3BvbnNlIgOQAgESUAoNQ2hlY2tEYXRhYmFzZRIeLm1pbWlyLnYxLkNoZWNrRGF0YWJhc2VSZXF1ZXN0Gh8ubWltaXIudjEuQ2hlY2tEYXRhYmFzZVJlc3BvbnNlEjgKBVNldHVwEhYubWltaXIudjEuU2V0dXBSZXF1ZXN0GhcubWltaXIudjEuU2V0dXBSZXNwb25zZRI7CgZTaWduSW4SFy5taW1pci52MS5TaWduSW5SZXF1ZXN0GhgubWltaXIudjEuU2lnbkluUmVzcG9uc2USPgoHU2lnbk91dBIYLm1pbWlyLnYxLlNpZ25PdXRSZXF1ZXN0GhkubWltaXIudjEuU2lnbk91dFJlc3BvbnNlEkAKBldob0FtSRIXLm1pbWlyLnYxLldob0FtSVJlcXVlc3QaGC5taW1pci52MS5XaG9BbUlSZXNwb25zZSIDkAIBElMKDkNoYW5nZVBhc3N3b3JkEh8ubWltaXIudjEuQ2hhbmdlUGFzc3dvcmRSZXF1ZXN0GiAubWltaXIudjEuQ2hhbmdlUGFzc3dvcmRSZXNwb25zZRJfChJWZXJpZnlTZWNvbmRGYWN0b3ISIy5taW1pci52MS5WZXJpZnlTZWNvbmRGYWN0b3JSZXF1ZXN0GiQubWltaXIudjEuVmVyaWZ5U2Vjb25kRmFjdG9yUmVzcG9uc2USUwoOU3RhcnRUd29GYWN0b3ISHy5taW1pci52MS5TdGFydFR3b0ZhY3RvclJlcXVlc3QaIC5taW1pci52MS5TdGFydFR3b0ZhY3RvclJlc3BvbnNlElYKD0VuYWJsZVR3b0ZhY3RvchIgLm1pbWlyLnYxLkVuYWJsZVR3b0ZhY3RvclJlcXVlc3QaIS5taW1pci52MS5FbmFibGVUd29GYWN0b3JSZXNwb25zZRJZChBEaXNhYmxlVHdvRmFjdG9yEiEubWltaXIudjEuRGlzYWJsZVR3b0ZhY3RvclJlcXVlc3QaIi5taW1pci52MS5EaXNhYmxlVHdvRmFjdG9yUmVzcG9uc2USUgoMTGlzdFNlc3Npb25zEh0ubWltaXIudjEuTGlzdFNlc3Npb25zUmVxdWVzdBoeLm1pbWlyLnYxLkxpc3RTZXNzaW9uc1Jlc3BvbnNlIgOQAgESUwoOUmV2b2tlU2Vzc2lvbnMSHy5taW1pci52MS5SZXZva2VTZXNzaW9uc1JlcXVlc3QaIC5taW1pci52MS5SZXZva2VTZXNzaW9uc1Jlc3BvbnNlMrMCCgtVc2VyU2VydmljZRJJCglMaXN0VXNlcnMSGi5taW1pci52MS5MaXN0VXNlcnNSZXF1ZXN0GhsubWltaXIudjEuTGlzdFVzZXJzUmVzcG9uc2UiA5ACARJHCgpDcmVhdGVVc2VyEhsubWltaXIudjEuQ3JlYXRlVXNlclJlcXVlc3QaHC5taW1pci52MS5DcmVhdGVVc2VyUmVzcG9uc2USRwoKVXBkYXRlVXNlchIbLm1pbWlyLnYxLlVwZGF0ZVVzZXJSZXF1ZXN0GhwubWltaXIudjEuVXBkYXRlVXNlclJlc3BvbnNlEkcKCkRlbGV0ZVVzZXISGy5taW1pci52MS5EZWxldGVVc2VyUmVxdWVzdBocLm1pbWlyLnYxLkRlbGV0ZVVzZXJSZXNwb25zZTL+AQoNQXBpS2V5U2VydmljZRJPCgtMaXN0QXBpS2V5cxIcLm1pbWlyLnYxLkxpc3RBcGlLZXlzUmVxdWVzdBodLm1pbWlyLnYxLkxpc3RBcGlLZXlzUmVzcG9uc2UiA5ACARJNCgxDcmVhdGVBcGlLZXkSHS5taW1pci52MS5DcmVhdGVBcGlLZXlSZXF1ZXN0Gh4ubWltaXIudjEuQ3JlYXRlQXBpS2V5UmVzcG9uc2USTQoMUmV2b2tlQXBpS2V5Eh0ubWltaXIudjEuUmV2b2tlQXBpS2V5UmVxdWVzdBoeLm1pbWlyLnYxLlJldm9rZUFwaUtleVJlc3BvbnNlMmsKDEF1ZGl0U2VydmljZRJbCg9MaXN0QXVkaXRFdmVudHMSIC5taW1pci52MS5MaXN0QXVkaXRFdmVudHNSZXF1ZXN0GiEubWltaXIudjEuTGlzdEF1ZGl0RXZlbnRzUmVzcG9uc2UiA5ACAUI3WjVnaXRodWIuY29tL2dzb3VsdGFuL21pbWlyLXNlcnZlci9nZW4vbWltaXIvdjE7bWltaXJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_mimir_v1_settings]);
 
 /**
  * Access is a role and the models it applies to.
@@ -135,6 +137,29 @@ export type GetSetupStateResponse = Message<"mimir.v1.GetSetupStateResponse"> & 
    * @generated from field: bool needs_setup = 1;
    */
   needsSetup: boolean;
+
+  /**
+   * NeedsConfig is true while the server has no database yet: Setup then
+   * takes the database, the log database and the secret key as well.
+   *
+   * @generated from field: bool needs_config = 2;
+   */
+  needsConfig: boolean;
+
+  /**
+   * SecretKey says where the key for stored secrets comes from while
+   * NeedsConfig is true.
+   *
+   * @generated from field: mimir.v1.SecretKeySource secret_key = 3;
+   */
+  secretKey: SecretKeySource;
+
+  /**
+   * Retention is what history is kept for unless Setup says otherwise.
+   *
+   * @generated from field: mimir.v1.Retention retention = 4;
+   */
+  retention?: Retention | undefined;
 };
 
 /**
@@ -143,6 +168,57 @@ export type GetSetupStateResponse = Message<"mimir.v1.GetSetupStateResponse"> & 
  */
 export const GetSetupStateResponseSchema: GenMessage<GetSetupStateResponse> = /*@__PURE__*/
   messageDesc(file_mimir_v1_access, 3);
+
+/**
+ * @generated from message mimir.v1.CheckDatabaseRequest
+ */
+export type CheckDatabaseRequest = Message<"mimir.v1.CheckDatabaseRequest"> & {
+  /**
+   * @generated from field: string setup_token = 1;
+   */
+  setupToken: string;
+
+  /**
+   * A PostgreSQL URL, such as postgres://mimir:secret@localhost:5432/mimir.
+   *
+   * @generated from field: string database_url = 2;
+   */
+  databaseUrl: string;
+};
+
+/**
+ * Describes the message mimir.v1.CheckDatabaseRequest.
+ * Use `create(CheckDatabaseRequestSchema)` to create a new message.
+ */
+export const CheckDatabaseRequestSchema: GenMessage<CheckDatabaseRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 4);
+
+/**
+ * @generated from message mimir.v1.CheckDatabaseResponse
+ */
+export type CheckDatabaseResponse = Message<"mimir.v1.CheckDatabaseResponse"> & {
+  /**
+   * Version is the server's version, such as "PostgreSQL 16.4".
+   *
+   * @generated from field: string version = 1;
+   */
+  version: string;
+
+  /**
+   * HasAccounts is true when the database already has mimir accounts:
+   * Setup then keeps them and makes no new owner.
+   *
+   * @generated from field: bool has_accounts = 2;
+   */
+  hasAccounts: boolean;
+};
+
+/**
+ * Describes the message mimir.v1.CheckDatabaseResponse.
+ * Use `create(CheckDatabaseResponseSchema)` to create a new message.
+ */
+export const CheckDatabaseResponseSchema: GenMessage<CheckDatabaseResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_access, 5);
 
 /**
  * @generated from message mimir.v1.SetupRequest
@@ -170,6 +246,38 @@ export type SetupRequest = Message<"mimir.v1.SetupRequest"> & {
    * @generated from field: string setup_token = 4;
    */
   setupToken: string;
+
+  /**
+   * The rest is taken only while GetSetupState says needs_config.
+   * DatabaseUrl is the PostgreSQL database for the server's records.
+   *
+   * @generated from field: string database_url = 5;
+   */
+  databaseUrl: string;
+
+  /**
+   * LogDatabaseUrl is a second PostgreSQL database for the audit log;
+   * empty keeps it in the main one.
+   *
+   * @generated from field: string log_database_url = 6;
+   */
+  logDatabaseUrl: string;
+
+  /**
+   * SecretKey is a key to keep, 32 bytes as base64 or hex, such as one
+   * backed up with the database; empty makes a new one. Ignored when the
+   * key comes from the environment or the key file is already there.
+   *
+   * @generated from field: string secret_key = 7;
+   */
+  secretKey: string;
+
+  /**
+   * Retention is how long history is kept; unset keeps the defaults.
+   *
+   * @generated from field: mimir.v1.Retention retention = 8;
+   */
+  retention?: Retention | undefined;
 };
 
 /**
@@ -177,16 +285,28 @@ export type SetupRequest = Message<"mimir.v1.SetupRequest"> & {
  * Use `create(SetupRequestSchema)` to create a new message.
  */
 export const SetupRequestSchema: GenMessage<SetupRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 4);
+  messageDesc(file_mimir_v1_access, 6);
 
 /**
  * @generated from message mimir.v1.SetupResponse
  */
 export type SetupResponse = Message<"mimir.v1.SetupResponse"> & {
   /**
+   * User is the new owner, signed in. A Setup that wrote the configuration
+   * leaves it unset and signs no one in: the full server starts a moment
+   * later, and the owner signs in there.
+   *
    * @generated from field: mimir.v1.User user = 1;
    */
   user?: User | undefined;
+
+  /**
+   * SignInNext is true when the owner signs in next, because Setup wrote
+   * the configuration or found the database already had accounts.
+   *
+   * @generated from field: bool sign_in_next = 2;
+   */
+  signInNext: boolean;
 };
 
 /**
@@ -194,7 +314,7 @@ export type SetupResponse = Message<"mimir.v1.SetupResponse"> & {
  * Use `create(SetupResponseSchema)` to create a new message.
  */
 export const SetupResponseSchema: GenMessage<SetupResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 5);
+  messageDesc(file_mimir_v1_access, 7);
 
 /**
  * @generated from message mimir.v1.SignInRequest
@@ -216,7 +336,7 @@ export type SignInRequest = Message<"mimir.v1.SignInRequest"> & {
  * Use `create(SignInRequestSchema)` to create a new message.
  */
 export const SignInRequestSchema: GenMessage<SignInRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 6);
+  messageDesc(file_mimir_v1_access, 8);
 
 /**
  * @generated from message mimir.v1.SignInResponse
@@ -243,7 +363,7 @@ export type SignInResponse = Message<"mimir.v1.SignInResponse"> & {
  * Use `create(SignInResponseSchema)` to create a new message.
  */
 export const SignInResponseSchema: GenMessage<SignInResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 7);
+  messageDesc(file_mimir_v1_access, 9);
 
 /**
  * @generated from message mimir.v1.SignOutRequest
@@ -256,7 +376,7 @@ export type SignOutRequest = Message<"mimir.v1.SignOutRequest"> & {
  * Use `create(SignOutRequestSchema)` to create a new message.
  */
 export const SignOutRequestSchema: GenMessage<SignOutRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 8);
+  messageDesc(file_mimir_v1_access, 10);
 
 /**
  * @generated from message mimir.v1.SignOutResponse
@@ -269,7 +389,7 @@ export type SignOutResponse = Message<"mimir.v1.SignOutResponse"> & {
  * Use `create(SignOutResponseSchema)` to create a new message.
  */
 export const SignOutResponseSchema: GenMessage<SignOutResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 9);
+  messageDesc(file_mimir_v1_access, 11);
 
 /**
  * @generated from message mimir.v1.WhoAmIRequest
@@ -282,7 +402,7 @@ export type WhoAmIRequest = Message<"mimir.v1.WhoAmIRequest"> & {
  * Use `create(WhoAmIRequestSchema)` to create a new message.
  */
 export const WhoAmIRequestSchema: GenMessage<WhoAmIRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 10);
+  messageDesc(file_mimir_v1_access, 12);
 
 /**
  * @generated from message mimir.v1.WhoAmIResponse
@@ -322,7 +442,7 @@ export type WhoAmIResponse = Message<"mimir.v1.WhoAmIResponse"> & {
  * Use `create(WhoAmIResponseSchema)` to create a new message.
  */
 export const WhoAmIResponseSchema: GenMessage<WhoAmIResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 11);
+  messageDesc(file_mimir_v1_access, 13);
 
 /**
  * @generated from message mimir.v1.ChangePasswordRequest
@@ -344,7 +464,7 @@ export type ChangePasswordRequest = Message<"mimir.v1.ChangePasswordRequest"> & 
  * Use `create(ChangePasswordRequestSchema)` to create a new message.
  */
 export const ChangePasswordRequestSchema: GenMessage<ChangePasswordRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 12);
+  messageDesc(file_mimir_v1_access, 14);
 
 /**
  * @generated from message mimir.v1.ChangePasswordResponse
@@ -357,7 +477,7 @@ export type ChangePasswordResponse = Message<"mimir.v1.ChangePasswordResponse"> 
  * Use `create(ChangePasswordResponseSchema)` to create a new message.
  */
 export const ChangePasswordResponseSchema: GenMessage<ChangePasswordResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 13);
+  messageDesc(file_mimir_v1_access, 15);
 
 /**
  * @generated from message mimir.v1.VerifySecondFactorRequest
@@ -376,7 +496,7 @@ export type VerifySecondFactorRequest = Message<"mimir.v1.VerifySecondFactorRequ
  * Use `create(VerifySecondFactorRequestSchema)` to create a new message.
  */
 export const VerifySecondFactorRequestSchema: GenMessage<VerifySecondFactorRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 14);
+  messageDesc(file_mimir_v1_access, 16);
 
 /**
  * @generated from message mimir.v1.VerifySecondFactorResponse
@@ -405,7 +525,7 @@ export type VerifySecondFactorResponse = Message<"mimir.v1.VerifySecondFactorRes
  * Use `create(VerifySecondFactorResponseSchema)` to create a new message.
  */
 export const VerifySecondFactorResponseSchema: GenMessage<VerifySecondFactorResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 15);
+  messageDesc(file_mimir_v1_access, 17);
 
 /**
  * @generated from message mimir.v1.StartTwoFactorRequest
@@ -424,7 +544,7 @@ export type StartTwoFactorRequest = Message<"mimir.v1.StartTwoFactorRequest"> & 
  * Use `create(StartTwoFactorRequestSchema)` to create a new message.
  */
 export const StartTwoFactorRequestSchema: GenMessage<StartTwoFactorRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 16);
+  messageDesc(file_mimir_v1_access, 18);
 
 /**
  * @generated from message mimir.v1.StartTwoFactorResponse
@@ -448,7 +568,7 @@ export type StartTwoFactorResponse = Message<"mimir.v1.StartTwoFactorResponse"> 
  * Use `create(StartTwoFactorResponseSchema)` to create a new message.
  */
 export const StartTwoFactorResponseSchema: GenMessage<StartTwoFactorResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 17);
+  messageDesc(file_mimir_v1_access, 19);
 
 /**
  * @generated from message mimir.v1.EnableTwoFactorRequest
@@ -465,7 +585,7 @@ export type EnableTwoFactorRequest = Message<"mimir.v1.EnableTwoFactorRequest"> 
  * Use `create(EnableTwoFactorRequestSchema)` to create a new message.
  */
 export const EnableTwoFactorRequestSchema: GenMessage<EnableTwoFactorRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 18);
+  messageDesc(file_mimir_v1_access, 20);
 
 /**
  * @generated from message mimir.v1.EnableTwoFactorResponse
@@ -484,7 +604,7 @@ export type EnableTwoFactorResponse = Message<"mimir.v1.EnableTwoFactorResponse"
  * Use `create(EnableTwoFactorResponseSchema)` to create a new message.
  */
 export const EnableTwoFactorResponseSchema: GenMessage<EnableTwoFactorResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 19);
+  messageDesc(file_mimir_v1_access, 21);
 
 /**
  * @generated from message mimir.v1.DisableTwoFactorRequest
@@ -501,7 +621,7 @@ export type DisableTwoFactorRequest = Message<"mimir.v1.DisableTwoFactorRequest"
  * Use `create(DisableTwoFactorRequestSchema)` to create a new message.
  */
 export const DisableTwoFactorRequestSchema: GenMessage<DisableTwoFactorRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 20);
+  messageDesc(file_mimir_v1_access, 22);
 
 /**
  * @generated from message mimir.v1.DisableTwoFactorResponse
@@ -514,7 +634,7 @@ export type DisableTwoFactorResponse = Message<"mimir.v1.DisableTwoFactorRespons
  * Use `create(DisableTwoFactorResponseSchema)` to create a new message.
  */
 export const DisableTwoFactorResponseSchema: GenMessage<DisableTwoFactorResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 21);
+  messageDesc(file_mimir_v1_access, 23);
 
 /**
  * @generated from message mimir.v1.Session
@@ -558,7 +678,7 @@ export type Session = Message<"mimir.v1.Session"> & {
  * Use `create(SessionSchema)` to create a new message.
  */
 export const SessionSchema: GenMessage<Session> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 22);
+  messageDesc(file_mimir_v1_access, 24);
 
 /**
  * @generated from message mimir.v1.ListSessionsRequest
@@ -571,7 +691,7 @@ export type ListSessionsRequest = Message<"mimir.v1.ListSessionsRequest"> & {
  * Use `create(ListSessionsRequestSchema)` to create a new message.
  */
 export const ListSessionsRequestSchema: GenMessage<ListSessionsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 23);
+  messageDesc(file_mimir_v1_access, 25);
 
 /**
  * @generated from message mimir.v1.ListSessionsResponse
@@ -588,7 +708,7 @@ export type ListSessionsResponse = Message<"mimir.v1.ListSessionsResponse"> & {
  * Use `create(ListSessionsResponseSchema)` to create a new message.
  */
 export const ListSessionsResponseSchema: GenMessage<ListSessionsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 24);
+  messageDesc(file_mimir_v1_access, 26);
 
 /**
  * @generated from message mimir.v1.RevokeSessionsRequest
@@ -607,7 +727,7 @@ export type RevokeSessionsRequest = Message<"mimir.v1.RevokeSessionsRequest"> & 
  * Use `create(RevokeSessionsRequestSchema)` to create a new message.
  */
 export const RevokeSessionsRequestSchema: GenMessage<RevokeSessionsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 25);
+  messageDesc(file_mimir_v1_access, 27);
 
 /**
  * @generated from message mimir.v1.RevokeSessionsResponse
@@ -624,7 +744,7 @@ export type RevokeSessionsResponse = Message<"mimir.v1.RevokeSessionsResponse"> 
  * Use `create(RevokeSessionsResponseSchema)` to create a new message.
  */
 export const RevokeSessionsResponseSchema: GenMessage<RevokeSessionsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 26);
+  messageDesc(file_mimir_v1_access, 28);
 
 /**
  * @generated from message mimir.v1.ListUsersRequest
@@ -637,7 +757,7 @@ export type ListUsersRequest = Message<"mimir.v1.ListUsersRequest"> & {
  * Use `create(ListUsersRequestSchema)` to create a new message.
  */
 export const ListUsersRequestSchema: GenMessage<ListUsersRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 27);
+  messageDesc(file_mimir_v1_access, 29);
 
 /**
  * @generated from message mimir.v1.ListUsersResponse
@@ -654,7 +774,7 @@ export type ListUsersResponse = Message<"mimir.v1.ListUsersResponse"> & {
  * Use `create(ListUsersResponseSchema)` to create a new message.
  */
 export const ListUsersResponseSchema: GenMessage<ListUsersResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 28);
+  messageDesc(file_mimir_v1_access, 30);
 
 /**
  * @generated from message mimir.v1.CreateUserRequest
@@ -697,7 +817,7 @@ export type CreateUserRequest = Message<"mimir.v1.CreateUserRequest"> & {
  * Use `create(CreateUserRequestSchema)` to create a new message.
  */
 export const CreateUserRequestSchema: GenMessage<CreateUserRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 29);
+  messageDesc(file_mimir_v1_access, 31);
 
 /**
  * @generated from message mimir.v1.CreateUserResponse
@@ -714,7 +834,7 @@ export type CreateUserResponse = Message<"mimir.v1.CreateUserResponse"> & {
  * Use `create(CreateUserResponseSchema)` to create a new message.
  */
 export const CreateUserResponseSchema: GenMessage<CreateUserResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 30);
+  messageDesc(file_mimir_v1_access, 32);
 
 /**
  * @generated from message mimir.v1.UpdateUserRequest
@@ -770,7 +890,7 @@ export type UpdateUserRequest = Message<"mimir.v1.UpdateUserRequest"> & {
  * Use `create(UpdateUserRequestSchema)` to create a new message.
  */
 export const UpdateUserRequestSchema: GenMessage<UpdateUserRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 31);
+  messageDesc(file_mimir_v1_access, 33);
 
 /**
  * @generated from message mimir.v1.UpdateUserResponse
@@ -787,7 +907,7 @@ export type UpdateUserResponse = Message<"mimir.v1.UpdateUserResponse"> & {
  * Use `create(UpdateUserResponseSchema)` to create a new message.
  */
 export const UpdateUserResponseSchema: GenMessage<UpdateUserResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 32);
+  messageDesc(file_mimir_v1_access, 34);
 
 /**
  * @generated from message mimir.v1.DeleteUserRequest
@@ -804,7 +924,7 @@ export type DeleteUserRequest = Message<"mimir.v1.DeleteUserRequest"> & {
  * Use `create(DeleteUserRequestSchema)` to create a new message.
  */
 export const DeleteUserRequestSchema: GenMessage<DeleteUserRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 33);
+  messageDesc(file_mimir_v1_access, 35);
 
 /**
  * @generated from message mimir.v1.DeleteUserResponse
@@ -817,7 +937,7 @@ export type DeleteUserResponse = Message<"mimir.v1.DeleteUserResponse"> & {
  * Use `create(DeleteUserResponseSchema)` to create a new message.
  */
 export const DeleteUserResponseSchema: GenMessage<DeleteUserResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 34);
+  messageDesc(file_mimir_v1_access, 36);
 
 /**
  * @generated from message mimir.v1.ApiKey
@@ -864,7 +984,7 @@ export type ApiKey = Message<"mimir.v1.ApiKey"> & {
  * Use `create(ApiKeySchema)` to create a new message.
  */
 export const ApiKeySchema: GenMessage<ApiKey> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 35);
+  messageDesc(file_mimir_v1_access, 37);
 
 /**
  * @generated from message mimir.v1.ListApiKeysRequest
@@ -877,7 +997,7 @@ export type ListApiKeysRequest = Message<"mimir.v1.ListApiKeysRequest"> & {
  * Use `create(ListApiKeysRequestSchema)` to create a new message.
  */
 export const ListApiKeysRequestSchema: GenMessage<ListApiKeysRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 36);
+  messageDesc(file_mimir_v1_access, 38);
 
 /**
  * @generated from message mimir.v1.ListApiKeysResponse
@@ -894,7 +1014,7 @@ export type ListApiKeysResponse = Message<"mimir.v1.ListApiKeysResponse"> & {
  * Use `create(ListApiKeysResponseSchema)` to create a new message.
  */
 export const ListApiKeysResponseSchema: GenMessage<ListApiKeysResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 37);
+  messageDesc(file_mimir_v1_access, 39);
 
 /**
  * @generated from message mimir.v1.CreateApiKeyRequest
@@ -916,7 +1036,7 @@ export type CreateApiKeyRequest = Message<"mimir.v1.CreateApiKeyRequest"> & {
  * Use `create(CreateApiKeyRequestSchema)` to create a new message.
  */
 export const CreateApiKeyRequestSchema: GenMessage<CreateApiKeyRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 38);
+  messageDesc(file_mimir_v1_access, 40);
 
 /**
  * @generated from message mimir.v1.CreateApiKeyResponse
@@ -940,7 +1060,7 @@ export type CreateApiKeyResponse = Message<"mimir.v1.CreateApiKeyResponse"> & {
  * Use `create(CreateApiKeyResponseSchema)` to create a new message.
  */
 export const CreateApiKeyResponseSchema: GenMessage<CreateApiKeyResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 39);
+  messageDesc(file_mimir_v1_access, 41);
 
 /**
  * @generated from message mimir.v1.RevokeApiKeyRequest
@@ -957,7 +1077,7 @@ export type RevokeApiKeyRequest = Message<"mimir.v1.RevokeApiKeyRequest"> & {
  * Use `create(RevokeApiKeyRequestSchema)` to create a new message.
  */
 export const RevokeApiKeyRequestSchema: GenMessage<RevokeApiKeyRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 40);
+  messageDesc(file_mimir_v1_access, 42);
 
 /**
  * @generated from message mimir.v1.RevokeApiKeyResponse
@@ -970,7 +1090,7 @@ export type RevokeApiKeyResponse = Message<"mimir.v1.RevokeApiKeyResponse"> & {
  * Use `create(RevokeApiKeyResponseSchema)` to create a new message.
  */
 export const RevokeApiKeyResponseSchema: GenMessage<RevokeApiKeyResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 41);
+  messageDesc(file_mimir_v1_access, 43);
 
 /**
  * @generated from message mimir.v1.AuditEvent
@@ -1025,7 +1145,7 @@ export type AuditEvent = Message<"mimir.v1.AuditEvent"> & {
  * Use `create(AuditEventSchema)` to create a new message.
  */
 export const AuditEventSchema: GenMessage<AuditEvent> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 42);
+  messageDesc(file_mimir_v1_access, 44);
 
 /**
  * @generated from message mimir.v1.ListAuditEventsRequest
@@ -1047,7 +1167,7 @@ export type ListAuditEventsRequest = Message<"mimir.v1.ListAuditEventsRequest"> 
  * Use `create(ListAuditEventsRequestSchema)` to create a new message.
  */
 export const ListAuditEventsRequestSchema: GenMessage<ListAuditEventsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 43);
+  messageDesc(file_mimir_v1_access, 45);
 
 /**
  * @generated from message mimir.v1.ListAuditEventsResponse
@@ -1069,7 +1189,7 @@ export type ListAuditEventsResponse = Message<"mimir.v1.ListAuditEventsResponse"
  * Use `create(ListAuditEventsResponseSchema)` to create a new message.
  */
 export const ListAuditEventsResponseSchema: GenMessage<ListAuditEventsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_access, 44);
+  messageDesc(file_mimir_v1_access, 46);
 
 /**
  * Role is a fixed set of permissions. Each role includes the ones before it.
@@ -1118,6 +1238,47 @@ export const RoleSchema: GenEnum<Role> = /*@__PURE__*/
   enumDesc(file_mimir_v1_access, 0);
 
 /**
+ * SecretKeySource is where the key that encrypts stored secrets (webhook
+ * signing secrets, connection strings, alert credentials and the database
+ * URLs in the configuration file) comes from.
+ *
+ * @generated from enum mimir.v1.SecretKeySource
+ */
+export enum SecretKeySource {
+  /**
+   * @generated from enum value: SECRET_KEY_SOURCE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * None yet: Setup makes one, or saves the one it is given.
+   *
+   * @generated from enum value: SECRET_KEY_SOURCE_NONE = 1;
+   */
+  NONE = 1,
+
+  /**
+   * $MIMIR_SECRET_KEY or -secret-key-file; Setup can't change it.
+   *
+   * @generated from enum value: SECRET_KEY_SOURCE_ENVIRONMENT = 2;
+   */
+  ENVIRONMENT = 2,
+
+  /**
+   * The key file in the data folder, already there.
+   *
+   * @generated from enum value: SECRET_KEY_SOURCE_FILE = 3;
+   */
+  FILE = 3,
+}
+
+/**
+ * Describes the enum mimir.v1.SecretKeySource.
+ */
+export const SecretKeySourceSchema: GenEnum<SecretKeySource> = /*@__PURE__*/
+  enumDesc(file_mimir_v1_access, 1);
+
+/**
  * AuthService signs people in. Browsers get a session cookie; apps use API
  * keys in an "Authorization: Bearer" header instead.
  *
@@ -1125,8 +1286,8 @@ export const RoleSchema: GenEnum<Role> = /*@__PURE__*/
  */
 export const AuthService: GenService<{
   /**
-   * GetSetupState says whether the server still needs its first owner.
-   * Anyone may call it.
+   * GetSetupState says whether the server still needs its configuration
+   * or its first owner. Anyone may call it.
    *
    * @generated from rpc mimir.v1.AuthService.GetSetupState
    */
@@ -1136,8 +1297,24 @@ export const AuthService: GenService<{
     output: typeof GetSetupStateResponseSchema;
   },
   /**
-   * Setup creates the first owner and signs them in. It works only while
-   * the server has no users.
+   * CheckDatabase tries a database URL during first-run setup, before the
+   * server has one. It needs the setup token, and works only until setup
+   * is done.
+   *
+   * @generated from rpc mimir.v1.AuthService.CheckDatabase
+   */
+  checkDatabase: {
+    methodKind: "unary";
+    input: typeof CheckDatabaseRequestSchema;
+    output: typeof CheckDatabaseResponseSchema;
+  },
+  /**
+   * Setup finishes first-run setup. On a server started with no database
+   * it writes the configuration (the database, the log database and the
+   * secret key) and then creates the first owner; on one that has its
+   * database but no accounts yet it creates the first owner and signs
+   * them in. Either way it needs the setup token and works only while the
+   * server has no users.
    *
    * @generated from rpc mimir.v1.AuthService.Setup
    */

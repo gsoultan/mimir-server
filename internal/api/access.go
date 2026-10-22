@@ -66,7 +66,20 @@ func (s *Service) GetSetupState(ctx context.Context, _ *connect.Request[mimirv1.
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	return connect.NewResponse(&mimirv1.GetSetupStateResponse{NeedsSetup: n == 0}), nil
+	res := &mimirv1.GetSetupStateResponse{NeedsSetup: n == 0}
+	if n == 0 {
+		r, err := LoadRetention(ctx, s.store)
+		if err != nil {
+			return nil, s.internal(ctx, err)
+		}
+		res.Retention = retentionProto(r)
+	}
+	return connect.NewResponse(res), nil
+}
+
+// CheckDatabase is for a server that has no database yet; this one has.
+func (s *Service) CheckDatabase(context.Context, *connect.Request[mimirv1.CheckDatabaseRequest]) (*connect.Response[mimirv1.CheckDatabaseResponse], error) {
+	return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("This server already has its database."))
 }
 
 func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupRequest]) (*connect.Response[mimirv1.SetupResponse], error) {
@@ -90,16 +103,25 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 		s.Limiter.Fail(ipKey)
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("That setup token isn't right. The server prints it in its log when it starts with no accounts."))
 	}
-	email, name, err := cleanUser(req.Msg.GetEmail(), req.Msg.GetName())
+	if m := req.Msg; m.GetDatabaseUrl() != "" || m.GetLogDatabaseUrl() != "" || m.GetSecretKey() != "" {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("This server already has its database and secret key; set them with its flags or environment instead."))
+	}
+	var retention *Retention
+	if r := req.Msg.GetRetention(); r != nil {
+		rr, err := CheckRetention(int(r.GetAuditDays()), int(r.GetDeliveryDays()))
+		if err != nil {
+			return nil, err
+		}
+		retention = &rr
+	}
+	hash, email, name, err := NewOwner(req.Msg.GetEmail(), req.Msg.GetName(), req.Msg.GetPassword())
 	if err != nil {
 		return nil, err
 	}
-	hash, err := auth.HashPassword(req.Msg.GetPassword())
-	if errors.Is(err, auth.ErrWeakPassword) {
-		return nil, invalid("Passwords need at least %d characters.", auth.MinPassword)
-	}
-	if err != nil {
-		return nil, s.internal(ctx, err)
+	if retention != nil {
+		if err := SaveRetention(ctx, s.store, *retention); err != nil {
+			return nil, s.internal(ctx, err)
+		}
 	}
 	u, err := s.store.CreateUser(ctx, store.User{Email: email, Name: name, PasswordHash: hash, Access: store.Access{Role: store.Owner, AllModels: true}})
 	if err != nil {
@@ -112,6 +134,23 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupR
 	}
 	s.auditIn(ctx, u.TeamID, u.Email, "server.setup", u.Email, "")
 	return res, nil
+}
+
+// NewOwner checks the first owner's details and hashes their password. Its
+// errors are Connect errors fit to show.
+func NewOwner(email, name, password string) (hash, cleanEmail, cleanName string, err error) {
+	cleanEmail, cleanName, err = cleanUser(email, name)
+	if err != nil {
+		return "", "", "", err
+	}
+	hash, err = auth.HashPassword(password)
+	if errors.Is(err, auth.ErrWeakPassword) {
+		return "", "", "", invalid("Passwords need at least %d characters.", auth.MinPassword)
+	}
+	if err != nil {
+		return "", "", "", connect.NewError(connect.CodeInternal, errors.New("Couldn't hash the password."))
+	}
+	return hash, cleanEmail, cleanName, nil
 }
 
 func (s *Service) SignIn(ctx context.Context, req *connect.Request[mimirv1.SignInRequest]) (*connect.Response[mimirv1.SignInResponse], error) {

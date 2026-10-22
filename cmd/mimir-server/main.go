@@ -2,27 +2,34 @@
 package main
 
 import (
+	"cmp"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
+	"github.com/gsoultan/mimir-server/internal/config"
 	"github.com/gsoultan/mimir-server/internal/obs"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/server"
+	"github.com/gsoultan/mimir-server/internal/setup"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
 	"github.com/gsoultan/mimir-server/internal/webhook"
@@ -35,6 +42,13 @@ import (
 var version = "dev"
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "setup" {
+		if err := runSetup(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "mimir-server setup:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "mimir-server:", err)
 		os.Exit(1)
@@ -44,7 +58,9 @@ func main() {
 func run() error {
 	addr := flag.String("addr", ":8080", "address to listen on")
 	data := flag.String("data", "./data", "directory for model weights, datasets and training checkpoints")
-	databaseURL := flag.String("database-url", os.Getenv("MIMIR_DATABASE_URL"), "console: the PostgreSQL database for the server's own records, such as postgres://mimir:secret@localhost:5432/mimir ($MIMIR_DATABASE_URL)")
+	databaseURL := flag.String("database-url", os.Getenv("MIMIR_DATABASE_URL"), "console: the PostgreSQL database for the server's own records, such as postgres://mimir:secret@localhost:5432/mimir ($MIMIR_DATABASE_URL); without it the configuration file's is used, and without that the console opens first-run setup")
+	logDatabaseURL := flag.String("log-database-url", os.Getenv("MIMIR_LOG_DATABASE_URL"), "console: a second PostgreSQL database for the audit log; empty keeps it in the main one ($MIMIR_LOG_DATABASE_URL)")
+	configFile := flag.String("config", os.Getenv(config.Env), "console: the configuration file first-run setup writes and later starts read ($MIMIR_CONFIG); default <data>/mimir.json. Flags and environment variables come first")
 	allowPrivate := flag.Bool("allow-private-webhooks", false, "let webhooks point at local and private addresses (for development)")
 	role := flag.String("role", "standalone", "standalone (the console and a worker in one), console (the web app and API; workers run the models) or worker (runs models for a console)")
 	tlsCert := flag.String("tls-cert", "", "console: serve TLS with this certificate file")
@@ -113,10 +129,63 @@ func run() error {
 		return fmt.Errorf("-trusted-proxies: %w", err)
 	}
 
-	if *databaseURL == "" {
-		return errors.New("the console keeps its records in PostgreSQL: pass -database-url or set $MIMIR_DATABASE_URL, such as postgres://mimir:secret@localhost:5432/mimir")
+	tlsConfig, pin, err := server.TLS(*tlsCert, *tlsKey, *tlsAuto, *data)
+	if err != nil {
+		return err
 	}
-	key, keySource, err := secret.Load(os.Getenv(secret.Env), *secretKeyFile, *data)
+	// The listener starts early when first-run setup needs it, and the full
+	// handler takes its place once setup is done, on the same port.
+	var handler atomic.Pointer[http.Handler]
+	srv := &http.Server{
+		Addr:              *addr,
+		Handler:           http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { (*handler.Load()).ServeHTTP(w, r) }),
+		Protocols:         server.Protocols(),
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
+	errc := make(chan error, 1)
+	var listening sync.Once
+	listen := func() {
+		listening.Do(func() {
+			go func() {
+				log.Info("listening", "addr", *addr, "data", *data, "role", *role, "tls", tlsConfig != nil, "version", version)
+				if tlsConfig != nil {
+					errc <- srv.ListenAndServeTLS("", "")
+					return
+				}
+				errc <- srv.ListenAndServe()
+			}()
+		})
+	}
+
+	// Flags and the environment come first, then the configuration file;
+	// with neither the console has no database yet and opens setup.
+	cfgPath := config.Path(*configFile, *data)
+	cfg := config.File{DatabaseURL: *databaseURL, LogDatabaseURL: *logDatabaseURL, SecretKeyFile: *secretKeyFile}
+	if cfg.DatabaseURL == "" {
+		f, err := config.Read(cfgPath)
+		switch {
+		case err == nil:
+			log.Info("configuration: loaded", "path", cfgPath)
+			cfg.DatabaseURL = f.DatabaseURL
+			cfg.LogDatabaseURL = cmp.Or(cfg.LogDatabaseURL, f.LogDatabaseURL)
+			cfg.SecretKeyFile = cmp.Or(cfg.SecretKeyFile, f.SecretKeyFile)
+		case errors.Is(err, fs.ErrNotExist):
+			done, err := firstRun(ctx, log, &handler, listen, errc, cfgPath, *data, *secretKeyFile, proxies)
+			if err != nil {
+				return err
+			}
+			if done == nil { // stopped before setup finished
+				srv.Close()
+				return nil
+			}
+			cfg = *done
+		default:
+			return err
+		}
+	}
+	key, keySource, err := secret.Load(os.Getenv(secret.Env), cfg.SecretKeyFile, *data)
 	if err != nil {
 		return err
 	}
@@ -125,12 +194,23 @@ func run() error {
 	} else {
 		log.Info("secret key: loaded", "from", keySource.Where)
 	}
-	st, err := store.Open(ctx, *databaseURL, *data, store.WithSecretKey(key))
+	box, err := secret.New(key)
+	if err != nil {
+		return err
+	}
+	if cfg, err = cfg.Open(box); err != nil {
+		return err
+	}
+	storeOpts := []store.Option{store.WithSecretKey(key)}
+	if cfg.LogDatabaseURL != "" && cfg.LogDatabaseURL != cfg.DatabaseURL {
+		storeOpts = append(storeOpts, store.WithLogDatabase(cfg.LogDatabaseURL))
+	}
+	st, err := store.Open(ctx, cfg.DatabaseURL, *data, storeOpts...)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
-	log.Info("database ready", "database", store.Redact(*databaseURL), "migration_steps", st.Applied(), "secrets_encrypted", st.Sealed())
+	log.Info("database ready", "database", store.Redact(cfg.DatabaseURL), "log_database", redactOrNone(cfg.LogDatabaseURL), "migration_steps", st.Applied(), "secrets_encrypted", st.Sealed())
 
 	if *predictBatch < 1 || *predictBatchWait < 0 {
 		log.Error("-predict-batch must be at least 1 and -predict-batch-wait not negative")
@@ -155,10 +235,6 @@ func run() error {
 	svc.Proxies = proxies
 	if proxies.Any() {
 		log.Info("trusting forwarded headers", "proxies", proxies.String())
-	}
-	tlsConfig, pin, err := server.TLS(*tlsCert, *tlsKey, *tlsAuto, *data)
-	if err != nil {
-		return err
 	}
 	svc.ConsolePin = pin
 	// With no accounts yet, the first owner needs a one-time token that
@@ -227,24 +303,9 @@ func run() error {
 	svc.CancelTraining = runner.Cancel
 	bg.Go(func() { runner.Run(bgCtx) })
 
-	srv := &http.Server{
-		Addr:              *addr,
-		Handler:           server.Handler(svc, st, web.Dist(), log, server.WithMetricsToken(*metricsToken)),
-		Protocols:         server.Protocols(),
-		TLSConfig:         tlsConfig,
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       2 * time.Minute,
-	}
-
-	errc := make(chan error, 1)
-	go func() {
-		log.Info("listening", "addr", *addr, "data", *data, "role", *role, "tls", tlsConfig != nil, "version", version)
-		if tlsConfig != nil {
-			errc <- srv.ListenAndServeTLS("", "")
-			return
-		}
-		errc <- srv.ListenAndServe()
-	}()
+	full := server.Handler(svc, st, web.Dist(), log, server.WithMetricsToken(*metricsToken))
+	handler.Store(&full)
+	listen()
 
 	select {
 	case err := <-errc:
@@ -263,6 +324,48 @@ func run() error {
 		srv.Close()
 	}
 	return nil
+}
+
+// firstRun serves first-run setup until it finishes, then returns the
+// configuration it wrote. It returns nil when the server is stopped first.
+func firstRun(ctx context.Context, log *slog.Logger, handler *atomic.Pointer[http.Handler], listen func(), errc <-chan error, cfgPath, dataDir, keyFile string, proxies auth.Proxies) (*config.File, error) {
+	key, err := setup.FindKey(os.Getenv(secret.Env), keyFile, dataDir)
+	if err != nil {
+		return nil, err
+	}
+	token := strings.TrimSpace(os.Getenv("MIMIR_SETUP_TOKEN"))
+	preset := token != ""
+	switch {
+	case !preset:
+		token = rand.Text()
+	case len(token) < api.MinSetupToken:
+		return nil, fmt.Errorf("$MIMIR_SETUP_TOKEN: the setup token needs at least %d characters", api.MinSetupToken)
+	}
+	s := setup.NewServer(token)
+	s.DataDir, s.ConfigPath, s.Key, s.Proxies, s.Log = dataDir, cfgPath, key, proxies, log
+	h := server.SetupHandler(s, proxies, web.Dist(), log)
+	handler.Store(&h)
+	listen()
+	if preset {
+		log.Info("no configuration yet: open the console to set it up, with the token in $MIMIR_SETUP_TOKEN, or run `mimir-server setup`", "config", cfgPath)
+	} else {
+		log.Info("no configuration yet: open the console to set it up, with this one-time setup token, or run `mimir-server setup`", "config", cfgPath, "setup_token", token)
+	}
+	select {
+	case f := <-s.Done:
+		return &f, nil
+	case err := <-errc:
+		return nil, err
+	case <-ctx.Done():
+		return nil, nil
+	}
+}
+
+func redactOrNone(u string) string {
+	if u == "" {
+		return ""
+	}
+	return store.Redact(u)
 }
 
 // janitor trims old history once an hour, by the retention settings.
