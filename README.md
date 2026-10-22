@@ -77,7 +77,8 @@ the main database. **Download a backup** covers the main database only, so
 back the log database up with `pg_dump` too.
 
 Secrets the server keeps in the database (webhook signing secrets, dataset
-connection strings, alert passwords and bot tokens) are encrypted with
+connection strings, alert passwords and bot tokens, and each person's
+two-step verification key) are encrypted with
 AES-256-GCM, so a copy or backup of the database does not reveal them. The
 key is 32 random bytes as base64 or hex (`openssl rand -base64 32`), taken
 from `MIMIR_SECRET_KEY`, else from the file `-secret-key-file` (or
@@ -212,8 +213,10 @@ server-wide settings are theirs alone.
   1Password and the like) to their sign-in, and gets eight one-time
   recovery codes for a lost phone. Under **Settings → Security** an owner
   can require it for admins and owners, or for everyone; people without it
-  can only set it up until it's on. An admin can reset it for someone who
-  lost their phone.
+  can only set it up until it's on. Turning it off, or setting up another
+  authenticator, takes the password and a current code (or a recovery
+  code), so a stolen cookie and password aren't enough. An admin can reset
+  it for someone who lost their phone.
 - **Sessions.** Each browser gets its own session, listed under
   **Security** with a sign-out button and a "sign out everywhere else"
   button. A session ends after 30 days, or 7 days without use, and is tied
@@ -221,7 +224,8 @@ server-wide settings are theirs alone.
   browser ends the session instead of opening it. A new token is minted at
   every sign-in, after the second factor and after a password change;
   a password change, a smaller role or a disabled account signs the person
-  out everywhere.
+  out everywhere. When an admin sets someone else's password, that
+  person's API keys are revoked too.
 - **Guessing and forgery.** At sign-in, after five wrong passwords for
   an account from one address, each further one doubles the wait before
   that address may try that account again (1 second, 2, 4, ... up to 15
@@ -330,7 +334,8 @@ columns inside the model, so apps send the raw values.
 Admins can also pick **From a database** in the first step: choose
 PostgreSQL, MySQL or SQLite, give the connection and a `SELECT`, and **Try
 the query** to see the columns and pick the answer. The query runs in a
-read-only transaction (SQLite files open read-only), returns up to a
+read-only transaction (SQLite files open read-only, with `ATTACH` turned
+off so a query can't reach other files), returns up to a
 million rows, and can't point at the server's own data folder. The
 connection string stays on the server and is never sent back.
 
@@ -452,7 +457,8 @@ anything public.
   (how long a prediction waited for its batch) by engine; plus Go runtime
   and process metrics. Set `-metrics-token` (or `MIMIR_METRICS_TOKEN`) to
   require `Authorization: Bearer <token>`; without it anyone who can reach
-  the port can read them.
+  the port can read them, and the console warns at start when it listens
+  beyond loopback.
 
 ### Batching predictions
 

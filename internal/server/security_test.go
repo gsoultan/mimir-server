@@ -157,8 +157,22 @@ func TestTwoFactorSignIn(t *testing.T) {
 		t.Fatalf("pat sign-in after reset: %v, %v", r, err)
 	}
 
-	// Turning it off needs the password.
-	if _, err := c.auth.DisableTwoFactor(ctx, connect.NewRequest(&mimirv1.DisableTwoFactorRequest{Password: password})); err != nil {
+	// Turning it off, or setting up another authenticator, needs the
+	// password and a current code: a stolen cookie and password aren't
+	// enough.
+	if _, err := c.auth.DisableTwoFactor(ctx, connect.NewRequest(&mimirv1.DisableTwoFactorRequest{Password: password})); code(err) != connect.CodeInvalidArgument {
+		t.Fatalf("disable without a code: %v", err)
+	}
+	if _, err := c.auth.DisableTwoFactor(ctx, connect.NewRequest(&mimirv1.DisableTwoFactorRequest{Password: password, Code: "222222"})); code(err) != connect.CodeInvalidArgument {
+		t.Fatalf("disable with a wrong code: %v", err)
+	}
+	if _, err := c.auth.StartTwoFactor(ctx, connect.NewRequest(&mimirv1.StartTwoFactorRequest{Password: password})); code(err) != connect.CodeInvalidArgument {
+		t.Fatalf("re-enrol without a code: %v", err)
+	}
+	if _, err := c.auth.StartTwoFactor(ctx, connect.NewRequest(&mimirv1.StartTwoFactorRequest{Password: password, Code: en.Msg.GetRecoveryCodes()[1]})); err != nil {
+		t.Fatalf("re-enrol with a recovery code: %v", err)
+	}
+	if _, err := c.auth.DisableTwoFactor(ctx, connect.NewRequest(&mimirv1.DisableTwoFactorRequest{Password: password, Code: en.Msg.GetRecoveryCodes()[2]})); err != nil {
 		t.Fatal(err)
 	}
 	if r, err := signInRes(srv, "owner@example.com"); err != nil || r.Msg.GetSecondFactorRequired() {

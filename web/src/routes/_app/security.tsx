@@ -1,6 +1,6 @@
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Code, CopyButton, Group, Modal, PasswordInput, PinInput, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Card, Code, CopyButton, Group, Modal, PasswordInput, PinInput, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconCheck, IconDeviceLaptop, IconDeviceMobile, IconShieldCheck, IconShieldOff } from "@tabler/icons-react";
@@ -122,26 +122,42 @@ function SetupModal({ opened, onClose }: { opened: boolean; onClose: () => void 
   );
 }
 
+// Turning off takes the password and a current code, or a recovery code
+// for someone who lost their phone, so a stolen cookie and password alone
+// can't do it.
 function TurnOffModal({ opened, onClose }: { opened: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [recovery, setRecovery] = useState(false);
   const disable = useMutation(AuthService.method.disableTwoFactor, {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: allAuthQueries });
-      setPassword(""); onClose();
+      setPassword(""); setCode(""); setRecovery(false); onClose();
       notifications.show({ message: "Two-step verification is off." });
     },
   });
   return (
     <Modal opened={opened} onClose={onClose} title="Turn off two-step verification?" centered>
-      <form onSubmit={(e) => { e.preventDefault(); disable.mutate({ password }); }}>
+      <form onSubmit={(e) => { e.preventDefault(); disable.mutate({ password, code }); }}>
         <Stack>
           <Text size="sm" c="dimmed">Your password alone will sign you in again. Your recovery codes stop working.</Text>
           <PasswordInput label="Your password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} data-autofocus />
+          {recovery ? (
+            <TextInput label="Recovery code" placeholder="xxxx-xxxx-xxxx" autoComplete="one-time-code" required value={code} onChange={(e) => setCode(e.currentTarget.value)} />
+          ) : (
+            <Stack gap={4}>
+              <Text size="sm" fw={500}>Code from your authenticator app</Text>
+              <PinInput length={6} type="number" oneTimeCode value={code} onChange={setCode} aria-label="Six-digit code" />
+            </Stack>
+          )}
+          <Anchor component="button" type="button" size="sm" ta="left" onClick={() => { setRecovery(!recovery); setCode(""); }}>
+            {recovery ? "Use the app instead" : "Lost your phone? Use a recovery code"}
+          </Anchor>
           {disable.error && <Alert color="red" icon={<IconAlertCircle />}>{message(disable.error)}</Alert>}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>Keep it on</Button>
-            <Button color="red" type="submit" loading={disable.isPending}>Turn off</Button>
+            <Button color="red" type="submit" loading={disable.isPending} disabled={!recovery && code.length < 6}>Turn off</Button>
           </Group>
         </Stack>
       </form>

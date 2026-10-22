@@ -106,52 +106,11 @@ func (s *Service) VerifySecondFactor(ctx context.Context, req *connect.Request[m
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("Sign in with your password first."))
 	}
 	u := p.User
-	// Whoever is here knows the password, so the account's own budget
-	// counts as well as the address's, and each failure past a few makes
-	// the next guess wait longer: a fixed budget alone would still allow
-	// about a thousand guesses a day, from any number of addresses.
-	keys := []string{"2fa:" + u.ID, "ip:" + s.Proxies.ClientIP(req.Header(), req.Peer().Addr)}
-	streak := "2fa:" + u.ID
-	if wait := max(s.Limiter.Wait(keys...), s.Backoff.Wait(streak)); wait > 0 {
-		return nil, tooMany(wait)
+	recovery, left, err := s.spendSecondFactor(ctx, req.Header(), req.Peer().Addr, u, req.Msg.GetCode())
+	if err != nil {
+		return nil, err
 	}
-	fail := func() {
-		s.Limiter.Fail(keys...)
-		s.Backoff.Fail(streak)
-	}
-	res := &mimirv1.VerifySecondFactorResponse{}
-	code := req.Msg.GetCode()
-	switch {
-	case auth.LooksLikeRecoveryCode(code):
-		used, left, err := s.store.UseRecoveryCode(ctx, u.ID, auth.HashToken(auth.NormalizeRecoveryCode(code)))
-		if err != nil {
-			return nil, s.internal(ctx, err)
-		}
-		if !used {
-			fail()
-			s.auditIn(ctx, u.TeamID, u.Email, "user.code_failed", u.Email, "recovery code")
-			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("That recovery code isn't right, or was already used."))
-		}
-		res.UsedRecoveryCode, res.RecoveryCodesLeft = true, int32(left)
-	default:
-		step, ok := auth.CheckTOTP(u.TOTPSecret, code, time.Now())
-		if ok {
-			ok, err := s.store.UseTOTPStep(ctx, u.ID, step)
-			if err != nil {
-				return nil, s.internal(ctx, err)
-			}
-			if !ok {
-				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("That code was already used. Wait for the next one."))
-			}
-		}
-		if !ok {
-			fail()
-			s.auditIn(ctx, u.TeamID, u.Email, "user.code_failed", u.Email, "")
-			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("That code isn't right. Check the time on your phone and try again."))
-		}
-	}
-	s.Limiter.Clear(keys...)
-	s.Backoff.Clear(streak)
+	res := &mimirv1.VerifySecondFactorResponse{UsedRecoveryCode: recovery, RecoveryCodesLeft: int32(left)}
 	// The pending session is spent; the real one gets a brand-new token.
 	s.store.DeleteSession(ctx, auth.HashToken(auth.SessionToken(req.Header())))
 	out := connect.NewResponse(res)
@@ -163,9 +122,84 @@ func (s *Service) VerifySecondFactor(ctx context.Context, req *connect.Request[m
 	return out, nil
 }
 
+// spendSecondFactor checks code, a current code from u's authenticator app
+// or one of their recovery codes, and spends it so it can't be used again.
+// Whoever gets here knows the password, so the account's own budget counts
+// as well as the address's, and each failure past a few makes the next
+// guess wait longer: a fixed budget alone would still allow about a
+// thousand guesses a day, from any number of addresses. A wrong or reused
+// code is CodeUnauthenticated. It returns whether a recovery code was used
+// and how many are left.
+func (s *Service) spendSecondFactor(ctx context.Context, h http.Header, remote string, u store.User, code string) (recovery bool, left int, err error) {
+	keys := []string{"2fa:" + u.ID, "ip:" + s.Proxies.ClientIP(h, remote)}
+	streak := "2fa:" + u.ID
+	if wait := max(s.Limiter.Wait(keys...), s.Backoff.Wait(streak)); wait > 0 {
+		return false, 0, tooMany(wait)
+	}
+	fail := func() {
+		s.Limiter.Fail(keys...)
+		s.Backoff.Fail(streak)
+	}
+	switch {
+	case auth.LooksLikeRecoveryCode(code):
+		used, n, err := s.store.UseRecoveryCode(ctx, u.ID, auth.HashToken(auth.NormalizeRecoveryCode(code)))
+		if err != nil {
+			return false, 0, s.internal(ctx, err)
+		}
+		if !used {
+			fail()
+			s.auditIn(ctx, u.TeamID, u.Email, "user.code_failed", u.Email, "recovery code")
+			return false, 0, connect.NewError(connect.CodeUnauthenticated, errors.New("That recovery code isn't right, or was already used."))
+		}
+		recovery, left = true, n
+	default:
+		step, ok := auth.CheckTOTP(u.TOTPSecret, code, time.Now())
+		if ok {
+			ok, err := s.store.UseTOTPStep(ctx, u.ID, step)
+			if err != nil {
+				return false, 0, s.internal(ctx, err)
+			}
+			if !ok {
+				return false, 0, connect.NewError(connect.CodeUnauthenticated, errors.New("That code was already used. Wait for the next one."))
+			}
+		}
+		if !ok {
+			fail()
+			s.auditIn(ctx, u.TeamID, u.Email, "user.code_failed", u.Email, "")
+			return false, 0, connect.NewError(connect.CodeUnauthenticated, errors.New("That code isn't right. Check the time on your phone and try again."))
+		}
+	}
+	s.Limiter.Clear(keys...)
+	s.Backoff.Clear(streak)
+	return recovery, left, nil
+}
+
+// proveSecondFactor asks for a current code before a change to two-step
+// verification itself, when it is on, so a stolen cookie and password
+// can't turn it off or swap in another authenticator. Call it after
+// proveIdentity.
+func (s *Service) proveSecondFactor(ctx context.Context, h http.Header, remote string, u store.User, code string) error {
+	if !u.TwoFactor() {
+		return nil
+	}
+	if strings.TrimSpace(code) == "" {
+		return invalid("Enter a code from your authenticator app, or a recovery code.")
+	}
+	_, _, err := s.spendSecondFactor(ctx, h, remote, u, code)
+	if ce := new(connect.Error); errors.As(err, &ce) && ce.Code() == connect.CodeUnauthenticated {
+		// The person is signed in; a wrong code is a bad field, not a
+		// lost session.
+		return invalid("%s", ce.Message())
+	}
+	return err
+}
+
 func (s *Service) StartTwoFactor(ctx context.Context, req *connect.Request[mimirv1.StartTwoFactorRequest]) (*connect.Response[mimirv1.StartTwoFactorResponse], error) {
 	p, _ := auth.From(ctx)
 	if err := s.proveIdentity(ctx, req.Header(), req.Peer().Addr, p, req.Msg.GetPassword()); err != nil {
+		return nil, err
+	}
+	if err := s.proveSecondFactor(ctx, req.Header(), req.Peer().Addr, p.User, req.Msg.GetCode()); err != nil {
 		return nil, err
 	}
 	secret, err := auth.NewTOTPSecret()
@@ -211,6 +245,9 @@ func (s *Service) DisableTwoFactor(ctx context.Context, req *connect.Request[mim
 		return nil, s.internal(ctx, err)
 	} else if must {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("Two-step verification is required for your account on this server."))
+	}
+	if err := s.proveSecondFactor(ctx, req.Header(), req.Peer().Addr, p.User, req.Msg.GetCode()); err != nil {
+		return nil, err
 	}
 	if err := s.store.DisableTOTP(ctx, p.User.ID); err != nil {
 		return nil, s.internal(ctx, err)

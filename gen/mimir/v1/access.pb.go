@@ -1191,7 +1191,11 @@ func (x *VerifySecondFactorResponse) GetUsedRecoveryCode() bool {
 type StartTwoFactorRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Password proves the person at the keyboard, not just the cookie.
-	Password      string `protobuf:"bytes,1,opt,name=password,proto3" json:"password,omitempty"`
+	Password string `protobuf:"bytes,1,opt,name=password,proto3" json:"password,omitempty"`
+	// Code is a current code from the authenticator app, or a recovery code.
+	// It is needed only when two-step verification is already on, so a
+	// stolen cookie and password can't swap in another authenticator.
+	Code          string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1229,6 +1233,13 @@ func (*StartTwoFactorRequest) Descriptor() ([]byte, []int) {
 func (x *StartTwoFactorRequest) GetPassword() string {
 	if x != nil {
 		return x.Password
+	}
+	return ""
+}
+
+func (x *StartTwoFactorRequest) GetCode() string {
+	if x != nil {
+		return x.Code
 	}
 	return ""
 }
@@ -1376,8 +1387,11 @@ func (x *EnableTwoFactorResponse) GetRecoveryCodes() []string {
 }
 
 type DisableTwoFactorRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Password      string                 `protobuf:"bytes,1,opt,name=password,proto3" json:"password,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Password string                 `protobuf:"bytes,1,opt,name=password,proto3" json:"password,omitempty"`
+	// Code is a current code from the authenticator app, or a recovery code,
+	// so a stolen cookie and password alone can't turn the second step off.
+	Code          string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1415,6 +1429,13 @@ func (*DisableTwoFactorRequest) Descriptor() ([]byte, []int) {
 func (x *DisableTwoFactorRequest) GetPassword() string {
 	if x != nil {
 		return x.Password
+	}
+	return ""
+}
+
+func (x *DisableTwoFactorRequest) GetCode() string {
+	if x != nil {
+		return x.Code
 	}
 	return ""
 }
@@ -1920,7 +1941,7 @@ type UpdateUserRequest struct {
 	Access   *Access                `protobuf:"bytes,3,opt,name=access,proto3" json:"access,omitempty"`
 	Disabled bool                   `protobuf:"varint,4,opt,name=disabled,proto3" json:"disabled,omitempty"`
 	// NewPassword, when set, replaces the user's password and signs them out
-	// everywhere.
+	// everywhere. Set on someone else, it also revokes their API keys.
 	NewPassword string `protobuf:"bytes,5,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
 	// ResetTwoFactor turns off the user's authenticator so they can sign in
 	// with their password alone, for when they lost their phone.
@@ -2765,9 +2786,10 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\x1aVerifySecondFactorResponse\x12\"\n" +
 	"\x04user\x18\x01 \x01(\v2\x0e.mimir.v1.UserR\x04user\x12.\n" +
 	"\x13recovery_codes_left\x18\x02 \x01(\x05R\x11recoveryCodesLeft\x12,\n" +
-	"\x12used_recovery_code\x18\x03 \x01(\bR\x10usedRecoveryCode\"3\n" +
+	"\x12used_recovery_code\x18\x03 \x01(\bR\x10usedRecoveryCode\"G\n" +
 	"\x15StartTwoFactorRequest\x12\x1a\n" +
-	"\bpassword\x18\x01 \x01(\tR\bpassword\"Q\n" +
+	"\bpassword\x18\x01 \x01(\tR\bpassword\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\"Q\n" +
 	"\x16StartTwoFactorResponse\x12\x16\n" +
 	"\x06secret\x18\x01 \x01(\tR\x06secret\x12\x1f\n" +
 	"\votpauth_url\x18\x02 \x01(\tR\n" +
@@ -2775,9 +2797,10 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\x16EnableTwoFactorRequest\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\"@\n" +
 	"\x17EnableTwoFactorResponse\x12%\n" +
-	"\x0erecovery_codes\x18\x01 \x03(\tR\rrecoveryCodes\"5\n" +
+	"\x0erecovery_codes\x18\x01 \x03(\tR\rrecoveryCodes\"I\n" +
 	"\x17DisableTwoFactorRequest\x12\x1a\n" +
-	"\bpassword\x18\x01 \x01(\tR\bpassword\"\x1a\n" +
+	"\bpassword\x18\x01 \x01(\tR\bpassword\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\"\x1a\n" +
 	"\x18DisableTwoFactorResponse\"\xda\x01\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
