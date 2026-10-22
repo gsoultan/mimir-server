@@ -43,17 +43,27 @@ import (
 var version = "dev"
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "setup" {
-		if err := runSetup(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, "mimir-server setup:", err)
-			os.Exit(1)
+	if len(os.Args) > 1 {
+		if cmd, ok := commands[os.Args[1]]; ok {
+			if err := cmd(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "mimir-server %s: %v\n", os.Args[1], err)
+				os.Exit(1)
+			}
+			return
 		}
-		return
 	}
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "mimir-server:", err)
 		os.Exit(1)
 	}
+}
+
+// commands are the ways to run mimir-server other than serving.
+var commands = map[string]func(args []string) error{
+	"setup":   runSetup,
+	"backup":  runBackup,
+	"restore": runRestore,
+	"migrate": runMigrate,
 }
 
 func run() error {

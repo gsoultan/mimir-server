@@ -73,8 +73,8 @@ uploaded examples stay as files in the `-data` folder.
 
 With a **log database** the audit log is written, read and trimmed there,
 apart from the records it describes; events from before it was set stay in
-the main database. **Download a backup** covers the main database only, so
-back the log database up with `pg_dump` too.
+the main database. **Download a backup** covers the main database only;
+`mimir-server backup` (below) takes both.
 
 Secrets the server keeps in the database (webhook signing secrets, dataset
 connection strings, alert passwords and bot tokens, and each person's
@@ -152,6 +152,28 @@ Uploads are limited to 256 MB by default, which fits ONNX models and small
 language models. Start the console with `-max-model-mb 2048`, say, to take
 bigger GGUF files; converting one needs about three times its size in
 memory for a moment.
+
+### On a server
+
+[docs/deploy.md](docs/deploy.md) runs the console under systemd behind an
+HTTPS reverse proxy, with nightly backups and upgrades you can undo; the
+systemd units and the Caddy and nginx configs are in [`deploy/`](deploy).
+Three commands help:
+
+- `mimir-server backup -out /var/backups/mimir [-keep 14]` dumps the main
+  database and the log database (with `pg_dump`) and archives the data
+  folder into a new folder, with a manifest naming the version and the
+  secret key's id. The key itself is left out.
+- `mimir-server restore -from <backup>` puts one back into empty
+  databases and data folder (with `pg_restore`), after checking the key is
+  the one it was made with and the backup isn't from a newer version.
+- `mimir-server migrate -check` prints the schema changes this version
+  would make when it starts, and fails if it would refuse one;
+  `mimir-server migrate` makes them without starting.
+
+Each takes `-data`, `-config`, `-database-url`, `-log-database-url` and
+`-secret-key-file` as the console does, and reads the configuration file
+setup wrote.
 
 ### In a container, or from a release
 

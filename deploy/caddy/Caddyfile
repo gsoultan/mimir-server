@@ -1,0 +1,29 @@
+# Caddy in front of the mimir-server console. Caddy gets and renews the
+# certificate itself. See docs/deploy.md. Change mimir.example.com, put
+# this in /etc/caddy/Caddyfile and `systemctl reload caddy`.
+#
+# Start the console with -trusted-proxies 127.0.0.1,::1
+# ($MIMIR_TRUSTED_PROXIES) so it believes the client address and https
+# Caddy sends.
+
+mimir.example.com {
+	# Model and dataset uploads: at least the console's -max-model-mb.
+	request_body {
+		max_size 300MB
+	}
+
+	# /metrics is for your monitoring, not the internet.
+	@metrics path /metrics
+	respond @metrics 404
+
+	reverse_proxy 127.0.0.1:8080 {
+		# HTTP/2 to the console (it serves it without TLS), which
+		# workers and gRPC apps need; plain requests work over it too.
+		transport http {
+			versions h2c 2
+			read_timeout 0
+		}
+		# Chat answers stream word by word.
+		flush_interval -1
+	}
+}

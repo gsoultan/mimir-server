@@ -1,0 +1,33 @@
+# Backs up the console's databases and data folder into /var/backups/mimir
+# and keeps the newest 14. mimir-backup.timer runs it nightly; run it by
+# hand with `systemctl start mimir-backup`. Needs pg_dump (the
+# postgresql-client package, the database's major version or newer).
+#
+#   install -d -o mimir -g mimir -m 0700 /var/backups/mimir
+#   install -m 0644 mimir-backup.service mimir-backup.timer /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now mimir-backup.timer
+#
+# The secret key is never in a backup. Keep a copy of it somewhere else.
+
+[Unit]
+Description=mimir-server backup
+Documentation=https://github.com/gsoultan/mimir-server/blob/main/docs/deploy.md
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=mimir
+Group=mimir
+EnvironmentFile=-/etc/mimir/mimir.env
+ExecStart=/usr/local/bin/mimir-server backup -data /var/lib/mimir -out /var/backups/mimir -keep 14
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadOnlyPaths=/var/lib/mimir
+ReadWritePaths=/var/backups/mimir
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
