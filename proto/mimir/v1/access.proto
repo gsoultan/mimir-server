@@ -3,19 +3,28 @@ syntax = "proto3";
 package mimir.v1;
 
 import "google/protobuf/timestamp.proto";
+import "mimir/v1/settings.proto";
 
 option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
 
 // AuthService signs people in. Browsers get a session cookie; apps use API
 // keys in an "Authorization: Bearer" header instead.
 service AuthService {
-  // GetSetupState says whether the server still needs its first owner.
-  // Anyone may call it.
+  // GetSetupState says whether the server still needs its configuration
+  // or its first owner. Anyone may call it.
   rpc GetSetupState(GetSetupStateRequest) returns (GetSetupStateResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
-  // Setup creates the first owner and signs them in. It works only while
-  // the server has no users.
+  // CheckDatabase tries a database URL during first-run setup, before the
+  // server has one. It needs the setup token, and works only until setup
+  // is done.
+  rpc CheckDatabase(CheckDatabaseRequest) returns (CheckDatabaseResponse);
+  // Setup finishes first-run setup. On a server started with no database
+  // it writes the configuration (the database, the log database and the
+  // secret key) and then creates the first owner; on one that has its
+  // database but no accounts yet it creates the first owner and signs
+  // them in. Either way it needs the setup token and works only while the
+  // server has no users.
   rpc Setup(SetupRequest) returns (SetupResponse);
   rpc SignIn(SignInRequest) returns (SignInResponse);
   rpc SignOut(SignOutRequest) returns (SignOutResponse);
@@ -110,6 +119,41 @@ message GetSetupStateRequest {}
 
 message GetSetupStateResponse {
   bool needs_setup = 1;
+  // NeedsConfig is true while the server has no database yet: Setup then
+  // takes the database, the log database and the secret key as well.
+  bool needs_config = 2;
+  // SecretKey says where the key for stored secrets comes from while
+  // NeedsConfig is true.
+  SecretKeySource secret_key = 3;
+  // Retention is what history is kept for unless Setup says otherwise.
+  Retention retention = 4;
+}
+
+// SecretKeySource is where the key that encrypts stored secrets (webhook
+// signing secrets, connection strings, alert credentials and the database
+// URLs in the configuration file) comes from.
+enum SecretKeySource {
+  SECRET_KEY_SOURCE_UNSPECIFIED = 0;
+  // None yet: Setup makes one, or saves the one it is given.
+  SECRET_KEY_SOURCE_NONE = 1;
+  // $MIMIR_SECRET_KEY or -secret-key-file; Setup can't change it.
+  SECRET_KEY_SOURCE_ENVIRONMENT = 2;
+  // The key file in the data folder, already there.
+  SECRET_KEY_SOURCE_FILE = 3;
+}
+
+message CheckDatabaseRequest {
+  string setup_token = 1;
+  // A PostgreSQL URL, such as postgres://mimir:secret@localhost:5432/mimir.
+  string database_url = 2;
+}
+
+message CheckDatabaseResponse {
+  // Version is the server's version, such as "PostgreSQL 16.4".
+  string version = 1;
+  // HasAccounts is true when the database already has mimir accounts:
+  // Setup then keeps them and makes no new owner.
+  bool has_accounts = 2;
 }
 
 message SetupRequest {
@@ -119,10 +163,28 @@ message SetupRequest {
   // The one-time setup token the server printed in its log when it
   // started with no accounts, or $MIMIR_SETUP_TOKEN.
   string setup_token = 4;
+  // The rest is taken only while GetSetupState says needs_config.
+  // DatabaseUrl is the PostgreSQL database for the server's records.
+  string database_url = 5;
+  // LogDatabaseUrl is a second PostgreSQL database for the audit log;
+  // empty keeps it in the main one.
+  string log_database_url = 6;
+  // SecretKey is a key to keep, 32 bytes as base64 or hex, such as one
+  // backed up with the database; empty makes a new one. Ignored when the
+  // key comes from the environment or the key file is already there.
+  string secret_key = 7;
+  // Retention is how long history is kept; unset keeps the defaults.
+  Retention retention = 8;
 }
 
 message SetupResponse {
+  // User is the new owner, signed in. A Setup that wrote the configuration
+  // leaves it unset and signs no one in: the full server starts a moment
+  // later, and the owner signs in there.
   User user = 1;
+  // SignInNext is true when the owner signs in next, because Setup wrote
+  // the configuration or found the database already had accounts.
+  bool sign_in_next = 2;
 }
 
 message SignInRequest {

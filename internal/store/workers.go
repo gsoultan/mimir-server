@@ -323,7 +323,7 @@ func (s *Store) WorkerEvents(ctx context.Context, name string, limit int) ([]Aud
 		Where(auditevent.Target.Eq(name), auditevent.Action.Like(`worker.%`)).
 		Order(auditevent.Time.Desc(), auditevent.ID.Desc()).
 		Limit(int64(limit)).
-		All(ctx, s.ex, nil)
+		All(ctx, s.logEx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("store: worker events: %w", err)
 	}

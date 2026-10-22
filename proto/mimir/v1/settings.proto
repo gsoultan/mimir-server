@@ -175,4 +175,7 @@ message GetDatabaseInfoResponse {
   int32 deliveries = 9;
   google.protobuf.Timestamp last_trim_time = 10;
   int64 last_trim_rows = 11;
+  // LogPath is the separate log database without its password; empty when
+  // the audit log is kept in the main database.
+  string log_path = 12;
 }

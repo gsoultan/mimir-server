@@ -27,13 +27,21 @@ import (
 type Option func(*options)
 
 type options struct {
-	key []byte
+	key    []byte
+	logURL string
 }
 
 // WithSecretKey sets the 32-byte key secrets are sealed with. Without it,
 // Open uses the key file in the data folder, creating it on first start.
 func WithSecretKey(key []byte) Option {
 	return func(o *options) { o.key = key }
+}
+
+// WithLogDatabase keeps the audit log in a second PostgreSQL database at
+// databaseURL instead of the main one. Open brings its schema up the same
+// way. Events already in the main database stay there.
+func WithLogDatabase(databaseURL string) Option {
+	return func(o *options) { o.logURL = strings.TrimSpace(databaseURL) }
 }
 
 // secretSetting reports whether a setting holds credentials: the alert

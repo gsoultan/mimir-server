@@ -42,6 +42,9 @@ const (
 	// AuthServiceGetSetupStateProcedure is the fully-qualified name of the AuthService's GetSetupState
 	// RPC.
 	AuthServiceGetSetupStateProcedure = "/mimir.v1.AuthService/GetSetupState"
+	// AuthServiceCheckDatabaseProcedure is the fully-qualified name of the AuthService's CheckDatabase
+	// RPC.
+	AuthServiceCheckDatabaseProcedure = "/mimir.v1.AuthService/CheckDatabase"
 	// AuthServiceSetupProcedure is the fully-qualified name of the AuthService's Setup RPC.
 	AuthServiceSetupProcedure = "/mimir.v1.AuthService/Setup"
 	// AuthServiceSignInProcedure is the fully-qualified name of the AuthService's SignIn RPC.
@@ -95,11 +98,19 @@ const (
 
 // AuthServiceClient is a client for the mimir.v1.AuthService service.
 type AuthServiceClient interface {
-	// GetSetupState says whether the server still needs its first owner.
-	// Anyone may call it.
+	// GetSetupState says whether the server still needs its configuration
+	// or its first owner. Anyone may call it.
 	GetSetupState(context.Context, *connect.Request[v1.GetSetupStateRequest]) (*connect.Response[v1.GetSetupStateResponse], error)
-	// Setup creates the first owner and signs them in. It works only while
-	// the server has no users.
+	// CheckDatabase tries a database URL during first-run setup, before the
+	// server has one. It needs the setup token, and works only until setup
+	// is done.
+	CheckDatabase(context.Context, *connect.Request[v1.CheckDatabaseRequest]) (*connect.Response[v1.CheckDatabaseResponse], error)
+	// Setup finishes first-run setup. On a server started with no database
+	// it writes the configuration (the database, the log database and the
+	// secret key) and then creates the first owner; on one that has its
+	// database but no accounts yet it creates the first owner and signs
+	// them in. Either way it needs the setup token and works only while the
+	// server has no users.
 	Setup(context.Context, *connect.Request[v1.SetupRequest]) (*connect.Response[v1.SetupResponse], error)
 	SignIn(context.Context, *connect.Request[v1.SignInRequest]) (*connect.Response[v1.SignInResponse], error)
 	SignOut(context.Context, *connect.Request[v1.SignOutRequest]) (*connect.Response[v1.SignOutResponse], error)
@@ -135,6 +146,12 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			baseURL+AuthServiceGetSetupStateProcedure,
 			connect.WithSchema(authServiceMethods.ByName("GetSetupState")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		checkDatabase: connect.NewClient[v1.CheckDatabaseRequest, v1.CheckDatabaseResponse](
+			httpClient,
+			baseURL+AuthServiceCheckDatabaseProcedure,
+			connect.WithSchema(authServiceMethods.ByName("CheckDatabase")),
 			connect.WithClientOptions(opts...),
 		),
 		setup: connect.NewClient[v1.SetupRequest, v1.SetupResponse](
@@ -211,6 +228,7 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 // authServiceClient implements AuthServiceClient.
 type authServiceClient struct {
 	getSetupState      *connect.Client[v1.GetSetupStateRequest, v1.GetSetupStateResponse]
+	checkDatabase      *connect.Client[v1.CheckDatabaseRequest, v1.CheckDatabaseResponse]
 	setup              *connect.Client[v1.SetupRequest, v1.SetupResponse]
 	signIn             *connect.Client[v1.SignInRequest, v1.SignInResponse]
 	signOut            *connect.Client[v1.SignOutRequest, v1.SignOutResponse]
@@ -227,6 +245,11 @@ type authServiceClient struct {
 // GetSetupState calls mimir.v1.AuthService.GetSetupState.
 func (c *authServiceClient) GetSetupState(ctx context.Context, req *connect.Request[v1.GetSetupStateRequest]) (*connect.Response[v1.GetSetupStateResponse], error) {
 	return c.getSetupState.CallUnary(ctx, req)
+}
+
+// CheckDatabase calls mimir.v1.AuthService.CheckDatabase.
+func (c *authServiceClient) CheckDatabase(ctx context.Context, req *connect.Request[v1.CheckDatabaseRequest]) (*connect.Response[v1.CheckDatabaseResponse], error) {
+	return c.checkDatabase.CallUnary(ctx, req)
 }
 
 // Setup calls mimir.v1.AuthService.Setup.
@@ -286,11 +309,19 @@ func (c *authServiceClient) RevokeSessions(ctx context.Context, req *connect.Req
 
 // AuthServiceHandler is an implementation of the mimir.v1.AuthService service.
 type AuthServiceHandler interface {
-	// GetSetupState says whether the server still needs its first owner.
-	// Anyone may call it.
+	// GetSetupState says whether the server still needs its configuration
+	// or its first owner. Anyone may call it.
 	GetSetupState(context.Context, *connect.Request[v1.GetSetupStateRequest]) (*connect.Response[v1.GetSetupStateResponse], error)
-	// Setup creates the first owner and signs them in. It works only while
-	// the server has no users.
+	// CheckDatabase tries a database URL during first-run setup, before the
+	// server has one. It needs the setup token, and works only until setup
+	// is done.
+	CheckDatabase(context.Context, *connect.Request[v1.CheckDatabaseRequest]) (*connect.Response[v1.CheckDatabaseResponse], error)
+	// Setup finishes first-run setup. On a server started with no database
+	// it writes the configuration (the database, the log database and the
+	// secret key) and then creates the first owner; on one that has its
+	// database but no accounts yet it creates the first owner and signs
+	// them in. Either way it needs the setup token and works only while the
+	// server has no users.
 	Setup(context.Context, *connect.Request[v1.SetupRequest]) (*connect.Response[v1.SetupResponse], error)
 	SignIn(context.Context, *connect.Request[v1.SignInRequest]) (*connect.Response[v1.SignInResponse], error)
 	SignOut(context.Context, *connect.Request[v1.SignOutRequest]) (*connect.Response[v1.SignOutResponse], error)
@@ -322,6 +353,12 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		svc.GetSetupState,
 		connect.WithSchema(authServiceMethods.ByName("GetSetupState")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceCheckDatabaseHandler := connect.NewUnaryHandler(
+		AuthServiceCheckDatabaseProcedure,
+		svc.CheckDatabase,
+		connect.WithSchema(authServiceMethods.ByName("CheckDatabase")),
 		connect.WithHandlerOptions(opts...),
 	)
 	authServiceSetupHandler := connect.NewUnaryHandler(
@@ -396,6 +433,8 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		switch r.URL.Path {
 		case AuthServiceGetSetupStateProcedure:
 			authServiceGetSetupStateHandler.ServeHTTP(w, r)
+		case AuthServiceCheckDatabaseProcedure:
+			authServiceCheckDatabaseHandler.ServeHTTP(w, r)
 		case AuthServiceSetupProcedure:
 			authServiceSetupHandler.ServeHTTP(w, r)
 		case AuthServiceSignInProcedure:
@@ -429,6 +468,10 @@ type UnimplementedAuthServiceHandler struct{}
 
 func (UnimplementedAuthServiceHandler) GetSetupState(context.Context, *connect.Request[v1.GetSetupStateRequest]) (*connect.Response[v1.GetSetupStateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.AuthService.GetSetupState is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) CheckDatabase(context.Context, *connect.Request[v1.CheckDatabaseRequest]) (*connect.Response[v1.CheckDatabaseResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.AuthService.CheckDatabase is not implemented"))
 }
 
 func (UnimplementedAuthServiceHandler) Setup(context.Context, *connect.Request[v1.SetupRequest]) (*connect.Response[v1.SetupResponse], error) {

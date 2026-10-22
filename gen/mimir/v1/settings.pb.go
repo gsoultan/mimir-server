@@ -1219,8 +1219,11 @@ type GetDatabaseInfoResponse struct {
 	Deliveries          int32                  `protobuf:"varint,9,opt,name=deliveries,proto3" json:"deliveries,omitempty"`
 	LastTrimTime        *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=last_trim_time,json=lastTrimTime,proto3" json:"last_trim_time,omitempty"`
 	LastTrimRows        int64                  `protobuf:"varint,11,opt,name=last_trim_rows,json=lastTrimRows,proto3" json:"last_trim_rows,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// LogPath is the separate log database without its password; empty when
+	// the audit log is kept in the main database.
+	LogPath       string `protobuf:"bytes,12,opt,name=log_path,json=logPath,proto3" json:"log_path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetDatabaseInfoResponse) Reset() {
@@ -1330,6 +1333,13 @@ func (x *GetDatabaseInfoResponse) GetLastTrimRows() int64 {
 	return 0
 }
 
+func (x *GetDatabaseInfoResponse) GetLogPath() string {
+	if x != nil {
+		return x.LogPath
+	}
+	return ""
+}
+
 var File_mimir_v1_settings_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_settings_proto_rawDesc = "" +
@@ -1401,7 +1411,7 @@ const file_mimir_v1_settings_proto_rawDesc = "" +
 	"\tretention\x18\x01 \x01(\v2\x13.mimir.v1.RetentionR\tretention\"L\n" +
 	"\x17UpdateRetentionResponse\x121\n" +
 	"\tretention\x18\x01 \x01(\v2\x13.mimir.v1.RetentionR\tretention\"\x18\n" +
-	"\x16GetDatabaseInfoRequest\"\x94\x03\n" +
+	"\x16GetDatabaseInfoRequest\"\xaf\x03\n" +
 	"\x17GetDatabaseInfoResponse\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x1d\n" +
@@ -1417,7 +1427,8 @@ const file_mimir_v1_settings_proto_rawDesc = "" +
 	"deliveries\x12@\n" +
 	"\x0elast_trim_time\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\flastTrimTime\x12$\n" +
-	"\x0elast_trim_rows\x18\v \x01(\x03R\flastTrimRows*\x92\x01\n" +
+	"\x0elast_trim_rows\x18\v \x01(\x03R\flastTrimRows\x12\x19\n" +
+	"\blog_path\x18\f \x01(\tR\alogPath*\x92\x01\n" +
 	"\x0fTwoFactorPolicy\x12!\n" +
 	"\x1dTWO_FACTOR_POLICY_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTWO_FACTOR_POLICY_OPTIONAL\x10\x01\x12\x1c\n" +
