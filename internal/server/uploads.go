@@ -17,12 +17,14 @@ const DefaultMaxUploads = 4
 // skips the cap: a dataset that names a database query, say.
 const smallUpload = 1 << 20
 
-// uploadProcedures are the calls that carry a whole file in one message.
-// Connect reads each into memory before the handler runs, and converting
-// a model takes a few times its size again.
+// uploadProcedures are the calls that carry a whole file: the RPCs that
+// take one in a message, which Connect reads into memory before the
+// handler runs, and POST /api/uploads, which writes one to disk as it
+// arrives and so takes disk bandwidth rather than memory.
 var uploadProcedures = map[string]bool{
 	mimirv1connect.ModelServiceCreateModelProcedure:     true,
 	mimirv1connect.DatasetServiceCreateDatasetProcedure: true,
+	"/api/uploads": true,
 }
 
 // uploadGate caps how many uploads are read and handled at once, so a

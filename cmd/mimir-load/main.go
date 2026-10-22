@@ -27,6 +27,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -98,6 +99,8 @@ type clients struct {
 	teams    mimirv1connect.TeamServiceClient
 	datasets mimirv1connect.DatasetServiceClient
 	training mimirv1connect.TrainingServiceClient
+	http     *http.Client
+	base     string
 }
 
 var transport = &http.Transport{
@@ -124,7 +127,37 @@ func newClients(base, key string) clients {
 		teams:    mimirv1connect.NewTeamServiceClient(hc, base, opts...),
 		datasets: mimirv1connect.NewDatasetServiceClient(hc, base, opts...),
 		training: mimirv1connect.NewTrainingServiceClient(hc, base, opts...),
+		http:     hc,
+		base:     base,
 	}
+}
+
+// upload sends the file at path to POST /api/uploads, streaming it from
+// disk, and returns the id CreateModel takes for it.
+func (c clients) upload(ctx context.Context, path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/uploads", f)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	res, err := c.http.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	var out struct{ Upload, Message string }
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return "", fmt.Errorf("upload: %s", res.Status)
+	}
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("upload: %s: %s", res.Status, out.Message)
+	}
+	return out.Upload, nil
 }
 
 type bearer string
@@ -335,13 +368,17 @@ func prepareLanguageModel(ctx context.Context, own clients, c config) (*mimirv1.
 		}
 	}
 	if lm == nil {
-		b, err := os.ReadFile(c.lm)
+		info, err := os.Stat(c.lm)
 		if err != nil {
 			return nil, clients{}, err
 		}
-		log.Printf("uploading %s (%d MB)", c.lm, len(b)>>20)
+		log.Printf("uploading %s (%d MB)", c.lm, info.Size()>>20)
 		t0 := time.Now()
-		res, err := own.models.CreateModel(ctx, connect.NewRequest(&mimirv1.CreateModelRequest{Name: "Load chat", Architecture: "mim", Weights: b}))
+		id, err := own.upload(ctx, c.lm)
+		if err != nil {
+			return nil, clients{}, err
+		}
+		res, err := own.models.CreateModel(ctx, connect.NewRequest(&mimirv1.CreateModelRequest{Name: "Load chat", Architecture: "mim", Upload: id}))
 		if err != nil {
 			return nil, clients{}, err
 		}

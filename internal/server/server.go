@@ -88,6 +88,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	// guards the unary calls as usual.
 	mux.Handle(mimirv1connect.NewWorkerServiceHandler(svc, guard, connect.WithReadMaxBytes(modelBytes), connect.WithSendMaxBytes(modelBytes)))
 	mux.Handle("GET /api/backup", backupHandler(st, log))
+	mux.Handle("POST /api/uploads", svc.UploadHandler(int64(uploadBytes)))
 	mux.Handle("/v1/", openai.Handler(svc, st, log))
 	mux.Handle(grpchealth.NewHandler(newHealthChecker(st.Ping), connect.WithInterceptors(metrics.Interceptor())))
 	mux.Handle("GET /healthz", liveHandler())
@@ -121,7 +122,7 @@ func SetupHandler(s *setup.Server, proxies auth.Proxies, files fs.FS, log *slog.
 	mux.Handle("GET /readyz", notYet)
 	ui := uiHandler(files)
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if p := r.URL.Path; strings.HasPrefix(p, "/mimir.v1.") || strings.HasPrefix(p, "/grpc.") || p == "/metrics" || p == "/api/backup" {
+		if p := r.URL.Path; strings.HasPrefix(p, "/mimir.v1.") || strings.HasPrefix(p, "/grpc.") || p == "/metrics" || p == "/api/backup" || p == "/api/uploads" {
 			notYet(w, r)
 			return
 		}
@@ -136,7 +137,7 @@ func SetupHandler(s *setup.Server, proxies auth.Proxies, files fs.FS, log *slog.
 func route(r *http.Request) string {
 	p := r.URL.Path
 	switch {
-	case p == "/healthz", p == "/readyz", p == "/metrics", p == "/api/backup":
+	case p == "/healthz", p == "/readyz", p == "/metrics", p == "/api/backup", p == "/api/uploads":
 		return p
 	case strings.HasPrefix(p, "/mimir.v1."), strings.HasPrefix(p, "/grpc.health.v1."):
 		return "rpc"

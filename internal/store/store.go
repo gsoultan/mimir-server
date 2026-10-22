@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net"
 	"net/netip"
@@ -168,6 +169,7 @@ func Open(ctx context.Context, databaseURL, dir string, opts ...Option) (*Store,
 	if err := os.MkdirAll(weights, 0o750); err != nil {
 		return nil, fmt.Errorf("store: create %s: %w", weights, err)
 	}
+	removeStale(weights, staleTemp)
 	pool, err := connect(ctx, databaseURL)
 	if err != nil {
 		return nil, err
@@ -417,13 +419,81 @@ func (s *Store) Get(ctx context.Context, id string) (Model, error) {
 // Create stores weights and a new model row. It fills in the model's ID,
 // size, checksum and times and returns it.
 func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, error) {
+	sum := sha256.Sum256(weights)
+	return s.create(ctx, m, int64(len(weights)), sum[:], func(path string) error { return writeFileAtomic(path, weights) })
+}
+
+// CreateFromFile stores a new model whose weights are the file at path,
+// one of TempFile's, which it moves into place rather than copying. sum is
+// the file's SHA-256 when the caller worked it out while writing the file;
+// nil has it read once to work it out. The file is never held in memory.
+func (s *Store) CreateFromFile(ctx context.Context, m Model, path string, sum []byte) (Model, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return Model{}, fmt.Errorf("store: open weights: %w", err)
+	}
+	var n int64
+	if sum == nil {
+		h := sha256.New()
+		n, err = io.Copy(h, f)
+		sum = h.Sum(nil)
+	} else {
+		var info os.FileInfo
+		if info, err = f.Stat(); err == nil {
+			n = info.Size()
+		}
+	}
+	if err == nil {
+		// The bytes reach the disk before the row says they are there.
+		err = f.Sync()
+	}
+	f.Close()
+	if err != nil {
+		return Model{}, fmt.Errorf("store: read weights: %w", err)
+	}
+	return s.create(ctx, m, n, sum, func(dst string) error { return os.Rename(path, dst) })
+}
+
+// TempFile creates an empty file beside the stored weights, where an
+// upload or a conversion is written before CreateFromFile moves it into
+// place. The caller removes it if it isn't used; ones left by a crash are
+// removed when the store next opens.
+func (s *Store) TempFile() (*os.File, error) {
+	return os.CreateTemp(s.weights, tempPrefix+"*")
+}
+
+// staleTemp is how old a file being written beside the weights must be
+// for Open to take it for one a stopped server left. Uploads wait at most
+// an hour to be used.
+const staleTemp = 6 * time.Hour
+
+// tempPrefix starts the names of files being written beside the weights.
+const tempPrefix = ".upload-"
+
+// removeStale removes files TempFile and writeFileAtomic left behind by a
+// server that stopped while writing them. Only old ones go, so a file
+// another server sharing the directory is writing stays.
+func removeStale(dir string, age time.Duration) {
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), tempPrefix) {
+			continue
+		}
+		if info, err := e.Info(); err == nil && time.Since(info.ModTime()) > age {
+			os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
+}
+
+// create adds the row of a new model of size bytes with checksum sum,
+// after place has put its weights at the path given.
+func (s *Store) create(ctx context.Context, m Model, size int64, sum []byte, place func(path string) error) (Model, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return Model{}, fmt.Errorf("store: new id: %w", err)
 	}
-	sum := sha256.Sum256(weights)
 	t := now()
-	m.ID, m.SizeBytes, m.SHA256 = id.String(), int64(len(weights)), hex.EncodeToString(sum[:])
+	m.ID, m.SizeBytes, m.SHA256 = id.String(), size, hex.EncodeToString(sum)
 	m.Created, m.Updated = t, t
 	if m.TeamID == "" {
 		m.TeamID = DefaultTeam
@@ -436,7 +506,7 @@ func (s *Store) Create(ctx context.Context, m Model, weights []byte) (Model, err
 	// missing file. A crash between the two leaves an orphan file, which is
 	// harmless.
 	path := s.path(m.ID)
-	if err := writeFileAtomic(path, weights); err != nil {
+	if err := place(path); err != nil {
 		return Model{}, fmt.Errorf("store: write weights: %w", err)
 	}
 	n := model.Create()
@@ -658,7 +728,7 @@ func fromDoc[T any](j runtime.JSON) []T {
 }
 
 func writeFileAtomic(path string, b []byte) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".upload-*")
+	tmp, err := os.CreateTemp(filepath.Dir(path), tempPrefix+"*")
 	if err != nil {
 		return err
 	}
