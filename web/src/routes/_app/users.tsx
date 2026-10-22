@@ -131,7 +131,7 @@ function UserModal({ opened, onClose, maxRole, teams, myTeam, user, onDone }: { 
           <TextInput label="Email" type="email" required disabled={!!user} value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
           <PasswordInput
             label={user ? "New password" : "First password"}
-            description={user ? "Leave empty to keep their password. Setting one signs them out everywhere." : "Tell it to them; they can change it after signing in. At least 10 characters."}
+            description={user ? "Leave empty to keep their password. Setting one signs them out everywhere and revokes their API keys." : "Tell it to them; they can change it after signing in. At least 10 characters."}
             autoComplete="new-password"
             required={!user}
             minLength={10}

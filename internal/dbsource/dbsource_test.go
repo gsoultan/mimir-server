@@ -47,4 +47,23 @@ func TestFetchSQLite(t *testing.T) {
 	if r, err := Fetch(ctx, "sqlite", path, "SELECT * FROM fruit", 10, nil); err != nil || len(r.Rows) != 3 {
 		t.Fatalf("after DELETE attempt: %v rows, %v", len(r.Rows), err)
 	}
+
+	// A query can't ATTACH another file to read past the path check.
+	other := filepath.Join(t.TempDir(), "other.db")
+	odb, err := sql.Open("sqlite", other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := odb.Exec("CREATE TABLE secrets (name TEXT, value TEXT); INSERT INTO secrets VALUES ('a', 'hidden')"); err != nil {
+		t.Fatal(err)
+	}
+	odb.Close()
+	for _, q := range []string{
+		"ATTACH DATABASE '" + other + "' AS o; SELECT name, value FROM o.secrets",
+		"ATTACH DATABASE 'file:" + other + "?mode=ro' AS o",
+	} {
+		if r, err := Fetch(ctx, "sqlite", path, q, 10, nil); err == nil {
+			t.Errorf("%q: read %v, want refused", q, r.Rows)
+		}
+	}
 }

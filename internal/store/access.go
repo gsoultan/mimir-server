@@ -136,7 +136,15 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	return int(n), err
 }
 
-func fromUser(r user.Row) User {
+func (s *Store) fromUser(r user.Row) (User, error) {
+	secret, err := s.openSecret(r.TotpSecret, totpContext(r.ID))
+	if err != nil {
+		return User{}, err
+	}
+	pending, err := s.openSecret(r.TotpPending, totpContext(r.ID))
+	if err != nil {
+		return User{}, err
+	}
 	return User{
 		ID:           r.ID,
 		Email:        r.Email,
@@ -146,11 +154,11 @@ func fromUser(r user.Row) User {
 		Disabled:     r.Disabled,
 		Created:      r.CreateTime.UTC(),
 		LastSignIn:   timeOf(r.LastSignIn),
-		TOTPSecret:   r.TotpSecret,
-		TOTPPending:  r.TotpPending,
+		TOTPSecret:   secret,
+		TOTPPending:  pending,
 		TOTPLastStep: r.TotpLastStep,
 		TeamID:       r.TeamID.V,
-	}
+	}, nil
 }
 
 // CreateUser adds a user. It fills in ID and Created.
@@ -207,7 +215,10 @@ func (s *Store) getUser(ctx context.Context, q user.Query) (User, error) {
 	if !ok {
 		return User{}, ErrNotFound
 	}
-	u := fromUser(r)
+	u, err := s.fromUser(r)
+	if err != nil {
+		return User{}, err
+	}
 	grants, err := s.userGrants(ctx, u.ID)
 	if err != nil {
 		return User{}, err
@@ -237,7 +248,10 @@ func (s *Store) ListUsers(ctx context.Context, teamID string) ([]User, error) {
 	}
 	out := make([]User, 0, len(rows))
 	for _, r := range rows {
-		u := fromUser(r)
+		u, err := s.fromUser(r)
+		if err != nil {
+			return nil, err
+		}
 		u.Access.ModelIDs = grants[u.ID]
 		out = append(out, u)
 	}
@@ -334,7 +348,9 @@ func (s *Store) UpdateUser(ctx context.Context, id, name string, access Access, 
 }
 
 // SetPassword replaces a user's password hash and ends all their sessions.
-func (s *Store) SetPassword(ctx context.Context, id, hash string) error {
+// With revokeKeys it deletes their API keys too, for an account an admin
+// resets because it may be in someone else's hands.
+func (s *Store) SetPassword(ctx context.Context, id, hash string, revokeKeys bool) error {
 	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		m := user.MutateKey(id)
 		m.SetPasswordHash(hash)
@@ -346,6 +362,11 @@ func (s *Store) SetPassword(ctx context.Context, id, hash string) error {
 		}
 		if _, err := session.New().Where(session.UserID.Eq(id)).DeleteAll(ctx, ex); err != nil {
 			return fmt.Errorf("store: end sessions: %w", err)
+		}
+		if revokeKeys {
+			if _, err := apikey.New().Where(apikey.UserID.Eq(id)).DeleteAll(ctx, ex); err != nil {
+				return fmt.Errorf("store: revoke api keys: %w", err)
+			}
 		}
 		return nil
 	})
@@ -541,8 +562,12 @@ func (s *Store) ExpireSessions(ctx context.Context) error {
 
 // SetPendingTOTP stores a secret the user has been shown but not confirmed.
 func (s *Store) SetPendingTOTP(ctx context.Context, userID, secret string) error {
+	sealed, err := s.box.Seal(secret, totpContext(userID))
+	if err != nil {
+		return err
+	}
 	m := user.MutateKey(userID)
-	m.SetTotpPending(secret)
+	m.SetTotpPending(sealed)
 	if err := m.Update(ctx, s.ex); err != nil && !errors.Is(err, runtime.ErrNoRow) {
 		return err
 	}
@@ -550,7 +575,9 @@ func (s *Store) SetPendingTOTP(ctx context.Context, userID, secret string) error
 }
 
 // EnableTOTP promotes the pending secret, stores hashed recovery codes and
-// ends every other session, so a hijacked one can't ride along.
+// ends every other session, so a hijacked one can't ride along. Both
+// columns seal with the user's one TOTP context, so the sealed pending
+// value moves across as it is.
 func (s *Store) EnableTOTP(ctx context.Context, userID, keepSession string, codeHashes []string) error {
 	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		r, ok, err := user.New().Where(user.ID.Eq(userID)).ForUpdate().One(ctx, ex)

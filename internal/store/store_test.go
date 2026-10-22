@@ -205,11 +205,23 @@ func TestUsersSessionsAndKeys(t *testing.T) {
 	if err := s.DeleteTeam(ctx, tm.ID); !errors.Is(err, ErrTeamInUse) {
 		t.Fatalf("DeleteTeam in use: %v", err)
 	}
-	if err := s.SetPassword(ctx, u.ID, "h2"); err != nil {
+	if _, err := s.CreateAPIKey(ctx, APIKey{UserID: u.ID, Name: "app2", Prefix: "mk_", Access: Access{Role: Viewer}}, "secret-hash-2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPassword(ctx, u.ID, "h2", false); err != nil {
 		t.Fatal(err)
 	}
 	if list, _ := s.ListSessions(ctx, u.ID); len(list) != 0 {
 		t.Fatalf("sessions after SetPassword: %d", len(list))
+	}
+	if keys, _ := s.ListAPIKeys(ctx, u.ID); len(keys) != 1 {
+		t.Fatalf("a routine SetPassword left %d keys, want 1", len(keys))
+	}
+	if err := s.SetPassword(ctx, u.ID, "h3", true); err != nil {
+		t.Fatal(err)
+	}
+	if keys, _ := s.ListAPIKeys(ctx, u.ID); len(keys) != 0 {
+		t.Fatalf("SetPassword revoking keys left %d", len(keys))
 	}
 
 	if err := s.Audit(ctx, AuditEvent{Actor: "a", Action: "x", TeamID: tm.ID}); err != nil {
