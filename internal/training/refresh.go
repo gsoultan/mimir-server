@@ -16,7 +16,7 @@ func Refresh(ctx context.Context, st *store.Store, d store.Dataset) (store.Datas
 	if !d.FromQuery() {
 		return d, nil
 	}
-	b, err := fetch(ctx, d)
+	b, err := fetch(ctx, st, d)
 	if err != nil {
 		return d, err
 	}
@@ -28,7 +28,7 @@ func Refresh(ctx context.Context, st *store.Store, d store.Dataset) (store.Datas
 	return st.RefreshDataset(ctx, d, b)
 }
 
-func fetch(ctx context.Context, d store.Dataset) ([]byte, error) {
+func fetch(ctx context.Context, st *store.Store, d store.Dataset) ([]byte, error) {
 	if d.Driver == s3source.Driver {
 		c, err := s3source.Parse(d.DSN)
 		if err != nil {
@@ -40,7 +40,7 @@ func fetch(ctx context.Context, d store.Dataset) ([]byte, error) {
 		}
 		return cl.Table(ctx, d.Query, MaxTableBytes)
 	}
-	r, err := dbsource.Fetch(ctx, d.Driver, d.DSN, d.Query, MaxRows)
+	r, err := dbsource.Fetch(ctx, d.Driver, d.DSN, d.Query, MaxRows, st.RefuseOwnDatabase)
 	if err != nil {
 		return nil, err
 	}

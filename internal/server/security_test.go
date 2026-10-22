@@ -114,6 +114,12 @@ func TestTwoFactorSignIn(t *testing.T) {
 		t.Fatalf("after many wrong codes: %v", err)
 	}
 	svc.Limiter.Clear("2fa:"+me.Msg.GetUser().GetId(), "ip:127.0.0.1")
+	// The budget coming round again doesn't reset the account's streak:
+	// the next guess still waits.
+	if _, err := c3.auth.VerifySecondFactor(ctx, connect.NewRequest(&mimirv1.VerifySecondFactorRequest{Code: "111111"})); code(err) != connect.CodeResourceExhausted {
+		t.Fatalf("guess after the budget reset: %v", err)
+	}
+	svc.Backoff.Clear("2fa:" + me.Msg.GetUser().GetId())
 
 	// An admin can reset it for someone who lost their phone, which also
 	// signs them out everywhere.
