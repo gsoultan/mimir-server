@@ -9,8 +9,8 @@ require (
 	connectrpc.com/grpchealth v1.5.0
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
-	github.com/gsoultan/mimir v0.1.1
-	github.com/gsoultan/mimir-model v0.2.2-0.20261021084300-f06eb6fcd4d1
+	github.com/gsoultan/mimir v0.1.2
+	github.com/gsoultan/mimir-model v0.2.2
 	github.com/gsoultan/storm v1.4.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/prometheus/client_golang v1.25.0
