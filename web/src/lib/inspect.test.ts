@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { inspect } from "./inspect";
+import { headLength, inspect } from "./inspect";
 
 // mim returns the start of a Mimir Model file holding tensors of the shapes
 // given: the preamble and the index, with one section entry.
@@ -56,5 +56,14 @@ describe("inspect", () => {
 
   test("rejects a cut-off .mim file", () => {
     expect(inspect(mim([10, 784]).subarray(0, 100)).ok).toBe(false);
+  });
+
+  test("needs only a .mim file's preamble and index", () => {
+    const file = new Uint8Array(1000);
+    file.set(mim([2, 3]));
+    new DataView(file.buffer).setBigUint64(24, BigInt(16 + 64 + 96), true);
+    expect(headLength(file.subarray(0, 64))).toBe(64 + 16 + 64 + 96);
+    expect(inspect(file.subarray(0, headLength(file)))).toEqual(inspect(file));
+    expect(headLength(new TextEncoder().encode("GGUF"))).toBe(64);
   });
 });

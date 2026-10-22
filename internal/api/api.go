@@ -2,10 +2,14 @@
 package api
 
 import (
+	"bufio"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +25,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/convert"
+	"github.com/gsoultan/mimir-server/internal/mapfile"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
@@ -40,6 +45,9 @@ type Service struct {
 	// setupToken must come with Setup; empty means Setup is closed. Set by
 	// PrepareSetup, cleared once the first owner exists. Guarded by setupMu.
 	setupToken string
+	// uploads holds files sent to POST /api/uploads until CreateModel
+	// uses them.
+	uploads uploads
 
 	// Notifier sends alerts; nil means none.
 	Notifier *alert.Notifier
@@ -177,28 +185,56 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	if !a.Fixed() && !a.File && !a.Custom {
 		return nil, invalid("%s models are taught from a dataset here rather than uploaded. Choose Teach a new model.", a.Title)
 	}
-	weights := msg.GetWeights()
-	if len(weights) == 0 {
+	p, _ := auth.From(ctx)
+	// The model is a file on disk when it came through POST /api/uploads,
+	// and bytes in the request otherwise.
+	weights, path := msg.GetWeights(), ""
+	var sum []byte // the SHA-256 of the file at path, when known
+	switch {
+	case msg.GetUpload() != "" && len(weights) > 0:
+		return nil, invalid("Send the model file or an upload, not both.")
+	case msg.GetUpload() != "":
+		var ok bool
+		if path, ok = s.uploads.take(msg.GetUpload(), uploader(p)); !ok {
+			return nil, invalid("That upload isn't here any more: an upload can be used once, within an hour of sending it. Send the file again.")
+		}
+		defer os.Remove(path) // no-op once stored
+	case len(weights) == 0:
 		return nil, invalid("The model file is empty.")
 	}
-	p, _ := auth.From(ctx)
 	m := store.Model{Name: name, Description: desc, Architecture: a.Name, TeamID: p.Team()}
 	detail := a.Title
 	// Load the file once before storing it, so one that doesn't fit is
 	// rejected now rather than on the first question.
 	if a.File {
+		// Whole models go through disk however they came, so converting
+		// one takes no more memory than reading a small part of it.
+		if path == "" {
+			if path, err = s.spill(weights); err != nil {
+				return nil, s.internal(ctx, err)
+			}
+			defer os.Remove(path)
+			weights = nil
+		}
 		var from convert.Format
-		if weights, from, err = convert.ToMim(weights); err != nil {
+		if path, from, sum, err = s.toMim(path); path != "" && sum != nil {
+			defer os.Remove(path)
+		}
+		if err != nil {
 			s.log.InfoContext(ctx, "model file not converted", "format", from, "error", err)
 			if !errors.Is(err, convert.ErrUnsupported) {
 				return nil, s.internal(ctx, err)
 			}
 			return nil, invalid("This %s can't be used here: %s.", fileName(from), strings.TrimPrefix(err.Error(), convert.ErrUnsupported.Error()+": "))
 		}
+		mf, err := mapfile.Open(path)
+		if err != nil {
+			return nil, s.internal(ctx, err)
+		}
 		// The file says itself whether it holds a language model; one
 		// from GGUF always does.
 		kind := "mim"
-		if from == convert.GGUF || runtime.IsLanguageModel(weights) {
+		if from == convert.GGUF || runtime.IsLanguageModel(mf.Bytes()) {
 			kind = arch.LanguageModel
 		}
 		a, _ = arch.Lookup(kind)
@@ -206,7 +242,9 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 		if from != convert.Mim {
 			detail += ", converted from " + strings.ToUpper(string(from))
 		}
-		if err := checkFile(&m, a, weights); err != nil {
+		err = checkFile(&m, a, mf.Bytes())
+		mf.Close()
+		if err != nil {
 			s.log.InfoContext(ctx, "model file rejected", "architecture", a.Name, "format", from, "error", err)
 			return nil, invalid("This %s can't run here: %s.", fileName(from), strings.TrimPrefix(err.Error(), runtime.ErrBadWeights.Error()+": "))
 		}
@@ -216,11 +254,15 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 		if err := customSpec(&m, a, msg.GetInputShape(), msg.GetLabels()); err != nil {
 			return nil, err
 		}
-	} else if _, err := runtime.Build(a, a.Spec, weights); err != nil {
+	} else if err := buildFrom(a, weights, path); err != nil {
 		s.log.InfoContext(ctx, "weights rejected", "architecture", a.Name, "error", err)
 		return nil, invalid("This file doesn't fit the %q model type. Check that you picked the kind of model the file was saved from.", a.Title)
 	}
-	m, err = s.store.Create(ctx, m, weights)
+	if path != "" {
+		m, err = s.store.CreateFromFile(ctx, m, path, sum)
+	} else {
+		m, err = s.store.Create(ctx, m, weights)
+	}
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -228,6 +270,67 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	s.emit(ctx, "model.created", modelEvent(m, p))
 	s.log.InfoContext(ctx, "model created", "model_id", m.ID, "architecture", m.Architecture, "size_bytes", m.SizeBytes)
 	return connect.NewResponse(&mimirv1.CreateModelResponse{Model: toProto(m)}), nil
+}
+
+// spill writes weights sent inside a request to a file beside the stored
+// models and returns its path.
+func (s *Service) spill(weights []byte) (string, error) {
+	f, err := s.store.TempFile()
+	if err != nil {
+		return "", err
+	}
+	_, err = f.Write(weights)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(f.Name())
+		return "", err
+	}
+	return f.Name(), nil
+}
+
+// toMim returns the path of the model file at path as a Mimir Model file:
+// path itself when it is one, or a new file it converted it into, which
+// the caller removes, with that file's SHA-256, worked out as it was
+// written. It also returns the format path was in.
+func (s *Service) toMim(path string) (string, convert.Format, []byte, error) {
+	out, err := s.store.TempFile()
+	if err != nil {
+		return "", "", nil, err
+	}
+	h := sha256.New()
+	w := bufio.NewWriterSize(io.MultiWriter(out, h), uploadBuffer)
+	from, err := convert.File(path, w)
+	if err == nil {
+		err = w.Flush()
+	}
+	if cerr := out.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil || from == convert.Mim {
+		os.Remove(out.Name())
+		if err != nil {
+			return "", from, nil, err
+		}
+		return path, from, nil, nil
+	}
+	return out.Name(), from, h.Sum(nil), nil
+}
+
+// buildFrom checks that weights, or the file at path when weights is
+// empty, fit architecture a.
+func buildFrom(a arch.Architecture, weights []byte, path string) error {
+	if path != "" {
+		mf, err := mapfile.Open(path)
+		if err != nil {
+			return err
+		}
+		defer mf.Close()
+		weights = mf.Bytes()
+	}
+	_, err := runtime.Build(a, a.Spec, weights)
+	return err
 }
 
 // checkFile loads a whole-model file of architecture a, a Mimir Model file

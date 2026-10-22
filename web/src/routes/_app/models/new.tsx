@@ -1,5 +1,5 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Group, Radio, Stack, Stepper, Text, Textarea, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Card, Group, Progress, Radio, Stack, Stepper, Text, Textarea, TextInput } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconCheck, IconFileUpload } from "@tabler/icons-react";
@@ -15,6 +15,7 @@ import { Page } from "../../../components/Page";
 import { bytes } from "../../../lib/format";
 import type { Format } from "../../../lib/inspect";
 import { readFile } from "../../../lib/read-file";
+import { upload } from "../../../lib/upload";
 
 export const Route = createFileRoute("/_app/models/new")({
   // kind picks the model type to start on, such as "mim" or "language-model".
@@ -24,8 +25,8 @@ export const Route = createFileRoute("/_app/models/new")({
 });
 
 // A custom model's file is whatever its own code reads, so it is taken as
-// it is (format "own").
-type Picked = { file: File; bytes: Uint8Array; format: Format | "own"; tensors?: number; parameters?: number };
+// it is (format "own"). The file is sent from disk when it is added.
+type Picked = { file: File; format: Format | "own"; tensors?: number; parameters?: number };
 
 // shapeOf reads "28" or "3 x 64 x 64" as a shape.
 const shapeOf = (s: string) => {
@@ -47,6 +48,9 @@ function AddModel() {
   const [picked, setPicked] = useState<Picked>();
   const [fileError, setFileError] = useState<string>();
   const [reading, setReading] = useState(false);
+  // sent is the fraction of the file sent while it is being sent.
+  const [sent, setSent] = useState<number>();
+  const [sendError, setSendError] = useState<string>();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const picked0 = data.architectures.find((a) => a.name === arch);
@@ -68,7 +72,7 @@ function AddModel() {
   async function pick(file: File) {
     setFileError(undefined);
     if (custom) {
-      setPicked({ file, bytes: new Uint8Array(await file.arrayBuffer()), format: "own" });
+      setPicked({ file, format: "own" });
       if (!name) setName(file.name.replace(/\.[^.]+$/, ""));
       return;
     }
@@ -80,9 +84,26 @@ function AddModel() {
     if (r.inspection.format !== "mim" && !whole) {
       return setFileError(`This model type takes a .mim file. To add ${r.inspection.format === "gguf" ? "a GGUF language model, go back and pick Language model" : "an ONNX model, go back and pick Mimir Model file"}.`);
     }
-    setPicked({ file, bytes: r.bytes, ...r.inspection });
+    setPicked({ file, ...r.inspection });
     if (!name) setName(file.name.replace(/\.(mim|onnx|gguf)$/i, ""));
   }
+
+  // add sends the file, then adds the model from it.
+  async function add(p: Picked) {
+    setSendError(undefined);
+    setSent(0);
+    let id: string;
+    try {
+      id = await upload(p.file, setSent);
+    } catch (err) {
+      setSendError(message(err));
+      return;
+    } finally {
+      setSent(undefined);
+    }
+    create.mutate({ name, description, architecture: arch, upload: id, ...(custom ? { inputShape: shapeOf(shape), labels: labelList } : {}) });
+  }
+  const busy = sent !== undefined || create.isPending;
 
   return (
     <Page title="Add a model" intro="Three short steps. Nothing is saved until the end.">
@@ -146,20 +167,27 @@ function AddModel() {
                   )}
                 </>
               )}
-              {create.error && <Alert color="red" icon={<IconAlertCircle />}>{message(create.error)}</Alert>}
+              {sent !== undefined && (
+                <div>
+                  <Text size="sm" c="dimmed" mb={4}>Sending {picked?.file.name}… {Math.floor(sent * 100)}%</Text>
+                  <Progress value={sent * 100} size="sm" radius="xl" aria-label="Sent" />
+                </div>
+              )}
+              {create.isPending && <Text size="sm" c="dimmed">{picked?.format === "gguf" || picked?.format === "onnx" ? "Converting and checking the model…" : "Checking the model…"}</Text>}
+              {(sendError ?? create.error) && <Alert color="red" icon={<IconAlertCircle />}>{sendError ?? message(create.error)}</Alert>}
             </Stack>
           </Stepper.Step>
         </Stepper>
 
         <Group justify="space-between" mt="xl">
-          <Button variant="default" onClick={() => setStep(step - 1)} disabled={step === 0 || create.isPending}>Back</Button>
+          <Button variant="default" onClick={() => setStep(step - 1)} disabled={step === 0 || busy}>Back</Button>
           {step < 2 ? (
             <Button onClick={() => setStep(step + 1)} disabled={(step === 0 && !arch) || (step === 1 && !picked)}>Next</Button>
           ) : (
             <Button
-              loading={create.isPending}
+              loading={busy}
               disabled={!name.trim() || !picked || !specOk}
-              onClick={() => picked && create.mutate({ name, description, architecture: arch, weights: picked.bytes, ...(custom ? { inputShape: shapeOf(shape), labels: labelList } : {}) })}
+              onClick={() => picked && add(picked)}
             >
               Add model
             </Button>

@@ -194,6 +194,13 @@ func (g guard) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.S
 	}
 }
 
+// Check signs in the caller of a plain HTTP request, such as an upload,
+// and checks they may call proc, as the interceptor does for RPCs. It
+// returns ctx carrying them.
+func Check(ctx context.Context, st *store.Store, mustEnroll MustEnroll, proc string, h http.Header, addr string) (context.Context, error) {
+	return guard{st, mustEnroll}.check(ctx, proc, h, addr)
+}
+
 // check signs the caller in and checks they may call proc, returning ctx
 // carrying them.
 func (g guard) check(ctx context.Context, proc string, h http.Header, addr string) (context.Context, error) {
