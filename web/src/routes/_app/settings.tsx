@@ -78,6 +78,7 @@ function Database() {
   const facts: [string, string][] = [
     ["Engine", "PostgreSQL"],
     ["Server", data.path],
+    ...(data.logPath ? [["Audit log", data.logPath] as [string, string]] : []),
     ["Size", bytes(data.sizeBytes)],
     ["Models", String(data.models)],
     ["People", String(data.users)],
@@ -102,7 +103,7 @@ function Database() {
       <Stack>
         <Card withBorder radius="lg" padding="lg">
           <Title order={2} fz="lg">Back it up</Title>
-          <Text size="sm" c="dimmed" mb="md">Download a copy of the database, made with pg_dump in its custom format: people, keys, settings and model details. Restore it with pg_restore. The server needs pg_dump installed for this; without it, run pg_dump yourself. Model files live in the data folder and aren't included.</Text>
+          <Text size="sm" c="dimmed" mb="md">Download a copy of the database, made with pg_dump in its custom format: people, keys, settings and model details. Restore it with pg_restore. The server needs pg_dump installed for this; without it, run pg_dump yourself. Model files live in the data folder and aren't included{data.logPath ? ", and neither is the separate audit log database; back that up with pg_dump" : ""}.</Text>
           <Button component="a" href="/api/backup" download leftSection={<IconDownload size={18} />}>Download a backup</Button>
         </Card>
       </Stack>

@@ -82,6 +82,64 @@ func (Role) EnumDescriptor() ([]byte, []int) {
 	return file_mimir_v1_access_proto_rawDescGZIP(), []int{0}
 }
 
+// SecretKeySource is where the key that encrypts stored secrets (webhook
+// signing secrets, connection strings, alert credentials and the database
+// URLs in the configuration file) comes from.
+type SecretKeySource int32
+
+const (
+	SecretKeySource_SECRET_KEY_SOURCE_UNSPECIFIED SecretKeySource = 0
+	// None yet: Setup makes one, or saves the one it is given.
+	SecretKeySource_SECRET_KEY_SOURCE_NONE SecretKeySource = 1
+	// $MIMIR_SECRET_KEY or -secret-key-file; Setup can't change it.
+	SecretKeySource_SECRET_KEY_SOURCE_ENVIRONMENT SecretKeySource = 2
+	// The key file in the data folder, already there.
+	SecretKeySource_SECRET_KEY_SOURCE_FILE SecretKeySource = 3
+)
+
+// Enum value maps for SecretKeySource.
+var (
+	SecretKeySource_name = map[int32]string{
+		0: "SECRET_KEY_SOURCE_UNSPECIFIED",
+		1: "SECRET_KEY_SOURCE_NONE",
+		2: "SECRET_KEY_SOURCE_ENVIRONMENT",
+		3: "SECRET_KEY_SOURCE_FILE",
+	}
+	SecretKeySource_value = map[string]int32{
+		"SECRET_KEY_SOURCE_UNSPECIFIED": 0,
+		"SECRET_KEY_SOURCE_NONE":        1,
+		"SECRET_KEY_SOURCE_ENVIRONMENT": 2,
+		"SECRET_KEY_SOURCE_FILE":        3,
+	}
+)
+
+func (x SecretKeySource) Enum() *SecretKeySource {
+	p := new(SecretKeySource)
+	*p = x
+	return p
+}
+
+func (x SecretKeySource) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SecretKeySource) Descriptor() protoreflect.EnumDescriptor {
+	return file_mimir_v1_access_proto_enumTypes[1].Descriptor()
+}
+
+func (SecretKeySource) Type() protoreflect.EnumType {
+	return &file_mimir_v1_access_proto_enumTypes[1]
+}
+
+func (x SecretKeySource) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SecretKeySource.Descriptor instead.
+func (SecretKeySource) EnumDescriptor() ([]byte, []int) {
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{1}
+}
+
 // Access is a role and the models it applies to.
 type Access struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -301,8 +359,16 @@ func (*GetSetupStateRequest) Descriptor() ([]byte, []int) {
 }
 
 type GetSetupStateResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	NeedsSetup    bool                   `protobuf:"varint,1,opt,name=needs_setup,json=needsSetup,proto3" json:"needs_setup,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	NeedsSetup bool                   `protobuf:"varint,1,opt,name=needs_setup,json=needsSetup,proto3" json:"needs_setup,omitempty"`
+	// NeedsConfig is true while the server has no database yet: Setup then
+	// takes the database, the log database and the secret key as well.
+	NeedsConfig bool `protobuf:"varint,2,opt,name=needs_config,json=needsConfig,proto3" json:"needs_config,omitempty"`
+	// SecretKey says where the key for stored secrets comes from while
+	// NeedsConfig is true.
+	SecretKey SecretKeySource `protobuf:"varint,3,opt,name=secret_key,json=secretKey,proto3,enum=mimir.v1.SecretKeySource" json:"secret_key,omitempty"`
+	// Retention is what history is kept for unless Setup says otherwise.
+	Retention     *Retention `protobuf:"bytes,4,opt,name=retention,proto3" json:"retention,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -344,6 +410,135 @@ func (x *GetSetupStateResponse) GetNeedsSetup() bool {
 	return false
 }
 
+func (x *GetSetupStateResponse) GetNeedsConfig() bool {
+	if x != nil {
+		return x.NeedsConfig
+	}
+	return false
+}
+
+func (x *GetSetupStateResponse) GetSecretKey() SecretKeySource {
+	if x != nil {
+		return x.SecretKey
+	}
+	return SecretKeySource_SECRET_KEY_SOURCE_UNSPECIFIED
+}
+
+func (x *GetSetupStateResponse) GetRetention() *Retention {
+	if x != nil {
+		return x.Retention
+	}
+	return nil
+}
+
+type CheckDatabaseRequest struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	SetupToken string                 `protobuf:"bytes,1,opt,name=setup_token,json=setupToken,proto3" json:"setup_token,omitempty"`
+	// A PostgreSQL URL, such as postgres://mimir:secret@localhost:5432/mimir.
+	DatabaseUrl   string `protobuf:"bytes,2,opt,name=database_url,json=databaseUrl,proto3" json:"database_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckDatabaseRequest) Reset() {
+	*x = CheckDatabaseRequest{}
+	mi := &file_mimir_v1_access_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckDatabaseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckDatabaseRequest) ProtoMessage() {}
+
+func (x *CheckDatabaseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_access_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckDatabaseRequest.ProtoReflect.Descriptor instead.
+func (*CheckDatabaseRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CheckDatabaseRequest) GetSetupToken() string {
+	if x != nil {
+		return x.SetupToken
+	}
+	return ""
+}
+
+func (x *CheckDatabaseRequest) GetDatabaseUrl() string {
+	if x != nil {
+		return x.DatabaseUrl
+	}
+	return ""
+}
+
+type CheckDatabaseResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Version is the server's version, such as "PostgreSQL 16.4".
+	Version string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	// HasAccounts is true when the database already has mimir accounts:
+	// Setup then keeps them and makes no new owner.
+	HasAccounts   bool `protobuf:"varint,2,opt,name=has_accounts,json=hasAccounts,proto3" json:"has_accounts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckDatabaseResponse) Reset() {
+	*x = CheckDatabaseResponse{}
+	mi := &file_mimir_v1_access_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckDatabaseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckDatabaseResponse) ProtoMessage() {}
+
+func (x *CheckDatabaseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_access_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckDatabaseResponse.ProtoReflect.Descriptor instead.
+func (*CheckDatabaseResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CheckDatabaseResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *CheckDatabaseResponse) GetHasAccounts() bool {
+	if x != nil {
+		return x.HasAccounts
+	}
+	return false
+}
+
 type SetupRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Email    string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
@@ -351,14 +546,26 @@ type SetupRequest struct {
 	Password string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
 	// The one-time setup token the server printed in its log when it
 	// started with no accounts, or $MIMIR_SETUP_TOKEN.
-	SetupToken    string `protobuf:"bytes,4,opt,name=setup_token,json=setupToken,proto3" json:"setup_token,omitempty"`
+	SetupToken string `protobuf:"bytes,4,opt,name=setup_token,json=setupToken,proto3" json:"setup_token,omitempty"`
+	// The rest is taken only while GetSetupState says needs_config.
+	// DatabaseUrl is the PostgreSQL database for the server's records.
+	DatabaseUrl string `protobuf:"bytes,5,opt,name=database_url,json=databaseUrl,proto3" json:"database_url,omitempty"`
+	// LogDatabaseUrl is a second PostgreSQL database for the audit log;
+	// empty keeps it in the main one.
+	LogDatabaseUrl string `protobuf:"bytes,6,opt,name=log_database_url,json=logDatabaseUrl,proto3" json:"log_database_url,omitempty"`
+	// SecretKey is a key to keep, 32 bytes as base64 or hex, such as one
+	// backed up with the database; empty makes a new one. Ignored when the
+	// key comes from the environment or the key file is already there.
+	SecretKey string `protobuf:"bytes,7,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
+	// Retention is how long history is kept; unset keeps the defaults.
+	Retention     *Retention `protobuf:"bytes,8,opt,name=retention,proto3" json:"retention,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SetupRequest) Reset() {
 	*x = SetupRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[4]
+	mi := &file_mimir_v1_access_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -370,7 +577,7 @@ func (x *SetupRequest) String() string {
 func (*SetupRequest) ProtoMessage() {}
 
 func (x *SetupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[4]
+	mi := &file_mimir_v1_access_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -383,7 +590,7 @@ func (x *SetupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetupRequest.ProtoReflect.Descriptor instead.
 func (*SetupRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{4}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SetupRequest) GetEmail() string {
@@ -414,16 +621,50 @@ func (x *SetupRequest) GetSetupToken() string {
 	return ""
 }
 
+func (x *SetupRequest) GetDatabaseUrl() string {
+	if x != nil {
+		return x.DatabaseUrl
+	}
+	return ""
+}
+
+func (x *SetupRequest) GetLogDatabaseUrl() string {
+	if x != nil {
+		return x.LogDatabaseUrl
+	}
+	return ""
+}
+
+func (x *SetupRequest) GetSecretKey() string {
+	if x != nil {
+		return x.SecretKey
+	}
+	return ""
+}
+
+func (x *SetupRequest) GetRetention() *Retention {
+	if x != nil {
+		return x.Retention
+	}
+	return nil
+}
+
 type SetupResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// User is the new owner, signed in. A Setup that wrote the configuration
+	// leaves it unset and signs no one in: the full server starts a moment
+	// later, and the owner signs in there.
+	User *User `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	// SignInNext is true when the owner signs in next, because Setup wrote
+	// the configuration or found the database already had accounts.
+	SignInNext    bool `protobuf:"varint,2,opt,name=sign_in_next,json=signInNext,proto3" json:"sign_in_next,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SetupResponse) Reset() {
 	*x = SetupResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[5]
+	mi := &file_mimir_v1_access_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -435,7 +676,7 @@ func (x *SetupResponse) String() string {
 func (*SetupResponse) ProtoMessage() {}
 
 func (x *SetupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[5]
+	mi := &file_mimir_v1_access_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -448,7 +689,7 @@ func (x *SetupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetupResponse.ProtoReflect.Descriptor instead.
 func (*SetupResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{5}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SetupResponse) GetUser() *User {
@@ -456,6 +697,13 @@ func (x *SetupResponse) GetUser() *User {
 		return x.User
 	}
 	return nil
+}
+
+func (x *SetupResponse) GetSignInNext() bool {
+	if x != nil {
+		return x.SignInNext
+	}
+	return false
 }
 
 type SignInRequest struct {
@@ -468,7 +716,7 @@ type SignInRequest struct {
 
 func (x *SignInRequest) Reset() {
 	*x = SignInRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[6]
+	mi := &file_mimir_v1_access_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -480,7 +728,7 @@ func (x *SignInRequest) String() string {
 func (*SignInRequest) ProtoMessage() {}
 
 func (x *SignInRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[6]
+	mi := &file_mimir_v1_access_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -493,7 +741,7 @@ func (x *SignInRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignInRequest.ProtoReflect.Descriptor instead.
 func (*SignInRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{6}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SignInRequest) GetEmail() string {
@@ -523,7 +771,7 @@ type SignInResponse struct {
 
 func (x *SignInResponse) Reset() {
 	*x = SignInResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[7]
+	mi := &file_mimir_v1_access_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -535,7 +783,7 @@ func (x *SignInResponse) String() string {
 func (*SignInResponse) ProtoMessage() {}
 
 func (x *SignInResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[7]
+	mi := &file_mimir_v1_access_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -548,7 +796,7 @@ func (x *SignInResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignInResponse.ProtoReflect.Descriptor instead.
 func (*SignInResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{7}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SignInResponse) GetUser() *User {
@@ -573,7 +821,7 @@ type SignOutRequest struct {
 
 func (x *SignOutRequest) Reset() {
 	*x = SignOutRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[8]
+	mi := &file_mimir_v1_access_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -585,7 +833,7 @@ func (x *SignOutRequest) String() string {
 func (*SignOutRequest) ProtoMessage() {}
 
 func (x *SignOutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[8]
+	mi := &file_mimir_v1_access_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -598,7 +846,7 @@ func (x *SignOutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignOutRequest.ProtoReflect.Descriptor instead.
 func (*SignOutRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{8}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{10}
 }
 
 type SignOutResponse struct {
@@ -609,7 +857,7 @@ type SignOutResponse struct {
 
 func (x *SignOutResponse) Reset() {
 	*x = SignOutResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[9]
+	mi := &file_mimir_v1_access_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -621,7 +869,7 @@ func (x *SignOutResponse) String() string {
 func (*SignOutResponse) ProtoMessage() {}
 
 func (x *SignOutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[9]
+	mi := &file_mimir_v1_access_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -634,7 +882,7 @@ func (x *SignOutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignOutResponse.ProtoReflect.Descriptor instead.
 func (*SignOutResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{9}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{11}
 }
 
 type WhoAmIRequest struct {
@@ -645,7 +893,7 @@ type WhoAmIRequest struct {
 
 func (x *WhoAmIRequest) Reset() {
 	*x = WhoAmIRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[10]
+	mi := &file_mimir_v1_access_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -657,7 +905,7 @@ func (x *WhoAmIRequest) String() string {
 func (*WhoAmIRequest) ProtoMessage() {}
 
 func (x *WhoAmIRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[10]
+	mi := &file_mimir_v1_access_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -670,7 +918,7 @@ func (x *WhoAmIRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WhoAmIRequest.ProtoReflect.Descriptor instead.
 func (*WhoAmIRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{10}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{12}
 }
 
 type WhoAmIResponse struct {
@@ -690,7 +938,7 @@ type WhoAmIResponse struct {
 
 func (x *WhoAmIResponse) Reset() {
 	*x = WhoAmIResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[11]
+	mi := &file_mimir_v1_access_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -702,7 +950,7 @@ func (x *WhoAmIResponse) String() string {
 func (*WhoAmIResponse) ProtoMessage() {}
 
 func (x *WhoAmIResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[11]
+	mi := &file_mimir_v1_access_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -715,7 +963,7 @@ func (x *WhoAmIResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WhoAmIResponse.ProtoReflect.Descriptor instead.
 func (*WhoAmIResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{11}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *WhoAmIResponse) GetUser() *User {
@@ -756,7 +1004,7 @@ type ChangePasswordRequest struct {
 
 func (x *ChangePasswordRequest) Reset() {
 	*x = ChangePasswordRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[12]
+	mi := &file_mimir_v1_access_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -768,7 +1016,7 @@ func (x *ChangePasswordRequest) String() string {
 func (*ChangePasswordRequest) ProtoMessage() {}
 
 func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[12]
+	mi := &file_mimir_v1_access_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -781,7 +1029,7 @@ func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangePasswordRequest.ProtoReflect.Descriptor instead.
 func (*ChangePasswordRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{12}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ChangePasswordRequest) GetCurrentPassword() string {
@@ -806,7 +1054,7 @@ type ChangePasswordResponse struct {
 
 func (x *ChangePasswordResponse) Reset() {
 	*x = ChangePasswordResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[13]
+	mi := &file_mimir_v1_access_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -818,7 +1066,7 @@ func (x *ChangePasswordResponse) String() string {
 func (*ChangePasswordResponse) ProtoMessage() {}
 
 func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[13]
+	mi := &file_mimir_v1_access_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -831,7 +1079,7 @@ func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangePasswordResponse.ProtoReflect.Descriptor instead.
 func (*ChangePasswordResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{13}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{15}
 }
 
 type VerifySecondFactorRequest struct {
@@ -844,7 +1092,7 @@ type VerifySecondFactorRequest struct {
 
 func (x *VerifySecondFactorRequest) Reset() {
 	*x = VerifySecondFactorRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[14]
+	mi := &file_mimir_v1_access_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -856,7 +1104,7 @@ func (x *VerifySecondFactorRequest) String() string {
 func (*VerifySecondFactorRequest) ProtoMessage() {}
 
 func (x *VerifySecondFactorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[14]
+	mi := &file_mimir_v1_access_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -869,7 +1117,7 @@ func (x *VerifySecondFactorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifySecondFactorRequest.ProtoReflect.Descriptor instead.
 func (*VerifySecondFactorRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{14}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *VerifySecondFactorRequest) GetCode() string {
@@ -891,7 +1139,7 @@ type VerifySecondFactorResponse struct {
 
 func (x *VerifySecondFactorResponse) Reset() {
 	*x = VerifySecondFactorResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[15]
+	mi := &file_mimir_v1_access_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -903,7 +1151,7 @@ func (x *VerifySecondFactorResponse) String() string {
 func (*VerifySecondFactorResponse) ProtoMessage() {}
 
 func (x *VerifySecondFactorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[15]
+	mi := &file_mimir_v1_access_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -916,7 +1164,7 @@ func (x *VerifySecondFactorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifySecondFactorResponse.ProtoReflect.Descriptor instead.
 func (*VerifySecondFactorResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{15}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *VerifySecondFactorResponse) GetUser() *User {
@@ -950,7 +1198,7 @@ type StartTwoFactorRequest struct {
 
 func (x *StartTwoFactorRequest) Reset() {
 	*x = StartTwoFactorRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[16]
+	mi := &file_mimir_v1_access_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -962,7 +1210,7 @@ func (x *StartTwoFactorRequest) String() string {
 func (*StartTwoFactorRequest) ProtoMessage() {}
 
 func (x *StartTwoFactorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[16]
+	mi := &file_mimir_v1_access_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +1223,7 @@ func (x *StartTwoFactorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartTwoFactorRequest.ProtoReflect.Descriptor instead.
 func (*StartTwoFactorRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{16}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *StartTwoFactorRequest) GetPassword() string {
@@ -996,7 +1244,7 @@ type StartTwoFactorResponse struct {
 
 func (x *StartTwoFactorResponse) Reset() {
 	*x = StartTwoFactorResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[17]
+	mi := &file_mimir_v1_access_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1008,7 +1256,7 @@ func (x *StartTwoFactorResponse) String() string {
 func (*StartTwoFactorResponse) ProtoMessage() {}
 
 func (x *StartTwoFactorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[17]
+	mi := &file_mimir_v1_access_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1021,7 +1269,7 @@ func (x *StartTwoFactorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartTwoFactorResponse.ProtoReflect.Descriptor instead.
 func (*StartTwoFactorResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{17}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *StartTwoFactorResponse) GetSecret() string {
@@ -1047,7 +1295,7 @@ type EnableTwoFactorRequest struct {
 
 func (x *EnableTwoFactorRequest) Reset() {
 	*x = EnableTwoFactorRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[18]
+	mi := &file_mimir_v1_access_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1059,7 +1307,7 @@ func (x *EnableTwoFactorRequest) String() string {
 func (*EnableTwoFactorRequest) ProtoMessage() {}
 
 func (x *EnableTwoFactorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[18]
+	mi := &file_mimir_v1_access_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1072,7 +1320,7 @@ func (x *EnableTwoFactorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnableTwoFactorRequest.ProtoReflect.Descriptor instead.
 func (*EnableTwoFactorRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{18}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *EnableTwoFactorRequest) GetCode() string {
@@ -1092,7 +1340,7 @@ type EnableTwoFactorResponse struct {
 
 func (x *EnableTwoFactorResponse) Reset() {
 	*x = EnableTwoFactorResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[19]
+	mi := &file_mimir_v1_access_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1104,7 +1352,7 @@ func (x *EnableTwoFactorResponse) String() string {
 func (*EnableTwoFactorResponse) ProtoMessage() {}
 
 func (x *EnableTwoFactorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[19]
+	mi := &file_mimir_v1_access_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1117,7 +1365,7 @@ func (x *EnableTwoFactorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnableTwoFactorResponse.ProtoReflect.Descriptor instead.
 func (*EnableTwoFactorResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{19}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *EnableTwoFactorResponse) GetRecoveryCodes() []string {
@@ -1136,7 +1384,7 @@ type DisableTwoFactorRequest struct {
 
 func (x *DisableTwoFactorRequest) Reset() {
 	*x = DisableTwoFactorRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[20]
+	mi := &file_mimir_v1_access_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1148,7 +1396,7 @@ func (x *DisableTwoFactorRequest) String() string {
 func (*DisableTwoFactorRequest) ProtoMessage() {}
 
 func (x *DisableTwoFactorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[20]
+	mi := &file_mimir_v1_access_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1161,7 +1409,7 @@ func (x *DisableTwoFactorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisableTwoFactorRequest.ProtoReflect.Descriptor instead.
 func (*DisableTwoFactorRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{20}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DisableTwoFactorRequest) GetPassword() string {
@@ -1179,7 +1427,7 @@ type DisableTwoFactorResponse struct {
 
 func (x *DisableTwoFactorResponse) Reset() {
 	*x = DisableTwoFactorResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[21]
+	mi := &file_mimir_v1_access_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1191,7 +1439,7 @@ func (x *DisableTwoFactorResponse) String() string {
 func (*DisableTwoFactorResponse) ProtoMessage() {}
 
 func (x *DisableTwoFactorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[21]
+	mi := &file_mimir_v1_access_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1204,7 +1452,7 @@ func (x *DisableTwoFactorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisableTwoFactorResponse.ProtoReflect.Descriptor instead.
 func (*DisableTwoFactorResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{21}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{23}
 }
 
 type Session struct {
@@ -1222,7 +1470,7 @@ type Session struct {
 
 func (x *Session) Reset() {
 	*x = Session{}
-	mi := &file_mimir_v1_access_proto_msgTypes[22]
+	mi := &file_mimir_v1_access_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1234,7 +1482,7 @@ func (x *Session) String() string {
 func (*Session) ProtoMessage() {}
 
 func (x *Session) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[22]
+	mi := &file_mimir_v1_access_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1247,7 +1495,7 @@ func (x *Session) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Session.ProtoReflect.Descriptor instead.
 func (*Session) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{22}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Session) GetId() string {
@@ -1300,7 +1548,7 @@ type ListSessionsRequest struct {
 
 func (x *ListSessionsRequest) Reset() {
 	*x = ListSessionsRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[23]
+	mi := &file_mimir_v1_access_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1312,7 +1560,7 @@ func (x *ListSessionsRequest) String() string {
 func (*ListSessionsRequest) ProtoMessage() {}
 
 func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[23]
+	mi := &file_mimir_v1_access_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1325,7 +1573,7 @@ func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSessionsRequest.ProtoReflect.Descriptor instead.
 func (*ListSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{23}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{25}
 }
 
 type ListSessionsResponse struct {
@@ -1337,7 +1585,7 @@ type ListSessionsResponse struct {
 
 func (x *ListSessionsResponse) Reset() {
 	*x = ListSessionsResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[24]
+	mi := &file_mimir_v1_access_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1349,7 +1597,7 @@ func (x *ListSessionsResponse) String() string {
 func (*ListSessionsResponse) ProtoMessage() {}
 
 func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[24]
+	mi := &file_mimir_v1_access_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1362,7 +1610,7 @@ func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSessionsResponse.ProtoReflect.Descriptor instead.
 func (*ListSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{24}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListSessionsResponse) GetSessions() []*Session {
@@ -1382,7 +1630,7 @@ type RevokeSessionsRequest struct {
 
 func (x *RevokeSessionsRequest) Reset() {
 	*x = RevokeSessionsRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[25]
+	mi := &file_mimir_v1_access_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1394,7 +1642,7 @@ func (x *RevokeSessionsRequest) String() string {
 func (*RevokeSessionsRequest) ProtoMessage() {}
 
 func (x *RevokeSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[25]
+	mi := &file_mimir_v1_access_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1407,7 +1655,7 @@ func (x *RevokeSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeSessionsRequest.ProtoReflect.Descriptor instead.
 func (*RevokeSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{25}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *RevokeSessionsRequest) GetId() string {
@@ -1426,7 +1674,7 @@ type RevokeSessionsResponse struct {
 
 func (x *RevokeSessionsResponse) Reset() {
 	*x = RevokeSessionsResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[26]
+	mi := &file_mimir_v1_access_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1438,7 +1686,7 @@ func (x *RevokeSessionsResponse) String() string {
 func (*RevokeSessionsResponse) ProtoMessage() {}
 
 func (x *RevokeSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[26]
+	mi := &file_mimir_v1_access_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1451,7 +1699,7 @@ func (x *RevokeSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeSessionsResponse.ProtoReflect.Descriptor instead.
 func (*RevokeSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{26}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RevokeSessionsResponse) GetRevoked() int32 {
@@ -1469,7 +1717,7 @@ type ListUsersRequest struct {
 
 func (x *ListUsersRequest) Reset() {
 	*x = ListUsersRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[27]
+	mi := &file_mimir_v1_access_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1481,7 +1729,7 @@ func (x *ListUsersRequest) String() string {
 func (*ListUsersRequest) ProtoMessage() {}
 
 func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[27]
+	mi := &file_mimir_v1_access_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1494,7 +1742,7 @@ func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
 func (*ListUsersRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{27}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{29}
 }
 
 type ListUsersResponse struct {
@@ -1506,7 +1754,7 @@ type ListUsersResponse struct {
 
 func (x *ListUsersResponse) Reset() {
 	*x = ListUsersResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[28]
+	mi := &file_mimir_v1_access_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1518,7 +1766,7 @@ func (x *ListUsersResponse) String() string {
 func (*ListUsersResponse) ProtoMessage() {}
 
 func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[28]
+	mi := &file_mimir_v1_access_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1531,7 +1779,7 @@ func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
 func (*ListUsersResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{28}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListUsersResponse) GetUsers() []*User {
@@ -1558,7 +1806,7 @@ type CreateUserRequest struct {
 
 func (x *CreateUserRequest) Reset() {
 	*x = CreateUserRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[29]
+	mi := &file_mimir_v1_access_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1570,7 +1818,7 @@ func (x *CreateUserRequest) String() string {
 func (*CreateUserRequest) ProtoMessage() {}
 
 func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[29]
+	mi := &file_mimir_v1_access_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1583,7 +1831,7 @@ func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUserRequest.ProtoReflect.Descriptor instead.
 func (*CreateUserRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{29}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CreateUserRequest) GetEmail() string {
@@ -1630,7 +1878,7 @@ type CreateUserResponse struct {
 
 func (x *CreateUserResponse) Reset() {
 	*x = CreateUserResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[30]
+	mi := &file_mimir_v1_access_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1642,7 +1890,7 @@ func (x *CreateUserResponse) String() string {
 func (*CreateUserResponse) ProtoMessage() {}
 
 func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[30]
+	mi := &file_mimir_v1_access_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1655,7 +1903,7 @@ func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUserResponse.ProtoReflect.Descriptor instead.
 func (*CreateUserResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{30}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CreateUserResponse) GetUser() *User {
@@ -1686,7 +1934,7 @@ type UpdateUserRequest struct {
 
 func (x *UpdateUserRequest) Reset() {
 	*x = UpdateUserRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[31]
+	mi := &file_mimir_v1_access_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1698,7 +1946,7 @@ func (x *UpdateUserRequest) String() string {
 func (*UpdateUserRequest) ProtoMessage() {}
 
 func (x *UpdateUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[31]
+	mi := &file_mimir_v1_access_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1711,7 +1959,7 @@ func (x *UpdateUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateUserRequest.ProtoReflect.Descriptor instead.
 func (*UpdateUserRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{31}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *UpdateUserRequest) GetId() string {
@@ -1772,7 +2020,7 @@ type UpdateUserResponse struct {
 
 func (x *UpdateUserResponse) Reset() {
 	*x = UpdateUserResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[32]
+	mi := &file_mimir_v1_access_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1784,7 +2032,7 @@ func (x *UpdateUserResponse) String() string {
 func (*UpdateUserResponse) ProtoMessage() {}
 
 func (x *UpdateUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[32]
+	mi := &file_mimir_v1_access_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1797,7 +2045,7 @@ func (x *UpdateUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateUserResponse.ProtoReflect.Descriptor instead.
 func (*UpdateUserResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{32}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *UpdateUserResponse) GetUser() *User {
@@ -1816,7 +2064,7 @@ type DeleteUserRequest struct {
 
 func (x *DeleteUserRequest) Reset() {
 	*x = DeleteUserRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[33]
+	mi := &file_mimir_v1_access_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1828,7 +2076,7 @@ func (x *DeleteUserRequest) String() string {
 func (*DeleteUserRequest) ProtoMessage() {}
 
 func (x *DeleteUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[33]
+	mi := &file_mimir_v1_access_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1841,7 +2089,7 @@ func (x *DeleteUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteUserRequest.ProtoReflect.Descriptor instead.
 func (*DeleteUserRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{33}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *DeleteUserRequest) GetId() string {
@@ -1859,7 +2107,7 @@ type DeleteUserResponse struct {
 
 func (x *DeleteUserResponse) Reset() {
 	*x = DeleteUserResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[34]
+	mi := &file_mimir_v1_access_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1871,7 +2119,7 @@ func (x *DeleteUserResponse) String() string {
 func (*DeleteUserResponse) ProtoMessage() {}
 
 func (x *DeleteUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[34]
+	mi := &file_mimir_v1_access_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1884,7 +2132,7 @@ func (x *DeleteUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteUserResponse.ProtoReflect.Descriptor instead.
 func (*DeleteUserResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{34}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{36}
 }
 
 type ApiKey struct {
@@ -1904,7 +2152,7 @@ type ApiKey struct {
 
 func (x *ApiKey) Reset() {
 	*x = ApiKey{}
-	mi := &file_mimir_v1_access_proto_msgTypes[35]
+	mi := &file_mimir_v1_access_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1916,7 +2164,7 @@ func (x *ApiKey) String() string {
 func (*ApiKey) ProtoMessage() {}
 
 func (x *ApiKey) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[35]
+	mi := &file_mimir_v1_access_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1929,7 +2177,7 @@ func (x *ApiKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApiKey.ProtoReflect.Descriptor instead.
 func (*ApiKey) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{35}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ApiKey) GetId() string {
@@ -1982,7 +2230,7 @@ type ListApiKeysRequest struct {
 
 func (x *ListApiKeysRequest) Reset() {
 	*x = ListApiKeysRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[36]
+	mi := &file_mimir_v1_access_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1994,7 +2242,7 @@ func (x *ListApiKeysRequest) String() string {
 func (*ListApiKeysRequest) ProtoMessage() {}
 
 func (x *ListApiKeysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[36]
+	mi := &file_mimir_v1_access_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2007,7 +2255,7 @@ func (x *ListApiKeysRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApiKeysRequest.ProtoReflect.Descriptor instead.
 func (*ListApiKeysRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{36}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{38}
 }
 
 type ListApiKeysResponse struct {
@@ -2019,7 +2267,7 @@ type ListApiKeysResponse struct {
 
 func (x *ListApiKeysResponse) Reset() {
 	*x = ListApiKeysResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[37]
+	mi := &file_mimir_v1_access_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2031,7 +2279,7 @@ func (x *ListApiKeysResponse) String() string {
 func (*ListApiKeysResponse) ProtoMessage() {}
 
 func (x *ListApiKeysResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[37]
+	mi := &file_mimir_v1_access_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2044,7 +2292,7 @@ func (x *ListApiKeysResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApiKeysResponse.ProtoReflect.Descriptor instead.
 func (*ListApiKeysResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{37}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListApiKeysResponse) GetApiKeys() []*ApiKey {
@@ -2064,7 +2312,7 @@ type CreateApiKeyRequest struct {
 
 func (x *CreateApiKeyRequest) Reset() {
 	*x = CreateApiKeyRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[38]
+	mi := &file_mimir_v1_access_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2076,7 +2324,7 @@ func (x *CreateApiKeyRequest) String() string {
 func (*CreateApiKeyRequest) ProtoMessage() {}
 
 func (x *CreateApiKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[38]
+	mi := &file_mimir_v1_access_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2089,7 +2337,7 @@ func (x *CreateApiKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateApiKeyRequest.ProtoReflect.Descriptor instead.
 func (*CreateApiKeyRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{38}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *CreateApiKeyRequest) GetName() string {
@@ -2117,7 +2365,7 @@ type CreateApiKeyResponse struct {
 
 func (x *CreateApiKeyResponse) Reset() {
 	*x = CreateApiKeyResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[39]
+	mi := &file_mimir_v1_access_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2129,7 +2377,7 @@ func (x *CreateApiKeyResponse) String() string {
 func (*CreateApiKeyResponse) ProtoMessage() {}
 
 func (x *CreateApiKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[39]
+	mi := &file_mimir_v1_access_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2142,7 +2390,7 @@ func (x *CreateApiKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateApiKeyResponse.ProtoReflect.Descriptor instead.
 func (*CreateApiKeyResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{39}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *CreateApiKeyResponse) GetApiKey() *ApiKey {
@@ -2168,7 +2416,7 @@ type RevokeApiKeyRequest struct {
 
 func (x *RevokeApiKeyRequest) Reset() {
 	*x = RevokeApiKeyRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[40]
+	mi := &file_mimir_v1_access_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2180,7 +2428,7 @@ func (x *RevokeApiKeyRequest) String() string {
 func (*RevokeApiKeyRequest) ProtoMessage() {}
 
 func (x *RevokeApiKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[40]
+	mi := &file_mimir_v1_access_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2193,7 +2441,7 @@ func (x *RevokeApiKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeApiKeyRequest.ProtoReflect.Descriptor instead.
 func (*RevokeApiKeyRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{40}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *RevokeApiKeyRequest) GetId() string {
@@ -2211,7 +2459,7 @@ type RevokeApiKeyResponse struct {
 
 func (x *RevokeApiKeyResponse) Reset() {
 	*x = RevokeApiKeyResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[41]
+	mi := &file_mimir_v1_access_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2223,7 +2471,7 @@ func (x *RevokeApiKeyResponse) String() string {
 func (*RevokeApiKeyResponse) ProtoMessage() {}
 
 func (x *RevokeApiKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[41]
+	mi := &file_mimir_v1_access_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2236,7 +2484,7 @@ func (x *RevokeApiKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeApiKeyResponse.ProtoReflect.Descriptor instead.
 func (*RevokeApiKeyResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{41}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{43}
 }
 
 type AuditEvent struct {
@@ -2258,7 +2506,7 @@ type AuditEvent struct {
 
 func (x *AuditEvent) Reset() {
 	*x = AuditEvent{}
-	mi := &file_mimir_v1_access_proto_msgTypes[42]
+	mi := &file_mimir_v1_access_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2270,7 +2518,7 @@ func (x *AuditEvent) String() string {
 func (*AuditEvent) ProtoMessage() {}
 
 func (x *AuditEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[42]
+	mi := &file_mimir_v1_access_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2283,7 +2531,7 @@ func (x *AuditEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuditEvent.ProtoReflect.Descriptor instead.
 func (*AuditEvent) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{42}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *AuditEvent) GetId() string {
@@ -2345,7 +2593,7 @@ type ListAuditEventsRequest struct {
 
 func (x *ListAuditEventsRequest) Reset() {
 	*x = ListAuditEventsRequest{}
-	mi := &file_mimir_v1_access_proto_msgTypes[43]
+	mi := &file_mimir_v1_access_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2357,7 +2605,7 @@ func (x *ListAuditEventsRequest) String() string {
 func (*ListAuditEventsRequest) ProtoMessage() {}
 
 func (x *ListAuditEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[43]
+	mi := &file_mimir_v1_access_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2370,7 +2618,7 @@ func (x *ListAuditEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAuditEventsRequest.ProtoReflect.Descriptor instead.
 func (*ListAuditEventsRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{43}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListAuditEventsRequest) GetPageSize() int32 {
@@ -2397,7 +2645,7 @@ type ListAuditEventsResponse struct {
 
 func (x *ListAuditEventsResponse) Reset() {
 	*x = ListAuditEventsResponse{}
-	mi := &file_mimir_v1_access_proto_msgTypes[44]
+	mi := &file_mimir_v1_access_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2409,7 +2657,7 @@ func (x *ListAuditEventsResponse) String() string {
 func (*ListAuditEventsResponse) ProtoMessage() {}
 
 func (x *ListAuditEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_access_proto_msgTypes[44]
+	mi := &file_mimir_v1_access_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2422,7 +2670,7 @@ func (x *ListAuditEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAuditEventsResponse.ProtoReflect.Descriptor instead.
 func (*ListAuditEventsResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_access_proto_rawDescGZIP(), []int{44}
+	return file_mimir_v1_access_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListAuditEventsResponse) GetEvents() []*AuditEvent {
@@ -2443,7 +2691,7 @@ var File_mimir_v1_access_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_access_proto_rawDesc = "" +
 	"\n" +
-	"\x15mimir/v1/access.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"h\n" +
+	"\x15mimir/v1/access.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17mimir/v1/settings.proto\"h\n" +
 	"\x06Access\x12\"\n" +
 	"\x04role\x18\x01 \x01(\x0e2\x0e.mimir.v1.RoleR\x04role\x12\x1d\n" +
 	"\n" +
@@ -2463,18 +2711,36 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\ateam_id\x18\t \x01(\tR\x06teamId\x12\x1b\n" +
 	"\tteam_name\x18\n" +
 	" \x01(\tR\bteamName\"\x16\n" +
-	"\x14GetSetupStateRequest\"8\n" +
+	"\x14GetSetupStateRequest\"\xc8\x01\n" +
 	"\x15GetSetupStateResponse\x12\x1f\n" +
 	"\vneeds_setup\x18\x01 \x01(\bR\n" +
-	"needsSetup\"u\n" +
+	"needsSetup\x12!\n" +
+	"\fneeds_config\x18\x02 \x01(\bR\vneedsConfig\x128\n" +
+	"\n" +
+	"secret_key\x18\x03 \x01(\x0e2\x19.mimir.v1.SecretKeySourceR\tsecretKey\x121\n" +
+	"\tretention\x18\x04 \x01(\v2\x13.mimir.v1.RetentionR\tretention\"Z\n" +
+	"\x14CheckDatabaseRequest\x12\x1f\n" +
+	"\vsetup_token\x18\x01 \x01(\tR\n" +
+	"setupToken\x12!\n" +
+	"\fdatabase_url\x18\x02 \x01(\tR\vdatabaseUrl\"T\n" +
+	"\x15CheckDatabaseResponse\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\tR\aversion\x12!\n" +
+	"\fhas_accounts\x18\x02 \x01(\bR\vhasAccounts\"\x94\x02\n" +
 	"\fSetupRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x1f\n" +
 	"\vsetup_token\x18\x04 \x01(\tR\n" +
-	"setupToken\"3\n" +
+	"setupToken\x12!\n" +
+	"\fdatabase_url\x18\x05 \x01(\tR\vdatabaseUrl\x12(\n" +
+	"\x10log_database_url\x18\x06 \x01(\tR\x0elogDatabaseUrl\x12\x1d\n" +
+	"\n" +
+	"secret_key\x18\a \x01(\tR\tsecretKey\x121\n" +
+	"\tretention\x18\b \x01(\v2\x13.mimir.v1.RetentionR\tretention\"U\n" +
 	"\rSetupResponse\x12\"\n" +
-	"\x04user\x18\x01 \x01(\v2\x0e.mimir.v1.UserR\x04user\"A\n" +
+	"\x04user\x18\x01 \x01(\v2\x0e.mimir.v1.UserR\x04user\x12 \n" +
+	"\fsign_in_next\x18\x02 \x01(\bR\n" +
+	"signInNext\"A\n" +
 	"\rSignInRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\"j\n" +
@@ -2595,9 +2861,15 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\n" +
 	"ROLE_ADMIN\x10\x03\x12\x0e\n" +
 	"\n" +
-	"ROLE_OWNER\x10\x042\xc4\a\n" +
+	"ROLE_OWNER\x10\x04*\x8f\x01\n" +
+	"\x0fSecretKeySource\x12!\n" +
+	"\x1dSECRET_KEY_SOURCE_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16SECRET_KEY_SOURCE_NONE\x10\x01\x12!\n" +
+	"\x1dSECRET_KEY_SOURCE_ENVIRONMENT\x10\x02\x12\x1a\n" +
+	"\x16SECRET_KEY_SOURCE_FILE\x10\x032\x96\b\n" +
 	"\vAuthService\x12U\n" +
-	"\rGetSetupState\x12\x1e.mimir.v1.GetSetupStateRequest\x1a\x1f.mimir.v1.GetSetupStateResponse\"\x03\x90\x02\x01\x128\n" +
+	"\rGetSetupState\x12\x1e.mimir.v1.GetSetupStateRequest\x1a\x1f.mimir.v1.GetSetupStateResponse\"\x03\x90\x02\x01\x12P\n" +
+	"\rCheckDatabase\x12\x1e.mimir.v1.CheckDatabaseRequest\x1a\x1f.mimir.v1.CheckDatabaseResponse\x128\n" +
 	"\x05Setup\x12\x16.mimir.v1.SetupRequest\x1a\x17.mimir.v1.SetupResponse\x12;\n" +
 	"\x06SignIn\x12\x17.mimir.v1.SignInRequest\x1a\x18.mimir.v1.SignInResponse\x12>\n" +
 	"\aSignOut\x12\x18.mimir.v1.SignOutRequest\x1a\x19.mimir.v1.SignOutResponse\x12@\n" +
@@ -2636,127 +2908,136 @@ func file_mimir_v1_access_proto_rawDescGZIP() []byte {
 	return file_mimir_v1_access_proto_rawDescData
 }
 
-var file_mimir_v1_access_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_mimir_v1_access_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
+var file_mimir_v1_access_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_mimir_v1_access_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_mimir_v1_access_proto_goTypes = []any{
 	(Role)(0),                          // 0: mimir.v1.Role
-	(*Access)(nil),                     // 1: mimir.v1.Access
-	(*User)(nil),                       // 2: mimir.v1.User
-	(*GetSetupStateRequest)(nil),       // 3: mimir.v1.GetSetupStateRequest
-	(*GetSetupStateResponse)(nil),      // 4: mimir.v1.GetSetupStateResponse
-	(*SetupRequest)(nil),               // 5: mimir.v1.SetupRequest
-	(*SetupResponse)(nil),              // 6: mimir.v1.SetupResponse
-	(*SignInRequest)(nil),              // 7: mimir.v1.SignInRequest
-	(*SignInResponse)(nil),             // 8: mimir.v1.SignInResponse
-	(*SignOutRequest)(nil),             // 9: mimir.v1.SignOutRequest
-	(*SignOutResponse)(nil),            // 10: mimir.v1.SignOutResponse
-	(*WhoAmIRequest)(nil),              // 11: mimir.v1.WhoAmIRequest
-	(*WhoAmIResponse)(nil),             // 12: mimir.v1.WhoAmIResponse
-	(*ChangePasswordRequest)(nil),      // 13: mimir.v1.ChangePasswordRequest
-	(*ChangePasswordResponse)(nil),     // 14: mimir.v1.ChangePasswordResponse
-	(*VerifySecondFactorRequest)(nil),  // 15: mimir.v1.VerifySecondFactorRequest
-	(*VerifySecondFactorResponse)(nil), // 16: mimir.v1.VerifySecondFactorResponse
-	(*StartTwoFactorRequest)(nil),      // 17: mimir.v1.StartTwoFactorRequest
-	(*StartTwoFactorResponse)(nil),     // 18: mimir.v1.StartTwoFactorResponse
-	(*EnableTwoFactorRequest)(nil),     // 19: mimir.v1.EnableTwoFactorRequest
-	(*EnableTwoFactorResponse)(nil),    // 20: mimir.v1.EnableTwoFactorResponse
-	(*DisableTwoFactorRequest)(nil),    // 21: mimir.v1.DisableTwoFactorRequest
-	(*DisableTwoFactorResponse)(nil),   // 22: mimir.v1.DisableTwoFactorResponse
-	(*Session)(nil),                    // 23: mimir.v1.Session
-	(*ListSessionsRequest)(nil),        // 24: mimir.v1.ListSessionsRequest
-	(*ListSessionsResponse)(nil),       // 25: mimir.v1.ListSessionsResponse
-	(*RevokeSessionsRequest)(nil),      // 26: mimir.v1.RevokeSessionsRequest
-	(*RevokeSessionsResponse)(nil),     // 27: mimir.v1.RevokeSessionsResponse
-	(*ListUsersRequest)(nil),           // 28: mimir.v1.ListUsersRequest
-	(*ListUsersResponse)(nil),          // 29: mimir.v1.ListUsersResponse
-	(*CreateUserRequest)(nil),          // 30: mimir.v1.CreateUserRequest
-	(*CreateUserResponse)(nil),         // 31: mimir.v1.CreateUserResponse
-	(*UpdateUserRequest)(nil),          // 32: mimir.v1.UpdateUserRequest
-	(*UpdateUserResponse)(nil),         // 33: mimir.v1.UpdateUserResponse
-	(*DeleteUserRequest)(nil),          // 34: mimir.v1.DeleteUserRequest
-	(*DeleteUserResponse)(nil),         // 35: mimir.v1.DeleteUserResponse
-	(*ApiKey)(nil),                     // 36: mimir.v1.ApiKey
-	(*ListApiKeysRequest)(nil),         // 37: mimir.v1.ListApiKeysRequest
-	(*ListApiKeysResponse)(nil),        // 38: mimir.v1.ListApiKeysResponse
-	(*CreateApiKeyRequest)(nil),        // 39: mimir.v1.CreateApiKeyRequest
-	(*CreateApiKeyResponse)(nil),       // 40: mimir.v1.CreateApiKeyResponse
-	(*RevokeApiKeyRequest)(nil),        // 41: mimir.v1.RevokeApiKeyRequest
-	(*RevokeApiKeyResponse)(nil),       // 42: mimir.v1.RevokeApiKeyResponse
-	(*AuditEvent)(nil),                 // 43: mimir.v1.AuditEvent
-	(*ListAuditEventsRequest)(nil),     // 44: mimir.v1.ListAuditEventsRequest
-	(*ListAuditEventsResponse)(nil),    // 45: mimir.v1.ListAuditEventsResponse
-	(*timestamppb.Timestamp)(nil),      // 46: google.protobuf.Timestamp
+	(SecretKeySource)(0),               // 1: mimir.v1.SecretKeySource
+	(*Access)(nil),                     // 2: mimir.v1.Access
+	(*User)(nil),                       // 3: mimir.v1.User
+	(*GetSetupStateRequest)(nil),       // 4: mimir.v1.GetSetupStateRequest
+	(*GetSetupStateResponse)(nil),      // 5: mimir.v1.GetSetupStateResponse
+	(*CheckDatabaseRequest)(nil),       // 6: mimir.v1.CheckDatabaseRequest
+	(*CheckDatabaseResponse)(nil),      // 7: mimir.v1.CheckDatabaseResponse
+	(*SetupRequest)(nil),               // 8: mimir.v1.SetupRequest
+	(*SetupResponse)(nil),              // 9: mimir.v1.SetupResponse
+	(*SignInRequest)(nil),              // 10: mimir.v1.SignInRequest
+	(*SignInResponse)(nil),             // 11: mimir.v1.SignInResponse
+	(*SignOutRequest)(nil),             // 12: mimir.v1.SignOutRequest
+	(*SignOutResponse)(nil),            // 13: mimir.v1.SignOutResponse
+	(*WhoAmIRequest)(nil),              // 14: mimir.v1.WhoAmIRequest
+	(*WhoAmIResponse)(nil),             // 15: mimir.v1.WhoAmIResponse
+	(*ChangePasswordRequest)(nil),      // 16: mimir.v1.ChangePasswordRequest
+	(*ChangePasswordResponse)(nil),     // 17: mimir.v1.ChangePasswordResponse
+	(*VerifySecondFactorRequest)(nil),  // 18: mimir.v1.VerifySecondFactorRequest
+	(*VerifySecondFactorResponse)(nil), // 19: mimir.v1.VerifySecondFactorResponse
+	(*StartTwoFactorRequest)(nil),      // 20: mimir.v1.StartTwoFactorRequest
+	(*StartTwoFactorResponse)(nil),     // 21: mimir.v1.StartTwoFactorResponse
+	(*EnableTwoFactorRequest)(nil),     // 22: mimir.v1.EnableTwoFactorRequest
+	(*EnableTwoFactorResponse)(nil),    // 23: mimir.v1.EnableTwoFactorResponse
+	(*DisableTwoFactorRequest)(nil),    // 24: mimir.v1.DisableTwoFactorRequest
+	(*DisableTwoFactorResponse)(nil),   // 25: mimir.v1.DisableTwoFactorResponse
+	(*Session)(nil),                    // 26: mimir.v1.Session
+	(*ListSessionsRequest)(nil),        // 27: mimir.v1.ListSessionsRequest
+	(*ListSessionsResponse)(nil),       // 28: mimir.v1.ListSessionsResponse
+	(*RevokeSessionsRequest)(nil),      // 29: mimir.v1.RevokeSessionsRequest
+	(*RevokeSessionsResponse)(nil),     // 30: mimir.v1.RevokeSessionsResponse
+	(*ListUsersRequest)(nil),           // 31: mimir.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),          // 32: mimir.v1.ListUsersResponse
+	(*CreateUserRequest)(nil),          // 33: mimir.v1.CreateUserRequest
+	(*CreateUserResponse)(nil),         // 34: mimir.v1.CreateUserResponse
+	(*UpdateUserRequest)(nil),          // 35: mimir.v1.UpdateUserRequest
+	(*UpdateUserResponse)(nil),         // 36: mimir.v1.UpdateUserResponse
+	(*DeleteUserRequest)(nil),          // 37: mimir.v1.DeleteUserRequest
+	(*DeleteUserResponse)(nil),         // 38: mimir.v1.DeleteUserResponse
+	(*ApiKey)(nil),                     // 39: mimir.v1.ApiKey
+	(*ListApiKeysRequest)(nil),         // 40: mimir.v1.ListApiKeysRequest
+	(*ListApiKeysResponse)(nil),        // 41: mimir.v1.ListApiKeysResponse
+	(*CreateApiKeyRequest)(nil),        // 42: mimir.v1.CreateApiKeyRequest
+	(*CreateApiKeyResponse)(nil),       // 43: mimir.v1.CreateApiKeyResponse
+	(*RevokeApiKeyRequest)(nil),        // 44: mimir.v1.RevokeApiKeyRequest
+	(*RevokeApiKeyResponse)(nil),       // 45: mimir.v1.RevokeApiKeyResponse
+	(*AuditEvent)(nil),                 // 46: mimir.v1.AuditEvent
+	(*ListAuditEventsRequest)(nil),     // 47: mimir.v1.ListAuditEventsRequest
+	(*ListAuditEventsResponse)(nil),    // 48: mimir.v1.ListAuditEventsResponse
+	(*timestamppb.Timestamp)(nil),      // 49: google.protobuf.Timestamp
+	(*Retention)(nil),                  // 50: mimir.v1.Retention
 }
 var file_mimir_v1_access_proto_depIdxs = []int32{
 	0,  // 0: mimir.v1.Access.role:type_name -> mimir.v1.Role
-	1,  // 1: mimir.v1.User.access:type_name -> mimir.v1.Access
-	46, // 2: mimir.v1.User.create_time:type_name -> google.protobuf.Timestamp
-	46, // 3: mimir.v1.User.last_sign_in_time:type_name -> google.protobuf.Timestamp
-	2,  // 4: mimir.v1.SetupResponse.user:type_name -> mimir.v1.User
-	2,  // 5: mimir.v1.SignInResponse.user:type_name -> mimir.v1.User
-	2,  // 6: mimir.v1.WhoAmIResponse.user:type_name -> mimir.v1.User
-	2,  // 7: mimir.v1.VerifySecondFactorResponse.user:type_name -> mimir.v1.User
-	46, // 8: mimir.v1.Session.create_time:type_name -> google.protobuf.Timestamp
-	46, // 9: mimir.v1.Session.last_seen_time:type_name -> google.protobuf.Timestamp
-	23, // 10: mimir.v1.ListSessionsResponse.sessions:type_name -> mimir.v1.Session
-	2,  // 11: mimir.v1.ListUsersResponse.users:type_name -> mimir.v1.User
-	1,  // 12: mimir.v1.CreateUserRequest.access:type_name -> mimir.v1.Access
-	2,  // 13: mimir.v1.CreateUserResponse.user:type_name -> mimir.v1.User
-	1,  // 14: mimir.v1.UpdateUserRequest.access:type_name -> mimir.v1.Access
-	2,  // 15: mimir.v1.UpdateUserResponse.user:type_name -> mimir.v1.User
-	1,  // 16: mimir.v1.ApiKey.access:type_name -> mimir.v1.Access
-	46, // 17: mimir.v1.ApiKey.create_time:type_name -> google.protobuf.Timestamp
-	46, // 18: mimir.v1.ApiKey.last_used_time:type_name -> google.protobuf.Timestamp
-	36, // 19: mimir.v1.ListApiKeysResponse.api_keys:type_name -> mimir.v1.ApiKey
-	1,  // 20: mimir.v1.CreateApiKeyRequest.access:type_name -> mimir.v1.Access
-	36, // 21: mimir.v1.CreateApiKeyResponse.api_key:type_name -> mimir.v1.ApiKey
-	46, // 22: mimir.v1.AuditEvent.time:type_name -> google.protobuf.Timestamp
-	43, // 23: mimir.v1.ListAuditEventsResponse.events:type_name -> mimir.v1.AuditEvent
-	3,  // 24: mimir.v1.AuthService.GetSetupState:input_type -> mimir.v1.GetSetupStateRequest
-	5,  // 25: mimir.v1.AuthService.Setup:input_type -> mimir.v1.SetupRequest
-	7,  // 26: mimir.v1.AuthService.SignIn:input_type -> mimir.v1.SignInRequest
-	9,  // 27: mimir.v1.AuthService.SignOut:input_type -> mimir.v1.SignOutRequest
-	11, // 28: mimir.v1.AuthService.WhoAmI:input_type -> mimir.v1.WhoAmIRequest
-	13, // 29: mimir.v1.AuthService.ChangePassword:input_type -> mimir.v1.ChangePasswordRequest
-	15, // 30: mimir.v1.AuthService.VerifySecondFactor:input_type -> mimir.v1.VerifySecondFactorRequest
-	17, // 31: mimir.v1.AuthService.StartTwoFactor:input_type -> mimir.v1.StartTwoFactorRequest
-	19, // 32: mimir.v1.AuthService.EnableTwoFactor:input_type -> mimir.v1.EnableTwoFactorRequest
-	21, // 33: mimir.v1.AuthService.DisableTwoFactor:input_type -> mimir.v1.DisableTwoFactorRequest
-	24, // 34: mimir.v1.AuthService.ListSessions:input_type -> mimir.v1.ListSessionsRequest
-	26, // 35: mimir.v1.AuthService.RevokeSessions:input_type -> mimir.v1.RevokeSessionsRequest
-	28, // 36: mimir.v1.UserService.ListUsers:input_type -> mimir.v1.ListUsersRequest
-	30, // 37: mimir.v1.UserService.CreateUser:input_type -> mimir.v1.CreateUserRequest
-	32, // 38: mimir.v1.UserService.UpdateUser:input_type -> mimir.v1.UpdateUserRequest
-	34, // 39: mimir.v1.UserService.DeleteUser:input_type -> mimir.v1.DeleteUserRequest
-	37, // 40: mimir.v1.ApiKeyService.ListApiKeys:input_type -> mimir.v1.ListApiKeysRequest
-	39, // 41: mimir.v1.ApiKeyService.CreateApiKey:input_type -> mimir.v1.CreateApiKeyRequest
-	41, // 42: mimir.v1.ApiKeyService.RevokeApiKey:input_type -> mimir.v1.RevokeApiKeyRequest
-	44, // 43: mimir.v1.AuditService.ListAuditEvents:input_type -> mimir.v1.ListAuditEventsRequest
-	4,  // 44: mimir.v1.AuthService.GetSetupState:output_type -> mimir.v1.GetSetupStateResponse
-	6,  // 45: mimir.v1.AuthService.Setup:output_type -> mimir.v1.SetupResponse
-	8,  // 46: mimir.v1.AuthService.SignIn:output_type -> mimir.v1.SignInResponse
-	10, // 47: mimir.v1.AuthService.SignOut:output_type -> mimir.v1.SignOutResponse
-	12, // 48: mimir.v1.AuthService.WhoAmI:output_type -> mimir.v1.WhoAmIResponse
-	14, // 49: mimir.v1.AuthService.ChangePassword:output_type -> mimir.v1.ChangePasswordResponse
-	16, // 50: mimir.v1.AuthService.VerifySecondFactor:output_type -> mimir.v1.VerifySecondFactorResponse
-	18, // 51: mimir.v1.AuthService.StartTwoFactor:output_type -> mimir.v1.StartTwoFactorResponse
-	20, // 52: mimir.v1.AuthService.EnableTwoFactor:output_type -> mimir.v1.EnableTwoFactorResponse
-	22, // 53: mimir.v1.AuthService.DisableTwoFactor:output_type -> mimir.v1.DisableTwoFactorResponse
-	25, // 54: mimir.v1.AuthService.ListSessions:output_type -> mimir.v1.ListSessionsResponse
-	27, // 55: mimir.v1.AuthService.RevokeSessions:output_type -> mimir.v1.RevokeSessionsResponse
-	29, // 56: mimir.v1.UserService.ListUsers:output_type -> mimir.v1.ListUsersResponse
-	31, // 57: mimir.v1.UserService.CreateUser:output_type -> mimir.v1.CreateUserResponse
-	33, // 58: mimir.v1.UserService.UpdateUser:output_type -> mimir.v1.UpdateUserResponse
-	35, // 59: mimir.v1.UserService.DeleteUser:output_type -> mimir.v1.DeleteUserResponse
-	38, // 60: mimir.v1.ApiKeyService.ListApiKeys:output_type -> mimir.v1.ListApiKeysResponse
-	40, // 61: mimir.v1.ApiKeyService.CreateApiKey:output_type -> mimir.v1.CreateApiKeyResponse
-	42, // 62: mimir.v1.ApiKeyService.RevokeApiKey:output_type -> mimir.v1.RevokeApiKeyResponse
-	45, // 63: mimir.v1.AuditService.ListAuditEvents:output_type -> mimir.v1.ListAuditEventsResponse
-	44, // [44:64] is the sub-list for method output_type
-	24, // [24:44] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	2,  // 1: mimir.v1.User.access:type_name -> mimir.v1.Access
+	49, // 2: mimir.v1.User.create_time:type_name -> google.protobuf.Timestamp
+	49, // 3: mimir.v1.User.last_sign_in_time:type_name -> google.protobuf.Timestamp
+	1,  // 4: mimir.v1.GetSetupStateResponse.secret_key:type_name -> mimir.v1.SecretKeySource
+	50, // 5: mimir.v1.GetSetupStateResponse.retention:type_name -> mimir.v1.Retention
+	50, // 6: mimir.v1.SetupRequest.retention:type_name -> mimir.v1.Retention
+	3,  // 7: mimir.v1.SetupResponse.user:type_name -> mimir.v1.User
+	3,  // 8: mimir.v1.SignInResponse.user:type_name -> mimir.v1.User
+	3,  // 9: mimir.v1.WhoAmIResponse.user:type_name -> mimir.v1.User
+	3,  // 10: mimir.v1.VerifySecondFactorResponse.user:type_name -> mimir.v1.User
+	49, // 11: mimir.v1.Session.create_time:type_name -> google.protobuf.Timestamp
+	49, // 12: mimir.v1.Session.last_seen_time:type_name -> google.protobuf.Timestamp
+	26, // 13: mimir.v1.ListSessionsResponse.sessions:type_name -> mimir.v1.Session
+	3,  // 14: mimir.v1.ListUsersResponse.users:type_name -> mimir.v1.User
+	2,  // 15: mimir.v1.CreateUserRequest.access:type_name -> mimir.v1.Access
+	3,  // 16: mimir.v1.CreateUserResponse.user:type_name -> mimir.v1.User
+	2,  // 17: mimir.v1.UpdateUserRequest.access:type_name -> mimir.v1.Access
+	3,  // 18: mimir.v1.UpdateUserResponse.user:type_name -> mimir.v1.User
+	2,  // 19: mimir.v1.ApiKey.access:type_name -> mimir.v1.Access
+	49, // 20: mimir.v1.ApiKey.create_time:type_name -> google.protobuf.Timestamp
+	49, // 21: mimir.v1.ApiKey.last_used_time:type_name -> google.protobuf.Timestamp
+	39, // 22: mimir.v1.ListApiKeysResponse.api_keys:type_name -> mimir.v1.ApiKey
+	2,  // 23: mimir.v1.CreateApiKeyRequest.access:type_name -> mimir.v1.Access
+	39, // 24: mimir.v1.CreateApiKeyResponse.api_key:type_name -> mimir.v1.ApiKey
+	49, // 25: mimir.v1.AuditEvent.time:type_name -> google.protobuf.Timestamp
+	46, // 26: mimir.v1.ListAuditEventsResponse.events:type_name -> mimir.v1.AuditEvent
+	4,  // 27: mimir.v1.AuthService.GetSetupState:input_type -> mimir.v1.GetSetupStateRequest
+	6,  // 28: mimir.v1.AuthService.CheckDatabase:input_type -> mimir.v1.CheckDatabaseRequest
+	8,  // 29: mimir.v1.AuthService.Setup:input_type -> mimir.v1.SetupRequest
+	10, // 30: mimir.v1.AuthService.SignIn:input_type -> mimir.v1.SignInRequest
+	12, // 31: mimir.v1.AuthService.SignOut:input_type -> mimir.v1.SignOutRequest
+	14, // 32: mimir.v1.AuthService.WhoAmI:input_type -> mimir.v1.WhoAmIRequest
+	16, // 33: mimir.v1.AuthService.ChangePassword:input_type -> mimir.v1.ChangePasswordRequest
+	18, // 34: mimir.v1.AuthService.VerifySecondFactor:input_type -> mimir.v1.VerifySecondFactorRequest
+	20, // 35: mimir.v1.AuthService.StartTwoFactor:input_type -> mimir.v1.StartTwoFactorRequest
+	22, // 36: mimir.v1.AuthService.EnableTwoFactor:input_type -> mimir.v1.EnableTwoFactorRequest
+	24, // 37: mimir.v1.AuthService.DisableTwoFactor:input_type -> mimir.v1.DisableTwoFactorRequest
+	27, // 38: mimir.v1.AuthService.ListSessions:input_type -> mimir.v1.ListSessionsRequest
+	29, // 39: mimir.v1.AuthService.RevokeSessions:input_type -> mimir.v1.RevokeSessionsRequest
+	31, // 40: mimir.v1.UserService.ListUsers:input_type -> mimir.v1.ListUsersRequest
+	33, // 41: mimir.v1.UserService.CreateUser:input_type -> mimir.v1.CreateUserRequest
+	35, // 42: mimir.v1.UserService.UpdateUser:input_type -> mimir.v1.UpdateUserRequest
+	37, // 43: mimir.v1.UserService.DeleteUser:input_type -> mimir.v1.DeleteUserRequest
+	40, // 44: mimir.v1.ApiKeyService.ListApiKeys:input_type -> mimir.v1.ListApiKeysRequest
+	42, // 45: mimir.v1.ApiKeyService.CreateApiKey:input_type -> mimir.v1.CreateApiKeyRequest
+	44, // 46: mimir.v1.ApiKeyService.RevokeApiKey:input_type -> mimir.v1.RevokeApiKeyRequest
+	47, // 47: mimir.v1.AuditService.ListAuditEvents:input_type -> mimir.v1.ListAuditEventsRequest
+	5,  // 48: mimir.v1.AuthService.GetSetupState:output_type -> mimir.v1.GetSetupStateResponse
+	7,  // 49: mimir.v1.AuthService.CheckDatabase:output_type -> mimir.v1.CheckDatabaseResponse
+	9,  // 50: mimir.v1.AuthService.Setup:output_type -> mimir.v1.SetupResponse
+	11, // 51: mimir.v1.AuthService.SignIn:output_type -> mimir.v1.SignInResponse
+	13, // 52: mimir.v1.AuthService.SignOut:output_type -> mimir.v1.SignOutResponse
+	15, // 53: mimir.v1.AuthService.WhoAmI:output_type -> mimir.v1.WhoAmIResponse
+	17, // 54: mimir.v1.AuthService.ChangePassword:output_type -> mimir.v1.ChangePasswordResponse
+	19, // 55: mimir.v1.AuthService.VerifySecondFactor:output_type -> mimir.v1.VerifySecondFactorResponse
+	21, // 56: mimir.v1.AuthService.StartTwoFactor:output_type -> mimir.v1.StartTwoFactorResponse
+	23, // 57: mimir.v1.AuthService.EnableTwoFactor:output_type -> mimir.v1.EnableTwoFactorResponse
+	25, // 58: mimir.v1.AuthService.DisableTwoFactor:output_type -> mimir.v1.DisableTwoFactorResponse
+	28, // 59: mimir.v1.AuthService.ListSessions:output_type -> mimir.v1.ListSessionsResponse
+	30, // 60: mimir.v1.AuthService.RevokeSessions:output_type -> mimir.v1.RevokeSessionsResponse
+	32, // 61: mimir.v1.UserService.ListUsers:output_type -> mimir.v1.ListUsersResponse
+	34, // 62: mimir.v1.UserService.CreateUser:output_type -> mimir.v1.CreateUserResponse
+	36, // 63: mimir.v1.UserService.UpdateUser:output_type -> mimir.v1.UpdateUserResponse
+	38, // 64: mimir.v1.UserService.DeleteUser:output_type -> mimir.v1.DeleteUserResponse
+	41, // 65: mimir.v1.ApiKeyService.ListApiKeys:output_type -> mimir.v1.ListApiKeysResponse
+	43, // 66: mimir.v1.ApiKeyService.CreateApiKey:output_type -> mimir.v1.CreateApiKeyResponse
+	45, // 67: mimir.v1.ApiKeyService.RevokeApiKey:output_type -> mimir.v1.RevokeApiKeyResponse
+	48, // 68: mimir.v1.AuditService.ListAuditEvents:output_type -> mimir.v1.ListAuditEventsResponse
+	48, // [48:69] is the sub-list for method output_type
+	27, // [27:48] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_access_proto_init() }
@@ -2764,13 +3045,14 @@ func file_mimir_v1_access_proto_init() {
 	if File_mimir_v1_access_proto != nil {
 		return
 	}
+	file_mimir_v1_settings_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_access_proto_rawDesc), len(file_mimir_v1_access_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   45,
+			NumEnums:      2,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

@@ -16,17 +16,63 @@ You need Go 1.27, [Bun](https://bun.sh) and PostgreSQL (14 or later).
 ```sh
 make            # builds the web UI, then bin/mimir-server with it embedded
 createdb mimir
-./bin/mimir-server -addr :8080 -data ./data \
-  -database-url 'postgres://mimir:secret@localhost:5432/mimir?sslmode=disable'
+./bin/mimir-server -addr :8080 -data ./data
 ```
 
-The server keeps its accounts, models, runs and settings in PostgreSQL;
-`-database-url` (or `MIMIR_DATABASE_URL`) is required for the standalone
-and console roles. On start it brings the schema up to date by itself
+Open http://localhost:8080. A server started with no database opens
+**first-run setup**, which asks for:
+
+1. The one-time **setup token** the server prints in its log
+   (`"setup_token"`); set `MIMIR_SETUP_TOKEN` (at least 16 characters) to
+   choose it yourself. Every step that changes anything needs it, and wrong
+   guesses are limited per address, so nobody who merely reaches the port
+   can claim the server.
+2. The **database**, a PostgreSQL URL such as
+   `postgres://mimir:secret@localhost:5432/mimir?sslmode=disable`, with a
+   **Test** button, and optionally a second database for the **audit log**.
+3. The **secret key** (below): make a new one, or give the key a database
+   backup was made with.
+4. **Log retention**: how long audit events and webhook deliveries are kept.
+5. The **owner** account. A database that already has accounts keeps them,
+   and you sign in with one of those instead.
+
+Setup writes `<data>/mimir.json` (or the file `-config`/`MIMIR_CONFIG`
+names) and the full server starts on the same port; from then on the server
+starts from that file, and setup never opens again. The file holds database
+passwords, so it is written atomically, readable only by the server's user
+(mode 0600, in a 0700 data folder), and the server refuses to start from one
+other users can read. The database URLs in it are also encrypted with the
+secret key, so a copy of the file alone gives nothing away. A file you write
+yourself may use `"env:NAME"` or `"file:/path"` for either URL to keep the
+password out of it:
+
+```json
+{ "database_url": "env:MIMIR_DB", "log_database_url": "file:/run/secrets/mimir-log-db" }
+```
+
+For a scripted or SSH install, `mimir-server setup` does the same without
+the browser; the owner's password comes from `MIMIR_OWNER_PASSWORD` or a file,
+never a flag:
+
+```sh
+echo "$OWNER_PASSWORD" | ./bin/mimir-server setup -data ./data \
+  -database-url 'postgres://mimir:secret@localhost:5432/mimir' \
+  -owner-email you@example.com -owner-name 'Your Name' -owner-password-file -
+```
+
+`-database-url` (or `MIMIR_DATABASE_URL`) and `-log-database-url` (or
+`MIMIR_LOG_DATABASE_URL`) still come first when set, so a container can skip
+the file altogether. The server keeps its accounts, models, runs and
+settings in PostgreSQL. On start it brings the schema up to date by itself
 (only the first start or an upgrade changes anything), so the role needs
 `CREATE` on the database. Pool options such as `pool_max_conns=32` may go
 in the URL; the default is at most 16 connections. Model weights and
 uploaded examples stay as files in the `-data` folder.
+
+With a **log database** the audit log is written, read and trimmed there,
+apart from the records it describes; events from before it was set stay in
+the main database. **Download a backup** covers the main database only, so
+back the log database up with `pg_dump` too.
 
 Secrets the server keeps in the database (webhook signing secrets, dataset
 connection strings, alert passwords and bot tokens) are encrypted with
@@ -40,12 +86,9 @@ but apart from them: without it those secrets cannot be read, and the
 server refuses to start with a key that does not open them. Every console
 sharing a database needs the same key.
 
-Open http://localhost:8080. The first visit asks you to make the owner
-account, with the one-time setup token the server prints in its log
-(`"setup_token"`) when it starts with no accounts; set
-`MIMIR_SETUP_TOKEN` (at least 16 characters) to choose it yourself, for
-an automated install. Until the owner exists, nobody without the token can
-claim the server. Then choose **Add a model**, pick the model type and upload a
+A server given its database by flag or environment but with no accounts
+yet asks only for the token, the retention and the owner. Until the owner
+exists, nobody without the token can claim the server. Then choose **Add a model**, pick the model type and upload a
 `.mim` file of its weights, saved with `mim.Save` from mimir. Models the
 server trains are stored the same way; the Mimir Model file is the only
 format it reads or writes.
@@ -552,7 +595,8 @@ Owners find these under **Settings**; admins see their team's
   failing. Each has a test button.
 - **Log retention**: how long audit events and webhook deliveries are kept.
   A cleanup runs every hour.
-- **Database**: engine, server (password hidden), size and counts, plus
+- **Database**: engine, server and audit log database (passwords hidden),
+  size and counts, plus
   **Download a backup** (`GET /api/backup`, owners only): a consistent
   `pg_dump --format=custom` copy, restored with `pg_restore`. The server
   needs `pg_dump` on its `PATH` for this (same major version as the

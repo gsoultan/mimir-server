@@ -12,12 +12,12 @@ import (
 	"github.com/gsoultan/storm"
 	"github.com/gsoultan/storm/runtime"
 
-	"github.com/gsoultan/mimir-server/internal/store/db"
 	"github.com/gsoultan/mimir-server/internal/store/db/apikey"
 	"github.com/gsoultan/mimir-server/internal/store/db/apikeymodel"
 	"github.com/gsoultan/mimir-server/internal/store/db/auditevent"
 	"github.com/gsoultan/mimir-server/internal/store/db/recoverycode"
 	"github.com/gsoultan/mimir-server/internal/store/db/session"
+	"github.com/gsoultan/mimir-server/internal/store/db/team"
 	"github.com/gsoultan/mimir-server/internal/store/db/user"
 	"github.com/gsoultan/mimir-server/internal/store/db/usermodel"
 	"github.com/gsoultan/mimir-server/internal/store/tables"
@@ -787,7 +787,7 @@ func (s *Store) Audit(ctx context.Context, e AuditEvent) error {
 	if e.TeamID != "" {
 		n.SetTeamID(e.TeamID)
 	}
-	if _, err := n.Insert(ctx, s.ex); err != nil {
+	if _, err := n.Insert(ctx, s.logEx); err != nil {
 		return fmt.Errorf("store: audit: %w", err)
 	}
 	return nil
@@ -797,32 +797,60 @@ func (s *Store) Audit(ctx context.Context, e AuditEvent) error {
 // when teamID is "") older than the one with beforeID (every event when
 // empty), newest first.
 func (s *Store) ListAuditEvents(ctx context.Context, teamID, beforeID string, limit int) ([]AuditEvent, error) {
-	rows, err := db.AuditEventWithTeam().
+	// The log may be in a database of its own, so team names come from
+	// the main one in a second query rather than a join.
+	rows, err := auditevent.New().
 		WhereIf(teamID != "", auditevent.TeamID.Eq(teamID)).
 		WhereIf(beforeID != "", auditevent.ID.Lt(beforeID)).
 		Order(auditevent.ID.Desc()).
 		Limit(int64(limit)).
-		All(ctx, s.ex)
+		All(ctx, s.logEx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("store: list audit: %w", err)
 	}
+	names, err := s.teamNames(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]AuditEvent, 0, len(rows))
 	for _, r := range rows {
-		e := AuditEvent{
-			ID:     r.ID,
-			Time:   r.Time.UTC(),
-			Actor:  r.Actor,
-			Action: r.Action,
-			Target: r.Target,
-			Detail: r.Detail,
-			TeamID: r.TeamID.V,
-		}
-		if r.Team != nil {
-			e.TeamName = r.Team.Name
-		}
-		out = append(out, e)
+		out = append(out, AuditEvent{
+			ID:       r.ID,
+			Time:     r.Time.UTC(),
+			Actor:    r.Actor,
+			Action:   r.Action,
+			Target:   r.Target,
+			Detail:   r.Detail,
+			TeamID:   r.TeamID.V,
+			TeamName: names[r.TeamID.V],
+		})
 	}
 	return out, nil
+}
+
+// teamNames returns the names of the teams the events happened in, by id.
+// A team deleted since is left out.
+func (s *Store) teamNames(ctx context.Context, rows []auditevent.Row) (map[string]string, error) {
+	seen := map[string]bool{}
+	ids := []string{}
+	for _, r := range rows {
+		if id := r.TeamID.V; r.TeamID.Valid && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	names := make(map[string]string, len(ids))
+	if len(ids) == 0 {
+		return names, nil
+	}
+	teams, err := team.New().Where(team.ID.In(ids...)).All(ctx, s.ex, nil)
+	if err != nil {
+		return nil, fmt.Errorf("store: audit teams: %w", err)
+	}
+	for _, t := range teams {
+		names[t.ID] = t.Name
+	}
+	return names, nil
 }
 
 // normalize makes admins and owners reach every model and drops the model
