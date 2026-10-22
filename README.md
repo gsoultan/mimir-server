@@ -121,10 +121,15 @@ docker run -p 8080:8080 -v mimir-data:/data \
 ```
 
 The image has no `pg_dump`, so download backups with `pg_dump` from
-elsewhere. Pushing a `v*` tag builds release archives for Linux, macOS and
+elsewhere.
+
+Pushing a `v*` tag runs [GoReleaser](https://goreleaser.com)
+(`.goreleaser.yaml`): it builds release archives for Linux, macOS and
 Windows on amd64 and arm64, with SHA-256 sums, and attaches them to a
-GitHub release. Those binaries keep the GPU backends, so on Linux they need
-glibc. `make build` and CI stamp the version (`git describe`) with
+GitHub release with notes from the merged pull requests.
+The release binaries keep the GPU backends, so on Linux they need glibc.
+`goreleaser release --snapshot --clean` tries a release locally into
+`dist/`. `make build` and CI stamp the version (`git describe`) with
 `-ldflags "-X main.version=..."`; workers report it to the console.
 
 ## Who can do what

@@ -87,3 +87,8 @@ jobs:
             -ldflags "-s -w -X main.version=$(git describe --tags --always --dirty)" \
             -o bin/mimir-server-static ./cmd/mimir-server
           file bin/mimir-server-static | tee /dev/stderr | grep -q "statically linked"
+      - name: Check the release config
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: check
