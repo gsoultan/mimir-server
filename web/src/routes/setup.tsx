@@ -1,6 +1,6 @@
 import { Code as ErrorCode, ConnectError, createClient } from "@connectrpc/connect";
 import { useMutation, useQuery } from "@connectrpc/connect-query";
-import { ActionIcon, Alert, Badge, Button, Checkbox, Code, CopyButton, Grid, Group, NumberInput, PasswordInput, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Badge, Button, Checkbox, Code, CopyButton, Divider, Grid, Group, NumberInput, PasswordInput, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import { IconAlertCircle, IconCheck, IconCircleCheck, IconCopy, IconKey, IconRefresh } from "@tabler/icons-react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
@@ -74,21 +74,17 @@ function Setup() {
   if (needsConfig) {
     steps.push({
       label: "Database",
-      ready: checkMain.isSuccess,
+      ready: checkMain.isSuccess && (!separateLog || checkLog.isSuccess),
       body: (
         <Stack>
-          <Text size="sm" c="dimmed">mimir keeps people, settings and model details in PostgreSQL. Make an empty database and a user that may create tables in it, then fill in where it is. The password is saved encrypted, in a file only the server's user can read.</Text>
+          <Text size="sm" c="dimmed">mimir keeps people, settings and model details in PostgreSQL. Make an empty database and a user that may create tables in it, then fill in where it is. Passwords are saved encrypted, in a file only the server's user can read.</Text>
           <DatabaseFields value={db} onChange={(v) => { setDb(v); checkMain.reset(); }} check={() => checkMain.mutate({ setupToken, databaseUrl: postgresUrl(db) })} pending={checkMain.isPending} error={checkMain.error} ok={checkMain.data && `Connected to ${checkMain.data.version}${checkMain.data.hasAccounts ? ". It already has mimir accounts, which are kept." : "."}`} />
-        </Stack>
-      ),
-    });
-    steps.push({
-      label: "Log database",
-      ready: !separateLog || checkLog.isSuccess,
-      body: (
-        <Stack>
-          <Text size="sm" c="dimmed">The audit log records who signed in and what they changed. Keep it with everything else, or in a database of its own: one that people who run the main database can't change, or on cheaper storage.</Text>
-          <SegmentedControl value={separateLog ? "separate" : "same"} onChange={(v) => { setSeparateLog(v === "separate"); checkLog.reset(); }} data={[{ value: "same", label: "Same database" }, { value: "separate", label: "A separate database" }]} />
+          <Divider my={4} />
+          <div>
+            <Text fw={600}>Audit log database</Text>
+            <Text size="sm" c="dimmed" mb="xs">The audit log records who signed in and what they changed. Keep it in the database above, or in one of its own: one that people who run the main database can't change, or on cheaper storage.</Text>
+            <SegmentedControl fullWidth value={separateLog ? "separate" : "same"} onChange={(v) => { setSeparateLog(v === "separate"); checkLog.reset(); }} data={[{ value: "same", label: "Same database" }, { value: "separate", label: "A separate database" }]} />
+          </div>
           {separateLog && (
             <DatabaseFields value={log} onChange={(v) => { setLogDb(v); checkLog.reset(); }} check={() => checkLog.mutate({ setupToken, databaseUrl: postgresUrl(log) })} pending={checkLog.isPending} error={checkLog.error} ok={checkLog.data && `Connected to ${checkLog.data.version}.`} />
           )}

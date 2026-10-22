@@ -28,14 +28,14 @@ Open http://localhost:8080. A server started with no database opens
    guesses are limited per address, so nobody who merely reaches the port
    can claim the server.
 2. The **database**: host, port, username, password, database name and
-   whether to use SSL, with a **Test connection** button.
-3. The **log database**: the same one, or a second database for the audit
-   log.
-4. The **secret key** (below): generate a new one, which the screen shows
+   whether to use SSL, with a **Test connection** button. On the same
+   screen, the **audit log database**: the same one, or a second database
+   with its own fields.
+3. The **secret key** (below): generate a new one, which the screen shows
    with a copy button so you can keep it safe, or give the key a database
    backup was made with.
-5. **Log retention**: how long audit events and webhook deliveries are kept.
-6. The **owner** account. A database that already has accounts keeps them,
+4. **Log retention**: how long audit events and webhook deliveries are kept.
+5. The **owner** account. A database that already has accounts keeps them,
    and you sign in with one of those instead.
 
 Setup writes `<data>/mimir.json` (or the file `-config`/`MIMIR_CONFIG`
