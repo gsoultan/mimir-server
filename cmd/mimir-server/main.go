@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -303,6 +304,9 @@ func run() error {
 	svc.CancelTraining = runner.Cancel
 	bg.Go(func() { runner.Run(bgCtx) })
 
+	if *metricsToken == "" && !loopbackOnly(*addr) {
+		log.Warn("/metrics is open to anyone who can reach this address; set -metrics-token ($MIMIR_METRICS_TOKEN) to require a token", "addr", *addr)
+	}
 	full := server.Handler(svc, st, web.Dist(), log, server.WithMetricsToken(*metricsToken))
 	handler.Store(&full)
 	listen()
@@ -435,3 +439,17 @@ func (e *envDefaults) fail(err error) {
 }
 
 func (e *envDefaults) err() error { return e.bad }
+
+// loopbackOnly reports whether addr listens only on this machine's
+// loopback, where an open /metrics reaches no one else.
+func loopbackOnly(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}

@@ -18,7 +18,8 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
-	_ "modernc.org/sqlite" // sqlite
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // ErrBadQuery reports a query or connection the caller can fix.
@@ -56,7 +57,8 @@ type Guard func(network, address, database string) error
 
 // Fetch runs query read-only and returns up to limit rows. Nothing is
 // written to the database: the query runs in a read-only transaction
-// where the driver supports one, and sqlite files are opened read-only.
+// where the driver supports one, and sqlite files are opened read-only
+// with ATTACH turned off.
 // A PostgreSQL connection goes only where guard, when set, allows. A
 // MySQL server never gets to read files from this machine.
 func Fetch(ctx context.Context, driver, dsn, query string, limit int, guard Guard) (Result, error) {
@@ -92,7 +94,19 @@ func Fetch(ctx context.Context, driver, dsn, query string, limit int, guard Guar
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: driver != "sqlite"})
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return Result{}, fmt.Errorf("%w: couldn't connect: %v", ErrBadQuery, err)
+	}
+	defer conn.Close()
+	if driver == "sqlite" {
+		// ATTACH would let a query read any other SQLite file the server
+		// can, past the check on the file the connection names.
+		if _, err := sqlite.Limit(conn, sqlite3.SQLITE_LIMIT_ATTACHED, 0); err != nil {
+			return Result{}, err
+		}
+	}
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: driver != "sqlite"})
 	if err != nil {
 		return Result{}, fmt.Errorf("%w: couldn't connect: %v", ErrBadQuery, err)
 	}

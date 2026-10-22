@@ -10,11 +10,13 @@ import (
 	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
 	"github.com/gsoultan/mimir-server/internal/store/db/setting"
+	"github.com/gsoultan/mimir-server/internal/store/db/user"
 	"github.com/gsoultan/mimir-server/internal/store/db/webhook"
 )
 
-// Secrets at rest. Webhook signing secrets, dataset connection strings and
-// alert settings (mail passwords, bot tokens) are sealed with AES-256-GCM
+// Secrets at rest. Webhook signing secrets, dataset connection strings,
+// alert settings (mail passwords, bot tokens) and two-step verification
+// keys are sealed with AES-256-GCM
 // as they are written and opened as they are read, here in the mapping
 // between rows and the store's types, so the columns stay text and the
 // rest of the server sees plaintext. Each value is bound to its table,
@@ -51,6 +53,10 @@ func secretSetting(key string) bool { return strings.HasPrefix(key, "alerts.") }
 func webhookContext(id string) string  { return "webhooks.secret:" + id }
 func datasetContext(id string) string  { return "datasets.dsn:" + id }
 func settingContext(key string) string { return "settings.value:" + key }
+
+// totpContext binds a user's authenticator key. The confirmed and the
+// pending column share it, so enabling can move the sealed value as is.
+func totpContext(userID string) string { return "users.totp:" + userID }
 
 // secretRow is one stored value of a sealed column and its row's key.
 type secretRow struct{ key, value string }
@@ -104,6 +110,32 @@ var sealedColumns = []sealedColumn{{
 		var m setting.Mut
 		m.SetValue(sealed)
 		n, err := setting.New().Where(setting.Key.Eq(key), setting.Value.Eq(plain)).UpdateAll(ctx, ex, m)
+		return n > 0, err
+	},
+}, {
+	name:    "users.totp_secret",
+	context: totpContext,
+	rows: func(ctx context.Context, ex storm.Executor) ([]secretRow, error) {
+		rs, err := user.New().Where(user.TotpSecret.NotEq("")).All(ctx, ex, nil)
+		return collect(rs, func(r user.Row) secretRow { return secretRow{r.ID, r.TotpSecret} }), err
+	},
+	replace: func(ctx context.Context, ex storm.Executor, key, plain, sealed string) (bool, error) {
+		var m user.Mut
+		m.SetTotpSecret(sealed)
+		n, err := user.New().Where(user.ID.Eq(key), user.TotpSecret.Eq(plain)).UpdateAll(ctx, ex, m)
+		return n > 0, err
+	},
+}, {
+	name:    "users.totp_pending",
+	context: totpContext,
+	rows: func(ctx context.Context, ex storm.Executor) ([]secretRow, error) {
+		rs, err := user.New().Where(user.TotpPending.NotEq("")).All(ctx, ex, nil)
+		return collect(rs, func(r user.Row) secretRow { return secretRow{r.ID, r.TotpPending} }), err
+	},
+	replace: func(ctx context.Context, ex storm.Executor, key, plain, sealed string) (bool, error) {
+		var m user.Mut
+		m.SetTotpPending(sealed)
+		n, err := user.New().Where(user.ID.Eq(key), user.TotpPending.Eq(plain)).UpdateAll(ctx, ex, m)
 		return n > 0, err
 	},
 }}
