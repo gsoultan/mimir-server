@@ -1,0 +1,61 @@
+# A mimir-server worker: runs and teaches models for a console on another
+# machine. See docs/deploy.md.
+#
+#   install -m 0644 mimir-worker.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now mimir-worker
+#
+# Put the console's address and the token from Settings → Workers in
+# /etc/mimir/worker.env, readable only by root:
+#
+#   MIMIR_CONSOLE=https://mimir.example.com
+#   MIMIR_WORKER_TOKEN=mimirw_...
+
+[Unit]
+Description=mimir-server worker
+Documentation=https://github.com/gsoultan/mimir-server/blob/main/docs/deploy.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+User=mimir
+Group=mimir
+EnvironmentFile=/etc/mimir/worker.env
+ExecStart=/usr/local/bin/mimir-server -role worker -server ${MIMIR_CONSOLE} -data /var/lib/mimir-worker
+
+# The worker's key (which the console knows it by) and its model cache.
+StateDirectory=mimir-worker
+StateDirectoryMode=0700
+UMask=0077
+
+# A worker that loses its console keeps trying; one that stops lets the
+# console put its runs back in the queue.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=always
+RestartSec=5s
+LimitNOFILE=65536
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
+# Remove on a GPU machine: CUDA and ROCm need their device files.
+PrivateDevices=yes
+
+[Install]
+WantedBy=multi-user.target
