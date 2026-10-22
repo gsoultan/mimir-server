@@ -231,3 +231,39 @@ func TestErrorsInWords(t *testing.T) {
 		t.Errorf("unreachable: %v", err)
 	}
 }
+
+// Whoever connects a bucket picks its address, so a storage that answers
+// with a redirect can't lead the server elsewhere, such as to the cloud's
+// metadata service, and have what it finds read back as a table.
+func TestRefusesRedirectsAndMetadata(t *testing.T) {
+	secret := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("AccessKeyId,SecretAccessKey\nAKIA,shh\n"))
+	}))
+	defer secret.Close()
+	f := &fake{bucket: "b", page: 10, files: map[string]string{"creds.csv": "x"}}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/creds.csv") {
+			http.Redirect(w, r, secret.URL+"/latest/meta-data/iam/security-credentials/role", http.StatusFound)
+			return
+		}
+		f.ServeHTTP(w, r)
+	}))
+	defer srv.Close()
+	cl, err := New(Conn{Provider: "other", Endpoint: srv.URL, Bucket: "b", AccessKeyID: "key", SecretAccessKey: "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := cl.Table(context.Background(), "creds.csv", 1<<20); !errors.Is(err, ErrBad) || strings.Contains(string(got), "shh") {
+		t.Errorf("redirect followed: %q, %v", got, err)
+	}
+
+	cl, err = New(Conn{Provider: "other", Endpoint: "http://169.254.169.254", Bucket: "latest", AccessKeyID: "key", SecretAccessKey: "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := cl.Find(ctx, "meta-data/"); !errors.Is(err, ErrBad) || !strings.Contains(err.Error(), "inside the network") {
+		t.Errorf("metadata address: %v", err)
+	}
+}

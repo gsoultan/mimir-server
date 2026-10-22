@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -393,5 +394,28 @@ func TestLibpqURL(t *testing.T) {
 	}
 	if got := Redact("postgres://mimir:s3cret@db:5432/mimir?sslmode=require"); got != "postgres://mimir:xxxxx@db:5432/mimir" {
 		t.Fatalf("Redact = %q", got)
+	}
+}
+
+func TestRefuseOwnDatabase(t *testing.T) {
+	s := open(t)
+	ours := s.pool.Config().ConnConfig
+	port := strconv.Itoa(int(ours.Port))
+	for _, tc := range []struct {
+		network, address, database string
+		refused                    bool
+	}{
+		{"tcp4", "127.0.0.1:" + port, ours.Database, true},
+		{"tcp4", "127.0.0.2:" + port, ours.Database, true},
+		{"tcp6", "[::1]:" + port, ours.Database, true},
+		{"unix", "/var/run/postgresql/.s.PGSQL." + port, ours.Database, true},
+		{"tcp4", "127.0.0.1:" + port, "shop", false},          // another database on the same server
+		{"tcp4", "127.0.0.1:1", ours.Database, false},         // another server on this machine
+		{"tcp4", "203.0.113.9:" + port, ours.Database, false}, // another machine
+	} {
+		err := s.RefuseOwnDatabase(tc.network, tc.address, tc.database)
+		if refused := errors.Is(err, ErrOwnDatabase); refused != tc.refused {
+			t.Errorf("%s %s %s: refused = %v", tc.network, tc.address, tc.database, refused)
+		}
 	}
 }

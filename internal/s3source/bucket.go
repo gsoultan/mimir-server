@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -24,6 +25,8 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
+	"github.com/gsoultan/mimir-server/internal/netguard"
 )
 
 // ErrBad reports a connection or path the caller can fix.
@@ -151,7 +154,30 @@ func New(c Conn) (*Client, error) {
 	// AWS serves new buckets only by name in the host; a name with dots
 	// would break its certificate, so those stay in the path.
 	virtual := (host == "s3.amazonaws.com" || strings.HasSuffix(host, ".amazonaws.com") && strings.HasPrefix(host, "s3.")) && !strings.Contains(c.Bucket, ".")
-	return &Client{conn: c, base: u, virtual: virtual, http: &http.Client{Timeout: Timeout}, now: time.Now}, nil
+	return &Client{conn: c, base: u, virtual: virtual, http: newHTTP(), now: time.Now}, nil
+}
+
+// newHTTP returns the client storage is read with. Whoever connects a
+// bucket chooses its address, so the client never reaches cloud metadata,
+// which would hand out this machine's credentials as a "file", and never
+// follows a redirect, which could lead anywhere. Storage on this machine
+// or a private network, such as MinIO, is fine.
+func newHTTP() *http.Client {
+	dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: netguard.Control(netguard.Metadata)}
+	return &http.Client{
+		Timeout: Timeout,
+		Transport: &http.Transport{
+			Proxy:                 nil, // a proxy would dial for us, past the check
+			DialContext:           dialer.DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          parallel,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: time.Second,
+		},
+		// S3 answers a wrong region with an error, not a redirect to follow.
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
 }
 
 // Conn is the resolved connection.

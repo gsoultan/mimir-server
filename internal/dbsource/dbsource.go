@@ -9,13 +9,16 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql" // mysql
-	_ "github.com/jackc/pgx/v5/stdlib" // pgx
-	_ "modernc.org/sqlite"             // sqlite
+	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
+	_ "modernc.org/sqlite" // sqlite
 )
 
 // ErrBadQuery reports a query or connection the caller can fix.
@@ -46,10 +49,17 @@ func (r Result) CSV() []byte {
 	return buf.Bytes()
 }
 
+// Guard is asked about every address a PostgreSQL connection dials, after
+// names are resolved and for each fallback host, with the database it
+// opens; an error refuses the connection.
+type Guard func(network, address, database string) error
+
 // Fetch runs query read-only and returns up to limit rows. Nothing is
 // written to the database: the query runs in a read-only transaction
 // where the driver supports one, and sqlite files are opened read-only.
-func Fetch(ctx context.Context, driver, dsn, query string, limit int) (Result, error) {
+// A PostgreSQL connection goes only where guard, when set, allows. A
+// MySQL server never gets to read files from this machine.
+func Fetch(ctx context.Context, driver, dsn, query string, limit int, guard Guard) (Result, error) {
 	name, ok := Drivers[driver]
 	if !ok {
 		return Result{}, fmt.Errorf("%w: choose postgres, mysql or sqlite", ErrBadQuery)
@@ -76,7 +86,7 @@ func Fetch(ctx context.Context, driver, dsn, query string, limit int) (Result, e
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
 
-	db, err := sql.Open(name, dsn)
+	db, err := open(name, dsn, guard)
 	if err != nil {
 		return Result{}, fmt.Errorf("%w: %v", ErrBadQuery, err)
 	}
@@ -125,6 +135,40 @@ func Fetch(ctx context.Context, driver, dsn, query string, limit int) (Result, e
 		return Result{}, fmt.Errorf("%w: %v", ErrBadQuery, err)
 	}
 	return res, nil
+}
+
+// open opens a database for one fetch.
+func open(name, dsn string, guard Guard) (*sql.DB, error) {
+	switch name {
+	case "pgx":
+		cfg, err := pgx.ParseConfig(dsn)
+		if err != nil {
+			return nil, err
+		}
+		d := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 5 * time.Minute}
+		if guard != nil {
+			database := cfg.Database
+			d.Control = func(network, address string, _ syscall.RawConn) error {
+				return guard(network, address, database)
+			}
+		}
+		cfg.DialFunc = d.DialContext
+		return stdlib.OpenDB(*cfg), nil
+	case "mysql":
+		cfg, err := mysql.ParseDSN(dsn)
+		if err != nil {
+			return nil, err
+		}
+		// LOAD DATA LOCAL INFILE lets the server ask for any file the
+		// client can read; whoever chose this server may run it.
+		cfg.AllowAllFiles = false
+		c, err := mysql.NewConnector(cfg)
+		if err != nil {
+			return nil, err
+		}
+		return sql.OpenDB(c), nil
+	}
+	return sql.Open(name, dsn)
 }
 
 // text renders a database value the way a CSV cell would hold it.
