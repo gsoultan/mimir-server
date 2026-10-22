@@ -254,8 +254,10 @@ func run() error {
 	log.Info("shutting down")
 	shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	// A connected worker's link never ends on its own, so Shutdown runs out
-	// of time whenever one is connected; close what is left and carry on.
+	// A connected worker's link never ends on its own; end them all as
+	// Shutdown starts, so it only waits for ordinary requests. Anything
+	// still open when it runs out of time is closed.
+	srv.RegisterOnShutdown(svc.Pool.Close)
 	if err := srv.Shutdown(shutdown); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Warn("shutdown: closing connections still open", "error", err)
 		srv.Close()
