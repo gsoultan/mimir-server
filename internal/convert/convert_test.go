@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"io"
 	"math"
 	"os"
 	"strings"
@@ -203,5 +204,30 @@ func TestDamagedMim(t *testing.T) {
 	_, _, err = convert.ToMim(damaged)
 	if !errors.Is(err, convert.ErrUnsupported) || !strings.Contains(err.Error(), "damaged") {
 		t.Fatalf("damaged file: %v, want ErrUnsupported saying it is damaged", err)
+	}
+}
+
+// TestFile converts from a file on disk, as uploads do, and gets the same
+// bytes as from memory.
+func TestFile(t *testing.T) {
+	for _, name := range []string{"tiny-cnn.onnx", "tiny-llama.gguf"} {
+		want, _, err := convert.ToMim(read(t, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got bytes.Buffer
+		f, err := convert.File("testdata/"+name, &got)
+		if err != nil || f == convert.Mim || !bytes.Equal(got.Bytes(), want) {
+			t.Fatalf("%s: %v, %s, %d bytes, want %d", name, err, f, got.Len(), len(want))
+		}
+		path := t.TempDir() + "/model.mim"
+		os.WriteFile(path, want, 0o600)
+		var none bytes.Buffer
+		if f, err := convert.File(path, &none); err != nil || f != convert.Mim || none.Len() != 0 {
+			t.Fatalf("a .mim file is only checked: %v, %s, %d bytes written", err, f, none.Len())
+		}
+	}
+	if _, err := convert.File(t.TempDir()+"/missing", io.Discard); err == nil || errors.Is(err, convert.ErrUnsupported) {
+		t.Fatalf("a missing file: %v", err)
 	}
 }

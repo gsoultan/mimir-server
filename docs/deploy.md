@@ -106,7 +106,8 @@ with a certificate from certbot or elsewhere. Either way the proxy must:
 - **Not buffer responses.** Chat answers, `GenerateStream` and the
   OpenAI-compatible API's `"stream": true` arrive word by word.
 - **Take uploads** at least as large as `-max-model-mb` (256 MB by
-  default).
+  default), at `/api/uploads` as well as the RPCs, and pass them on as
+  they arrive rather than buffering them first. Both configs do.
 - **Keep `/metrics` private**, or set `MIMIR_METRICS_TOKEN`.
 
 Both configs were tried with a worker linking through the proxy; the
@@ -297,8 +298,8 @@ rerun it with `cmd/mimir-load`.
 | Database connections needed | at most 11 on the main database and 2 on the log database; the default pool of 16 is enough |
 
 Memory: 40 MB idle, under 250 MB serving small models, about 3 GB with a
-1B language model loaded, and about 7 times a GGUF's size while it is
-uploaded and converted. Language models are the first limit: run them on
+1B language model loaded, and about 65 MB more while a model of any size
+is uploaded and converted. Language models are the first limit: run them on
 workers. `-training-jobs` and `-model-cache-mb` bound the rest.
 
 ## 10. Keeping an eye on it

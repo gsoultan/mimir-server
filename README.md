@@ -150,8 +150,26 @@ with a message that names what isn't supported.
 
 Uploads are limited to 256 MB by default, which fits ONNX models and small
 language models. Start the console with `-max-model-mb 2048`, say, to take
-bigger GGUF files; converting one needs about three times its size in
-memory for a moment.
+bigger GGUF files. The console sends a file straight from disk and the
+server writes it to disk as it arrives, then converts it from there, so
+adding a model of any size takes about 65 MB of memory besides the file
+pages the system caches; a 1.1 GB GGUF takes about 12 seconds.
+
+From an app or a script, send a large file the same way: post it as the
+body of `/api/uploads`, then name the `upload` it answers with in
+`CreateModel` instead of sending `weights`. `weights` reads the whole file
+into memory first, about five times its size for a large one.
+
+```sh
+id=$(curl -sS --data-binary @model.gguf -H 'Authorization: Bearer mimir_...' \
+  localhost:8080/api/uploads | jq -r .upload)
+curl localhost:8080/mimir.v1.ModelService/CreateModel \
+  -H 'Authorization: Bearer mimir_...' -H 'Content-Type: application/json' \
+  -d "{\"name\": \"My model\", \"architecture\": \"language-model\", \"upload\": \"$id\"}"
+```
+
+An upload needs a key or person that may add models, can be used once, by
+whoever sent it, and is removed if it isn't used within an hour.
 
 ### On a server
 

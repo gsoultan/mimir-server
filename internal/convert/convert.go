@@ -14,10 +14,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	mim "github.com/gsoultan/mimir-model"
 	"github.com/gsoultan/mimir-model/importer"
+
+	"github.com/gsoultan/mimir-server/internal/mapfile"
 )
 
 // Format is the kind of file an upload is.
@@ -69,6 +72,34 @@ func Detect(b []byte) Format {
 // whose operators, architecture or weights can't be carried over
 // faithfully.
 func ToMim(b []byte) ([]byte, Format, error) {
+	var out bytes.Buffer
+	f, err := write(b, &out)
+	if err != nil {
+		return nil, f, err
+	}
+	if f == Mim {
+		return b, f, nil
+	}
+	return out.Bytes(), f, nil
+}
+
+// File converts the model file at path as ToMim does, without reading it
+// into memory: it maps the file and writes the Mimir Model file to out,
+// tensor by tensor, so a model of any size takes about the same memory.
+// A file that already is a Mimir Model file is only checked, nothing is
+// written, and the file at path is the model.
+func File(path string, out io.Writer) (Format, error) {
+	m, err := mapfile.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("convert: %w", err)
+	}
+	defer m.Close()
+	return write(m.Bytes(), out)
+}
+
+// write checks b, a Mimir Model file, or converts it and writes the result
+// to out.
+func write(b []byte, out io.Writer) (Format, error) {
 	f := Detect(b)
 	var src *importer.Source
 	var err error
@@ -78,32 +109,31 @@ func ToMim(b []byte) ([]byte, Format, error) {
 		// section hashes, when it has them, tell.
 		if mf, err := mim.Parse(b); err == nil {
 			if err := mf.VerifyHashes(); err != nil {
-				return nil, f, unsupported("the file is damaged: its %s; upload it again", strings.TrimPrefix(err.Error(), "mim: hash-mismatch: ")+" doesn't match the checksum written with it")
+				return f, unsupported("the file is damaged: its %s; upload it again", strings.TrimPrefix(err.Error(), "mim: hash-mismatch: ")+" doesn't match the checksum written with it")
 			}
 		}
-		return b, f, nil
+		return f, nil
 	case ONNX:
 		if src, err = importer.ParseONNX(b); err != nil {
-			return nil, f, unsupported("%s", trim(err))
+			return f, unsupported("%s", trim(err))
 		}
 	case GGUF:
 		if src, err = gguf(b); err != nil {
-			return nil, f, err
+			return f, err
 		}
 	case Safetensors:
-		return nil, f, unsupported("a safetensors file holds weights but not the model that uses them; convert it with mim-import, or export the model to ONNX")
+		return f, unsupported("a safetensors file holds weights but not the model that uses them; convert it with mim-import, or export the model to ONNX")
 	default:
-		return nil, f, unsupported("this isn't a .mim, ONNX or GGUF model file")
+		return f, unsupported("this isn't a .mim, ONNX or GGUF model file")
 	}
 	w := mim.NewWriter()
 	if err := src.AddTo(w); err != nil {
-		return nil, f, unsupported("%s", trim(err))
+		return f, unsupported("%s", trim(err))
 	}
-	var out bytes.Buffer
-	if _, err := w.WriteTo(&out); err != nil {
-		return nil, f, fmt.Errorf("convert: write %s as .mim: %w", f, err)
+	if _, err := w.WriteTo(out); err != nil {
+		return f, fmt.Errorf("convert: write %s as .mim: %w", f, err)
 	}
-	return out.Bytes(), f, nil
+	return f, nil
 }
 
 // gguf parses a GGUF file and builds the forward pass of its language

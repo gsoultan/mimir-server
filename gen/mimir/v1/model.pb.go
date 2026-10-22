@@ -1253,8 +1253,14 @@ type CreateModelRequest struct {
 	Weights []byte `protobuf:"bytes,4,opt,name=weights,proto3" json:"weights,omitempty"`
 	// labels and input_shape say what a custom architecture's model
 	// answers and reads; other architectures take them from the file.
-	Labels        []string `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
-	InputShape    []int64  `protobuf:"varint,6,rep,packed,name=input_shape,json=inputShape,proto3" json:"input_shape,omitempty"`
+	Labels     []string `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
+	InputShape []int64  `protobuf:"varint,6,rep,packed,name=input_shape,json=inputShape,proto3" json:"input_shape,omitempty"`
+	// upload names a file sent beforehand to POST /api/uploads, in place of
+	// weights. A large model goes that way: the server writes it straight
+	// to disk as it arrives, where weights is read into memory whole and
+	// can be at most a few hundred megabytes. An upload can be used once,
+	// by whoever sent it, within an hour.
+	Upload        string `protobuf:"bytes,7,opt,name=upload,proto3" json:"upload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1329,6 +1335,13 @@ func (x *CreateModelRequest) GetInputShape() []int64 {
 		return x.InputShape
 	}
 	return nil
+}
+
+func (x *CreateModelRequest) GetUpload() string {
+	if x != nil {
+		return x.Upload
+	}
+	return ""
 }
 
 type CreateModelResponse struct {
@@ -2517,7 +2530,7 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\x0fGetModelRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"9\n" +
 	"\x10GetModelResponse\x12%\n" +
-	"\x05model\x18\x01 \x01(\v2\x0f.mimir.v1.ModelR\x05model\"\xc1\x01\n" +
+	"\x05model\x18\x01 \x01(\v2\x0f.mimir.v1.ModelR\x05model\"\xd9\x01\n" +
 	"\x12CreateModelRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\"\n" +
@@ -2525,7 +2538,8 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\aweights\x18\x04 \x01(\fR\aweights\x12\x16\n" +
 	"\x06labels\x18\x05 \x03(\tR\x06labels\x12\x1f\n" +
 	"\vinput_shape\x18\x06 \x03(\x03R\n" +
-	"inputShape\"<\n" +
+	"inputShape\x12\x16\n" +
+	"\x06upload\x18\a \x01(\tR\x06upload\"<\n" +
 	"\x13CreateModelResponse\x12%\n" +
 	"\x05model\x18\x01 \x01(\v2\x0f.mimir.v1.ModelR\x05model\"\xc2\x01\n" +
 	"\x12UpdateModelRequest\x12\x0e\n" +
