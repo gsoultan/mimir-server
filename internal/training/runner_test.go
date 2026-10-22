@@ -176,3 +176,17 @@ func TestRunnerIdlesOnAnEmptyQueue(t *testing.T) {
 		t.Errorf("an idle runner looked at the queue %d times in a second", n)
 	}
 }
+
+func TestSettingsForLargeTables(t *testing.T) {
+	for _, c := range []struct {
+		rows  int64
+		batch int
+	}{{100, 32}, {63_999, 32}, {64_000, 64}, {300_000, 256}, {1_000_000, MaxTableBatch}} {
+		if got := SettingsFor(store.Dataset{Kind: store.DatasetTable, Rows: c.rows}).BatchSize; got != c.batch {
+			t.Errorf("%d rows: batch %d, want %d", c.rows, got, c.batch)
+		}
+	}
+	if got := SettingsFor(store.Dataset{Kind: store.DatasetPhotos, Rows: 1_000_000}).BatchSize; got != PhotoDefaults.BatchSize {
+		t.Errorf("photos: batch %d, want %d", got, PhotoDefaults.BatchSize)
+	}
+}
