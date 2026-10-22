@@ -218,3 +218,26 @@ func TestReserveRespectsCapacity(t *testing.T) {
 		}
 	}
 }
+
+// Close ends a connected worker's link at once, so a server shutting down
+// doesn't wait out its timeout, and refuses links that come after.
+func TestCloseEndsLinks(t *testing.T) {
+	p := testPool()
+	_, got := silentWorker(t, p)
+	if !p.Online("w1") {
+		t.Fatal("worker not online after joining")
+	}
+	p.Close()
+	select {
+	case _, open := <-got:
+		if open {
+			t.Fatal("worker got a message instead of the link ending")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("link still open after Close")
+	}
+	if p.Online("w1") {
+		t.Fatal("worker still online after Close")
+	}
+	p.Close() // a second Close is harmless
+}

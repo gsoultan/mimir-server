@@ -62,10 +62,12 @@ type Pool struct {
 	// Zero means DefaultIdleTimeout. Set it before the first Serve.
 	IdleTimeout time.Duration
 
-	log   *slog.Logger
-	mu    sync.Mutex
-	links map[string]*link
-	seq   int64
+	log      *slog.Logger
+	mu       sync.Mutex
+	links    map[string]*link
+	seq      int64
+	stop     chan struct{} // closed by Close
+	stopOnce sync.Once
 }
 
 // Join is who is on the other end of a new link.
@@ -90,7 +92,15 @@ type Task struct {
 
 // New returns an empty pool.
 func New(log *slog.Logger) *Pool {
-	return &Pool{log: log, links: map[string]*link{}}
+	return &Pool{log: log, links: map[string]*link{}, stop: make(chan struct{})}
+}
+
+// Close ends every link and refuses new ones, for a server shutting down.
+// A link otherwise never ends on its own, so http.Server.Shutdown would
+// wait out its whole timeout whenever a worker is connected. Workers
+// reconnect once the server is back.
+func (p *Pool) Close() {
+	p.stopOnce.Do(func() { close(p.stop) })
 }
 
 // Status is what the pool knows about one connected worker.
@@ -143,6 +153,11 @@ func (l *link) drop() {
 // returns the error to close the stream with.
 func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse], j Join) error {
 	w, addr := j.Worker, j.Addr
+	select {
+	case <-p.stop:
+		return connect.NewError(connect.CodeUnavailable, errors.New("The server is shutting down."))
+	default:
+	}
 	msg, err := receive(ctx, stream)
 	if err != nil {
 		return err
@@ -224,6 +239,9 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 			return connect.NewError(connect.CodeDeadlineExceeded, errors.New("The worker stopped sending heartbeats."))
 		case <-l.dropped:
 			return connect.NewError(connect.CodeUnauthenticated, errors.New("This worker was deleted."))
+		case <-p.stop:
+			log.InfoContext(ctx, "worker: ending the link for shutdown")
+			return nil
 		case <-ctx.Done():
 			return nil
 		}
