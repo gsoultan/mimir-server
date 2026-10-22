@@ -1,7 +1,9 @@
 package training
 
 import (
+	"bytes"
 	"cmp"
+	"context"
 	"fmt"
 	"io"
 	"maps"
@@ -9,7 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gsoultan/mimir/io/mim"
+
+	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/schema"
+	"github.com/gsoultan/mimir-server/internal/store"
 )
 
 func TestParseTable(t *testing.T) {
@@ -79,5 +85,45 @@ func TestParseTableStreams(t *testing.T) {
 	}
 	if want := 2000 * len(tb.Features); len(tb.X) != want {
 		t.Fatalf("%d numbers, want %d", len(tb.X), want)
+	}
+}
+
+func TestFitDefaultLayers(t *testing.T) {
+	var csv strings.Builder
+	csv.WriteString("a,b,label\n")
+	for i := range 40 {
+		fmt.Fprintf(&csv, "%d,%d,%s\n", i, 40-i, []string{"x", "y"}[i%2])
+	}
+	a, _ := arch.Lookup("table-mlp")
+	src := Source{Kind: store.DatasetTable, CSV: []byte(csv.String())}
+	s := store.Settings{Epochs: 1, BatchSize: 8, LearningRate: 1e-3, HoldOut: 0.2}
+	res, err := Fit(context.Background(), Task{Arch: a, Source: src, Settings: s}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := arch.FormatLayers(res.Spec.Layers); got != arch.FormatLayers(arch.DefaultLayers) {
+		t.Errorf("an undesigned model has layers %q, want the default", got)
+	}
+	if got := defaultLayers(res.Weights); arch.FormatLayers(got) != arch.FormatLayers(arch.DefaultLayers) {
+		t.Errorf("continuing it gives layers %q", arch.FormatLayers(got))
+	}
+
+	// A model from before the default carries no layers and keeps its
+	// older shape when it continues learning.
+	spec := res.Spec
+	spec.Layers = nil
+	var old bytes.Buffer
+	if err := mim.Save(context.Background(), &old, a.New(spec), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := defaultLayers(old.Bytes()); got != nil {
+		t.Errorf("an older model continues with layers %q", arch.FormatLayers(got))
+	}
+	res, err = Fit(context.Background(), Task{Arch: a, Source: src, Settings: s, BaseWeights: old.Bytes(), BaseLabels: spec.Labels, BaseFeatures: res.Features}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Fresh || len(res.Spec.Layers) != 0 {
+		t.Errorf("an older model started fresh (%v) with layers %q", res.Fresh, arch.FormatLayers(res.Spec.Layers))
 	}
 }
