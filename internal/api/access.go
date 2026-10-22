@@ -254,7 +254,7 @@ func (s *Service) ChangePassword(ctx context.Context, req *connect.Request[mimir
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	if err := s.store.SetPassword(ctx, p.User.ID, hash); err != nil {
+	if err := s.store.SetPassword(ctx, p.User.ID, hash, false); err != nil {
 		return nil, s.internal(ctx, err)
 	}
 	// SetPassword ended every session, including this one; start a fresh one.
@@ -397,10 +397,18 @@ func (s *Service) UpdateUser(ctx context.Context, req *connect.Request[mimirv1.U
 		if err != nil {
 			return nil, s.internal(ctx, err)
 		}
-		if err := s.store.SetPassword(ctx, u.ID, hash); err != nil {
+		// Someone else resetting the password suggests the account was in
+		// the wrong hands, so its API keys go too. A routine change of
+		// one's own password keeps them.
+		other := u.ID != p.User.ID
+		if err := s.store.SetPassword(ctx, u.ID, hash, other); err != nil {
 			return nil, s.internal(ctx, err)
 		}
-		s.audit(ctx, p.Actor(), "user.password_reset", u.Email, "")
+		detail := ""
+		if other {
+			detail = "API keys revoked"
+		}
+		s.audit(ctx, p.Actor(), "user.password_reset", u.Email, detail)
 	}
 	s.audit(ctx, p.Actor(), "user.update", u.Email, describeAccess(u.Access)+boolNote(" disabled", u.Disabled))
 	return connect.NewResponse(&mimirv1.UpdateUserResponse{User: s.userProto(ctx, u)}), nil

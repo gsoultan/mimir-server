@@ -240,6 +240,10 @@ message VerifySecondFactorResponse {
 message StartTwoFactorRequest {
   // Password proves the person at the keyboard, not just the cookie.
   string password = 1;
+  // Code is a current code from the authenticator app, or a recovery code.
+  // It is needed only when two-step verification is already on, so a
+  // stolen cookie and password can't swap in another authenticator.
+  string code = 2;
 }
 
 message StartTwoFactorResponse {
@@ -259,6 +263,9 @@ message EnableTwoFactorResponse {
 
 message DisableTwoFactorRequest {
   string password = 1;
+  // Code is a current code from the authenticator app, or a recovery code,
+  // so a stolen cookie and password alone can't turn the second step off.
+  string code = 2;
 }
 
 message DisableTwoFactorResponse {}
@@ -316,7 +323,7 @@ message UpdateUserRequest {
   Access access = 3;
   bool disabled = 4;
   // NewPassword, when set, replaces the user's password and signs them out
-  // everywhere.
+  // everywhere. Set on someone else, it also revokes their API keys.
   string new_password = 5;
   // ResetTwoFactor turns off the user's authenticator so they can sign in
   // with their password alone, for when they lost their phone.
