@@ -106,9 +106,18 @@ func (s *Service) VerifySecondFactor(ctx context.Context, req *connect.Request[m
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("Sign in with your password first."))
 	}
 	u := p.User
+	// Whoever is here knows the password, so the account's own budget
+	// counts as well as the address's, and each failure past a few makes
+	// the next guess wait longer: a fixed budget alone would still allow
+	// about a thousand guesses a day, from any number of addresses.
 	keys := []string{"2fa:" + u.ID, "ip:" + s.Proxies.ClientIP(req.Header(), req.Peer().Addr)}
-	if wait := s.Limiter.Wait(keys...); wait > 0 {
+	streak := "2fa:" + u.ID
+	if wait := max(s.Limiter.Wait(keys...), s.Backoff.Wait(streak)); wait > 0 {
 		return nil, tooMany(wait)
+	}
+	fail := func() {
+		s.Limiter.Fail(keys...)
+		s.Backoff.Fail(streak)
 	}
 	res := &mimirv1.VerifySecondFactorResponse{}
 	code := req.Msg.GetCode()
@@ -119,7 +128,7 @@ func (s *Service) VerifySecondFactor(ctx context.Context, req *connect.Request[m
 			return nil, s.internal(ctx, err)
 		}
 		if !used {
-			s.Limiter.Fail(keys...)
+			fail()
 			s.auditIn(ctx, u.TeamID, u.Email, "user.code_failed", u.Email, "recovery code")
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("That recovery code isn't right, or was already used."))
 		}
@@ -136,12 +145,13 @@ func (s *Service) VerifySecondFactor(ctx context.Context, req *connect.Request[m
 			}
 		}
 		if !ok {
-			s.Limiter.Fail(keys...)
+			fail()
 			s.auditIn(ctx, u.TeamID, u.Email, "user.code_failed", u.Email, "")
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("That code isn't right. Check the time on your phone and try again."))
 		}
 	}
 	s.Limiter.Clear(keys...)
+	s.Backoff.Clear(streak)
 	// The pending session is spent; the real one gets a brand-new token.
 	s.store.DeleteSession(ctx, auth.HashToken(auth.SessionToken(req.Header())))
 	out := connect.NewResponse(res)

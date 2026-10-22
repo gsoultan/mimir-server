@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/gsoultan/mimir-server/internal/netguard"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -124,8 +125,7 @@ func CheckURL(raw string, allowPrivate bool) error {
 }
 
 func isPrivate(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
-		ip.IsUnspecified() || ip.IsMulticast() || ip.Equal(net.IPv4bcast)
+	return netguard.Internal(netguard.FromIP(ip))
 }
 
 // DefaultWorkers is how many webhooks are sent to at once when Workers is

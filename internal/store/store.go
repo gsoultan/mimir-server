@@ -12,6 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -614,4 +616,87 @@ func sameHost(a, b string) bool {
 		return h == "localhost" || h == "127.0.0.1" || h == "::1" || strings.HasPrefix(h, "/")
 	}
 	return strings.EqualFold(a, b) || (local(a) && local(b))
+}
+
+// ErrOwnDatabase refuses a connection to the server's own database.
+var ErrOwnDatabase = errors.New("that is this server's own database; point at another database")
+
+// RefuseOwnDatabase is a dbsource.Guard: it refuses a connection that
+// would open the database this server keeps its own records in. It judges
+// the address actually dialled, so a fallback host, a resolved name or
+// another spelling of this machine (127.0.0.2, a socket, the machine's own
+// address) reaches the same answer as the name in our own URL. Another
+// database on the same server is fine.
+func (s *Store) RefuseOwnDatabase(network, address, database string) error {
+	ours := s.pool.Config().ConnConfig
+	if database != ours.Database {
+		return nil
+	}
+	ends := []*pgconn.FallbackConfig{{Host: ours.Host, Port: ours.Port}}
+	ends = append(ends, ours.Fallbacks...)
+	ip, port, socket := dialled(network, address)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for _, end := range ends {
+		if end.Port != port {
+			continue
+		}
+		local := strings.HasPrefix(end.Host, "/")
+		var addrs []netip.Addr
+		if !local {
+			if a, err := netip.ParseAddr(end.Host); err == nil {
+				addrs = []netip.Addr{a}
+			} else {
+				addrs, _ = net.DefaultResolver.LookupNetIP(ctx, "ip", end.Host)
+			}
+			for _, a := range addrs {
+				a = a.Unmap()
+				if a == ip {
+					return ErrOwnDatabase
+				}
+				local = local || onThisMachine(a)
+			}
+		}
+		// Our database is on this machine: so is anything reached through
+		// a socket or at one of this machine's own addresses.
+		if local && (socket || (ip.IsValid() && onThisMachine(ip))) {
+			return ErrOwnDatabase
+		}
+	}
+	return nil
+}
+
+// dialled reads the address a PostgreSQL connection dials: an IP and port,
+// or a socket file, whose name ends in the port.
+func dialled(network, address string) (ip netip.Addr, port uint16, socket bool) {
+	if strings.HasPrefix(network, "unix") {
+		_, p, _ := strings.Cut(filepath.Base(address), ".s.PGSQL.")
+		n, _ := strconv.ParseUint(p, 10, 16)
+		return netip.Addr{}, uint16(n), true
+	}
+	ap, err := netip.ParseAddrPort(address)
+	if err != nil {
+		return netip.Addr{}, 0, false
+	}
+	return ap.Addr().Unmap().WithZone(""), ap.Port(), false
+}
+
+// onThisMachine reports whether ip reaches this machine: loopback, the
+// unspecified address, or one of its interfaces' addresses.
+func onThisMachine(ip netip.Addr) bool {
+	if ip.IsLoopback() || ip.IsUnspecified() {
+		return true
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, a := range addrs {
+		if n, ok := a.(*net.IPNet); ok {
+			if b, ok := netip.AddrFromSlice(n.IP); ok && b.Unmap() == ip {
+				return true
+			}
+		}
+	}
+	return false
 }

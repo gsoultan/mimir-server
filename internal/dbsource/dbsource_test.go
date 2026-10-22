@@ -20,7 +20,7 @@ func TestFetchSQLite(t *testing.T) {
 	db.Close()
 	ctx := context.Background()
 
-	r, err := Fetch(ctx, "sqlite", path, "SELECT weight, height, kind FROM fruit ORDER BY height", 10)
+	r, err := Fetch(ctx, "sqlite", path, "SELECT weight, height, kind FROM fruit ORDER BY height", 10, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestFetchSQLite(t *testing.T) {
 		t.Fatalf("csv = %q, want %q", got, want)
 	}
 	// Limits, errors and read-only.
-	if r, _ := Fetch(ctx, "sqlite", path, "SELECT * FROM fruit", 2); len(r.Rows) != 2 {
+	if r, _ := Fetch(ctx, "sqlite", path, "SELECT * FROM fruit", 2, nil); len(r.Rows) != 2 {
 		t.Fatalf("limit: %d rows", len(r.Rows))
 	}
 	for _, c := range []struct{ driver, query string }{
@@ -40,11 +40,11 @@ func TestFetchSQLite(t *testing.T) {
 		{"oracle", "SELECT 1, 2"},
 		{"sqlite", "  "},
 	} {
-		if _, err := Fetch(ctx, c.driver, path, c.query, 10); err == nil || !strings.Contains(err.Error(), "dbsource: bad query") {
+		if _, err := Fetch(ctx, c.driver, path, c.query, 10, nil); err == nil || !strings.Contains(err.Error(), "dbsource: bad query") {
 			t.Errorf("%s %q: %v", c.driver, c.query, err)
 		}
 	}
-	if r, err := Fetch(ctx, "sqlite", path, "SELECT * FROM fruit", 10); err != nil || len(r.Rows) != 3 {
+	if r, err := Fetch(ctx, "sqlite", path, "SELECT * FROM fruit", 10, nil); err != nil || len(r.Rows) != 3 {
 		t.Fatalf("after DELETE attempt: %v rows, %v", len(r.Rows), err)
 	}
 }
