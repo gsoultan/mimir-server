@@ -182,6 +182,17 @@ func TestUsersSessionsAndKeys(t *testing.T) {
 	if err != nil || gotKey.ID != k.ID || owner.ID != u.ID || !gotKey.Access.Allows(m.ID) {
 		t.Fatalf("KeyUser = %+v %+v %v", gotKey, owner, err)
 	}
+	// Its first use is recorded; uses within the minute after don't write.
+	used, _ := s.ListAPIKeys(ctx, u.ID)
+	if len(used) != 1 || used[0].LastUsed.IsZero() {
+		t.Fatalf("after first use: %+v", used)
+	}
+	if again, _, err := s.KeyUser(ctx, "secret-hash"); err != nil || !again.LastUsed.Equal(used[0].LastUsed) {
+		t.Fatalf("second use = %+v, %v; first recorded %v", again.LastUsed, err, used[0].LastUsed)
+	}
+	if after, _ := s.ListAPIKeys(ctx, u.ID); !after[0].LastUsed.Equal(used[0].LastUsed) {
+		t.Fatalf("last used moved from %v to %v within a minute", used[0].LastUsed, after[0].LastUsed)
+	}
 	if err := s.DeleteAPIKey(ctx, "someone-else", k.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("delete another's key: %v", err)
 	}
