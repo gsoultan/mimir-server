@@ -8,7 +8,6 @@ import (
 	"math/rand/v2"
 	"slices"
 	"strings"
-	"sync"
 	"unicode"
 	"unicode/utf8"
 
@@ -59,7 +58,7 @@ type LanguageModel struct {
 	// answer when the model writes them.
 	special map[string]int32
 	control map[int32]bool
-	mu      sync.Mutex // one generation at a time: each holds a key-value cache
+	turns   chan struct{} // a token per generation running; see maxGenerations
 }
 
 // OpenLanguageModel loads a Mimir Model file of a language model and its
@@ -91,7 +90,7 @@ func newLanguageModel(m *mim.Model) (*LanguageModel, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: its tokenizer: %v", ErrBadWeights, err)
 	}
-	lm := &LanguageModel{m: m, tok: tok, context: context, special: map[string]int32{}, control: map[int32]bool{}}
+	lm := &LanguageModel{m: m, tok: tok, context: context, special: map[string]int32{}, control: map[int32]bool{}, turns: make(chan struct{}, maxGenerations)}
 	vocab, _ := md["tokenizer.ggml.tokens"].([]string)
 	types := ints(md["tokenizer.ggml.token_type"])
 	for i, t := range types {
@@ -109,6 +108,13 @@ func newLanguageModel(m *mim.Model) (*LanguageModel, error) {
 	lm.chat = formatOf(template, vocab)
 	return lm, nil
 }
+
+// maxGenerations is how many answers one language model writes at once.
+// Each has a session of its own, with its key-value cache, so they
+// interleave: a question asked while others are answered starts at once
+// rather than after them. More would share the processors too thinly, so
+// the rest wait their turn.
+const maxGenerations = 4
 
 // Token types, as GGUF's tokenizer.ggml.token_type stores them.
 const (
@@ -240,8 +246,12 @@ func (lm *LanguageModel) Generate(ctx context.Context, prompt string, s Sampling
 	}
 	rng := rand.New(rand.NewPCG(s.Seed, 0x6d696d6972))
 
-	lm.mu.Lock()
-	defer lm.mu.Unlock()
+	select {
+	case lm.turns <- struct{}{}:
+	case <-ctx.Done():
+		return Generation{}, ctx.Err()
+	}
+	defer func() { <-lm.turns }()
 	sess := lm.m.NewSession()
 	g := Generation{PromptTokens: len(ids), Context: lm.context}
 	var text []byte

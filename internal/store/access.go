@@ -219,6 +219,10 @@ func (s *Store) getUser(ctx context.Context, q user.Query) (User, error) {
 	if err != nil {
 		return User{}, err
 	}
+	// Someone who reaches every model has no grants to read.
+	if u.Access.AllModels {
+		return u, nil
+	}
 	grants, err := s.userGrants(ctx, u.ID)
 	if err != nil {
 		return User{}, err
@@ -751,6 +755,9 @@ func (s *Store) ListAPIKeys(ctx context.Context, userID string) ([]APIKey, error
 	return out, nil
 }
 
+// lastUsedEvery is how stale an API key's last-used time may get.
+const lastUsedEvery = time.Minute
+
 // KeyUser returns the key with secretHash and its owner, and notes the use.
 func (s *Store) KeyUser(ctx context.Context, secretHash string) (APIKey, User, error) {
 	r, ok, err := apikey.New().Where(apikey.SecretHash.Eq(secretHash)).One(ctx, s.ex)
@@ -761,19 +768,25 @@ func (s *Store) KeyUser(ctx context.Context, secretHash string) (APIKey, User, e
 		return APIKey{}, User{}, ErrNotFound
 	}
 	k := fromKey(r)
-	grants, err := s.keyGrants(ctx, k.ID)
-	if err != nil {
-		return APIKey{}, User{}, err
+	if !k.Access.AllModels {
+		grants, err := s.keyGrants(ctx, k.ID)
+		if err != nil {
+			return APIKey{}, User{}, err
+		}
+		k.Access.ModelIDs = grants[k.ID]
 	}
-	k.Access.ModelIDs = grants[k.ID]
 	u, err := s.GetUser(ctx, k.UserID)
 	if err != nil {
 		return APIKey{}, User{}, err
 	}
-	// Best effort; a failed timestamp shouldn't fail the request.
-	m := apikey.MutateKey(k.ID)
-	m.SetLastUsed(now())
-	m.Update(ctx, s.ex)
+	// Best effort; a failed timestamp shouldn't fail the request. Writing
+	// it on every call would make each prediction a write, and calls on
+	// one key queue for its row's lock, so it moves once a minute at most.
+	if t := now(); t.Sub(k.LastUsed) >= lastUsedEvery {
+		m := apikey.MutateKey(k.ID)
+		m.SetLastUsed(t)
+		m.Update(ctx, s.ex)
+	}
 	return k, u, nil
 }
 
