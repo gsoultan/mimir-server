@@ -12,6 +12,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -204,4 +205,12 @@ func Generate() ([]byte, error) {
 		return nil, fmt.Errorf("secret: generate key: %w", err)
 	}
 	return k, nil
+}
+
+// KeyID names a key without giving it away: the first 8 bytes of a hash of
+// it, as hex. A backup records it, so a restore can tell the key it was
+// made with before anything is written.
+func KeyID(key []byte) string {
+	sum := sha256.Sum256(append([]byte("mimir-server key id\x00"), key...))
+	return hex.EncodeToString(sum[:8])
 }

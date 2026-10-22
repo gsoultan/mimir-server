@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly mimir-server backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=15m
+# Run at the next boot when the machine was off at 03:15.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
