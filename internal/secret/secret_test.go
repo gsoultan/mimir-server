@@ -129,3 +129,11 @@ func TestLoad(t *testing.T) {
 		t.Errorf("Load from file = %x, %+v, %v", k, src, err)
 	}
 }
+
+func TestKeyID(t *testing.T) {
+	a, _ := Generate()
+	b, _ := Generate()
+	if KeyID(a) != KeyID(a) || KeyID(a) == KeyID(b) || len(KeyID(a)) != 16 {
+		t.Errorf("KeyID(a) = %s, KeyID(b) = %s", KeyID(a), KeyID(b))
+	}
+}
