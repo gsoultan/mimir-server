@@ -359,10 +359,12 @@ func (s *Store) SetSetting(ctx context.Context, key, value string) error {
 // Trim deletes finished deliveries and audit events older than their
 // retention, and expired sessions. It returns how many rows went.
 func (s *Store) Trim(ctx context.Context, auditKeep, deliveryKeep time.Duration) (int64, error) {
-	var total int64
 	t := time.Now()
+	total, err := auditevent.New().Where(auditevent.Time.Lt(t.Add(-auditKeep))).DeleteAll(ctx, s.logEx)
+	if err != nil {
+		return 0, fmt.Errorf("store: trim: %w", err)
+	}
 	for _, del := range []func(context.Context, runtime.Executor) (int64, error){
-		auditevent.New().Where(auditevent.Time.Lt(t.Add(-auditKeep))).DeleteAll,
 		delivery.New().Where(delivery.Status.NotEq(int32(Pending)), delivery.CreateTime.Lt(t.Add(-deliveryKeep))).DeleteAll,
 		session.New().Where(session.ExpireTime.Lte(t)).DeleteAll,
 		workersample.New().Where(workersample.Time.Lt(t.Add(-WorkerSampleKeep))).DeleteAll,
@@ -382,7 +384,9 @@ const WorkerSampleKeep = 7 * 24 * time.Hour
 // Stats describes the database for the Settings screen.
 type Stats struct {
 	// Path is the database URL without its password.
-	Path          string
+	Path string
+	// LogPath is the separate log database's, "" when there is none.
+	LogPath       string
 	SizeBytes     int64
 	SchemaVersion int
 	Models, Users int
@@ -394,6 +398,9 @@ type Stats struct {
 func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	// Open brought the schema to the model, so it is at the newest version.
 	st := Stats{Path: Redact(s.url), SchemaVersion: LatestSchemaVersion()}
+	if s.logURL != "" {
+		st.LogPath = Redact(s.logURL)
+	}
 	size, err := s.ex.DatabaseSize(ctx)
 	if err != nil {
 		return st, fmt.Errorf("store: database size: %w", err)
@@ -405,7 +412,7 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	}{
 		{func() (int64, error) { return model.New().Count(ctx, s.ex) }, &st.Models},
 		{func() (int64, error) { return user.New().Count(ctx, s.ex) }, &st.Users},
-		{func() (int64, error) { return auditevent.New().Count(ctx, s.ex) }, &st.AuditEvents},
+		{func() (int64, error) { return auditevent.New().Count(ctx, s.logEx) }, &st.AuditEvents},
 		{func() (int64, error) { return delivery.New().Count(ctx, s.ex) }, &st.Deliveries},
 	} {
 		n, err := c.count()

@@ -163,23 +163,45 @@ func Load(envValue, file, dataDir string) ([]byte, Source, error) {
 // generate writes a new random key to path, failing rather than replacing
 // a file that appeared in the meantime.
 func generate(path string) ([]byte, error) {
-	k := make([]byte, KeySize)
-	if _, err := rand.Read(k); err != nil {
-		return nil, fmt.Errorf("secret: generate key: %w", err)
+	k, err := Generate()
+	if err != nil {
+		return nil, err
+	}
+	if err := Save(path, k); err != nil {
+		return nil, err
+	}
+	return k, nil
+}
+
+// Save writes key to path as base64, readable only by its owner. It fails
+// rather than replace a file that is already there: a key file holds the
+// only key to what it sealed.
+func Save(path string, key []byte) error {
+	if len(key) != KeySize {
+		return fmt.Errorf("secret: key is %d bytes, want %d", len(key), KeySize)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return nil, fmt.Errorf("secret: %w", err)
+		return fmt.Errorf("secret: %w", err)
 	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return nil, fmt.Errorf("secret: create key file: %w", err)
+		return fmt.Errorf("secret: create key file: %w", err)
 	}
-	_, werr := f.WriteString(base64.StdEncoding.EncodeToString(k) + "\n")
+	_, werr := f.WriteString(base64.StdEncoding.EncodeToString(key) + "\n")
 	serr := f.Sync()
 	cerr := f.Close()
 	if err := errors.Join(werr, serr, cerr); err != nil {
 		os.Remove(path)
-		return nil, fmt.Errorf("secret: write key file: %w", err)
+		return fmt.Errorf("secret: write key file: %w", err)
+	}
+	return nil
+}
+
+// Generate returns a new random key.
+func Generate() ([]byte, error) {
+	k := make([]byte, KeySize)
+	if _, err := rand.Read(k); err != nil {
+		return nil, fmt.Errorf("secret: generate key: %w", err)
 	}
 	return k, nil
 }

@@ -47,6 +47,8 @@ var EnrollAllowed = map[string]bool{
 // Public lists procedures anyone may call without signing in.
 var Public = map[string]bool{
 	"/mimir.v1.AuthService/GetSetupState": true,
+	// CheckDatabase only answers before the server has a database.
+	"/mimir.v1.AuthService/CheckDatabase": true,
 	"/mimir.v1.AuthService/Setup":         true,
 	"/mimir.v1.AuthService/SignIn":        true,
 	"/mimir.v1.AuthService/SignOut":       true,

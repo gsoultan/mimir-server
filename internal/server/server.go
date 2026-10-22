@@ -21,6 +21,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/obs"
 	"github.com/gsoultan/mimir-server/internal/openai"
+	"github.com/gsoultan/mimir-server/internal/setup"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -91,7 +92,38 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	mux.Handle("/", uiHandler(ui))
 
 	uploads := newUploadGate(svc.MaxUploads, smallUpload)
-	return obs.RequestIDs(metrics.HTTP(logRequests(harden(uploads.wrap(svc.WithConn(mux)), svc), log), route))
+	return obs.RequestIDs(metrics.HTTP(logRequests(harden(uploads.wrap(svc.WithConn(mux)), func() auth.Proxies { return svc.Proxies }), log), route))
+}
+
+// SetupHandler serves a console that has no configuration yet: the web UI,
+// whose setup screen takes it from here, and the setup calls of
+// AuthService. Every other call says the server isn't set up, and liveness
+// probes pass while readiness ones fail.
+func SetupHandler(s *setup.Server, proxies auth.Proxies, files fs.FS, log *slog.Logger) http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle(mimirv1connect.NewAuthServiceHandler(s, connect.WithReadMaxBytes(1<<20)))
+	notYet := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Connect's error shape, so the UI shows the message.
+		msg := `{"code":"unavailable","message":"This server isn't set up yet. Finish setup first."}`
+		if s.Finished() {
+			msg = `{"code":"unavailable","message":"The server is starting. Try again in a moment."}`
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(msg))
+	})
+	mux.Handle("/v1/", notYet)
+	mux.Handle("GET /healthz", liveHandler())
+	mux.Handle("GET /readyz", notYet)
+	ui := uiHandler(files)
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if p := r.URL.Path; strings.HasPrefix(p, "/mimir.v1.") || strings.HasPrefix(p, "/grpc.") || p == "/metrics" || p == "/api/backup" {
+			notYet(w, r)
+			return
+		}
+		ui.ServeHTTP(w, r)
+	}))
+	return obs.RequestIDs(logRequests(harden(mux, func() auth.Proxies { return proxies }), log))
 }
 
 // route names a request's path for the HTTP metrics: one of a fixed set,
@@ -117,7 +149,7 @@ func route(r *http.Request) string {
 //
 // HSTS goes out whenever the request came over HTTPS: TLS served here, or
 // a trusted proxy's X-Forwarded-Proto.
-func harden(next http.Handler, svc *api.Service) http.Handler {
+func harden(next http.Handler, proxies func() auth.Proxies) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("X-Content-Type-Options", "nosniff")
@@ -125,7 +157,7 @@ func harden(next http.Handler, svc *api.Service) http.Handler {
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
-		if svc.Proxies.HTTPS(r) {
+		if proxies().HTTPS(r) {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 		if auth.SessionToken(r.Header) != "" && !auth.SameOrigin(r.Header, r.Host) {
