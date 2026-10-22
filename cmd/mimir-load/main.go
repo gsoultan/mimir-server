@@ -241,12 +241,18 @@ func run(ctx context.Context, c config) error {
 }
 
 func signInOrSetUp(ctx context.Context, own clients, c config) error {
-	_, err := own.auth.SignIn(ctx, connect.NewRequest(&mimirv1.SignInRequest{Email: c.ownerEmail, Password: c.password}))
-	if err == nil {
+	state, err := own.auth.GetSetupState(ctx, connect.NewRequest(&mimirv1.GetSetupStateRequest{}))
+	if err != nil {
+		return err
+	}
+	if !state.Msg.GetNeedsSetup() {
+		if _, err := own.auth.SignIn(ctx, connect.NewRequest(&mimirv1.SignInRequest{Email: c.ownerEmail, Password: c.password})); err != nil {
+			return fmt.Errorf("sign in as %s: %w", c.ownerEmail, err)
+		}
 		return nil
 	}
 	if c.setupToken == "" {
-		return fmt.Errorf("sign in as %s: %w (give -setup-token to set a new server up)", c.ownerEmail, err)
+		return errors.New("the server needs setting up: give -setup-token")
 	}
 	_, err = own.auth.Setup(ctx, connect.NewRequest(&mimirv1.SetupRequest{Email: c.ownerEmail, Name: "Load test", Password: c.password, SetupToken: c.setupToken}))
 	if err != nil {
@@ -259,20 +265,22 @@ func prepareTeam(ctx context.Context, own clients, c config, i int) (*team, erro
 	name := fmt.Sprintf("Load %d", i)
 	email := fmt.Sprintf("admin%d@load.test", i)
 	t := &team{name: name, session: newClients(c.server, "")}
-	if _, err := t.session.auth.SignIn(ctx, connect.NewRequest(&mimirv1.SignInRequest{Email: email, Password: c.password})); err != nil {
-		tm, err := own.teams.CreateTeam(ctx, connect.NewRequest(&mimirv1.CreateTeamRequest{Name: name}))
-		if err != nil {
-			return nil, err
-		}
+	// The team and its admin are made on the first run and reused after.
+	// Failed sign-ins count against the address, so none are tried.
+	tm, err := own.teams.CreateTeam(ctx, connect.NewRequest(&mimirv1.CreateTeamRequest{Name: name}))
+	switch {
+	case err == nil:
 		if _, err := own.users.CreateUser(ctx, connect.NewRequest(&mimirv1.CreateUserRequest{
 			Email: email, Name: name + " admin", Password: c.password, TeamId: tm.Msg.GetTeam().GetId(),
 			Access: &mimirv1.Access{Role: mimirv1.Role_ROLE_ADMIN},
 		})); err != nil {
 			return nil, err
 		}
-		if _, err := t.session.auth.SignIn(ctx, connect.NewRequest(&mimirv1.SignInRequest{Email: email, Password: c.password})); err != nil {
-			return nil, err
-		}
+	case connect.CodeOf(err) != connect.CodeAlreadyExists:
+		return nil, err
+	}
+	if _, err := t.session.auth.SignIn(ctx, connect.NewRequest(&mimirv1.SignInRequest{Email: email, Password: c.password})); err != nil {
+		return nil, err
 	}
 	key, err := t.session.keys.CreateApiKey(ctx, connect.NewRequest(&mimirv1.CreateApiKeyRequest{Name: fmt.Sprintf("load %d", time.Now().UnixNano()), Access: &mimirv1.Access{Role: mimirv1.Role_ROLE_VIEWER, AllModels: true}}))
 	if err != nil {
