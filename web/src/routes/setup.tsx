@@ -1,7 +1,7 @@
 import { Code as ErrorCode, ConnectError, createClient } from "@connectrpc/connect";
 import { useMutation, useQuery } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Group, NumberInput, PasswordInput, Progress, SegmentedControl, Stack, Switch, Text, TextInput } from "@mantine/core";
-import { IconAlertCircle, IconCircleCheck, IconKey } from "@tabler/icons-react";
+import { ActionIcon, Alert, Badge, Button, Checkbox, Code, CopyButton, Grid, Group, NumberInput, PasswordInput, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { IconAlertCircle, IconCheck, IconCircleCheck, IconCopy, IconKey, IconRefresh } from "@tabler/icons-react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -9,6 +9,7 @@ import { message, transport } from "../api/client";
 import { AuthService, SecretKeySource } from "../api/gen/mimir/v1/access_pb";
 import { setupState } from "../api/queries";
 import { AuthCard } from "../components/AuthCard";
+import { defaultPostgres, newSecretKey, type Postgres, postgresReady, postgresUrl } from "../lib/postgres";
 
 export const Route = createFileRoute("/setup")({
   beforeLoad: async ({ context }) => {
@@ -17,8 +18,6 @@ export const Route = createFileRoute("/setup")({
   },
   component: Setup,
 });
-
-const postgresExample = "postgres://mimir:secret@localhost:5432/mimir";
 
 // Setup walks through first-run setup. A server started without a database
 // asks for it, a separate log database, the secret key, how long history
@@ -32,10 +31,12 @@ function Setup() {
 
   const [step, setStep] = useState(0);
   const [setupToken, setSetupToken] = useState("");
-  const [databaseUrl, setDatabaseUrl] = useState("");
+  const [db, setDb] = useState<Postgres>(defaultPostgres);
   const [separateLog, setSeparateLog] = useState(false);
-  const [logDatabaseUrl, setLogDatabaseUrl] = useState("");
+  const [logDb, setLogDb] = useState<Postgres | null>(null);
   const [keyMode, setKeyMode] = useState<"new" | "mine">("new");
+  const [newKey, setNewKey] = useState(newSecretKey);
+  const [keySaved, setKeySaved] = useState(false);
   const [secretKey, setSecretKey] = useState("");
   const [auditDays, setAuditDays] = useState<number | null>(null);
   const [deliveryDays, setDeliveryDays] = useState<number | null>(null);
@@ -44,6 +45,8 @@ function Setup() {
   const [password, setPassword] = useState("");
   const [finished, setFinished] = useState(false);
 
+  // The log database starts as a copy of the main one's server and role.
+  const log = logDb ?? { ...db, database: `${db.database}_log` };
   const audit = auditDays ?? state?.retention?.auditDays ?? 365;
   const delivery = deliveryDays ?? state?.retention?.deliveryDays ?? 30;
 
@@ -71,22 +74,31 @@ function Setup() {
   if (needsConfig) {
     steps.push({
       label: "Database",
-      ready: checkMain.isSuccess && (!separateLog || checkLog.isSuccess),
+      ready: checkMain.isSuccess,
       body: (
         <Stack>
-          <Text size="sm" c="dimmed">mimir keeps people, settings and model details in PostgreSQL. Make an empty database and a role that may create tables in it, then give its URL. It's saved encrypted in the configuration file, which only the server's user can read.</Text>
-          <DatabaseField label="Database URL" value={databaseUrl} onChange={(v) => { setDatabaseUrl(v); checkMain.reset(); }} check={() => checkMain.mutate({ setupToken, databaseUrl })} pending={checkMain.isPending} error={checkMain.error} ok={checkMain.data && `${checkMain.data.version}${checkMain.data.hasAccounts ? ". It already has mimir accounts, which are kept." : ", ready."}`} />
-          <Switch label="Keep the audit log in a separate database" description="For a log that people who run the main database can't change, or one kept on cheaper storage. Leave off to keep it with everything else." checked={separateLog} onChange={(e) => { setSeparateLog(e.currentTarget.checked); checkLog.reset(); }} />
+          <Text size="sm" c="dimmed">mimir keeps people, settings and model details in PostgreSQL. Make an empty database and a user that may create tables in it, then fill in where it is. The password is saved encrypted, in a file only the server's user can read.</Text>
+          <DatabaseFields value={db} onChange={(v) => { setDb(v); checkMain.reset(); }} check={() => checkMain.mutate({ setupToken, databaseUrl: postgresUrl(db) })} pending={checkMain.isPending} error={checkMain.error} ok={checkMain.data && `Connected to ${checkMain.data.version}${checkMain.data.hasAccounts ? ". It already has mimir accounts, which are kept." : "."}`} />
+        </Stack>
+      ),
+    });
+    steps.push({
+      label: "Log database",
+      ready: !separateLog || checkLog.isSuccess,
+      body: (
+        <Stack>
+          <Text size="sm" c="dimmed">The audit log records who signed in and what they changed. Keep it with everything else, or in a database of its own: one that people who run the main database can't change, or on cheaper storage.</Text>
+          <SegmentedControl value={separateLog ? "separate" : "same"} onChange={(v) => { setSeparateLog(v === "separate"); checkLog.reset(); }} data={[{ value: "same", label: "Same database" }, { value: "separate", label: "A separate database" }]} />
           {separateLog && (
-            <DatabaseField label="Log database URL" value={logDatabaseUrl} onChange={(v) => { setLogDatabaseUrl(v); checkLog.reset(); }} check={() => checkLog.mutate({ setupToken, databaseUrl: logDatabaseUrl })} pending={checkLog.isPending} error={checkLog.error} ok={checkLog.data && `${checkLog.data.version}, ready.`} />
+            <DatabaseFields value={log} onChange={(v) => { setLogDb(v); checkLog.reset(); }} check={() => checkLog.mutate({ setupToken, databaseUrl: postgresUrl(log) })} pending={checkLog.isPending} error={checkLog.error} ok={checkLog.data && `Connected to ${checkLog.data.version}.`} />
           )}
         </Stack>
       ),
     });
     steps.push({
       label: "Secret key",
-      ready: state?.secretKey !== SecretKeySource.NONE || keyMode === "new" || secretKey.trim() !== "",
-      body: <KeyStep source={state?.secretKey ?? SecretKeySource.UNSPECIFIED} mode={keyMode} setMode={setKeyMode} value={secretKey} setValue={setSecretKey} />,
+      ready: state?.secretKey !== SecretKeySource.NONE || (keyMode === "new" ? keySaved : secretKey.trim() !== ""),
+      body: <KeyStep source={state?.secretKey ?? SecretKeySource.UNSPECIFIED} mode={keyMode} setMode={setKeyMode} newKey={newKey} regenerate={() => { setNewKey(newSecretKey()); setKeySaved(false); }} saved={keySaved} setSaved={setKeySaved} value={secretKey} setValue={setSecretKey} />,
     });
   }
   steps.push({
@@ -121,9 +133,9 @@ function Setup() {
     setupToken, name, email, password,
     retention: { auditDays: audit, deliveryDays: delivery },
     ...(needsConfig && {
-      databaseUrl,
-      logDatabaseUrl: separateLog ? logDatabaseUrl : "",
-      secretKey: keyMode === "mine" ? secretKey : "",
+      databaseUrl: postgresUrl(db),
+      logDatabaseUrl: separateLog ? postgresUrl(log) : "",
+      secretKey: state?.secretKey !== SecretKeySource.NONE ? "" : keyMode === "mine" ? secretKey : newKey,
     }),
   });
 
@@ -147,14 +159,30 @@ function Setup() {
   );
 }
 
-function DatabaseField({ label, value, onChange, check, pending, error, ok }: {
-  label: string; value: string; onChange: (v: string) => void; check: () => void; pending: boolean; error: unknown; ok?: string | false;
+function DatabaseFields({ value, onChange, check, pending, error, ok }: {
+  value: Postgres; onChange: (v: Postgres) => void; check: () => void; pending: boolean; error: unknown; ok?: string | false;
 }) {
+  const set = <K extends keyof Postgres>(k: K, v: Postgres[K]) => onChange({ ...value, [k]: v });
   return (
-    <Stack gap={6}>
-      <Group align="end" wrap="nowrap">
-        <TextInput className="flex-1" label={label} placeholder={postgresExample} required autoComplete="off" spellCheck={false} value={value} onChange={(e) => onChange(e.currentTarget.value)} />
-        <Button variant="light" onClick={check} loading={pending} disabled={value.trim() === ""}>Test</Button>
+    <Stack gap="sm">
+      <Grid gap="sm">
+        <Grid.Col span={{ base: 12, xs: 8 }}><TextInput label="Host" placeholder="localhost" required autoComplete="off" spellCheck={false} value={value.host} onChange={(e) => set("host", e.currentTarget.value)} /></Grid.Col>
+        <Grid.Col span={{ base: 12, xs: 4 }}><NumberInput label="Port" required min={1} max={65535} hideControls value={value.port} onChange={(v) => set("port", typeof v === "number" ? v : 0)} /></Grid.Col>
+      </Grid>
+      <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="sm">
+        <TextInput label="Username" required autoComplete="off" spellCheck={false} value={value.user} onChange={(e) => set("user", e.currentTarget.value)} />
+        <PasswordInput label="Password" autoComplete="new-password" value={value.password} onChange={(e) => set("password", e.currentTarget.value)} />
+      </SimpleGrid>
+      <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="sm">
+        <TextInput label="Database name" required autoComplete="off" spellCheck={false} value={value.database} onChange={(e) => set("database", e.currentTarget.value)} />
+        <Select label="Encryption (SSL)" allowDeselect={false} value={value.ssl} onChange={(v) => v && set("ssl", v as Postgres["ssl"])} data={[
+          { value: "prefer", label: "Use it if the server has it" },
+          { value: "require", label: "Always (a server elsewhere)" },
+          { value: "disable", label: "Off (same machine)" },
+        ]} />
+      </SimpleGrid>
+      <Group>
+        <Button variant="light" onClick={check} loading={pending} disabled={!postgresReady(value)}>Test connection</Button>
       </Group>
       {error ? <Alert color="red" icon={<IconAlertCircle />} py={6} style={{ overflowWrap: "anywhere" }}>{message(error)}</Alert> : null}
       {ok ? <Text size="sm" c="teal"><IconCircleCheck size={16} className="mr-1 inline align-[-3px]" />{ok}</Text> : null}
@@ -162,10 +190,12 @@ function DatabaseField({ label, value, onChange, check, pending, error, ok }: {
   );
 }
 
-function KeyStep({ source, mode, setMode, value, setValue }: {
-  source: SecretKeySource; mode: "new" | "mine"; setMode: (m: "new" | "mine") => void; value: string; setValue: (v: string) => void;
+function KeyStep({ source, mode, setMode, newKey, regenerate, saved, setSaved, value, setValue }: {
+  source: SecretKeySource; mode: "new" | "mine"; setMode: (m: "new" | "mine") => void;
+  newKey: string; regenerate: () => void; saved: boolean; setSaved: (b: boolean) => void;
+  value: string; setValue: (v: string) => void;
 }) {
-  const intro = <Text size="sm" c="dimmed">The secret key encrypts the secrets the server stores for you: webhook signing secrets, database connection strings for training, alert passwords, and the database URLs in its configuration file. Without it a copy of the database gives none of them away, and without it the server can't read them either.</Text>;
+  const intro = <Text size="sm" c="dimmed">The secret key encrypts the secrets the server stores for you: webhook signing secrets, database connection strings for training, alert passwords, and the database password in its configuration file. A copy of the database gives none of them away without it, and the server can't read them without it either.</Text>;
   if (source === SecretKeySource.ENVIRONMENT || source === SecretKeySource.FILE) {
     return (
       <Stack>
@@ -179,10 +209,31 @@ function KeyStep({ source, mode, setMode, value, setValue }: {
   return (
     <Stack>
       {intro}
-      <SegmentedControl value={mode} onChange={(v) => setMode(v as "new" | "mine")} data={[{ value: "new", label: "Make a new key" }, { value: "mine", label: "Use a key I have" }]} />
-      {mode === "new"
-        ? <Text size="sm">A new key is saved as secret.key in the data folder, readable only by the server's user. <b>Back it up with the database</b>: a restored database can't be read without it.</Text>
-        : <PasswordInput label="Secret key" description="32 bytes as base64 or hex, such as the key a backup of this database was made with, or the output of openssl rand -base64 32." required autoComplete="off" value={value} onChange={(e) => setValue(e.currentTarget.value)} />}
+      <SegmentedControl value={mode} onChange={(v) => setMode(v as "new" | "mine")} data={[{ value: "new", label: "Generate a new key" }, { value: "mine", label: "Use a key I have" }]} />
+      {mode === "new" ? (
+        <Stack gap="sm">
+          <div>
+            <Text size="sm" fw={500} mb={4}>Your new key</Text>
+            <Group gap="xs" wrap="nowrap">
+              <Code block className="flex-1" style={{ overflowWrap: "anywhere", whiteSpace: "normal" }}>{newKey}</Code>
+              <CopyButton value={newKey}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? "Copied" : "Copy"}>
+                    <ActionIcon variant="light" size="lg" onClick={copy} aria-label="Copy the key">{copied ? <IconCheck size={18} /> : <IconCopy size={18} />}</ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+              <Tooltip label="Generate another">
+                <ActionIcon variant="default" size="lg" onClick={regenerate} aria-label="Generate another key"><IconRefresh size={18} /></ActionIcon>
+              </Tooltip>
+            </Group>
+          </div>
+          <Text size="sm">The server saves it as secret.key in its data folder. <b>Keep a copy somewhere safe, such as a password manager</b>: a restored database backup can't be read without it.</Text>
+          <Checkbox label="I've saved a copy of this key" checked={saved} onChange={(e) => setSaved(e.currentTarget.checked)} />
+        </Stack>
+      ) : (
+        <PasswordInput label="Secret key" description="The key a backup of this database was made with: 32 bytes as base64 or hex." required autoComplete="off" value={value} onChange={(e) => setValue(e.currentTarget.value)} />
+      )}
     </Stack>
   );
 }
