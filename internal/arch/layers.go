@@ -28,6 +28,12 @@ const (
 	MaxRate   = 0.9
 )
 
+// DefaultLayers is the hidden part of a table model nobody designed.
+// Models trained before it carry no layers in their file and keep the
+// older shape tableNet builds for them, 4 numbers per input between 16
+// and 256, which was too narrow for tables with few columns.
+var DefaultLayers = []Layer{{Kind: Dense, Units: 256}, {Kind: Dense, Units: 256}}
+
 // LayersKey is the metadata key of a Mimir Model file that holds a
 // designed model's layers, as FormatLayers writes them, so the file
 // rebuilds into the same shape wherever it is loaded.
