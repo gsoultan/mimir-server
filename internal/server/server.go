@@ -96,7 +96,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	mux.Handle("GET /metrics", metrics.Handler(o.metricsToken))
 	mux.Handle("/", uiHandler(ui))
 
-	uploads := newUploadGate(svc.MaxUploads, smallUpload)
+	uploads := newUploadGate(svc.MaxUploads, smallUpload, int64(max(uploadBytes, maxModelBytes)))
 	return obs.RequestIDs(metrics.HTTP(logRequests(harden(uploads.wrap(svc.WithConn(mux)), func() auth.Proxies { return svc.Proxies }), log), route))
 }
 
