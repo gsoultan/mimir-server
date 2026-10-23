@@ -216,6 +216,15 @@ type Config struct {
 	// by the server when next needed. 0 means DefaultCacheBytes; a
 	// negative value means no bound.
 	CacheBytes int64
+	// Key, when set, is the private key the worker proves itself with,
+	// in place of the one in KeyFile. A worker on a machine that starts
+	// fresh each time, such as a rented GPU, is given its key this way so
+	// it is the same worker every time.
+	Key ed25519.PrivateKey
+	// ExitWhenIdle, when above zero, makes Run return nil once the worker
+	// has run nothing for that long, so a machine rented by the minute
+	// stops when the work is done. Zero keeps it running.
+	ExitWhenIdle time.Duration
 }
 
 // DefaultCacheBytes is how many bytes of models a worker keeps when
@@ -250,7 +259,9 @@ func ParseTasks(s string) (Tasks, error) {
 }
 
 // Run joins the server and serves tasks until ctx ends. It returns ctx's
-// error, or a configuration error found before connecting.
+// error, or a configuration error found before connecting. With
+// Config.ExitWhenIdle it also returns nil once the worker has been idle
+// that long.
 func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	if cfg.Server == "" || cfg.Token == "" {
 		return errors.New("worker: Server and Token are required")
@@ -275,7 +286,7 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	case plain && !isLoopback(u.Hostname()):
 		cfg.Log.Warn("worker: connecting without encryption", "server", cfg.Server)
 	}
-	if cfg.KeyFile == "" {
+	if cfg.KeyFile == "" && cfg.Key == nil {
 		dir := cfg.DataDir
 		if dir == "" {
 			conf, err := os.UserConfigDir()
@@ -289,9 +300,13 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	if cfg.DataDir == "" {
 		cfg.DataDir = filepath.Dir(cfg.KeyFile)
 	}
-	key, err := loadKey(cfg.KeyFile)
-	if err != nil {
-		return err
+	key := cfg.Key
+	if key == nil {
+		if key, err = loadKey(cfg.KeyFile); err != nil {
+			return err
+		}
+	} else if len(key) != ed25519.PrivateKeySize {
+		return errors.New("worker: Key isn't an Ed25519 private key")
 	}
 	if cfg.Device == "" {
 		cfg.Device = runtime.GOOS + "/" + runtime.GOARCH
@@ -326,12 +341,21 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	case cfg.CacheBytes < 0:
 		cfg.CacheBytes = 0 // no bound
 	}
-	w := &worker{cfg: cfg, handlers: handlers, key: key, stats: newSampler(cfg.DataDir), client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
+	w := &worker{cfg: cfg, handlers: handlers, key: key, stats: newSampler(cfg.DataDir), lastActive: time.Now(), client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
 
+	ctx, stop := context.WithCancelCause(ctx)
+	defer stop(nil)
+	if cfg.ExitWhenIdle > 0 {
+		go w.exitWhenIdle(ctx, stop)
+	}
 	delay := time.Second
 	for {
 		started := time.Now()
 		err := w.serve(ctx)
+		if errors.Is(context.Cause(ctx), errIdle) {
+			cfg.Log.Info("worker: idle, stopping", "after", cfg.ExitWhenIdle)
+			return nil
+		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -346,10 +370,38 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 		}
 		select {
 		case <-ctx.Done():
+			if errors.Is(context.Cause(ctx), errIdle) {
+				return nil
+			}
 			return ctx.Err()
 		case <-time.After(delay):
 		}
 		delay = min(delay*2, 30*time.Second)
+	}
+}
+
+// errIdle is the cause Run's context ends with when the worker stops for
+// being idle.
+var errIdle = errors.New("worker: idle")
+
+// exitWhenIdle ends Run, through stop, once nothing has run for
+// cfg.ExitWhenIdle.
+func (w *worker) exitWhenIdle(ctx context.Context, stop context.CancelCauseFunc) {
+	check := time.NewTicker(min(w.cfg.ExitWhenIdle/4, 15*time.Second))
+	defer check.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-check.C:
+		}
+		w.mu.Lock()
+		idle := w.active == 0 && time.Since(w.lastActive) >= w.cfg.ExitWhenIdle
+		w.mu.Unlock()
+		if idle {
+			stop(errIdle)
+			return
+		}
 	}
 }
 
@@ -370,6 +422,10 @@ type worker struct {
 
 	mu      sync.Mutex
 	running map[string]context.CancelFunc
+	// active is how many tasks are running, and lastActive when one last
+	// started or finished, for Config.ExitWhenIdle. They outlive a link.
+	active     int
+	lastActive time.Time
 	// tasks is what this link takes: the console's choice from the
 	// welcome, else cfg.Tasks. Set before any task arrives.
 	tasks Tasks
@@ -481,10 +537,14 @@ func (w *worker) slot(ctx context.Context, slots chan struct{}, id string, f fun
 	defer cancel()
 	w.mu.Lock()
 	w.running[id] = cancel
+	w.active++
+	w.lastActive = time.Now()
 	w.mu.Unlock()
 	defer func() {
 		w.mu.Lock()
 		delete(w.running, id)
+		w.active--
+		w.lastActive = time.Now()
 		w.mu.Unlock()
 	}()
 	f(tctx)

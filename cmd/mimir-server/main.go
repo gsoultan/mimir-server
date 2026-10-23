@@ -4,6 +4,7 @@ package main
 import (
 	"cmp"
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	goruntime "runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,11 +25,13 @@ import (
 	"time"
 
 	"github.com/gsoultan/mimir/backend/cpu"
+	"github.com/gsoultan/mimir/tensor"
 
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/config"
+	"github.com/gsoultan/mimir-server/internal/gpucloud"
 	"github.com/gsoultan/mimir-server/internal/obs"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/secret"
@@ -91,6 +95,7 @@ func run() error {
 	metricsToken := flag.String("metrics-token", os.Getenv("MIMIR_METRICS_TOKEN"), "console: require this bearer token to read /metrics ($MIMIR_METRICS_TOKEN); empty serves it to anyone who can reach the port")
 	insecure := flag.Bool("insecure", false, "worker: allow an http:// console on another machine (a private network you trust)")
 	env := envDefaults{}
+	exitWhenIdle := flag.Duration("exit-when-idle", env.duration("MIMIR_WORKER_EXIT_WHEN_IDLE", 0), "worker: stop once nothing has run for this long, such as 5m, for a machine rented by the minute; 0 keeps it running ($MIMIR_WORKER_EXIT_WHEN_IDLE). $"+worker.KeyEnv+", when set, is the worker's key, in place of the key file in -data")
 	predictTimeout := flag.Duration("predict-timeout", env.duration("MIMIR_PREDICT_TIMEOUT", api.DefaultPredictTimeout), "console: the longest one prediction may take, loading the model included, here or on a worker ($MIMIR_PREDICT_TIMEOUT)")
 	predictBatch := flag.Int("predict-batch", env.int("MIMIR_PREDICT_BATCH", runtime.DefaultBatching.Max), "console and worker: the most predictions to one model to run together as one batch when they queue up; 1 runs each alone ($MIMIR_PREDICT_BATCH)")
 	predictBatchWait := flag.Duration("predict-batch-wait", env.duration("MIMIR_PREDICT_BATCH_WAIT", runtime.DefaultBatching.Wait), "console and worker: how long a runner that found fewer than -predict-batch predictions waiting holds them for more before it runs; 0 runs at once ($MIMIR_PREDICT_BATCH_WAIT)")
@@ -138,7 +143,18 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("-tasks: %w", err)
 		}
-		err = worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Capacity: *capacity, Tasks: kind, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes}, builtin.Builtin(*data))
+		var key ed25519.PrivateKey
+		if v := os.Getenv(worker.KeyEnv); v != "" {
+			if key, err = worker.ParseKey(v); err != nil {
+				return fmt.Errorf("$%s: %w", worker.KeyEnv, err)
+			}
+		}
+		// The console shows the device, so a GPU in use is plain to see.
+		device := goruntime.GOOS + "/" + goruntime.GOARCH
+		if dev := tensor.DefaultDevice(); dev.Name() != "cpu" {
+			device += ", " + dev.String()
+		}
+		err = worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Device: device, Capacity: *capacity, Tasks: kind, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes, Key: key, ExitWhenIdle: *exitWhenIdle}, builtin.Builtin(*data))
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -335,7 +351,22 @@ func run() error {
 	runner.TrainHere = svc.TrainsHere
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
-	svc.KickTraining = runner.Kick
+
+	// A GPU rented on Modal when training waits, if set up under
+	// Settings → Workers.
+	gpu := gpucloud.NewLauncher(gpucloud.NewModal(log), log)
+	gpu.Wanted = svc.CloudGPUWanted
+	gpu.Online = svc.Pool.Online
+	gpu.ServesProgram = api.CanServeProgram()
+	svc.GPU = gpu
+	if err := svc.LoadCloudGPU(ctx); err != nil {
+		return err
+	}
+	svc.KickTraining = func() {
+		runner.Kick()
+		gpu.Kick()
+	}
+	bg.Go(func() { gpu.Run(bgCtx) })
 	svc.CancelTraining = runner.Cancel
 	bg.Go(func() { runner.Run(bgCtx) })
 
