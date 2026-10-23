@@ -454,6 +454,20 @@ func jobs(rows []trainingjob.Row) []Job {
 	return out
 }
 
+// QueuedJobs returns the jobs waiting in the queue, oldest first, up to
+// limit.
+func (s *Store) QueuedJobs(ctx context.Context, limit int) ([]Job, error) {
+	rows, err := trainingjob.New().
+		Where(trainingjob.Status.Eq(int32(JobQueued))).
+		Order(trainingjob.CreateTime.Asc(), trainingjob.ID.Asc()).
+		Limit(int64(limit)).
+		All(ctx, s.ex, nil)
+	if err != nil {
+		return nil, fmt.Errorf("store: queued jobs: %w", err)
+	}
+	return jobs(rows), nil
+}
+
 // ClaimJob takes the oldest queued job not in skip and marks it running.
 // It returns ErrNotFound when there is none.
 func (s *Store) ClaimJob(ctx context.Context, skip ...string) (Job, error) {

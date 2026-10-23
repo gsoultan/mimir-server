@@ -10,8 +10,9 @@ import { useState } from "react";
 import { message } from "../api/client";
 import { SettingsService } from "../api/gen/mimir/v1/settings_pb";
 import { WorkerService, type Worker } from "../api/gen/mimir/v1/worker_pb";
-import { allSettingsQueries, allWorkerQueries, listWorkers, settings } from "../api/queries";
+import { allSettingsQueries, allWorkerQueries, cloudGpu, listWorkers, settings } from "../api/queries";
 import { ago, bytes, duration, loadColor, share } from "../lib/format";
+import { CloudGpu } from "./CloudGpu";
 import { StatusDot } from "./Placement";
 
 // plainConsole says workers on other machines can't join this page's
@@ -22,6 +23,11 @@ const plainConsole = () => location.protocol !== "https:" && !["localhost", "127
 // console. It refreshes while open so the numbers stay live.
 export function Workers() {
   const { data } = useSuspenseQuery({ ...listWorkers, refetchInterval: 5000 });
+  const { data: gpu } = useSuspenseQuery({ ...cloudGpu, refetchInterval: 5000 });
+  // rented is the worker of the rented GPU, offline until a run
+  // waits for it.
+  const rented = gpu.cloudGpu?.enabled ? gpu.cloudGpu.workerId : "";
+  const gpuProvider = gpu.providers.find((p) => p.id === gpu.cloudGpu?.provider)?.name ?? "";
   const queryClient = useQueryClient();
   const [adding, add] = useDisclosure(false);
   const [name, setName] = useState("");
@@ -36,7 +42,7 @@ export function Workers() {
   const avg = (f: (w: Worker) => number) => (online.length ? online.reduce((n, w) => n + f(w), 0) / online.length : 0);
   const cpu = avg((w) => w.stats?.cpuPercent ?? 0);
   const mem = avg((w) => share(w.stats?.memoryUsedBytes ?? 0n, w.stats?.memoryTotalBytes ?? 0n));
-  const stranded = ws.filter((w) => !w.online && (w.models > 0 || w.waiting > 0));
+  const stranded = ws.filter((w) => !w.online && w.id !== rented && (w.models > 0 || w.waiting > 0));
 
   return (
     <Stack>
@@ -81,11 +87,12 @@ export function Workers() {
         </Card>
       ) : (
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-          {ws.map((w) => <WorkerCard key={w.id} w={w} />)}
+          {ws.map((w) => <WorkerCard key={w.id} w={w} rented={w.id === rented} gpuProvider={gpuProvider} />)}
         </SimpleGrid>
       )}
 
       <TrainHere />
+      <CloudGpu />
 
       <Modal opened={adding} onClose={add.close} title="Add a worker" centered>
         <Stack>
@@ -125,7 +132,7 @@ export function Meter({ label, pct, detail }: { label: string; pct: number; deta
   );
 }
 
-function WorkerCard({ w }: { w: Worker }) {
+function WorkerCard({ w, rented, gpuProvider = "" }: { w: Worker; rented: boolean; gpuProvider?: string }) {
   const s = w.stats;
   const full = w.online && w.busy >= w.capacity;
   const hot = s && Math.max(s.cpuPercent, share(s.memoryUsedBytes, s.memoryTotalBytes), share(s.diskUsedBytes, s.diskTotalBytes)) >= 90;
@@ -142,7 +149,7 @@ function WorkerCard({ w }: { w: Worker }) {
           <Text fw={700} truncate>{w.name}</Text>
         </Group>
         <Group gap={4} wrap="nowrap">
-          <Badge variant="light" color={!w.online ? "gray" : full ? "yellow" : "teal"}>{!w.online ? "Offline" : full ? "Busy" : "Online"}</Badge>
+          <Badge variant="light" color={!w.online ? "gray" : full ? "yellow" : "teal"}>{!w.online ? (rented ? "Asleep" : "Offline") : full ? "Busy" : "Online"}</Badge>
           <IconChevronRight size={16} color="var(--mantine-color-dimmed)" />
         </Group>
       </Group>
@@ -153,7 +160,7 @@ function WorkerCard({ w }: { w: Worker }) {
           <Meter label="Storage" pct={share(s.diskUsedBytes, s.diskTotalBytes)} detail={s.diskTotalBytes > 0n ? `${bytes(s.diskTotalBytes - s.diskUsedBytes)} free` : "unknown"} />
         </Stack>
       ) : (
-        <Text size="sm" c="dimmed">{w.lastSeen ? `Last seen ${ago(w.lastSeen)}` : "Never connected. Run the command from when you added it."}</Text>
+        <Text size="sm" c="dimmed">{rented ? `A GPU on ${gpuProvider}, started when a training run waits for it.` : w.lastSeen ? `Last seen ${ago(w.lastSeen)}` : "Never connected. Run the command from when you added it."}</Text>
       )}
       <Group gap="md" mt="sm">
         {w.online && <Text size="xs" c="dimmed">{w.busy} of {w.capacity} tasks</Text>}
