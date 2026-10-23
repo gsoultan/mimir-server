@@ -110,8 +110,11 @@ type Guard struct {
 	read               func() int64
 
 	level atomic.Int32
-	used  atomic.Int64
-	peak  atomic.Int64
+	// changes counts level changes, so a timer can tell whether the
+	// stretch it was started in has ended.
+	changes atomic.Int64
+	used    atomic.Int64
+	peak    atomic.Int64
 
 	mu       sync.Mutex
 	watchers []func(Level)
@@ -198,6 +201,7 @@ func (g *Guard) Measure() Level {
 	if next == old || !g.level.CompareAndSwap(int32(old), int32(next)) {
 		return Level(g.level.Load())
 	}
+	g.changes.Add(1)
 	attrs := []any{"who", g.name, "from", old.String(), "to", next.String(), "used", Format(used), "limit", Format(g.limit), "used_bytes", used}
 	if next > old {
 		g.log.Warn("memory: running low; shedding caches and holding back training", attrs...)
@@ -259,6 +263,23 @@ func (g *Guard) Watch(f func(Level)) {
 	g.mu.Lock()
 	g.watchers = append(g.watchers, f)
 	g.mu.Unlock()
+}
+
+// StaysCritical calls f, from its own goroutine, when memory has been
+// critical for grace without easing, once for each such stretch. It is
+// the last resort after everything else has been shed.
+func (g *Guard) StaysCritical(grace time.Duration, f func()) {
+	g.Watch(func(l Level) {
+		if l != Critical {
+			return
+		}
+		stretch := g.changes.Load()
+		time.AfterFunc(grace, func() {
+			if g.changes.Load() == stretch && g.Level() == Critical {
+				f()
+			}
+		})
+	})
 }
 
 // Level returns the level last measured.

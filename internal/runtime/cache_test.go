@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 	"sync"
 	"testing"
 )
@@ -192,5 +193,24 @@ func TestCacheKeepsOldVersionWhileNewLoads(t *testing.T) {
 	}
 	if c.loaded["m"] != v2 || c.pending["m"] != nil {
 		t.Fatal("v2 isn't the loaded entry, or something is still pending")
+	}
+}
+
+// Critical memory cuts the compute budget to a quarter, but never under
+// the floor nor over the normal budget; other levels leave it be.
+func TestComputeBudgetAt(t *testing.T) {
+	for _, c := range []struct {
+		l            memguard.Level
+		normal, want int64
+	}{
+		{memguard.OK, 1 << 30, 1 << 30},
+		{memguard.High, 1 << 30, 1 << 30},
+		{memguard.Critical, 1 << 30, 1 << 28},
+		{memguard.Critical, 128 << 20, 64 << 20},
+		{memguard.Critical, 32 << 20, 32 << 20},
+	} {
+		if got := ComputeBudgetAt(c.l, c.normal); got != c.want {
+			t.Errorf("ComputeBudgetAt(%v, %d) = %d, want %d", c.l, c.normal, got, c.want)
+		}
 	}
 }

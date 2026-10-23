@@ -104,13 +104,16 @@ limit, so garbage is collected harder before the budget is reached.
 | --- | --- |
 | under 80% of the budget | everything runs |
 | 80% (high) | half of the loaded models are let go; no new training run starts here, and a worker this high is given none |
-| 92% (critical) | all loaded models but the last used are let go; training here stops and goes back in the queue, to resume from its checkpoint; no new model is loaded and no upload is read into memory (both answer "try again in a minute"), while loaded models keep answering |
+| 92% (critical) | all loaded models but the last used are let go; training keeps going, with less memory for each step: a batch that no longer fits runs in smaller pieces that add up to the same step; no new model is loaded and no upload is read into memory (both answer "try again in a minute"), while loaded models keep answering |
 
-Levels ease off 5 points under where they start. A run stopped for memory
-waits a minute before it is tried again, and fails with an explanation
-after three stops rather than starting over for ever. Training also runs
-within three quarters of the budget: a batch too big for it is split into
-smaller ones that add up to the same step.
+Levels ease off 5 points under where they start. Training runs within
+three quarters of the budget, and a quarter of that while memory is
+critical; a batch too big for it is split into smaller pieces that add up
+to the same step, so the run carries on, a little slower. Only if memory
+stays critical for a full minute even so is a run stopped: it goes back in
+the queue and resumes from its checkpoint, after a minute's wait, and it
+fails with an explanation after three such stops rather than starting over
+for ever.
 
 You can watch it in `/metrics` (`mimir_memory_used_bytes`,
 `mimir_memory_limit_bytes`, `mimir_memory_pressure`), in `/readyz`, which

@@ -12,6 +12,7 @@
 package worker
 
 import (
+	"cmp"
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
@@ -225,6 +226,14 @@ type Config struct {
 	// runs out. 0 finds it from $GOMEMLIMIT, the container's limit or
 	// the machine's memory; negative turns it off.
 	MemoryLimit int64
+	// Memory, when set, is the guard to keep within in place of one made
+	// from MemoryLimit; Run measures with it. The server's binary passes
+	// its own, so the models it runs shrink their work with it too.
+	Memory *memguard.Guard
+	// StopTrainingAfter is how long memory may stay critical before the
+	// runs training here are stopped and handed back to the console's
+	// queue; until then they keep going. Zero means a minute.
+	StopTrainingAfter time.Duration
 	// Key, when set, is the private key the worker proves itself with,
 	// in place of the one in KeyFile. A worker on a machine that starts
 	// fresh each time, such as a rented GPU, is given its key this way so
@@ -351,9 +360,13 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 		cfg.CacheBytes = 0 // no bound
 	}
 	w := &worker{cfg: cfg, handlers: handlers, key: key, stats: newSampler(cfg.DataDir), lastActive: time.Now(), client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
-	w.memory = memguard.New(memguard.Config{Limit: cfg.MemoryLimit, Log: cfg.Log, Name: "worker"})
+	w.memory = cfg.Memory
+	if w.memory == nil {
+		w.memory = memguard.New(memguard.Config{Limit: cfg.MemoryLimit, Log: cfg.Log, Name: "worker"})
+	}
 	w.stats.memory = w.memory
 	w.memory.Watch(w.memoryChanged)
+	w.memory.StaysCritical(cmp.Or(cfg.StopTrainingAfter, time.Minute), w.stopTraining)
 	go w.memory.Run(ctx)
 
 	ctx, stop := context.WithCancelCause(ctx)
@@ -582,20 +595,12 @@ func (w *worker) slot(ctx context.Context, slots chan struct{}, id string, train
 
 // memoryChanged acts on a new memory level: from high on the least
 // recently used models go (half of them, then all but the last used when
-// critical) and no new runs start; when critical the runs training here
-// stop and go back to the console. The console hears the new level at
-// once, so it sends work elsewhere while this worker recovers.
+// critical) and no new runs start, while the runs here keep going. The
+// console hears the new level at once, so it sends work elsewhere while
+// this worker recovers.
 func (w *worker) memoryChanged(l memguard.Level) {
 	w.mu.Lock()
 	models := w.models
-	var stop []context.CancelCauseFunc
-	if l == memguard.Critical {
-		for _, t := range w.running {
-			if t.train {
-				stop = append(stop, t.cancel)
-			}
-		}
-	}
 	w.mu.Unlock()
 	if models != nil && l >= memguard.High {
 		keep := int64(0)
@@ -607,17 +612,31 @@ func (w *worker) memoryChanged(l memguard.Level) {
 			w.cfg.Log.Warn("worker: memory is short; let go of models", "bytes", freed, "level", l.String())
 		}
 	}
-	for _, cancel := range stop {
-		cancel(memguard.ErrLowMemory)
-	}
-	if len(stop) > 0 {
-		w.cfg.Log.Warn("worker: memory is critical; stopped training runs, which go back to the console's queue", "runs", len(stop))
-	}
 	go func() { // tell the console now rather than at the next heartbeat
 		if w.linked() {
 			w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Heartbeat{Heartbeat: &mimirv1.Heartbeat{Stats: w.stats.read()}}})
 		}
 	}()
+}
+
+// stopTraining stops the runs training here, for memory that stayed
+// critical: they go back to the console's queue and resume from their
+// checkpoints, here or elsewhere.
+func (w *worker) stopTraining() {
+	w.mu.Lock()
+	var stop []context.CancelCauseFunc
+	for _, t := range w.running {
+		if t.train {
+			stop = append(stop, t.cancel)
+		}
+	}
+	w.mu.Unlock()
+	for _, cancel := range stop {
+		cancel(memguard.ErrLowMemory)
+	}
+	if len(stop) > 0 {
+		w.cfg.Log.Warn("worker: memory stayed critical; stopped training runs, which go back to the console's queue", "runs", len(stop))
+	}
 }
 
 // linked reports whether a link is open to send on.
