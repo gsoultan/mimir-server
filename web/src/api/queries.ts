@@ -54,6 +54,7 @@ export const usage = (month: string) => createQueryOptions(SettingsService.metho
 export const listWorkers = createQueryOptions(WorkerService.method.listWorkers, {}, { transport });
 export const listWorkerChoices = createQueryOptions(WorkerService.method.listWorkerChoices, {}, { transport });
 export const getWorker = (id: string, hours: number) => createQueryOptions(WorkerService.method.getWorker, { id, hours }, { transport });
+export const cloudGpu = createQueryOptions(WorkerService.method.getCloudGpu, {}, { transport });
 export const allWorkerQueries = createConnectQueryKey({ schema: WorkerService, cardinality: undefined });
 export const allTrainingQueries = createConnectQueryKey({ schema: TrainingService, cardinality: undefined });
 // The catalog only changes with the server, so it is fetched once.
