@@ -311,9 +311,12 @@ func SetComputeBudget(bytes int64) {
 type Cache struct {
 	mu     sync.Mutex
 	loaded map[string]*entry
-	lru    list.List // loaded entries, most recently used first
-	used   int64     // bytes of the entries in lru
-	limit  int64     // 0 means no limit
+	// pending holds a newer version of a model while it loads, so the
+	// loaded one keeps answering until the switch; by model id.
+	pending map[string]*entry
+	lru     list.List // loaded entries, most recently used first
+	used    int64     // bytes of the entries in lru
+	limit   int64     // 0 means no limit
 
 	batching atomic.Pointer[Batching]
 	observer atomic.Pointer[Observer]
@@ -421,7 +424,9 @@ func (e *entry) load(c *Cache, a arch.Architecture, spec arch.Spec, weights []by
 
 // NewCache returns an empty cache that holds at most limit bytes of
 // models; 0 means no limit.
-func NewCache(limit int64) *Cache { return &Cache{loaded: map[string]*entry{}, limit: max(limit, 0)} }
+func NewCache(limit int64) *Cache {
+	return &Cache{loaded: map[string]*entry{}, pending: map[string]*entry{}, limit: max(limit, 0)}
+}
 
 // SetLimit changes how many bytes of models the cache holds, dropping the
 // least recently used ones now if it holds more; 0 means no limit.
@@ -552,24 +557,43 @@ func (c *Cache) get(id, ver string, load func() ([]byte, error), build func(e *e
 		c.forget(id, e) // let the next request try again
 		return nil, e.err
 	}
+	c.install(e)
 	c.touch(e)
 	return e, nil
 }
 
-// entry returns the entry for version ver of the model with id, replacing
-// one that holds another version.
+// entry returns the entry for version ver of the model with id: the
+// loaded one when it is that version, else the one loading that version,
+// started here if need be. The loaded version stays in place and keeps
+// answering until the new one has loaded (see install).
 func (c *Cache) entry(id, ver string) *entry {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	e, ok := c.loaded[id]
-	if !ok || e.ver != ver {
-		if ok {
-			c.unlist(e)
-		}
-		e = &entry{id: id, ver: ver}
-		c.loaded[id] = e
+	if e, ok := c.loaded[id]; ok && e.ver == ver {
+		return e
 	}
+	if e, ok := c.pending[id]; ok && e.ver == ver {
+		return e
+	}
+	e := &entry{id: id, ver: ver}
+	c.pending[id] = e
 	return e
+}
+
+// install makes a loaded entry the one that answers for its model,
+// letting the version before it go. An entry another version overtook
+// while it loaded serves its request and goes.
+func (c *Cache) install(e *entry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.pending[e.id] != e {
+		return
+	}
+	delete(c.pending, e.id)
+	if old, ok := c.loaded[e.id]; ok && old != e {
+		c.unlist(old)
+	}
+	c.loaded[e.id] = e
 }
 
 // touch marks a loaded entry most recently used, counting its bytes the
@@ -620,13 +644,16 @@ func (c *Cache) unlist(e *entry) {
 	c.used -= e.size
 }
 
-// forget drops e if it is still the entry for id.
+// forget drops e if it is still the entry, loaded or loading, for id.
 func (c *Cache) forget(id string, e *entry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.loaded[id] == e {
 		delete(c.loaded, id)
 		c.unlist(e)
+	}
+	if c.pending[id] == e {
+		delete(c.pending, id)
 	}
 }
 
@@ -638,4 +665,5 @@ func (c *Cache) Forget(id string) {
 		delete(c.loaded, id)
 		c.unlist(e)
 	}
+	delete(c.pending, id)
 }

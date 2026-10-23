@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/worker.proto.
  */
 export const file_mimir_v1_worker: GenFile = /*@__PURE__*/
-  fileDesc("ChVtaW1pci92MS93b3JrZXIucHJvdG8SCG1pbWlyLnYxIpwECgZXb3JrZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZvbmxpbmUYAyABKAgSLQoJbGFzdF9zZWVuGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtjcmVhdGVfdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGZGV2aWNlGAYgASgJEgwKBGNwdXMYByABKAUSFAoMbWVtb3J5X2J5dGVzGAggASgDEhUKDWFyY2hpdGVjdHVyZXMYCSADKAkSDgoGdHJhaW5zGAogASgIEhAKCGNhcGFjaXR5GAsgASgFEgwKBGJ1c3kYDCABKAUSDwoHdmVyc2lvbhgNIAEoCRIPCgdhZGRyZXNzGA4gASgJEhIKCmNyZWF0ZWRfYnkYDyABKAkSHgoFc3RhdHMYECABKAsyDy5taW1pci52MS5TdGF0cxIwCgxjb25uZWN0X3RpbWUYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhcKD2tleV9maW5nZXJwcmludBgSIAEoCRIQCghzZWN1cml0eRgTIAEoCRITCgt0bHNfdmVyc2lvbhgUIAEoCRIOCgZtb2RlbHMYFSABKAUSDwoHd2FpdGluZxgWIAEoBRIVCg10cmFpbmluZ19vbmx5GBcgASgIEg0KBXRhc2tzGBggASgJIuoBCgVTdGF0cxITCgtjcHVfcGVyY2VudBgBIAEoARIZChFtZW1vcnlfdXNlZF9ieXRlcxgCIAEoAxIaChJtZW1vcnlfdG90YWxfYnl0ZXMYAyABKAMSFwoPZGlza191c2VkX2J5dGVzGAQgASgDEhgKEGRpc2tfdG90YWxfYnl0ZXMYBSABKAMSFgoOdXB0aW1lX3NlY29uZHMYBiABKAMSFAoMbG9hZF9hdmVyYWdlGAcgASgBEhcKD21lbW9yeV9wcmVzc3VyZRgIIAEoBRIbChNtZW1vcnlfYnVkZ2V0X2J5dGVzGAkgASgDItcBCgxXb3JrZXJTYW1wbGUSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoLY3B1X3BlcmNlbnQYAiABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYAyABKAMSGgoSbWVtb3J5X3RvdGFsX2J5dGVzGAQgASgDEhcKD2Rpc2tfdXNlZF9ieXRlcxgFIAEoAxIYChBkaXNrX3RvdGFsX2J5dGVzGAYgASgDEgwKBGJ1c3kYByABKAUSEAoIY2FwYWNpdHkYCCABKAUioQEKCldvcmtlclRhc2sSDAoEa2luZBgBIAEoCRIQCghtb2RlbF9pZBgCIAEoCRISCgptb2RlbF9uYW1lGAMgASgJEg4KBmpvYl9pZBgEIAEoCRIQCghqb2JfbmFtZRgFIAEoCRIuCgpzdGFydF90aW1lGAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVjb3VudBgHIAEoBSJgCgpXb3JrZXJJdGVtEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGc3RhdHVzGAMgASgJEigKBHRpbWUYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIi0KEEdldFdvcmtlclJlcXVlc3QSCgoCaWQYASABKAkSDQoFaG91cnMYAiABKAUi8wEKEUdldFdvcmtlclJlc3BvbnNlEiAKBndvcmtlchgBIAEoCzIQLm1pbWlyLnYxLldvcmtlchInCgdzYW1wbGVzGAIgAygLMhYubWltaXIudjEuV29ya2VyU2FtcGxlEiMKBXRhc2tzGAMgAygLMhQubWltaXIudjEuV29ya2VyVGFzaxIkCgZtb2RlbHMYBCADKAsyFC5taW1pci52MS5Xb3JrZXJJdGVtEiIKBHJ1bnMYBSADKAsyFC5taW1pci52MS5Xb3JrZXJJdGVtEiQKBmV2ZW50cxgGIAMoCzIULm1pbWlyLnYxLldvcmtlckl0ZW0iJwoZUmVwbGFjZVdvcmtlclRva2VuUmVxdWVzdBIKCgJpZBgBIAEoCSIrChpSZXBsYWNlV29ya2VyVG9rZW5SZXNwb25zZRINCgV0b2tlbhgBIAEoCSIyChVTZXRXb3JrZXJUYXNrc1JlcXVlc3QSCgoCaWQYASABKAkSDQoFdGFza3MYAiABKAkiOgoWU2V0V29ya2VyVGFza3NSZXNwb25zZRIgCgZ3b3JrZXIYASABKAsyEC5taW1pci52MS5Xb3JrZXIiGgoYTGlzdFdvcmtlckNob2ljZXNSZXF1ZXN0Ij4KGUxpc3RXb3JrZXJDaG9pY2VzUmVzcG9uc2USIQoHd29ya2VycxgBIAMoCzIQLm1pbWlyLnYxLldvcmtlciIUChJMaXN0V29ya2Vyc1JlcXVlc3QiTQoTTGlzdFdvcmtlcnNSZXNwb25zZRIhCgd3b3JrZXJzGAEgAygLMhAubWltaXIudjEuV29ya2VyEhMKC3NlY3VyZV9qb2luGAIgASgIIiMKE0NyZWF0ZVdvcmtlclJlcXVlc3QSDAoEbmFtZRgBIAEoCSJHChRDcmVhdGVXb3JrZXJSZXNwb25zZRIgCgZ3b3JrZXIYASABKAsyEC5taW1pci52MS5Xb3JrZXISDQoFdG9rZW4YAiABKAkiIQoTRGVsZXRlV29ya2VyUmVxdWVzdBIKCgJpZBgBIAEoCSIWChREZWxldGVXb3JrZXJSZXNwb25zZSKYAgoLTGlua1JlcXVlc3QSIAoFaGVsbG8YASABKAsyDy5taW1pci52MS5IZWxsb0gAEjEKDnByZWRpY3RfcmVzdWx0GAIgASgLMhcubWltaXIudjEuUHJlZGljdFJlc3VsdEgAEjEKDnRyYWluX3Byb2dyZXNzGAMgASgLMhcubWltaXIudjEuVHJhaW5Qcm9ncmVzc0gAEi0KDHRyYWluX3Jlc3VsdBgEIAEoCzIVLm1pbWlyLnYxLlRyYWluUmVzdWx0SAASKAoJaGVhcnRiZWF0GAUgASgLMhMubWltaXIudjEuSGVhcnRiZWF0SAASIAoFcHJvb2YYBiABKAsyDy5taW1pci52MS5Qcm9vZkgAQgYKBGJvZHki3gEKDExpbmtSZXNwb25zZRIkCgd3ZWxjb21lGAEgASgLMhEubWltaXIudjEuV2VsY29tZUgAEigKB3ByZWRpY3QYAiABKAsyFS5taW1pci52MS5QcmVkaWN0VGFza0gAEiQKBXRyYWluGAMgASgLMhMubWltaXIudjEuVHJhaW5UYXNrSAASJgoGY2FuY2VsGAQgASgLMhQubWltaXIudjEuQ2FuY2VsVGFza0gAEigKCWNoYWxsZW5nZRgFIAEoCzITLm1pbWlyLnYxLkNoYWxsZW5nZUgAQgYKBGJvZHkiGgoJQ2hhbGxlbmdlEg0KBW5vbmNlGAEgASgMIhoKBVByb29mEhEKCXNpZ25hdHVyZRgBIAEoDCLQAQoFSGVsbG8SDgoGZGV2aWNlGAEgASgJEgwKBGNwdXMYAiABKAUSFAoMbWVtb3J5X2J5dGVzGAMgASgDEhUKDWFyY2hpdGVjdHVyZXMYBCADKAkSDgoGdHJhaW5zGAUgASgIEhAKCGNhcGFjaXR5GAYgASgFEg8KB3ZlcnNpb24YByABKAkSEgoKcHVibGljX2tleRgIIAEoDBIeCgVzdGF0cxgJIAEoCzIPLm1pbWlyLnYxLlN0YXRzEhUKDXRyYWluaW5nX29ubHkYCiABKAgiKwoJSGVhcnRiZWF0Eh4KBXN0YXRzGAEgASgLMg8ubWltaXIudjEuU3RhdHMiOQoHV2VsY29tZRIRCgl3b3JrZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgV0YXNrcxgDIAEoCSJlCglNb2RlbFNwZWMSEwoLaW5wdXRfc2hhcGUYASADKAMSDgoGbGFiZWxzGAIgAygJEhAKCGZlYXR1cmVzGAMgAygJEiEKB2NvbHVtbnMYBCADKAsyEC5taW1pci52MS5Db2x1bW4imwEKC1ByZWRpY3RUYXNrEg8KB3Rhc2tfaWQYASABKAkSEAoIbW9kZWxfaWQYAiABKAkSFAoMYXJjaGl0ZWN0dXJlGAMgASgJEiEKBHNwZWMYBCABKAsyEy5taW1pci52MS5Nb2RlbFNwZWMSDwoHd2VpZ2h0cxgFIAEoDBIfCgVpbnB1dBgGIAEoCzIQLm1pbWlyLnYxLlRlbnNvciKQAQoNUHJlZGljdFJlc3VsdBIPCgd0YXNrX2lkGAEgASgJEiAKBm91dHB1dBgCIAEoCzIQLm1pbWlyLnYxLlRlbnNvchInCg1wcm9iYWJpbGl0aWVzGAMgASgLMhAubWltaXIudjEuVGVuc29yEg0KBWVycm9yGAQgASgJEhQKDG5lZWRfd2VpZ2h0cxgFIAEoCCLYAgoJVHJhaW5UYXNrEg8KB3Rhc2tfaWQYASABKAkSDgoGam9iX2lkGAIgASgJEhQKDGFyY2hpdGVjdHVyZRgDIAEoCRIsCghzZXR0aW5ncxgEIAEoCzIaLm1pbWlyLnYxLlRyYWluaW5nU2V0dGluZ3MSKwoMZGF0YXNldF9raW5kGAUgASgOMhUubWltaXIudjEuRGF0YXNldEtpbmQSCwoDY3N2GAYgASgMEg4KBnRhcmdldBgHIAEoCRImCgdoaXN0b3J5GAggAygLMhUubWltaXIudjEuRXBvY2hSZXN1bHQSFAoMYmFzZV93ZWlnaHRzGAkgASgMEhMKC2Jhc2VfbGFiZWxzGAogAygJEhUKDWJhc2VfZmVhdHVyZXMYCyADKAkSDwoHYXJjaGl2ZRgMIAEoDBIhCgdjb2x1bW5zGA0gAygLMhAubWltaXIudjEuQ29sdW1uIn4KDVRyYWluUHJvZ3Jlc3MSDwoHdGFza19pZBgBIAEoCRINCgVlcG9jaBgCIAEoBRIMCgRzdGVwGAMgASgFEhcKD3N0ZXBzX3Blcl9lcG9jaBgEIAEoBRImCgdoaXN0b3J5GAUgAygLMhUubWltaXIudjEuRXBvY2hSZXN1bHQivwEKC1RyYWluUmVzdWx0Eg8KB3Rhc2tfaWQYASABKAkSDwoHd2VpZ2h0cxgCIAEoDBImCgdoaXN0b3J5GAMgAygLMhUubWltaXIudjEuRXBvY2hSZXN1bHQSIQoEc3BlYxgEIAEoCzITLm1pbWlyLnYxLk1vZGVsU3BlYxINCgVlcnJvchgFIAEoCRIRCgljYW5jZWxsZWQYBiABKAgSDQoFZnJlc2gYByABKAgSEgoKbG93X21lbW9yeRgIIAEoCCIdCgpDYW5jZWxUYXNrEg8KB3Rhc2tfaWQYASABKAkynQUKDVdvcmtlclNlcnZpY2USTwoLTGlzdFdvcmtlcnMSHC5taW1pci52MS5MaXN0V29ya2Vyc1JlcXVlc3QaHS5taW1pci52MS5MaXN0V29ya2Vyc1Jlc3BvbnNlIgOQAgESTQoMQ3JlYXRlV29ya2VyEh0ubWltaXIudjEuQ3JlYXRlV29ya2VyUmVxdWVzdBoeLm1pbWlyLnYxLkNyZWF0ZVdvcmtlclJlc3BvbnNlEk0KDERlbGV0ZVdvcmtlchIdLm1pbWlyLnYxLkRlbGV0ZVdvcmtlclJlcXVlc3QaHi5taW1pci52MS5EZWxldGVXb3JrZXJSZXNwb25zZRJJCglHZXRXb3JrZXISGi5taW1pci52MS5HZXRXb3JrZXJSZXF1ZXN0GhsubWltaXIudjEuR2V0V29ya2VyUmVzcG9uc2UiA5ACARJfChJSZXBsYWNlV29ya2VyVG9rZW4SIy5taW1pci52MS5SZXBsYWNlV29ya2VyVG9rZW5SZXF1ZXN0GiQubWltaXIudjEuUmVwbGFjZVdvcmtlclRva2VuUmVzcG9uc2USUwoOU2V0V29ya2VyVGFza3MSHy5taW1pci52MS5TZXRXb3JrZXJUYXNrc1JlcXVlc3QaIC5taW1pci52MS5TZXRXb3JrZXJUYXNrc1Jlc3BvbnNlEmEKEUxpc3RXb3JrZXJDaG9pY2VzEiIubWltaXIudjEuTGlzdFdvcmtlckNob2ljZXNSZXF1ZXN0GiMubWltaXIudjEuTGlzdFdvcmtlckNob2ljZXNSZXNwb25zZSIDkAIBEjkKBExpbmsSFS5taW1pci52MS5MaW5rUmVxdWVzdBoWLm1pbWlyLnYxLkxpbmtSZXNwb25zZSgBMAFCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp, file_mimir_v1_model, file_mimir_v1_training]);
+  fileDesc("ChVtaW1pci92MS93b3JrZXIucHJvdG8SCG1pbWlyLnYxIpwECgZXb3JrZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZvbmxpbmUYAyABKAgSLQoJbGFzdF9zZWVuGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtjcmVhdGVfdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGZGV2aWNlGAYgASgJEgwKBGNwdXMYByABKAUSFAoMbWVtb3J5X2J5dGVzGAggASgDEhUKDWFyY2hpdGVjdHVyZXMYCSADKAkSDgoGdHJhaW5zGAogASgIEhAKCGNhcGFjaXR5GAsgASgFEgwKBGJ1c3kYDCABKAUSDwoHdmVyc2lvbhgNIAEoCRIPCgdhZGRyZXNzGA4gASgJEhIKCmNyZWF0ZWRfYnkYDyABKAkSHgoFc3RhdHMYECABKAsyDy5taW1pci52MS5TdGF0cxIwCgxjb25uZWN0X3RpbWUYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhcKD2tleV9maW5nZXJwcmludBgSIAEoCRIQCghzZWN1cml0eRgTIAEoCRITCgt0bHNfdmVyc2lvbhgUIAEoCRIOCgZtb2RlbHMYFSABKAUSDwoHd2FpdGluZxgWIAEoBRIVCg10cmFpbmluZ19vbmx5GBcgASgIEg0KBXRhc2tzGBggASgJIuoBCgVTdGF0cxITCgtjcHVfcGVyY2VudBgBIAEoARIZChFtZW1vcnlfdXNlZF9ieXRlcxgCIAEoAxIaChJtZW1vcnlfdG90YWxfYnl0ZXMYAyABKAMSFwoPZGlza191c2VkX2J5dGVzGAQgASgDEhgKEGRpc2tfdG90YWxfYnl0ZXMYBSABKAMSFgoOdXB0aW1lX3NlY29uZHMYBiABKAMSFAoMbG9hZF9hdmVyYWdlGAcgASgBEhcKD21lbW9yeV9wcmVzc3VyZRgIIAEoBRIbChNtZW1vcnlfYnVkZ2V0X2J5dGVzGAkgASgDItcBCgxXb3JrZXJTYW1wbGUSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoLY3B1X3BlcmNlbnQYAiABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYAyABKAMSGgoSbWVtb3J5X3RvdGFsX2J5dGVzGAQgASgDEhcKD2Rpc2tfdXNlZF9ieXRlcxgFIAEoAxIYChBkaXNrX3RvdGFsX2J5dGVzGAYgASgDEgwKBGJ1c3kYByABKAUSEAoIY2FwYWNpdHkYCCABKAUioQEKCldvcmtlclRhc2sSDAoEa2luZBgBIAEoCRIQCghtb2RlbF9pZBgCIAEoCRISCgptb2RlbF9uYW1lGAMgASgJEg4KBmpvYl9pZBgEIAEoCRIQCghqb2JfbmFtZRgFIAEoCRIuCgpzdGFydF90aW1lGAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVjb3VudBgHIAEoBSJgCgpXb3JrZXJJdGVtEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGc3RhdHVzGAMgASgJEigKBHRpbWUYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIi0KEEdldFdvcmtlclJlcXVlc3QSCgoCaWQYASABKAkSDQoFaG91cnMYAiABKAUi8wEKEUdldFdvcmtlclJlc3BvbnNlEiAKBndvcmtlchgBIAEoCzIQLm1pbWlyLnYxLldvcmtlchInCgdzYW1wbGVzGAIgAygLMhYubWltaXIudjEuV29ya2VyU2FtcGxlEiMKBXRhc2tzGAMgAygLMhQubWltaXIudjEuV29ya2VyVGFzaxIkCgZtb2RlbHMYBCADKAsyFC5taW1pci52MS5Xb3JrZXJJdGVtEiIKBHJ1bnMYBSADKAsyFC5taW1pci52MS5Xb3JrZXJJdGVtEiQKBmV2ZW50cxgGIAMoCzIULm1pbWlyLnYxLldvcmtlckl0ZW0iJwoZUmVwbGFjZVdvcmtlclRva2VuUmVxdWVzdBIKCgJpZBgBIAEoCSIrChpSZXBsYWNlV29ya2VyVG9rZW5SZXNwb25zZRINCgV0b2tlbhgBIAEoCSIyChVTZXRXb3JrZXJUYXNrc1JlcXVlc3QSCgoCaWQYASABKAkSDQoFdGFza3MYAiABKAkiOgoWU2V0V29ya2VyVGFza3NSZXNwb25zZRIgCgZ3b3JrZXIYASABKAsyEC5taW1pci52MS5Xb3JrZXIiGgoYTGlzdFdvcmtlckNob2ljZXNSZXF1ZXN0Ij4KGUxpc3RXb3JrZXJDaG9pY2VzUmVzcG9uc2USIQoHd29ya2VycxgBIAMoCzIQLm1pbWlyLnYxLldvcmtlciIUChJMaXN0V29ya2Vyc1JlcXVlc3QiTQoTTGlzdFdvcmtlcnNSZXNwb25zZRIhCgd3b3JrZXJzGAEgAygLMhAubWltaXIudjEuV29ya2VyEhMKC3NlY3VyZV9qb2luGAIgASgIIiMKE0NyZWF0ZVdvcmtlclJlcXVlc3QSDAoEbmFtZRgBIAEoCSJHChRDcmVhdGVXb3JrZXJSZXNwb25zZRIgCgZ3b3JrZXIYASABKAsyEC5taW1pci52MS5Xb3JrZXISDQoFdG9rZW4YAiABKAkiIQoTRGVsZXRlV29ya2VyUmVxdWVzdBIKCgJpZBgBIAEoCSIWChREZWxldGVXb3JrZXJSZXNwb25zZSLFAgoLTGlua1JlcXVlc3QSIAoFaGVsbG8YASABKAsyDy5taW1pci52MS5IZWxsb0gAEjEKDnByZWRpY3RfcmVzdWx0GAIgASgLMhcubWltaXIudjEuUHJlZGljdFJlc3VsdEgAEjEKDnRyYWluX3Byb2dyZXNzGAMgASgLMhcubWltaXIudjEuVHJhaW5Qcm9ncmVzc0gAEi0KDHRyYWluX3Jlc3VsdBgEIAEoCzIVLm1pbWlyLnYxLlRyYWluUmVzdWx0SAASKAoJaGVhcnRiZWF0GAUgASgLMhMubWltaXIudjEuSGVhcnRiZWF0SAASIAoFcHJvb2YYBiABKAsyDy5taW1pci52MS5Qcm9vZkgAEisKC2xvYWRfcmVzdWx0GAcgASgLMhQubWltaXIudjEuTG9hZFJlc3VsdEgAQgYKBGJvZHkiggIKDExpbmtSZXNwb25zZRIkCgd3ZWxjb21lGAEgASgLMhEubWltaXIudjEuV2VsY29tZUgAEigKB3ByZWRpY3QYAiABKAsyFS5taW1pci52MS5QcmVkaWN0VGFza0gAEiQKBXRyYWluGAMgASgLMhMubWltaXIudjEuVHJhaW5UYXNrSAASJgoGY2FuY2VsGAQgASgLMhQubWltaXIudjEuQ2FuY2VsVGFza0gAEigKCWNoYWxsZW5nZRgFIAEoCzITLm1pbWlyLnYxLkNoYWxsZW5nZUgAEiIKBGxvYWQYBiABKAsyEi5taW1pci52MS5Mb2FkVGFza0gAQgYKBGJvZHkidwoITG9hZFRhc2sSDwoHdGFza19pZBgBIAEoCRIQCghtb2RlbF9pZBgCIAEoCRIUCgxhcmNoaXRlY3R1cmUYAyABKAkSIQoEc3BlYxgEIAEoCzITLm1pbWlyLnYxLk1vZGVsU3BlYxIPCgd3ZWlnaHRzGAUgASgMIiwKCkxvYWRSZXN1bHQSDwoHdGFza19pZBgBIAEoCRINCgVlcnJvchgCIAEoCSIaCglDaGFsbGVuZ2USDQoFbm9uY2UYASABKAwiGgoFUHJvb2YSEQoJc2lnbmF0dXJlGAEgASgMItABCgVIZWxsbxIOCgZkZXZpY2UYASABKAkSDAoEY3B1cxgCIAEoBRIUCgxtZW1vcnlfYnl0ZXMYAyABKAMSFQoNYXJjaGl0ZWN0dXJlcxgEIAMoCRIOCgZ0cmFpbnMYBSABKAgSEAoIY2FwYWNpdHkYBiABKAUSDwoHdmVyc2lvbhgHIAEoCRISCgpwdWJsaWNfa2V5GAggASgMEh4KBXN0YXRzGAkgASgLMg8ubWltaXIudjEuU3RhdHMSFQoNdHJhaW5pbmdfb25seRgKIAEoCCIrCglIZWFydGJlYXQSHgoFc3RhdHMYASABKAsyDy5taW1pci52MS5TdGF0cyI5CgdXZWxjb21lEhEKCXdvcmtlcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBXRhc2tzGAMgASgJImUKCU1vZGVsU3BlYxITCgtpbnB1dF9zaGFwZRgBIAMoAxIOCgZsYWJlbHMYAiADKAkSEAoIZmVhdHVyZXMYAyADKAkSIQoHY29sdW1ucxgEIAMoCzIQLm1pbWlyLnYxLkNvbHVtbiKbAQoLUHJlZGljdFRhc2sSDwoHdGFza19pZBgBIAEoCRIQCghtb2RlbF9pZBgCIAEoCRIUCgxhcmNoaXRlY3R1cmUYAyABKAkSIQoEc3BlYxgEIAEoCzITLm1pbWlyLnYxLk1vZGVsU3BlYxIPCgd3ZWlnaHRzGAUgASgMEh8KBWlucHV0GAYgASgLMhAubWltaXIudjEuVGVuc29yIpABCg1QcmVkaWN0UmVzdWx0Eg8KB3Rhc2tfaWQYASABKAkSIAoGb3V0cHV0GAIgASgLMhAubWltaXIudjEuVGVuc29yEicKDXByb2JhYmlsaXRpZXMYAyABKAsyEC5taW1pci52MS5UZW5zb3ISDQoFZXJyb3IYBCABKAkSFAoMbmVlZF93ZWlnaHRzGAUgASgIItgCCglUcmFpblRhc2sSDwoHdGFza19pZBgBIAEoCRIOCgZqb2JfaWQYAiABKAkSFAoMYXJjaGl0ZWN0dXJlGAMgASgJEiwKCHNldHRpbmdzGAQgASgLMhoubWltaXIudjEuVHJhaW5pbmdTZXR0aW5ncxIrCgxkYXRhc2V0X2tpbmQYBSABKA4yFS5taW1pci52MS5EYXRhc2V0S2luZBILCgNjc3YYBiABKAwSDgoGdGFyZ2V0GAcgASgJEiYKB2hpc3RvcnkYCCADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdBIUCgxiYXNlX3dlaWdodHMYCSABKAwSEwoLYmFzZV9sYWJlbHMYCiADKAkSFQoNYmFzZV9mZWF0dXJlcxgLIAMoCRIPCgdhcmNoaXZlGAwgASgMEiEKB2NvbHVtbnMYDSADKAsyEC5taW1pci52MS5Db2x1bW4ifgoNVHJhaW5Qcm9ncmVzcxIPCgd0YXNrX2lkGAEgASgJEg0KBWVwb2NoGAIgASgFEgwKBHN0ZXAYAyABKAUSFwoPc3RlcHNfcGVyX2Vwb2NoGAQgASgFEiYKB2hpc3RvcnkYBSADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdCK/AQoLVHJhaW5SZXN1bHQSDwoHdGFza19pZBgBIAEoCRIPCgd3ZWlnaHRzGAIgASgMEiYKB2hpc3RvcnkYAyADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdBIhCgRzcGVjGAQgASgLMhMubWltaXIudjEuTW9kZWxTcGVjEg0KBWVycm9yGAUgASgJEhEKCWNhbmNlbGxlZBgGIAEoCBINCgVmcmVzaBgHIAEoCBISCgpsb3dfbWVtb3J5GAggASgIIh0KCkNhbmNlbFRhc2sSDwoHdGFza19pZBgBIAEoCSLoAgoIQ2xvdWRHcHUSDwoHZW5hYmxlZBgBIAEoCBIQCghwcm92aWRlchgPIAEoCRIQCgh0b2tlbl9pZBgCIAEoCRIYChBoYXNfdG9rZW5fc2VjcmV0GAMgASgIEgsKA2dwdRgEIAEoCRIOCgZyZWdpb24YECABKAkSDwoHc3NoX2tleRgRIAEoCRITCgtjb25zb2xlX3VybBgFIAEoCRIUCgxpZGxlX21pbnV0ZXMYBiABKAUSEQoJbWF4X2hvdXJzGAcgASgFEhAKCGNhcGFjaXR5GAggASgFEhMKC3Byb2dyYW1fdXJsGAkgASgJEhkKEWNhbl9zZXJ2ZV9wcm9ncmFtGAogASgIEhEKCXdvcmtlcl9pZBgLIAEoCRINCgVzdGF0ZRgMIAEoCRIuCgpzdGF0ZV90aW1lGA0gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVlcnJvchgOIAEoCSIUChJHZXRDbG91ZEdwdVJlcXVlc3QiawoTR2V0Q2xvdWRHcHVSZXNwb25zZRIlCgljbG91ZF9ncHUYASABKAsyEi5taW1pci52MS5DbG91ZEdwdRItCglwcm92aWRlcnMYAiADKAsyGi5taW1pci52MS5DbG91ZEdwdVByb3ZpZGVyIpIBChBDbG91ZEdwdVByb3ZpZGVyEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSJgoEZ3B1cxgDIAMoCzIYLm1pbWlyLnYxLkNsb3VkR3B1Q2hvaWNlEhMKC2RlZmF1bHRfZ3B1GAQgASgJEg8KB3JlZ2lvbnMYBSADKAkSFgoOZGVmYXVsdF9yZWdpb24YBiABKAkiKwoOQ2xvdWRHcHVDaG9pY2USCgoCaWQYASABKAkSDQoFbGFiZWwYAiABKAki9QEKFVVwZGF0ZUNsb3VkR3B1UmVxdWVzdBIPCgdlbmFibGVkGAEgASgIEhAKCHByb3ZpZGVyGAogASgJEhAKCHRva2VuX2lkGAIgASgJEhQKDHRva2VuX3NlY3JldBgDIAEoCRILCgNncHUYBCABKAkSDgoGcmVnaW9uGAsgASgJEg8KB3NzaF9rZXkYDCABKAkSEwoLY29uc29sZV91cmwYBSABKAkSFAoMaWRsZV9taW51dGVzGAYgASgFEhEKCW1heF9ob3VycxgHIAEoBRIQCghjYXBhY2l0eRgIIAEoBRITCgtwcm9ncmFtX3VybBgJIAEoCSI/ChZVcGRhdGVDbG91ZEdwdVJlc3BvbnNlEiUKCWNsb3VkX2dwdRgBIAEoCzISLm1pbWlyLnYxLkNsb3VkR3B1IhUKE1N0b3BDbG91ZEdwdVJlcXVlc3QiPQoUU3RvcENsb3VkR3B1UmVzcG9uc2USJQoJY2xvdWRfZ3B1GAEgASgLMhIubWltaXIudjEuQ2xvdWRHcHUykgcKDVdvcmtlclNlcnZpY2USTwoLTGlzdFdvcmtlcnMSHC5taW1pci52MS5MaXN0V29ya2Vyc1JlcXVlc3QaHS5taW1pci52MS5MaXN0V29ya2Vyc1Jlc3BvbnNlIgOQAgESTQoMQ3JlYXRlV29ya2VyEh0ubWltaXIudjEuQ3JlYXRlV29ya2VyUmVxdWVzdBoeLm1pbWlyLnYxLkNyZWF0ZVdvcmtlclJlc3BvbnNlEk0KDERlbGV0ZVdvcmtlchIdLm1pbWlyLnYxLkRlbGV0ZVdvcmtlclJlcXVlc3QaHi5taW1pci52MS5EZWxldGVXb3JrZXJSZXNwb25zZRJJCglHZXRXb3JrZXISGi5taW1pci52MS5HZXRXb3JrZXJSZXF1ZXN0GhsubWltaXIudjEuR2V0V29ya2VyUmVzcG9uc2UiA5ACARJfChJSZXBsYWNlV29ya2VyVG9rZW4SIy5taW1pci52MS5SZXBsYWNlV29ya2VyVG9rZW5SZXF1ZXN0GiQubWltaXIudjEuUmVwbGFjZVdvcmtlclRva2VuUmVzcG9uc2USUwoOU2V0V29ya2VyVGFza3MSHy5taW1pci52MS5TZXRXb3JrZXJUYXNrc1JlcXVlc3QaIC5taW1pci52MS5TZXRXb3JrZXJUYXNrc1Jlc3BvbnNlEmEKEUxpc3RXb3JrZXJDaG9pY2VzEiIubWltaXIudjEuTGlzdFdvcmtlckNob2ljZXNSZXF1ZXN0GiMubWltaXIudjEuTGlzdFdvcmtlckNob2ljZXNSZXNwb25zZSIDkAIBEjkKBExpbmsSFS5taW1pci52MS5MaW5rUmVxdWVzdBoWLm1pbWlyLnYxLkxpbmtSZXNwb25zZSgBMAESTwoLR2V0Q2xvdWRHcHUSHC5taW1pci52MS5HZXRDbG91ZEdwdVJlcXVlc3QaHS5taW1pci52MS5HZXRDbG91ZEdwdVJlc3BvbnNlIgOQAgESUwoOVXBkYXRlQ2xvdWRHcHUSHy5taW1pci52MS5VcGRhdGVDbG91ZEdwdVJlcXVlc3QaIC5taW1pci52MS5VcGRhdGVDbG91ZEdwdVJlc3BvbnNlEk0KDFN0b3BDbG91ZEdwdRIdLm1pbWlyLnYxLlN0b3BDbG91ZEdwdVJlcXVlc3QaHi5taW1pci52MS5TdG9wQ2xvdWRHcHVSZXNwb25zZUI3WjVnaXRodWIuY29tL2dzb3VsdGFuL21pbWlyLXNlcnZlci9nZW4vbWltaXIvdjE7bWltaXJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_mimir_v1_model, file_mimir_v1_training]);
 
 /**
  * Worker is a process that runs models for this server, here or elsewhere.
@@ -719,6 +719,12 @@ export type LinkRequest = Message<"mimir.v1.LinkRequest"> & {
      */
     value: Proof;
     case: "proof";
+  } | {
+    /**
+     * @generated from field: mimir.v1.LoadResult load_result = 7;
+     */
+    value: LoadResult;
+    case: "loadResult";
   } | { case: undefined; value?: undefined };
 };
 
@@ -768,6 +774,12 @@ export type LinkResponse = Message<"mimir.v1.LinkResponse"> & {
      */
     value: Challenge;
     case: "challenge";
+  } | {
+    /**
+     * @generated from field: mimir.v1.LoadTask load = 6;
+     */
+    value: LoadTask;
+    case: "load";
   } | { case: undefined; value?: undefined };
 };
 
@@ -777,6 +789,72 @@ export type LinkResponse = Message<"mimir.v1.LinkResponse"> & {
  */
 export const LinkResponseSchema: GenMessage<LinkResponse> = /*@__PURE__*/
   messageDesc(file_mimir_v1_worker, 20);
+
+/**
+ * LoadTask hands a worker a model's weights ahead of any prediction, so
+ * the first one after a run finishes is as quick as the rest. The
+ * worker keeps answering with the version it has until this one is
+ * loaded.
+ *
+ * @generated from message mimir.v1.LoadTask
+ */
+export type LoadTask = Message<"mimir.v1.LoadTask"> & {
+  /**
+   * @generated from field: string task_id = 1;
+   */
+  taskId: string;
+
+  /**
+   * @generated from field: string model_id = 2;
+   */
+  modelId: string;
+
+  /**
+   * @generated from field: string architecture = 3;
+   */
+  architecture: string;
+
+  /**
+   * @generated from field: mimir.v1.ModelSpec spec = 4;
+   */
+  spec?: ModelSpec | undefined;
+
+  /**
+   * @generated from field: bytes weights = 5;
+   */
+  weights: Uint8Array;
+};
+
+/**
+ * Describes the message mimir.v1.LoadTask.
+ * Use `create(LoadTaskSchema)` to create a new message.
+ */
+export const LoadTaskSchema: GenMessage<LoadTask> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 21);
+
+/**
+ * @generated from message mimir.v1.LoadResult
+ */
+export type LoadResult = Message<"mimir.v1.LoadResult"> & {
+  /**
+   * @generated from field: string task_id = 1;
+   */
+  taskId: string;
+
+  /**
+   * error says why the model couldn't be loaded; empty means it is.
+   *
+   * @generated from field: string error = 2;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message mimir.v1.LoadResult.
+ * Use `create(LoadResultSchema)` to create a new message.
+ */
+export const LoadResultSchema: GenMessage<LoadResult> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 22);
 
 /**
  * Challenge asks the worker to prove it holds its key.
@@ -795,7 +873,7 @@ export type Challenge = Message<"mimir.v1.Challenge"> & {
  * Use `create(ChallengeSchema)` to create a new message.
  */
 export const ChallengeSchema: GenMessage<Challenge> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 21);
+  messageDesc(file_mimir_v1_worker, 23);
 
 /**
  * Proof is the worker's Ed25519 signature of "mimir-worker-link-v1\n"
@@ -815,7 +893,7 @@ export type Proof = Message<"mimir.v1.Proof"> & {
  * Use `create(ProofSchema)` to create a new message.
  */
 export const ProofSchema: GenMessage<Proof> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 22);
+  messageDesc(file_mimir_v1_worker, 24);
 
 /**
  * Hello is the first message on a link: what the worker can do.
@@ -890,7 +968,7 @@ export type Hello = Message<"mimir.v1.Hello"> & {
  * Use `create(HelloSchema)` to create a new message.
  */
 export const HelloSchema: GenMessage<Hello> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 23);
+  messageDesc(file_mimir_v1_worker, 25);
 
 /**
  * Heartbeat keeps the link alive and carries fresh stats.
@@ -909,7 +987,7 @@ export type Heartbeat = Message<"mimir.v1.Heartbeat"> & {
  * Use `create(HeartbeatSchema)` to create a new message.
  */
 export const HeartbeatSchema: GenMessage<Heartbeat> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 24);
+  messageDesc(file_mimir_v1_worker, 26);
 
 /**
  * @generated from message mimir.v1.Welcome
@@ -939,7 +1017,7 @@ export type Welcome = Message<"mimir.v1.Welcome"> & {
  * Use `create(WelcomeSchema)` to create a new message.
  */
 export const WelcomeSchema: GenMessage<Welcome> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 25);
+  messageDesc(file_mimir_v1_worker, 27);
 
 /**
  * ModelSpec is what a model reads and answers.
@@ -973,7 +1051,7 @@ export type ModelSpec = Message<"mimir.v1.ModelSpec"> & {
  * Use `create(ModelSpecSchema)` to create a new message.
  */
 export const ModelSpecSchema: GenMessage<ModelSpec> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 26);
+  messageDesc(file_mimir_v1_worker, 28);
 
 /**
  * PredictTask asks for one prediction. weights travel only the first time
@@ -1018,7 +1096,7 @@ export type PredictTask = Message<"mimir.v1.PredictTask"> & {
  * Use `create(PredictTaskSchema)` to create a new message.
  */
 export const PredictTaskSchema: GenMessage<PredictTask> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 27);
+  messageDesc(file_mimir_v1_worker, 29);
 
 /**
  * @generated from message mimir.v1.PredictResult
@@ -1057,7 +1135,7 @@ export type PredictResult = Message<"mimir.v1.PredictResult"> & {
  * Use `create(PredictResultSchema)` to create a new message.
  */
 export const PredictResultSchema: GenMessage<PredictResult> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 28);
+  messageDesc(file_mimir_v1_worker, 30);
 
 /**
  * TrainTask asks the worker to train a model from the examples it carries.
@@ -1150,7 +1228,7 @@ export type TrainTask = Message<"mimir.v1.TrainTask"> & {
  * Use `create(TrainTaskSchema)` to create a new message.
  */
 export const TrainTaskSchema: GenMessage<TrainTask> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 29);
+  messageDesc(file_mimir_v1_worker, 31);
 
 /**
  * @generated from message mimir.v1.TrainProgress
@@ -1187,7 +1265,7 @@ export type TrainProgress = Message<"mimir.v1.TrainProgress"> & {
  * Use `create(TrainProgressSchema)` to create a new message.
  */
 export const TrainProgressSchema: GenMessage<TrainProgress> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 30);
+  messageDesc(file_mimir_v1_worker, 32);
 
 /**
  * @generated from message mimir.v1.TrainResult
@@ -1245,7 +1323,7 @@ export type TrainResult = Message<"mimir.v1.TrainResult"> & {
  * Use `create(TrainResultSchema)` to create a new message.
  */
 export const TrainResultSchema: GenMessage<TrainResult> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 31);
+  messageDesc(file_mimir_v1_worker, 33);
 
 /**
  * @generated from message mimir.v1.CancelTask
@@ -1262,7 +1340,375 @@ export type CancelTask = Message<"mimir.v1.CancelTask"> & {
  * Use `create(CancelTaskSchema)` to create a new message.
  */
 export const CancelTaskSchema: GenMessage<CancelTask> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 32);
+  messageDesc(file_mimir_v1_worker, 34);
+
+/**
+ * CloudGpu is a GPU rented by the minute for training, from Modal, AWS
+ * EC2, Google Cloud, RunPod, Lambda Cloud or Vast.ai. When a training run
+ * waits that no other worker can take, the console starts a machine with
+ * that GPU running this server as a worker that teaches only. It stops
+ * once it has had nothing to do for idle_minutes, and the console removes
+ * the machine, so it is paid for only while it trains.
+ *
+ * @generated from message mimir.v1.CloudGpu
+ */
+export type CloudGpu = Message<"mimir.v1.CloudGpu"> & {
+  /**
+   * @generated from field: bool enabled = 1;
+   */
+  enabled: boolean;
+
+  /**
+   * provider is "modal", "aws", "gcp", "runpod", "lambda" or "vast".
+   *
+   * @generated from field: string provider = 15;
+   */
+  provider: string;
+
+  /**
+   * token_id is the credential's public part: the Modal token id (ak-...)
+   * or the AWS access key id. The secret part (the Modal token secret, AWS
+   * secret key, Google service account JSON key, or RunPod, Lambda or
+   * Vast.ai API key) is never shown; has_token_secret says one is stored.
+   *
+   * @generated from field: string token_id = 2;
+   */
+  tokenId: string;
+
+  /**
+   * @generated from field: bool has_token_secret = 3;
+   */
+  hasTokenSecret: boolean;
+
+  /**
+   * gpu is what the provider calls the machine, one of the provider's
+   * CloudGpuProvider.gpus.
+   *
+   * @generated from field: string gpu = 4;
+   */
+  gpu: string;
+
+  /**
+   * region is the AWS or Lambda Cloud region, or the Google Cloud zone.
+   *
+   * @generated from field: string region = 16;
+   */
+  region: string;
+
+  /**
+   * ssh_key names the SSH key Lambda Cloud requires on every instance.
+   *
+   * @generated from field: string ssh_key = 17;
+   */
+  sshKey: string;
+
+  /**
+   * console_url is the https address the GPU machine reaches this console
+   * at, such as https://mimir.example.com.
+   *
+   * @generated from field: string console_url = 5;
+   */
+  consoleUrl: string;
+
+  /**
+   * idle_minutes is how long it waits for more work before it stops.
+   *
+   * @generated from field: int32 idle_minutes = 6;
+   */
+  idleMinutes: number;
+
+  /**
+   * max_hours is the longest one machine runs. A run still going then
+   * goes back in the queue and resumes on a fresh one.
+   *
+   * @generated from field: int32 max_hours = 7;
+   */
+  maxHours: number;
+
+  /**
+   * capacity is how many runs it trains at once.
+   *
+   * @generated from field: int32 capacity = 8;
+   */
+  capacity: number;
+
+  /**
+   * program_url, when set, is where the machine downloads mimir-server
+   * for linux/amd64 from. Empty takes it from this console, which works
+   * when the console itself runs on linux/amd64 (can_serve_program).
+   *
+   * @generated from field: string program_url = 9;
+   */
+  programUrl: string;
+
+  /**
+   * @generated from field: bool can_serve_program = 10;
+   */
+  canServeProgram: boolean;
+
+  /**
+   * worker_id is the worker the rented GPU joins as.
+   *
+   * @generated from field: string worker_id = 11;
+   */
+  workerId: string;
+
+  /**
+   * state is "off", "asleep" (nothing waiting), "starting", "running" or
+   * "failed"; state_time is when it got there and error says why it
+   * failed.
+   *
+   * @generated from field: string state = 12;
+   */
+  state: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp state_time = 13;
+   */
+  stateTime?: Timestamp | undefined;
+
+  /**
+   * @generated from field: string error = 14;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message mimir.v1.CloudGpu.
+ * Use `create(CloudGpuSchema)` to create a new message.
+ */
+export const CloudGpuSchema: GenMessage<CloudGpu> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 35);
+
+/**
+ * @generated from message mimir.v1.GetCloudGpuRequest
+ */
+export type GetCloudGpuRequest = Message<"mimir.v1.GetCloudGpuRequest"> & {
+};
+
+/**
+ * Describes the message mimir.v1.GetCloudGpuRequest.
+ * Use `create(GetCloudGpuRequestSchema)` to create a new message.
+ */
+export const GetCloudGpuRequestSchema: GenMessage<GetCloudGpuRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 36);
+
+/**
+ * @generated from message mimir.v1.GetCloudGpuResponse
+ */
+export type GetCloudGpuResponse = Message<"mimir.v1.GetCloudGpuResponse"> & {
+  /**
+   * @generated from field: mimir.v1.CloudGpu cloud_gpu = 1;
+   */
+  cloudGpu?: CloudGpu | undefined;
+
+  /**
+   * providers are where a GPU can be rented, with what each offers.
+   *
+   * @generated from field: repeated mimir.v1.CloudGpuProvider providers = 2;
+   */
+  providers: CloudGpuProvider[];
+};
+
+/**
+ * Describes the message mimir.v1.GetCloudGpuResponse.
+ * Use `create(GetCloudGpuResponseSchema)` to create a new message.
+ */
+export const GetCloudGpuResponseSchema: GenMessage<GetCloudGpuResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 37);
+
+/**
+ * CloudGpuProvider is a place that rents GPUs.
+ *
+ * @generated from message mimir.v1.CloudGpuProvider
+ */
+export type CloudGpuProvider = Message<"mimir.v1.CloudGpuProvider"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * gpus are the machines offered, cheapest first, labelled with their
+   * memory and about what an hour costs.
+   *
+   * @generated from field: repeated mimir.v1.CloudGpuChoice gpus = 3;
+   */
+  gpus: CloudGpuChoice[];
+
+  /**
+   * @generated from field: string default_gpu = 4;
+   */
+  defaultGpu: string;
+
+  /**
+   * regions are suggested where the provider asks for a region or zone.
+   *
+   * @generated from field: repeated string regions = 5;
+   */
+  regions: string[];
+
+  /**
+   * @generated from field: string default_region = 6;
+   */
+  defaultRegion: string;
+};
+
+/**
+ * Describes the message mimir.v1.CloudGpuProvider.
+ * Use `create(CloudGpuProviderSchema)` to create a new message.
+ */
+export const CloudGpuProviderSchema: GenMessage<CloudGpuProvider> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 38);
+
+/**
+ * @generated from message mimir.v1.CloudGpuChoice
+ */
+export type CloudGpuChoice = Message<"mimir.v1.CloudGpuChoice"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string label = 2;
+   */
+  label: string;
+};
+
+/**
+ * Describes the message mimir.v1.CloudGpuChoice.
+ * Use `create(CloudGpuChoiceSchema)` to create a new message.
+ */
+export const CloudGpuChoiceSchema: GenMessage<CloudGpuChoice> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 39);
+
+/**
+ * @generated from message mimir.v1.UpdateCloudGpuRequest
+ */
+export type UpdateCloudGpuRequest = Message<"mimir.v1.UpdateCloudGpuRequest"> & {
+  /**
+   * @generated from field: bool enabled = 1;
+   */
+  enabled: boolean;
+
+  /**
+   * @generated from field: string provider = 10;
+   */
+  provider: string;
+
+  /**
+   * @generated from field: string token_id = 2;
+   */
+  tokenId: string;
+
+  /**
+   * token_secret replaces the stored one; empty keeps it, unless the
+   * provider changes.
+   *
+   * @generated from field: string token_secret = 3;
+   */
+  tokenSecret: string;
+
+  /**
+   * @generated from field: string gpu = 4;
+   */
+  gpu: string;
+
+  /**
+   * @generated from field: string region = 11;
+   */
+  region: string;
+
+  /**
+   * @generated from field: string ssh_key = 12;
+   */
+  sshKey: string;
+
+  /**
+   * @generated from field: string console_url = 5;
+   */
+  consoleUrl: string;
+
+  /**
+   * @generated from field: int32 idle_minutes = 6;
+   */
+  idleMinutes: number;
+
+  /**
+   * @generated from field: int32 max_hours = 7;
+   */
+  maxHours: number;
+
+  /**
+   * @generated from field: int32 capacity = 8;
+   */
+  capacity: number;
+
+  /**
+   * @generated from field: string program_url = 9;
+   */
+  programUrl: string;
+};
+
+/**
+ * Describes the message mimir.v1.UpdateCloudGpuRequest.
+ * Use `create(UpdateCloudGpuRequestSchema)` to create a new message.
+ */
+export const UpdateCloudGpuRequestSchema: GenMessage<UpdateCloudGpuRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 40);
+
+/**
+ * @generated from message mimir.v1.UpdateCloudGpuResponse
+ */
+export type UpdateCloudGpuResponse = Message<"mimir.v1.UpdateCloudGpuResponse"> & {
+  /**
+   * @generated from field: mimir.v1.CloudGpu cloud_gpu = 1;
+   */
+  cloudGpu?: CloudGpu | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.UpdateCloudGpuResponse.
+ * Use `create(UpdateCloudGpuResponseSchema)` to create a new message.
+ */
+export const UpdateCloudGpuResponseSchema: GenMessage<UpdateCloudGpuResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 41);
+
+/**
+ * @generated from message mimir.v1.StopCloudGpuRequest
+ */
+export type StopCloudGpuRequest = Message<"mimir.v1.StopCloudGpuRequest"> & {
+};
+
+/**
+ * Describes the message mimir.v1.StopCloudGpuRequest.
+ * Use `create(StopCloudGpuRequestSchema)` to create a new message.
+ */
+export const StopCloudGpuRequestSchema: GenMessage<StopCloudGpuRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 42);
+
+/**
+ * @generated from message mimir.v1.StopCloudGpuResponse
+ */
+export type StopCloudGpuResponse = Message<"mimir.v1.StopCloudGpuResponse"> & {
+  /**
+   * @generated from field: mimir.v1.CloudGpu cloud_gpu = 1;
+   */
+  cloudGpu?: CloudGpu | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.StopCloudGpuResponse.
+ * Use `create(StopCloudGpuResponseSchema)` to create a new message.
+ */
+export const StopCloudGpuResponseSchema: GenMessage<StopCloudGpuResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 43);
 
 /**
  * WorkerService manages the workers that run models for this server, and
@@ -1358,6 +1804,40 @@ export const WorkerService: GenService<{
     methodKind: "bidi_streaming";
     input: typeof LinkRequestSchema;
     output: typeof LinkResponseSchema;
+  },
+  /**
+   * GetCloudGpu says how training runs rent a GPU when they wait, and
+   * whether one is running now.
+   *
+   * @generated from rpc mimir.v1.WorkerService.GetCloudGpu
+   */
+  getCloudGpu: {
+    methodKind: "unary";
+    input: typeof GetCloudGpuRequestSchema;
+    output: typeof GetCloudGpuResponseSchema;
+  },
+  /**
+   * UpdateCloudGpu sets it up, changes it, or turns it off. Turning it on
+   * the first time adds a worker for it, which teaches only.
+   *
+   * @generated from rpc mimir.v1.WorkerService.UpdateCloudGpu
+   */
+  updateCloudGpu: {
+    methodKind: "unary";
+    input: typeof UpdateCloudGpuRequestSchema;
+    output: typeof UpdateCloudGpuResponseSchema;
+  },
+  /**
+   * StopCloudGpu stops the rented GPU now, whatever it is doing. Runs on
+   * it go back in the queue to resume from their checkpoints, and start
+   * it again if they still wait.
+   *
+   * @generated from rpc mimir.v1.WorkerService.StopCloudGpu
+   */
+  stopCloudGpu: {
+    methodKind: "unary";
+    input: typeof StopCloudGpuRequestSchema;
+    output: typeof StopCloudGpuResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_mimir_v1_worker, 0);
