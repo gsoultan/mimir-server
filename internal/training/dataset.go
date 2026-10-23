@@ -263,21 +263,17 @@ func ParseTable(r io.Reader, target string, hints map[string]schema.Kind) (*Tabl
 	t.Skipped = 0
 	err = rows(func(cells []string, _ string) error {
 		for j, v := range cells {
-			switch c := t.Columns[j]; {
+			switch {
 			case v == "":
 				t.Profile[j].Empty++
-			case c.Kind == schema.Number:
-				if _, ok := schema.ParseNumber(v); !ok {
-					t.Profile[j].Unreadable++
-				}
-			case c.Kind == schema.Text:
-				words[j] += len(schema.Words(v))
+			case t.Columns[j].Kind == schema.Text:
+				words[j] += schema.CountWords(v)
 			}
 		}
 		if photos >= 0 {
 			t.Photos = append(t.Photos, strings.Clone(cells[photos]))
 		}
-		t.X = schema.Encode(t.X, t.Columns, func(j int) string { return cells[j] })
+		t.X = schema.EncodeRow(t.X, t.Columns, cells, func(j int) { t.Profile[j].Unreadable++ })
 		return nil
 	})
 	if err != nil {
