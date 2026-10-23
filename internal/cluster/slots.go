@@ -14,3 +14,17 @@ func (p *Pool) TrainSlots() int {
 	}
 	return n
 }
+
+// TrainingOnly reports whether a connected worker takes training runs
+// and no predictions (started with -tasks train). A model it trains must
+// run elsewhere. An offline worker reports false.
+func (p *Pool) TrainingOnly(workerID string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, l := range p.links {
+		if l.worker.ID == workerID && l.hello.GetTrainingOnly() {
+			return true
+		}
+	}
+	return false
+}

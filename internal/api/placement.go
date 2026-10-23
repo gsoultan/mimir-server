@@ -40,6 +40,9 @@ func (s *Service) SetModelWorker(ctx context.Context, req *connect.Request[mimir
 		if err != nil {
 			return nil, err
 		}
+		if s.trainingOnly(wid) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("%s only teaches models (it was started with -tasks train). Pick a worker that runs them.", w.Name))
+		}
 		where = w.Name
 	}
 	if err := s.store.SetModelWorker(ctx, m.ID, wid); err != nil {
@@ -70,6 +73,21 @@ func (s *Service) worker(ctx context.Context, id string) (store.Worker, error) {
 	return w, nil
 }
 
+// trainingOnly reports whether a worker is connected and takes no
+// predictions (started with -tasks train). An offline worker's tasks
+// aren't known, so it reports false.
+func (s *Service) trainingOnly(id string) bool {
+	if s.Pool == nil {
+		return false
+	}
+	for _, st := range s.Pool.Statuses() {
+		if st.Worker.ID == id && st.Hello.GetTrainingOnly() {
+			return true
+		}
+	}
+	return false
+}
+
 // workerName names a worker for a message, or says it's gone.
 func (s *Service) workerName(ctx context.Context, id string) string {
 	if w, err := s.store.GetWorker(ctx, id); err == nil {
@@ -91,7 +109,7 @@ func (s *Service) ListWorkerChoices(ctx context.Context, _ *connect.Request[mimi
 		c := &mimirv1.Worker{Id: w.ID, Name: w.Name}
 		for _, st := range live[w.ID] {
 			c.Online = true
-			c.Device, c.Architectures, c.Trains = st.Hello.Device, st.Hello.Architectures, st.Hello.Trains
+			c.Device, c.Architectures, c.Trains, c.TrainingOnly = st.Hello.Device, st.Hello.Architectures, st.Hello.Trains, st.Hello.TrainingOnly
 			c.Capacity += st.Hello.Capacity
 			c.Busy += int32(st.Busy)
 		}
@@ -223,7 +241,7 @@ func (s *Service) workerView(w store.Worker, live []cluster.Status, models, wait
 		pw.Online = true
 		pw.LastSeen = timestamppb.Now()
 		pw.Device, pw.Cpus, pw.MemoryBytes = st.Hello.Device, st.Hello.Cpus, st.Hello.MemoryBytes
-		pw.Architectures, pw.Trains = st.Hello.Architectures, st.Hello.Trains
+		pw.Architectures, pw.Trains, pw.TrainingOnly = st.Hello.Architectures, st.Hello.Trains, st.Hello.TrainingOnly
 		pw.Capacity += st.Hello.Capacity
 		pw.Busy += int32(st.Busy)
 		pw.Version, pw.Address = st.Hello.Version, hostOf(st.Addr)

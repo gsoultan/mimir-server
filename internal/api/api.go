@@ -516,6 +516,9 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		}
 	}
 	if !ran && pinned {
+		if s.trainingOnly(pin) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("This model is set to run on %s, which only teaches models. Change where the model runs on its page.", s.workerName(ctx, pin)))
+		}
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("This model runs on %s, which is offline or full right now. Wait for it, or change where the model runs on its page.", s.workerName(ctx, pin)))
 	}
 	if !ran {

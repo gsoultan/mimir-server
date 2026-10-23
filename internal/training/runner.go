@@ -107,6 +107,12 @@ type TrainSlots interface {
 	TrainSlots() int
 }
 
+// TrainingOnly is what a Remote can also say: whether a worker takes no
+// predictions, so a model trained on it must run elsewhere.
+type TrainingOnly interface {
+	TrainingOnly(workerID string) bool
+}
+
 // errNoWorker is the failure when nobody can run a job.
 var errNoWorker = errors.New("no worker is connected that can train this kind of model")
 
@@ -367,6 +373,11 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		return "", err
 	}
 	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID, TeamID: j.TeamID, WorkerID: j.RunOn}
+	// A model trained on a worker stays there, unless that worker only
+	// trains: then it runs wherever there is room.
+	if t, ok := r.Remote.(TrainingOnly); ok && j.RunOn != "" && t.TrainingOnly(j.RunOn) {
+		m.WorkerID = ""
+	}
 	if n := len(res.History); n > 0 {
 		m.Accuracy = res.History[n-1].Accuracy
 	}

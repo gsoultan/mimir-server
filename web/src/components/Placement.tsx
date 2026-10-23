@@ -36,7 +36,7 @@ export function WorkerSelect({ workers, value, onChange, label, description, for
     ...workers.map((w) => ({
       value: w.id,
       label: w.name,
-      disabled: forTraining && w.online && !w.trains,
+      disabled: w.online && (forTraining ? !w.trains : w.trainingOnly),
     })),
   ];
   const byId = new Map(workers.map((w) => [w.id, w]));
@@ -57,7 +57,7 @@ export function WorkerSelect({ workers, value, onChange, label, description, for
             <StatusDot online={w.online} busy={w.online && w.busy >= w.capacity} size={8} />
             <Text size="sm">{w.name}</Text>
             <Text size="xs" c="dimmed">
-              {!w.online ? "offline" : forTraining && !w.trains ? "can't teach" : w.busy >= w.capacity ? "busy" : `${w.busy} of ${w.capacity} in use`}
+              {!w.online ? "offline" : forTraining && !w.trains ? "can't teach" : !forTraining && w.trainingOnly ? "teaches only" : w.busy >= w.capacity ? "busy" : `${w.busy} of ${w.capacity} in use`}
             </Text>
           </Group>
         );

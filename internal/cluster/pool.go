@@ -198,7 +198,7 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 		close(l.closed)
 	}()
 	log := p.log.With("worker", w.Name, "addr", addr, "security", j.Security)
-	log.InfoContext(ctx, "worker: connected", "device", hello.Device, "architectures", hello.Architectures, "trains", hello.Trains)
+	log.InfoContext(ctx, "worker: connected", "device", hello.Device, "architectures", hello.Architectures, "trains", hello.Trains, "training_only", hello.TrainingOnly)
 	defer log.InfoContext(ctx, "worker: disconnected")
 
 	if err := l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Welcome{Welcome: &mimirv1.Welcome{WorkerId: w.ID, Name: w.Name}}}); err != nil {
@@ -408,7 +408,7 @@ func (p *Pool) best(archName string, train bool, workerID string) *link {
 		if workerID != "" && l.worker.ID != workerID {
 			continue
 		}
-		if !slices.Contains(l.hello.Architectures, archName) || (train && !l.hello.Trains) {
+		if !slices.Contains(l.hello.Architectures, archName) || (train && !l.hello.Trains) || (!train && l.hello.TrainingOnly) {
 			continue
 		}
 		l.mu.Lock()

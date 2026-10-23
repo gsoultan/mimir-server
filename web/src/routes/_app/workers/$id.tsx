@@ -123,7 +123,7 @@ function WorkerPage() {
             </Stack>
           )}
           {w.online && w.architectures.length > 0 && (
-            <Text size="xs" c="dimmed" mt="md">{w.trains ? "Runs and teaches" : "Runs"}: {w.architectures.map(title).join(", ")}</Text>
+            <Text size="xs" c="dimmed" mt="md">{w.trainingOnly ? "Teaches only" : w.trains ? "Runs and teaches" : "Runs only"}: {w.architectures.map(title).join(", ")}</Text>
           )}
         </Card>
 

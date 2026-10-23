@@ -75,6 +75,9 @@ message Worker {
   int32 models = 21;
   // waiting is how many runs are waiting for it.
   int32 waiting = 22;
+  // training_only says the worker takes training runs and no predictions
+  // (it was started with -tasks train).
+  bool training_only = 23;
 }
 
 // Stats is how a worker's machine is doing.
@@ -231,6 +234,9 @@ message Hello {
   // public_key is the worker's Ed25519 public key.
   bytes public_key = 8;
   Stats stats = 9;
+  // training_only says the worker trains the architectures and does not
+  // answer predictions for them, so the console sends it no predictions.
+  bool training_only = 10;
 }
 
 // Heartbeat keeps the link alive and carries fresh stats.
