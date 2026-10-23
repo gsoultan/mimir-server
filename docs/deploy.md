@@ -188,6 +188,11 @@ shapes, from one machine up:
    as many runs at once as its `-capacity` (the CPU count by default),
    and `MIMIR_TRAINING_JOBS` on the console caps the total.
 
+A model that finishes training reaches the serving workers on its own:
+the console hands them the weights as soon as the run ends, and they
+switch to the new version once it is loaded, answering with the old one
+until then, so the API sees no error and no slow first request.
+
 Whatever the shape, a run with no worker to take it waits in the queue
 and starts when one connects, and a worker that stops hands its runs
 back to the queue to resume from their checkpoints. Each worker's page

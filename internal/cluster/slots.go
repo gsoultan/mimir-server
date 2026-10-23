@@ -40,4 +40,5 @@ func (p *Pool) SetTasks(workerID, tasks string) {
 			l.worker.Tasks = tasks
 		}
 	}
+	p.wake() // a worker told to answer may take predictions that wait
 }

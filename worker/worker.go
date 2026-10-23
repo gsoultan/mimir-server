@@ -459,6 +459,10 @@ func (w *worker) serve(ctx context.Context) error {
 			})
 		case *mimirv1.LinkResponse_Train:
 			tasks.Go(func() { w.slot(ctx, slots, b.Train.TaskId, func(tctx context.Context) { w.train(tctx, b.Train) }) })
+		case *mimirv1.LinkResponse_Load:
+			// Loading takes no slot: predictions keep flowing, answered
+			// by the version already here until this one is in.
+			tasks.Go(func() { w.load(ctx, b.Load) })
 		case *mimirv1.LinkResponse_Cancel:
 			w.mu.Lock()
 			if cancel := w.running[b.Cancel.TaskId]; cancel != nil {
@@ -512,18 +516,11 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 	}
 	var m *Model
 	if len(t.Weights) > 0 {
-		m = &Model{ID: t.ModelId, Architecture: t.Architecture, InputShape: ints(t.GetSpec().GetInputShape()), Labels: t.GetSpec().GetLabels(), Features: t.GetSpec().GetFeatures(), Weights: t.Weights, Version: version(t.Weights)}
-		size := int64(len(t.Weights))
-		var unload func()
-		if ld, ok := h.(Loader); ok {
-			if err := ld.Load(ctx, m); err != nil {
-				reply(&mimirv1.PredictResult{Error: err.Error()})
-				return
-			}
-			m.Weights = nil // the handler has its own copy now
-			unload = func() { ld.Unload(m.ID) }
+		var err error
+		if m, err = w.install(ctx, h, t.ModelId, t.Architecture, t.GetSpec(), t.Weights); err != nil {
+			reply(&mimirv1.PredictResult{Error: err.Error()})
+			return
 		}
-		w.models.put(m, size, unload)
 	} else {
 		m = w.models.get(t.ModelId)
 	}
@@ -545,6 +542,44 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 		Output:        &mimirv1.Tensor{Shape: []int64{int64(len(p.Output))}, Values: p.Output},
 		Probabilities: &mimirv1.Tensor{Shape: []int64{int64(len(p.Probabilities))}, Values: p.Probabilities},
 	})
+}
+
+// install hands a model's weights to its handler and keeps the model,
+// replacing the version held before. It returns what Predict is given.
+func (w *worker) install(ctx context.Context, h Handler, modelID, archName string, spec *mimirv1.ModelSpec, weights []byte) (*Model, error) {
+	m := &Model{ID: modelID, Architecture: archName, InputShape: ints(spec.GetInputShape()), Labels: spec.GetLabels(), Features: spec.GetFeatures(), Weights: weights, Version: version(weights)}
+	size := int64(len(weights))
+	var unload func()
+	if ld, ok := h.(Loader); ok {
+		if err := ld.Load(ctx, m); err != nil {
+			return nil, err
+		}
+		m.Weights = nil // the handler has its own copy now
+		unload = func() { ld.Unload(m.ID) }
+	}
+	w.models.put(m, size, unload)
+	return m, nil
+}
+
+// load takes a model's weights ahead of its first prediction.
+func (w *worker) load(ctx context.Context, t *mimirv1.LoadTask) {
+	reply := func(errText string) {
+		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_LoadResult{LoadResult: &mimirv1.LoadResult{TaskId: t.TaskId, Error: errText}}})
+	}
+	if w.tasks == TasksTrain {
+		reply("this worker only trains models; it doesn't answer predictions")
+		return
+	}
+	h := w.handlers[t.Architecture]
+	if h == nil {
+		reply("this worker doesn't run " + t.Architecture)
+		return
+	}
+	if _, err := w.install(ctx, h, t.ModelId, t.Architecture, t.GetSpec(), t.Weights); err != nil {
+		reply(err.Error())
+		return
+	}
+	reply("")
 }
 
 func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
