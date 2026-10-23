@@ -1,14 +1,16 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Code, CopyButton, Group, Modal, Progress, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Code, CopyButton, Group, Modal, Progress, SimpleGrid, Stack, Switch, Text, TextInput, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconAlertTriangle, IconCheck, IconChevronRight, IconCopy, IconLock, IconLockOpen } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { message } from "../api/client";
+import { SettingsService } from "../api/gen/mimir/v1/settings_pb";
 import { WorkerService, type Worker } from "../api/gen/mimir/v1/worker_pb";
-import { allWorkerQueries, listWorkers } from "../api/queries";
+import { allSettingsQueries, allWorkerQueries, listWorkers, settings } from "../api/queries";
 import { ago, bytes, duration, loadColor, share } from "../lib/format";
 import { StatusDot } from "./Placement";
 
@@ -83,6 +85,8 @@ export function Workers() {
         </SimpleGrid>
       )}
 
+      <TrainHere />
+
       <Modal opened={adding} onClose={add.close} title="Add a worker" centered>
         <Stack>
           <TextInput label="Name" description="Where it runs, for example gpu-box or Mac mini." value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={100} data-autofocus />
@@ -153,12 +157,43 @@ function WorkerCard({ w }: { w: Worker }) {
       )}
       <Group gap="md" mt="sm">
         {w.online && <Text size="xs" c="dimmed">{w.busy} of {w.capacity} tasks</Text>}
+        {w.online && w.trainingOnly && <Text size="xs" c="dimmed">teaches only</Text>}
+        {w.online && !w.trains && !w.trainingOnly && <Text size="xs" c="dimmed">answers only</Text>}
         {w.models > 0 && <Text size="xs" c="dimmed">{w.models} model{w.models === 1 ? "" : "s"} here</Text>}
         {w.waiting > 0 && <Text size="xs" c="dimmed">{w.waiting} waiting</Text>}
         {w.online && s && <Text size="xs" c="dimmed">up {duration(s.uptimeSeconds)}</Text>}
       </Group>
     </Card>
     </Link>
+  );
+}
+
+// TrainHere is the switch for training on the console itself. Off, every
+// run waits for a worker, so training never shares the machine with the
+// API.
+function TrainHere() {
+  const { data } = useSuspenseQuery(settings);
+  const queryClient = useQueryClient();
+  const t = data.training;
+  const save = useMutation(SettingsService.method.updateTraining, {
+    onSuccess: async (res) => {
+      await queryClient.invalidateQueries({ queryKey: allSettingsQueries });
+      notifications.show({ color: "teal", message: res.training?.trainHere ? "This console trains runs itself when no worker takes them." : "Training runs now wait for a worker; this console trains none itself." });
+    },
+  });
+  return (
+    <Card withBorder radius="lg" padding="lg" className="max-w-xl">
+      <Title order={3} fz="md" mb={4}>Training on this console</Title>
+      {t?.canTrainHere ? (
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">On, the console trains runs in its own process when no worker takes them, sharing its CPUs with the API. Off, every run waits for a worker that teaches, so training never slows the API served here.</Text>
+          <Switch label="Train runs on this console when no worker takes them" checked={t.trainHere} disabled={save.isPending} onChange={(e) => save.mutate({ trainHere: e.currentTarget.checked })} />
+          {save.error && <Alert color="red" icon={<IconAlertCircle />}>{message(save.error)}</Alert>}
+        </Stack>
+      ) : (
+        <Text size="sm" c="dimmed">This console runs no models itself (it was started as <Code>-role console</Code>): every training run goes to a worker that teaches, and every prediction to one that answers.</Text>
+      )}
+    </Card>
   );
 }
 
@@ -178,6 +213,7 @@ export function TokenModal({ token, onClose }: { token?: string; onClose: () => 
         The worker makes its own key the first time it connects, and from then on only that machine can use this token. If you rebuild the machine, make a new token on the worker's page.
         {token?.includes(".") && " The token also carries this console's fingerprint, so the worker checks it reached the right console."}
         {" "}You can put the token in the MIMIR_WORKER_TOKEN environment variable instead of -token.
+        {" "}Add -tasks train to make the worker only teach, or -tasks serve to make it only answer, so training never slows the machines that answer.
       </Text>
       <Group justify="flex-end" mt="lg"><Button onClick={onClose}>I've saved it</Button></Group>
     </Modal>

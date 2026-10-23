@@ -114,12 +114,19 @@ type Status struct {
 	Tasks      []Task
 	Security   string
 	TLSVersion string
+	// Trains and TrainingOnly are what the worker takes now: what it
+	// said in its hello, narrowed by what the console told it to take.
+	Trains       bool
+	TrainingOnly bool
 }
 
 type link struct {
 	id     string
 	worker store.Worker
 	hello  *mimirv1.Hello
+	// wants is what the console told the worker to take ("", "all",
+	// "train" or "serve"); guarded by Pool.mu.
+	wants  string
 	join   Join
 	since  time.Time
 	stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse]
@@ -138,6 +145,14 @@ type link struct {
 	closed  chan struct{}
 	dropped chan struct{} // closed when the worker is deleted
 }
+
+// trains reports whether the link takes training runs: the worker trains
+// and the console hasn't limited it to answering. Call with Pool.mu held.
+func (l *link) trains() bool { return l.hello.Trains && l.wants != "serve" }
+
+// trainingOnly reports whether the link takes no predictions: the worker
+// said so, or the console limited it to training. Call with Pool.mu held.
+func (l *link) trainingOnly() bool { return l.hello.TrainingOnly || l.wants == "train" }
 
 func (l *link) drop() {
 	l.mu.Lock()
@@ -179,7 +194,7 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 		}
 	}
 
-	l := &link{worker: w, hello: hello, join: j, since: time.Now(), stream: stream, sent: map[string]string{}, pending: map[string]chan *mimirv1.LinkRequest{}, tasks: map[string]Task{}, closed: make(chan struct{}), dropped: make(chan struct{})}
+	l := &link{worker: w, hello: hello, join: j, wants: w.Tasks, since: time.Now(), stream: stream, sent: map[string]string{}, pending: map[string]chan *mimirv1.LinkRequest{}, tasks: map[string]Task{}, closed: make(chan struct{}), dropped: make(chan struct{})}
 	l.note(p, hello.Stats)
 	p.mu.Lock()
 	p.seq++
@@ -198,10 +213,10 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 		close(l.closed)
 	}()
 	log := p.log.With("worker", w.Name, "addr", addr, "security", j.Security)
-	log.InfoContext(ctx, "worker: connected", "device", hello.Device, "architectures", hello.Architectures, "trains", hello.Trains)
+	log.InfoContext(ctx, "worker: connected", "device", hello.Device, "architectures", hello.Architectures, "trains", hello.Trains, "training_only", hello.TrainingOnly, "tasks", w.Tasks)
 	defer log.InfoContext(ctx, "worker: disconnected")
 
-	if err := l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Welcome{Welcome: &mimirv1.Welcome{WorkerId: w.ID, Name: w.Name}}}); err != nil {
+	if err := l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Welcome{Welcome: &mimirv1.Welcome{WorkerId: w.ID, Name: w.Name, Tasks: w.Tasks}}}); err != nil {
 		return err
 	}
 	// Receive blocks until the worker says something or the stream ends,
@@ -408,7 +423,7 @@ func (p *Pool) best(archName string, train bool, workerID string) *link {
 		if workerID != "" && l.worker.ID != workerID {
 			continue
 		}
-		if !slices.Contains(l.hello.Architectures, archName) || (train && !l.hello.Trains) {
+		if !slices.Contains(l.hello.Architectures, archName) || (train && !l.trains()) || (!train && l.trainingOnly()) {
 			continue
 		}
 		l.mu.Lock()
@@ -484,7 +499,7 @@ func (p *Pool) Statuses() []Status {
 	out := make([]Status, 0, len(p.links))
 	for _, l := range p.links {
 		l.mu.Lock()
-		st := Status{Worker: l.worker, Hello: l.hello, Addr: l.join.Addr, Busy: l.busy, Since: l.since, Stats: l.stats, Security: l.join.Security, TLSVersion: l.join.TLSVersion}
+		st := Status{Worker: l.worker, Hello: l.hello, Addr: l.join.Addr, Busy: l.busy, Since: l.since, Stats: l.stats, Security: l.join.Security, TLSVersion: l.join.TLSVersion, Trains: l.trains(), TrainingOnly: l.trainingOnly()}
 		for _, t := range l.tasks {
 			st.Tasks = append(st.Tasks, t)
 		}

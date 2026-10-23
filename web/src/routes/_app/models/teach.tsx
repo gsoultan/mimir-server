@@ -573,7 +573,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                   onChange={setRunOn}
                   forTraining
                   label="Train on"
-                  description={runOn ? "It trains there and answers there afterwards. If it's offline, the run waits for it." : "The least busy worker that can teach starts it."}
+                  description={runOn ? (workers.find((w) => w.id === runOn)?.trainingOnly ? "It trains there; the model then answers wherever there's room. If it's offline, the run waits for it." : "It trains there and answers there afterwards. If it's offline, the run waits for it.") : "The least busy worker that can teach starts it."}
                 />
               </div>
             )}

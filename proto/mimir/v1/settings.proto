@@ -18,6 +18,9 @@ service SettingsService {
   rpc UpdateRetention(UpdateRetentionRequest) returns (UpdateRetentionResponse);
   rpc UpdateSecurity(UpdateSecurityRequest) returns (UpdateSecurityResponse);
   rpc UpdateLimits(UpdateLimitsRequest) returns (UpdateLimitsResponse);
+  // UpdateTraining says whether this console trains runs in its own
+  // process when no worker takes them.
+  rpc UpdateTraining(UpdateTrainingRequest) returns (UpdateTrainingResponse);
   // GetUsage counts predictions in a month: everyone's for admins, the
   // caller's own for everyone else.
   rpc GetUsage(GetUsageRequest) returns (GetUsageResponse) {
@@ -67,6 +70,26 @@ message GetSettingsResponse {
   Retention retention = 3;
   Security security = 4;
   Limits limits = 5;
+  Training training = 6;
+}
+
+// Training is where this console's training runs go.
+message Training {
+  // train_here lets the console train runs in its own process when no
+  // worker takes them. Off, every run waits for a worker, so training
+  // never shares the machine with the API.
+  bool train_here = 1;
+  // can_train_here says the console runs models itself (-role
+  // standalone); a -role console never trains, whatever train_here says.
+  bool can_train_here = 2;
+}
+
+message UpdateTrainingRequest {
+  bool train_here = 1;
+}
+
+message UpdateTrainingResponse {
+  Training training = 1;
 }
 
 // Limits keep one person or app from using up the server. 0 means no

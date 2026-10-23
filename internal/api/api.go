@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"connectrpc.com/connect"
@@ -79,6 +80,11 @@ type Service struct {
 	// AllowPlainWorkers lets workers connect without encryption from
 	// other machines, for a private network you trust.
 	AllowPlainWorkers bool
+	// TrainHereDefault is whether a standalone console trains runs itself
+	// until Settings says otherwise; LoadTrainingSetting reads the stored
+	// choice over it.
+	TrainHereDefault bool
+	trainHere        atomic.Bool
 	// Local says predictions run in this process when no worker is
 	// preferred. Off for a server that only coordinates workers.
 	Local bool
@@ -122,7 +128,9 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	return &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true}
+	svc := &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true, TrainHereDefault: true}
+	svc.trainHere.Store(true)
+	return svc
 }
 
 func (s *Service) ListArchitectures(context.Context, *connect.Request[mimirv1.ListArchitecturesRequest]) (*connect.Response[mimirv1.ListArchitecturesResponse], error) {
@@ -516,6 +524,9 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		}
 	}
 	if !ran && pinned {
+		if s.trainingOnly(pin) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("This model is set to run on %s, which only teaches models. Change where the model runs on its page.", s.workerName(ctx, pin)))
+		}
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("This model runs on %s, which is offline or full right now. Wait for it, or change where the model runs on its page.", s.workerName(ctx, pin)))
 	}
 	if !ran {
