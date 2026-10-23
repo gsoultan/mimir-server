@@ -90,6 +90,7 @@ type Service struct {
 	// choice over it.
 	TrainHereDefault bool
 	trainHere        atomic.Bool
+	groupWorkers     atomic.Int32
 	// Local says predictions run in this process when no worker is
 	// preferred. Off for a server that only coordinates workers.
 	Local bool

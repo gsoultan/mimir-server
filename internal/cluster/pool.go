@@ -299,6 +299,8 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 			taskID = b.TrainResult.GetTaskId()
 		case *mimirv1.LinkRequest_LoadResult:
 			taskID = b.LoadResult.GetTaskId()
+		case *mimirv1.LinkRequest_GroupShare:
+			taskID = b.GroupShare.GetTaskId()
 		default:
 			continue // a second hello
 		}
@@ -754,19 +756,7 @@ func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Tas
 		return res, "", false, nil
 	}
 	defer l.finish(id)
-	task := &mimirv1.TrainTask{
-		TaskId: id, JobId: jobID, Architecture: t.Arch.Name,
-		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: LayersToProto(t.Settings.Layers)},
-		DatasetKind: mimirv1.DatasetKind(t.Source.Kind),
-		Target:      t.Source.Target, Columns: ColumnsToProto(t.Source.Columns),
-		History:     EpochsToProto(t.History),
-		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
-	}
-	if t.Source.Kind.Archive() {
-		task.Archive = t.Source.CSV
-	} else {
-		task.Csv = t.Source.CSV
-	}
+	task := trainTask(id, jobID, t)
 	if err := l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Train{Train: task}}); err != nil {
 		return res, l.worker.Name, true, ErrLinkLost
 	}
@@ -803,16 +793,39 @@ func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Tas
 			case r.Error != "":
 				return res, l.worker.Name, true, fmt.Errorf("%w: %s", ErrWorkerFailed, r.Error)
 			}
-			sp := r.GetSpec()
-			return training.Result{
-				Weights:  r.Weights,
-				History:  EpochsFromProto(r.History),
-				Spec:     arch.Spec{InputShape: ints(sp.GetInputShape()), Labels: sp.GetLabels()},
-				Features: sp.GetFeatures(),
-				Columns:  ColumnsFromProto(sp.GetColumns()),
-				Fresh:    r.Fresh,
-			}, l.worker.Name, true, nil
+			return resultOf(r), l.worker.Name, true, nil
 		}
+	}
+}
+
+// trainTask is the message that asks a worker to train t.
+func trainTask(id, jobID string, t training.Task) *mimirv1.TrainTask {
+	task := &mimirv1.TrainTask{
+		TaskId: id, JobId: jobID, Architecture: t.Arch.Name,
+		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: LayersToProto(t.Settings.Layers)},
+		DatasetKind: mimirv1.DatasetKind(t.Source.Kind),
+		Target:      t.Source.Target, Columns: ColumnsToProto(t.Source.Columns),
+		History:     EpochsToProto(t.History),
+		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
+	}
+	if t.Source.Kind.Archive() {
+		task.Archive = t.Source.CSV
+	} else {
+		task.Csv = t.Source.CSV
+	}
+	return task
+}
+
+// resultOf is what a worker's successful TrainResult made.
+func resultOf(r *mimirv1.TrainResult) training.Result {
+	sp := r.GetSpec()
+	return training.Result{
+		Weights:  r.Weights,
+		History:  EpochsFromProto(r.History),
+		Spec:     arch.Spec{InputShape: ints(sp.GetInputShape()), Labels: sp.GetLabels()},
+		Features: sp.GetFeatures(),
+		Columns:  ColumnsFromProto(sp.GetColumns()),
+		Fresh:    r.Fresh,
 	}
 }
 

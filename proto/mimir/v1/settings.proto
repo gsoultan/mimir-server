@@ -82,10 +82,16 @@ message Training {
   // can_train_here says the console runs models itself (-role
   // standalone); a -role console never trains, whatever train_here says.
   bool can_train_here = 2;
+  // group_workers above 1 lets one run train on up to that many workers
+  // together, each learning from its share of the examples, when that
+  // many are free. 0 or 1 trains every run on one worker.
+  int32 group_workers = 3;
 }
 
 message UpdateTrainingRequest {
   bool train_here = 1;
+  // group_workers, when set, replaces Training.group_workers.
+  optional int32 group_workers = 2;
 }
 
 message UpdateTrainingResponse {

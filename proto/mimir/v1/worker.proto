@@ -224,6 +224,7 @@ message LinkRequest {
     Heartbeat heartbeat = 5;
     Proof proof = 6;
     LoadResult load_result = 7;
+    GroupShare group_share = 8;
   }
 }
 
@@ -236,6 +237,7 @@ message LinkResponse {
     CancelTask cancel = 4;
     Challenge challenge = 5;
     LoadTask load = 6;
+    GroupMean group_mean = 7;
   }
 }
 
@@ -286,6 +288,9 @@ message Hello {
   // training_only says the worker trains the architectures and does not
   // answer predictions for them, so the console sends it no predictions.
   bool training_only = 10;
+  // group_architectures are those the worker can train together with
+  // other workers, one run split between them (see TrainTask.group_size).
+  repeated string group_architectures = 11;
 }
 
 // Heartbeat keeps the link alive and carries fresh stats.
@@ -352,6 +357,30 @@ message TrainTask {
   bytes archive = 12;
   // columns are the dataset's columns as first read; their kinds are kept.
   repeated Column columns = 13;
+  // group_size above 1 says this worker trains the run together with
+  // group_size - 1 others, as member group_rank (from 0). Each learns from
+  // its share of the batches, and they average their weights through the
+  // console with GroupShare. Member 0 reports progress and sends back the
+  // weights; the others send an empty result.
+  int32 group_rank = 14;
+  int32 group_size = 15;
+}
+
+// GroupShare is one member's weights for a group's next average. round
+// counts from 0 and every member sends each round once.
+message GroupShare {
+  string task_id = 1;
+  int64 round = 2;
+  repeated float values = 3;
+  // weight is how much these values count in the mean.
+  double weight = 4;
+}
+
+// GroupMean is the mean of a round's GroupShares, sent to every member.
+message GroupMean {
+  string task_id = 1;
+  int64 round = 2;
+  repeated float values = 3;
 }
 
 message TrainProgress {

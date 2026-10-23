@@ -623,6 +623,44 @@ connects.
   makes runs on the same worker.
 - Removing a worker puts its models and waiting runs back on Automatic.
 
+### One run on several workers
+
+A big run can be split between several smaller machines that teach.
+Choose **Train each run on → Up to N workers** under **Settings →
+Workers**; when at least two such workers are free, a run with no "Train
+on" choice goes to as many as are free, up to N, and otherwise trains on
+one as before. The run's page names every worker it trained on.
+
+Every worker reads the whole dataset, so they all turn rows into numbers
+the same way, then learns from its own share of the batches: with three
+workers each takes every third batch, so an epoch takes a third of the
+steps. Every 8 steps, and at the end of each epoch, the console averages
+their weights and sends the average back, so they carry on from one
+model. The first worker scores the model, reports progress and sends the
+finished weights. If one worker drops out the others stop and the run goes
+back in the queue, starting over; a split run keeps no checkpoints.
+
+Measured on one machine with each worker a process of its own pinned to
+one CPU (`MIMIR_GROUP_BENCH=1 go test -run TestGroupBench -v
+./internal/server`):
+
+| Run, 3 epochs | 1 worker | 2 workers | 3 workers |
+| --- | --- | --- | --- |
+| table-mlp, 200,000 rows: whole run | 8.4 s | 6.0 s (1.4×) | 5.2 s (1.6×) |
+| table-mlp: an epoch | 2.1 s | 1.26 s (1.7×) | 0.88 s (2.4×) |
+| photo-cnn, 2,000 photos: whole run | 15.0 s | 10.5 s (1.4×) | 8.3 s (1.8×) |
+
+Accuracy stayed the same (98.9% and 98.8% on the table). The whole run
+gains less than an epoch does because reading the dataset and scoring it
+happen once per worker however many there are, so the longer the run,
+the closer it gets to the per-epoch speed-up. Splitting a run makes it
+faster; it doesn't make it smaller: each worker still holds the whole
+model and dataset, about as much memory as one worker training alone.
+
+The built-in model types train this way. A custom worker's handler takes
+part when it implements `worker.GroupTrainer` and averages its weights
+with `TrainTask.Group.Mean`.
+
 ### Dashboards
 
 **Settings → Workers** shows every worker as a card: a status light, CPU,
