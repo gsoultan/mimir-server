@@ -126,6 +126,14 @@ type Job struct {
 	Ended         time.Time // zero until it's done
 	TeamID        string
 	RunOn         string // the worker asked to train it; "" for any
+	// MinNewRows > 0 makes a keep-learning pass wait until the source has
+	// at least that many rows more than TrainedRows, the rows this pass
+	// started with. CheckTime and CheckNote say when it last looked
+	// without starting a pass, and what it found.
+	MinNewRows  int64
+	TrainedRows int64
+	CheckTime   time.Time
+	CheckNote   string
 }
 
 // ErrDatasetInUse means a dataset still has training jobs.
@@ -379,6 +387,10 @@ func fromJob(r trainingjob.Row) Job {
 		Ended:         timeOf(r.EndTime),
 		TeamID:        r.TeamID.V,
 		RunOn:         r.RunOn,
+		MinNewRows:    r.MinNewRows,
+		TrainedRows:   r.TrainedRows,
+		CheckTime:     timeOf(r.CheckTime),
+		CheckNote:     r.CheckNote,
 	}
 }
 
@@ -415,6 +427,8 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 	n.SetBaseModelID(j.BaseModelID)
 	n.SetTeamID(j.TeamID)
 	n.SetRunOn(j.RunOn)
+	n.SetMinNewRows(j.MinNewRows)
+	n.SetTrainedRows(j.TrainedRows)
 	if _, err := n.Insert(ctx, s.ex); err != nil {
 		return Job{}, fmt.Errorf("store: insert job: %w", err)
 	}
@@ -524,11 +538,13 @@ func (s *Store) SetJobNote(ctx context.Context, id, note string) error {
 	return s.updateJob(ctx, m)
 }
 
-// SetRepeat changes how often a job keeps learning; 0 stops it. The next
-// pass is one interval from now.
-func (s *Store) SetRepeat(ctx context.Context, id string, seconds int64) error {
+// SetRepeat changes how often a job keeps learning, and how many new
+// rows a pass waits for; 0 seconds stops it. The next pass is one
+// interval from now.
+func (s *Store) SetRepeat(ctx context.Context, id string, seconds, minNewRows int64) error {
 	m := trainingjob.MutateKey(id)
 	m.SetRepeatSeconds(seconds)
+	m.SetMinNewRows(minNewRows)
 	if seconds > 0 {
 		m.SetNextRun(now().Add(time.Duration(seconds) * time.Second))
 	} else {
@@ -537,22 +553,61 @@ func (s *Store) SetRepeat(ctx context.Context, id string, seconds int64) error {
 	return s.updateJob(ctx, m)
 }
 
-// DueJobs returns finished jobs whose next keep-learning pass is due.
-func (s *Store) DueJobs(ctx context.Context, at time.Time) ([]Job, error) {
-	rows, err := trainingjob.New().
-		Where(
-			trainingjob.RepeatSeconds.Gt(0),
-			trainingjob.NextRun.IsNotNull(),
-			trainingjob.NextRun.Lte(at),
-			trainingjob.Status.Gte(int32(JobSucceeded)),
-		).
-		Order(trainingjob.NextRun.Asc(), trainingjob.ID.Asc()).
-		Limit(1000).
-		All(ctx, s.ex, nil)
+// SetTrainedRows records how many rows a job's pass started with, for a
+// job from before rows were counted.
+func (s *Store) SetTrainedRows(ctx context.Context, id string, rows int64) error {
+	m := trainingjob.MutateKey(id)
+	m.SetTrainedRows(rows)
+	return s.updateJob(ctx, m)
+}
+
+// ClaimDueJobs returns up to limit finished jobs whose next keep-learning
+// pass is due at at, and moves each one's next run to at+lease, so other
+// servers, and later looks from this one, leave it alone while its pass
+// is prepared. A pass that never gets queued is due again after the lease.
+func (s *Store) ClaimDueJobs(ctx context.Context, at time.Time, lease time.Duration, limit int64) ([]Job, error) {
+	var out []Job
+	err := storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
+		// SKIP LOCKED: two servers claim different jobs and neither waits.
+		rows, err := trainingjob.New().
+			Where(
+				trainingjob.RepeatSeconds.Gt(0),
+				trainingjob.NextRun.IsNotNull(),
+				trainingjob.NextRun.Lte(at),
+				trainingjob.Status.Gte(int32(JobSucceeded)),
+			).
+			Order(trainingjob.NextRun.Asc(), trainingjob.ID.Asc()).
+			Limit(limit).
+			ForUpdateSkipLocked().
+			All(ctx, ex, nil)
+		if err != nil {
+			return err
+		}
+		until := at.Add(lease)
+		for _, r := range rows {
+			m := trainingjob.Mutate(r)
+			m.SetNextRun(until)
+			if err := m.Update(ctx, ex); err != nil {
+				return err
+			}
+		}
+		out = jobs(rows)
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("store: due jobs: %w", err)
+		return nil, fmt.Errorf("store: claim due jobs: %w", err)
 	}
-	return jobs(rows), nil
+	return out, nil
+}
+
+// SetJobCheck records that a keep-learning job looked at its source
+// without starting a pass, what it found, and when to look next.
+func (s *Store) SetJobCheck(ctx context.Context, id, note string, next time.Time) error {
+	m := trainingjob.MutateKey(id)
+	m.SetCheckTime(now())
+	m.SetCheckNote(note)
+	m.SetNextRun(next)
+	return s.updateJob(ctx, m)
 }
 
 // HandOver moves a job's schedule to its next pass: the old job stops
