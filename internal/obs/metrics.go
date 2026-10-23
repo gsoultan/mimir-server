@@ -151,6 +151,35 @@ func (m *Metrics) WatchModelCache(usage func() (bytes int64, models int)) {
 	)
 }
 
+// WatchMemory reports the process's memory against its budget, as the
+// functions return them when Prometheus scrapes: bytes in use, the
+// budget, and the pressure level (0 ok, 1 high, 2 critical).
+func (m *Metrics) WatchMemory(used, limit func() int64, level func() int) {
+	m.reg.MustRegister(
+		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Name: "mimir_memory_used_bytes",
+			Help: "Bytes of memory the process holds for live data, as its memory guard counts them.",
+		}, func() float64 { return float64(used()) }),
+		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Name: "mimir_memory_limit_bytes",
+			Help: "The process's memory budget in bytes.",
+		}, func() float64 { return float64(limit()) }),
+		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Name: "mimir_memory_pressure",
+			Help: "How tight memory is: 0 ok, 1 high (training waits, caches shrink), 2 critical (training here stops, no new model loads or uploads).",
+		}, func() float64 { return float64(level()) }),
+	)
+}
+
+// WatchPanics reports how many panics were recovered, as count returns
+// them when Prometheus scrapes.
+func (m *Metrics) WatchPanics(count func() int64) {
+	m.reg.MustRegister(prometheus.NewCounterFunc(prometheus.CounterOpts{
+		Name: "mimir_panics_recovered_total",
+		Help: "Panics in a request, job or task that were caught and turned into an error for that one piece of work.",
+	}, func() float64 { return float64(count()) }))
+}
+
 // Registry is where the metrics live, for tests and extra collectors.
 func (m *Metrics) Registry() *prometheus.Registry { return m.reg }
 

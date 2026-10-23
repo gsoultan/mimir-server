@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/memguard"
+	"github.com/gsoultan/mimir-server/internal/safe"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -90,12 +92,54 @@ type Runner struct {
 	Now func() time.Time
 	// Admit, when set, is asked before a keep-learning pass fetches its
 	// rows again, with a guess at the bytes the fetch takes; false puts
-	// the pass off for a few minutes. Nil admits every fetch.
+	// the pass off for a few minutes. Nil leaves it to the memory budget
+	// from WatchMemory, and admits every fetch without one.
 	Admit func(need int64) bool
 
 	refreshing   sync.WaitGroup // keep-learning passes being prepared
 	refreshSlots chan struct{}  // bounds them to RefreshesAtOnce
+
+	// memory is the budget training here keeps within; nil means none.
+	// See WatchMemory.
+	memory *memguard.Guard
+	// localJobs are the jobs training in this process now, lowMemory how
+	// often each was stopped for memory and cooling when each was last,
+	// so it isn't claimed again at once; all guarded by mu, as is
+	// pausedUntil, before which nothing more starts training here.
+	localJobs   map[string]bool
+	lowMemory   map[string]int
+	cooling     map[string]time.Time
+	pausedUntil time.Time
+	// StopAfter is how long memory may stay critical before the runs
+	// training here are stopped and put back in the queue; until then
+	// they keep going in smaller pieces (see runtime.ThrottleCompute).
+	// Zero means DefaultStopAfter. Set it before WatchMemory.
+	StopAfter time.Duration
+	// fit trains a task in this process; tests replace it.
+	fit func(ctx context.Context, t Task, progress Progress) (Result, error)
 }
+
+// ErrLowMemory is the cause of a run stopped, here or on a worker, to
+// keep the process within its memory budget. The run goes back in the
+// queue and resumes from its checkpoint.
+var ErrLowMemory = memguard.ErrLowMemory
+
+// DefaultStopAfter is how long memory may stay critical before training
+// here stops, when Runner.StopAfter isn't set.
+const DefaultStopAfter = time.Minute
+
+// MaxLowMemoryStops is how many times a run may be stopped for memory
+// before it fails: one that needs more than the machine can spare would
+// otherwise start over forever.
+const MaxLowMemoryStops = 3
+
+// memoryPause is how long nothing new trains here after a run was
+// stopped for memory, so serving gets the memory back first.
+const memoryPause = time.Minute
+
+// errHeldBack means a run could only train here and memory is short
+// now; it waits in the queue.
+var errHeldBack = errors.New("training: memory is short; waiting to train here")
 
 // Remote is a pool of workers that can train jobs.
 type Remote interface {
@@ -132,7 +176,71 @@ var ErrWorkerLost = errors.New("the worker disconnected")
 
 // New returns a Runner over st that trains locally.
 func New(st *store.Store, log *slog.Logger) *Runner {
-	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1), freed: make(chan struct{}, 1), local: make(chan struct{}, 1), refreshSlots: make(chan struct{}, RefreshesAtOnce), Local: true, Now: time.Now}
+	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1), freed: make(chan struct{}, 1), local: make(chan struct{}, 1), Local: true, Now: time.Now, refreshSlots: make(chan struct{}, RefreshesAtOnce),
+		localJobs: map[string]bool{}, lowMemory: map[string]int{}, cooling: map[string]time.Time{}, fit: Fit}
+}
+
+// WatchMemory keeps training in this process within g's budget, so it
+// never starves the predictions served here. A run starts here only while
+// memory is OK. A run already training keeps going when memory runs short,
+// in smaller pieces once it is critical; only when memory stays critical
+// for StopAfter are the runs training here stopped and put back in the
+// queue, to resume from their checkpoints once memory is free again. Runs
+// on workers are left alone; each worker guards its own memory.
+func (r *Runner) WatchMemory(g *memguard.Guard) {
+	r.memory = g
+	grace := r.StopAfter
+	if grace <= 0 {
+		grace = DefaultStopAfter
+	}
+	g.StaysCritical(grace, func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for id := range r.localJobs {
+			if cancel := r.running[id]; cancel != nil {
+				r.log.Warn("training: memory stayed critical; stopping the run here, which goes back in the queue", "job_id", id, "after", grace)
+				cancel(ErrLowMemory)
+			}
+		}
+	})
+}
+
+// localReady reports whether a run may start training here now.
+func (r *Runner) localReady() bool {
+	if !r.trainsHere() || !r.memory.Admit(0) {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return !time.Now().Before(r.pausedUntil)
+}
+
+// stoppedForMemory counts a stop of job id for memory, holds back
+// training here for memoryPause, and returns how many stops it has had.
+func (r *Runner) stoppedForMemory(id string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.lowMemory[id]++
+	r.pausedUntil = time.Now().Add(memoryPause)
+	r.cooling[id] = time.Now()
+	return r.lowMemory[id]
+}
+
+// cooled returns the jobs stopped for memory within memoryPause, which
+// stay in the queue until it has passed: claimed again at once, a run
+// handed back by a worker short on memory would go round and round.
+func (r *Runner) cooled() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var ids []string
+	for id, at := range r.cooling {
+		if time.Since(at) < memoryPause {
+			ids = append(ids, id)
+		} else {
+			delete(r.cooling, id)
+		}
+	}
+	return ids
 }
 
 // Kick asks the runner to look at the queue now.
@@ -254,7 +362,9 @@ func (r *Runner) drain(ctx context.Context) {
 		if !r.acquire(ctx) {
 			return
 		}
-		j, err := r.st.ClaimJob(ctx, skip...)
+		// Runs just handed back for memory are left alone too; the list
+		// is read each time, as they come back while this loop runs.
+		j, err := r.st.ClaimJob(ctx, append(r.cooled(), skip...)...)
 		if errors.Is(err, store.ErrNotFound) {
 			r.unclaim()
 			return
@@ -265,9 +375,9 @@ func (r *Runner) drain(ctx context.Context) {
 			return
 		}
 		pinned := j.RunOn != ""
-		if (pinned || !r.trainsHere()) && (r.Remote == nil || !r.Remote.CanTrain(j.Architecture, j.RunOn)) {
+		if (pinned || !r.localReady()) && (r.Remote == nil || !r.Remote.CanTrain(j.Architecture, j.RunOn)) {
 			// Nobody can run it right now; leave it queued for when a
-			// worker connects or comes free.
+			// worker connects or comes free, or memory here does.
 			r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
 			skip = append(skip, j.ID)
 			r.mu.Lock()
@@ -277,7 +387,11 @@ func (r *Runner) drain(ctx context.Context) {
 		}
 		r.jobs.Go(func() {
 			defer r.release()
-			r.run(ctx, j)
+			// A run that panics fails alone; the runner and the server
+			// carry on.
+			if err := safe.Run(r.log, "training job "+j.ID, func() { r.run(ctx, j) }); err != nil {
+				r.st.SetJobStatus(context.WithoutCancel(ctx), j.ID, store.JobFailed, "Training stopped with an internal error. It has been logged; try again, and report it if it keeps happening.", "")
+			}
 		})
 	}
 }
@@ -299,12 +413,30 @@ func (r *Runner) run(ctx context.Context, j store.Job) {
 	modelID, err := r.train(jctx, j)
 	switch {
 	case err == nil:
+		r.mu.Lock()
+		delete(r.lowMemory, j.ID)
+		delete(r.cooling, j.ID)
+		r.mu.Unlock()
 		r.st.SetJobStatus(ctx, j.ID, store.JobSucceeded, "", modelID)
 		os.RemoveAll(r.st.JobDir(j.ID))
 		log.InfoContext(ctx, "training: done", "model_id", modelID)
 	case errors.Is(context.Cause(jctx), ErrCancelled):
 		r.st.SetJobStatus(ctx, j.ID, store.JobCancelled, "", "")
 		log.InfoContext(ctx, "training: cancelled")
+	case ctx.Err() == nil && (errors.Is(err, ErrLowMemory) || errors.Is(context.Cause(jctx), ErrLowMemory)):
+		stops := r.stoppedForMemory(j.ID)
+		if stops < MaxLowMemoryStops {
+			// It resumes from its last checkpoint once there is room.
+			r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
+			log.WarnContext(ctx, "training: stopped to keep memory for serving; back in the queue", "stops", stops, "error", err)
+			return
+		}
+		r.st.SetJobStatus(ctx, j.ID, store.JobFailed, fmt.Sprintf("This run needed more memory than could be spared, and was stopped %d times to keep the server answering. Train it on a worker with more memory, use fewer rows or a smaller model, or raise -memory-limit.", stops), "")
+		log.ErrorContext(ctx, "training: failed: kept running out of memory", "stops", stops)
+	case errors.Is(err, errHeldBack) && ctx.Err() == nil:
+		r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
+		log.InfoContext(ctx, "training: memory is short here; back in the queue")
+		return
 	case errors.Is(err, ErrWorkerLost):
 		r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
 		log.WarnContext(ctx, "training: the worker went away; back in the queue")
@@ -378,13 +510,7 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		if !r.trainsHere() || j.RunOn != "" || a.Custom {
 			return "", errNoWorker
 		}
-		select {
-		case r.local <- struct{}{}:
-		case <-ctx.Done():
-			return "", context.Cause(ctx)
-		}
-		res, err = Fit(ctx, task, progress)
-		<-r.local
+		res, err = r.fitHere(ctx, j.ID, task, progress)
 	}
 	if err != nil {
 		return "", err
@@ -435,6 +561,37 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	return created.ID, nil
 }
 
+// fitHere trains task in this process, when memory allows, as one of the
+// runs WatchMemory stops when memory stays critical.
+func (r *Runner) fitHere(ctx context.Context, id string, task Task, progress Progress) (res Result, err error) {
+	select {
+	case r.local <- struct{}{}:
+	case <-ctx.Done():
+		return Result{}, context.Cause(ctx)
+	}
+	defer func() { <-r.local }()
+	if !r.localReady() { // checked again: memory may have run short while it waited
+		return Result{}, errHeldBack
+	}
+	r.mu.Lock()
+	r.localJobs[id] = true
+	r.mu.Unlock()
+	defer func() {
+		r.mu.Lock()
+		delete(r.localJobs, id)
+		r.mu.Unlock()
+	}()
+	// A panic in training fails this run with an error, and gives the
+	// slot back for the next.
+	if p := safe.Run(r.log, "training job "+id, func() { res, err = r.fit(ctx, task, progress) }); p != nil {
+		return Result{}, p
+	}
+	if err != nil && errors.Is(context.Cause(ctx), ErrLowMemory) {
+		err = fmt.Errorf("%w: %w", ErrLowMemory, err)
+	}
+	return res, err
+}
+
 // friendly turns an error into words for the job's status.
 func friendly(err error) string {
 	switch {
@@ -442,6 +599,8 @@ func friendly(err error) string {
 		return err.Error()
 	case errors.Is(err, context.DeadlineExceeded):
 		return "Training took too long and was stopped."
+	case errors.Is(err, safe.ErrPanic):
+		return "Training stopped with an internal error. It has been logged; try again, and report it if it keeps happening."
 	}
 	return "Training stopped with an error: " + err.Error()
 }

@@ -12,6 +12,7 @@
 package worker
 
 import (
+	"cmp"
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
@@ -26,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"sync"
@@ -35,6 +37,7 @@ import (
 
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 )
 
 // Model is a stored model the server asks a worker to run. Weights are the
@@ -216,6 +219,21 @@ type Config struct {
 	// by the server when next needed. 0 means DefaultCacheBytes; a
 	// negative value means no bound.
 	CacheBytes int64
+	// MemoryLimit is the most memory the worker lets itself use, in
+	// bytes. As it nears it the worker lets go of models, turns down
+	// training runs, and stops the ones it has (they go back to the
+	// console's queue and resume from their checkpoints), so it never
+	// runs out. 0 finds it from $GOMEMLIMIT, the container's limit or
+	// the machine's memory; negative turns it off.
+	MemoryLimit int64
+	// Memory, when set, is the guard to keep within in place of one made
+	// from MemoryLimit; Run measures with it. The server's binary passes
+	// its own, so the models it runs shrink their work with it too.
+	Memory *memguard.Guard
+	// StopTrainingAfter is how long memory may stay critical before the
+	// runs training here are stopped and handed back to the console's
+	// queue; until then they keep going. Zero means a minute.
+	StopTrainingAfter time.Duration
 	// Key, when set, is the private key the worker proves itself with,
 	// in place of the one in KeyFile. A worker on a machine that starts
 	// fresh each time, such as a rented GPU, is given its key this way so
@@ -342,6 +360,14 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 		cfg.CacheBytes = 0 // no bound
 	}
 	w := &worker{cfg: cfg, handlers: handlers, key: key, stats: newSampler(cfg.DataDir), lastActive: time.Now(), client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
+	w.memory = cfg.Memory
+	if w.memory == nil {
+		w.memory = memguard.New(memguard.Config{Limit: cfg.MemoryLimit, Log: cfg.Log, Name: "worker"})
+	}
+	w.stats.memory = w.memory
+	w.memory.Watch(w.memoryChanged)
+	w.memory.StaysCritical(cmp.Or(cfg.StopTrainingAfter, time.Minute), w.stopTraining)
+	go w.memory.Run(ctx)
 
 	ctx, stop := context.WithCancelCause(ctx)
 	defer stop(nil)
@@ -418,10 +444,11 @@ type worker struct {
 	sendMu sync.Mutex
 	stream *connect.BidiStreamForClient[mimirv1.LinkRequest, mimirv1.LinkResponse]
 
-	models *modelCache
+	memory *memguard.Guard
 
 	mu      sync.Mutex
-	running map[string]context.CancelFunc
+	models  *modelCache // the link's; guarded by mu
+	running map[string]task
 	// active is how many tasks are running, and lastActive when one last
 	// started or finished, for Config.ExitWhenIdle. They outlive a link.
 	active     int
@@ -436,14 +463,18 @@ func (w *worker) serve(ctx context.Context) error {
 	defer cancel()
 	stream := w.client.Link(ctx)
 	stream.RequestHeader().Set("Authorization", "Bearer "+w.cfg.Token)
+	w.sendMu.Lock()
 	w.stream = stream
+	w.sendMu.Unlock()
 	go func() { // a blocked Receive only wakes when the stream closes
 		<-ctx.Done()
 		stream.CloseRequest()
 		stream.CloseResponse()
 	}()
+	w.mu.Lock()
 	w.models = newModelCache(w.cfg.CacheBytes)
-	w.running = map[string]context.CancelFunc{}
+	w.running = map[string]task{}
+	w.mu.Unlock()
 
 	archs := make([]string, 0, len(w.handlers))
 	trains := w.cfg.Tasks != TasksServe
@@ -511,36 +542,44 @@ func (w *worker) serve(ctx context.Context) error {
 		switch b := msg.Body.(type) {
 		case *mimirv1.LinkResponse_Predict:
 			tasks.Go(func() {
-				w.slot(ctx, slots, b.Predict.TaskId, func(tctx context.Context) { w.predict(tctx, b.Predict) })
+				w.slot(ctx, slots, b.Predict.TaskId, false, func(tctx context.Context) { w.predict(tctx, b.Predict) })
 			})
 		case *mimirv1.LinkResponse_Train:
-			tasks.Go(func() { w.slot(ctx, slots, b.Train.TaskId, func(tctx context.Context) { w.train(tctx, b.Train) }) })
+			tasks.Go(func() {
+				w.slot(ctx, slots, b.Train.TaskId, true, func(tctx context.Context) { w.train(tctx, b.Train) })
+			})
 		case *mimirv1.LinkResponse_Load:
 			// Loading takes no slot: predictions keep flowing, answered
 			// by the version already here until this one is in.
 			tasks.Go(func() { w.load(ctx, b.Load) })
 		case *mimirv1.LinkResponse_Cancel:
 			w.mu.Lock()
-			if cancel := w.running[b.Cancel.TaskId]; cancel != nil {
-				cancel()
+			if t, ok := w.running[b.Cancel.TaskId]; ok {
+				t.cancel(context.Canceled)
 			}
 			w.mu.Unlock()
 		}
 	}
 }
 
+// task is a task the worker is running.
+type task struct {
+	cancel context.CancelCauseFunc
+	train  bool
+}
+
 // slot runs f when a slot is free, cancellable by task id.
-func (w *worker) slot(ctx context.Context, slots chan struct{}, id string, f func(context.Context)) {
+func (w *worker) slot(ctx context.Context, slots chan struct{}, id string, train bool, f func(context.Context)) {
 	select {
 	case slots <- struct{}{}:
 	case <-ctx.Done():
 		return
 	}
 	defer func() { <-slots }()
-	tctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	tctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 	w.mu.Lock()
-	w.running[id] = cancel
+	w.running[id] = task{cancel: cancel, train: train}
 	w.active++
 	w.lastActive = time.Now()
 	w.mu.Unlock()
@@ -554,6 +593,73 @@ func (w *worker) slot(ctx context.Context, slots chan struct{}, id string, f fun
 	f(tctx)
 }
 
+// memoryChanged acts on a new memory level: from high on the least
+// recently used models go (half of them, then all but the last used when
+// critical) and no new runs start, while the runs here keep going. The
+// console hears the new level at once, so it sends work elsewhere while
+// this worker recovers.
+func (w *worker) memoryChanged(l memguard.Level) {
+	w.mu.Lock()
+	models := w.models
+	w.mu.Unlock()
+	if models != nil && l >= memguard.High {
+		keep := int64(0)
+		if l == memguard.High {
+			used, _ := models.usage()
+			keep = used / 2
+		}
+		if freed := models.shed(keep); freed > 0 {
+			w.cfg.Log.Warn("worker: memory is short; let go of models", "bytes", freed, "level", l.String())
+		}
+	}
+	go func() { // tell the console now rather than at the next heartbeat
+		if w.linked() {
+			w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Heartbeat{Heartbeat: &mimirv1.Heartbeat{Stats: w.stats.read()}}})
+		}
+	}()
+}
+
+// stopTraining stops the runs training here, for memory that stayed
+// critical: they go back to the console's queue and resume from their
+// checkpoints, here or elsewhere.
+func (w *worker) stopTraining() {
+	w.mu.Lock()
+	var stop []context.CancelCauseFunc
+	for _, t := range w.running {
+		if t.train {
+			stop = append(stop, t.cancel)
+		}
+	}
+	w.mu.Unlock()
+	for _, cancel := range stop {
+		cancel(memguard.ErrLowMemory)
+	}
+	if len(stop) > 0 {
+		w.cfg.Log.Warn("worker: memory stayed critical; stopped training runs, which go back to the console's queue", "runs", len(stop))
+	}
+}
+
+// linked reports whether a link is open to send on.
+func (w *worker) linked() bool {
+	w.sendMu.Lock()
+	defer w.sendMu.Unlock()
+	return w.stream != nil
+}
+
+// lowMemoryReply is what a task turned down for memory says.
+const lowMemoryReply = "the worker is low on memory right now"
+
+// recovered, deferred in a task, answers it with an error when it
+// panicked, so one bad task fails alone and the worker keeps serving.
+func (w *worker) recovered(what string, reply func(msg string)) {
+	p := recover()
+	if p == nil {
+		return
+	}
+	w.cfg.Log.Error("worker: panic recovered; the worker carries on", "in", what, "panic", fmt.Sprint(p), "stack", string(debug.Stack()))
+	reply(fmt.Sprintf("the worker hit an internal error in %s: %v", what, p))
+}
+
 func (w *worker) send(msg *mimirv1.LinkRequest) error {
 	w.sendMu.Lock()
 	defer w.sendMu.Unlock()
@@ -565,6 +671,10 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 		r.TaskId = t.TaskId
 		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_PredictResult{PredictResult: r}})
 	}
+	defer w.recovered("a prediction with "+t.Architecture, func(msg string) { reply(&mimirv1.PredictResult{Error: msg}) })
+	w.mu.Lock()
+	models := w.models
+	w.mu.Unlock()
 	if w.tasks == TasksTrain {
 		reply(&mimirv1.PredictResult{Error: "this worker only trains models; it doesn't answer predictions"})
 		return
@@ -575,6 +685,12 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 		return
 	}
 	var m *Model
+	if len(t.Weights) > 0 && w.memory.Level() == memguard.Critical {
+		// Loading takes memory on top of the weights; the models
+		// already loaded keep answering.
+		reply(&mimirv1.PredictResult{Error: lowMemoryReply + " to load another model; models it has loaded keep answering"})
+		return
+	}
 	if len(t.Weights) > 0 {
 		var err error
 		if m, err = w.install(ctx, h, t.ModelId, t.Architecture, t.GetSpec(), t.Weights); err != nil {
@@ -582,7 +698,7 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 			return
 		}
 	} else {
-		m = w.models.get(t.ModelId)
+		m = models.get(t.ModelId)
 	}
 	if m == nil {
 		reply(&mimirv1.PredictResult{NeedWeights: true})
@@ -590,7 +706,7 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 	}
 	p, err := h.Predict(ctx, m, t.GetInput().GetValues())
 	if errors.Is(err, ErrNeedWeights) {
-		w.models.remove(m)
+		models.remove(m)
 		reply(&mimirv1.PredictResult{NeedWeights: true})
 		return
 	}
@@ -617,7 +733,10 @@ func (w *worker) install(ctx context.Context, h Handler, modelID, archName strin
 		m.Weights = nil // the handler has its own copy now
 		unload = func() { ld.Unload(m.ID) }
 	}
-	w.models.put(m, size, unload)
+	w.mu.Lock()
+	models := w.models
+	w.mu.Unlock()
+	models.put(m, size, unload)
 	return m, nil
 }
 
@@ -626,8 +745,13 @@ func (w *worker) load(ctx context.Context, t *mimirv1.LoadTask) {
 	reply := func(errText string) {
 		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_LoadResult{LoadResult: &mimirv1.LoadResult{TaskId: t.TaskId, Error: errText}}})
 	}
+	defer w.recovered("loading a "+t.Architecture+" model", reply)
 	if w.tasks == TasksTrain {
 		reply("this worker only trains models; it doesn't answer predictions")
+		return
+	}
+	if w.memory.Level() == memguard.Critical {
+		reply(lowMemoryReply + " to load another model; models it has loaded keep answering")
 		return
 	}
 	h := w.handlers[t.Architecture]
@@ -647,12 +771,18 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		r.TaskId = t.TaskId
 		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_TrainResult{TrainResult: r}})
 	}
+	defer w.recovered("training "+t.Architecture, func(msg string) { reply(&mimirv1.TrainResult{Error: msg}) })
 	tr, _ := w.handlers[t.Architecture].(Trainer)
 	if w.tasks == TasksServe {
 		tr = nil // it only answers; the console knows and sends none
 	}
 	if tr == nil {
 		reply(&mimirv1.TrainResult{Error: "this worker doesn't train " + t.Architecture})
+		return
+	}
+	if w.memory.Level() != memguard.OK {
+		// Back to the queue, for when this worker or another has room.
+		reply(&mimirv1.TrainResult{LowMemory: true, Error: lowMemoryReply})
 		return
 	}
 	kind := map[mimirv1.DatasetKind]string{
@@ -681,6 +811,8 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		}}})
 	})
 	switch {
+	case errors.Is(context.Cause(ctx), memguard.ErrLowMemory):
+		reply(&mimirv1.TrainResult{LowMemory: true, Error: lowMemoryReply})
 	case ctx.Err() != nil:
 		reply(&mimirv1.TrainResult{Cancelled: true})
 	case err != nil:
