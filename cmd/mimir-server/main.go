@@ -350,6 +350,7 @@ func run() error {
 	runner.Jobs = *trainingJobs
 	runner.Local = local
 	runner.TrainHere = svc.TrainsHere
+	runner.GroupWorkers = svc.GroupWorkers
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
 

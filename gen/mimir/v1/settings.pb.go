@@ -434,7 +434,11 @@ type Training struct {
 	TrainHere bool `protobuf:"varint,1,opt,name=train_here,json=trainHere,proto3" json:"train_here,omitempty"`
 	// can_train_here says the console runs models itself (-role
 	// standalone); a -role console never trains, whatever train_here says.
-	CanTrainHere  bool `protobuf:"varint,2,opt,name=can_train_here,json=canTrainHere,proto3" json:"can_train_here,omitempty"`
+	CanTrainHere bool `protobuf:"varint,2,opt,name=can_train_here,json=canTrainHere,proto3" json:"can_train_here,omitempty"`
+	// group_workers above 1 lets one run train on up to that many workers
+	// together, each learning from its share of the examples, when that
+	// many are free. 0 or 1 trains every run on one worker.
+	GroupWorkers  int32 `protobuf:"varint,3,opt,name=group_workers,json=groupWorkers,proto3" json:"group_workers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -483,9 +487,18 @@ func (x *Training) GetCanTrainHere() bool {
 	return false
 }
 
+func (x *Training) GetGroupWorkers() int32 {
+	if x != nil {
+		return x.GroupWorkers
+	}
+	return 0
+}
+
 type UpdateTrainingRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TrainHere     bool                   `protobuf:"varint,1,opt,name=train_here,json=trainHere,proto3" json:"train_here,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TrainHere bool                   `protobuf:"varint,1,opt,name=train_here,json=trainHere,proto3" json:"train_here,omitempty"`
+	// group_workers, when set, replaces Training.group_workers.
+	GroupWorkers  *int32 `protobuf:"varint,2,opt,name=group_workers,json=groupWorkers,proto3,oneof" json:"group_workers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -525,6 +538,13 @@ func (x *UpdateTrainingRequest) GetTrainHere() bool {
 		return x.TrainHere
 	}
 	return false
+}
+
+func (x *UpdateTrainingRequest) GetGroupWorkers() int32 {
+	if x != nil && x.GroupWorkers != nil {
+		return *x.GroupWorkers
+	}
+	return 0
 }
 
 type UpdateTrainingResponse struct {
@@ -1524,14 +1544,17 @@ const file_mimir_v1_settings_proto_rawDesc = "" +
 	"\tretention\x18\x03 \x01(\v2\x13.mimir.v1.RetentionR\tretention\x12.\n" +
 	"\bsecurity\x18\x04 \x01(\v2\x12.mimir.v1.SecurityR\bsecurity\x12(\n" +
 	"\x06limits\x18\x05 \x01(\v2\x10.mimir.v1.LimitsR\x06limits\x12.\n" +
-	"\btraining\x18\x06 \x01(\v2\x12.mimir.v1.TrainingR\btraining\"O\n" +
+	"\btraining\x18\x06 \x01(\v2\x12.mimir.v1.TrainingR\btraining\"t\n" +
 	"\bTraining\x12\x1d\n" +
 	"\n" +
 	"train_here\x18\x01 \x01(\bR\ttrainHere\x12$\n" +
-	"\x0ecan_train_here\x18\x02 \x01(\bR\fcanTrainHere\"6\n" +
+	"\x0ecan_train_here\x18\x02 \x01(\bR\fcanTrainHere\x12#\n" +
+	"\rgroup_workers\x18\x03 \x01(\x05R\fgroupWorkers\"r\n" +
 	"\x15UpdateTrainingRequest\x12\x1d\n" +
 	"\n" +
-	"train_here\x18\x01 \x01(\bR\ttrainHere\"H\n" +
+	"train_here\x18\x01 \x01(\bR\ttrainHere\x12(\n" +
+	"\rgroup_workers\x18\x02 \x01(\x05H\x00R\fgroupWorkers\x88\x01\x01B\x10\n" +
+	"\x0e_group_workers\"H\n" +
 	"\x16UpdateTrainingResponse\x12.\n" +
 	"\btraining\x18\x01 \x01(\v2\x12.mimir.v1.TrainingR\btraining\"\xab\x01\n" +
 	"\x06Limits\x124\n" +
@@ -1703,6 +1726,7 @@ func file_mimir_v1_settings_proto_init() {
 	if File_mimir_v1_settings_proto != nil {
 		return
 	}
+	file_mimir_v1_settings_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
