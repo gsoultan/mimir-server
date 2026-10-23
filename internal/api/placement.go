@@ -261,6 +261,9 @@ func (s *Service) ReplaceWorkerToken(ctx context.Context, req *connect.Request[m
 	if err != nil {
 		return nil, err
 	}
+	if s.cloudGPUWorker(w.ID) {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("The console keeps this worker's token for the GPU it rents. To give it a new one, remove the worker and turn renting a GPU on again."))
+	}
 	token, hash, err := auth.NewToken(WorkerPrefix)
 	if err != nil {
 		return nil, s.internal(ctx, err)

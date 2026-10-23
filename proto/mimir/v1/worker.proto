@@ -43,6 +43,18 @@ service WorkerService {
   // sent tasks. The first key a token joins with is the one it must keep
   // using.
   rpc Link(stream LinkRequest) returns (stream LinkResponse);
+  // GetCloudGpu says how training runs rent a GPU when they wait, and
+  // whether one is running now.
+  rpc GetCloudGpu(GetCloudGpuRequest) returns (GetCloudGpuResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // UpdateCloudGpu sets it up, changes it, or turns it off. Turning it on
+  // the first time adds a worker for it, which teaches only.
+  rpc UpdateCloudGpu(UpdateCloudGpuRequest) returns (UpdateCloudGpuResponse);
+  // StopCloudGpu stops the rented GPU now, whatever it is doing. Runs on
+  // it go back in the queue to resume from their checkpoints, and start
+  // it again if they still wait.
+  rpc StopCloudGpu(StopCloudGpuRequest) returns (StopCloudGpuResponse);
 }
 
 // Worker is a process that runs models for this server, here or elsewhere.
@@ -363,4 +375,105 @@ message TrainResult {
 
 message CancelTask {
   string task_id = 1;
+}
+
+// CloudGpu is a GPU rented by the minute for training, from Modal, AWS
+// EC2, Google Cloud, RunPod, Lambda Cloud or Vast.ai. When a training run
+// waits that no other worker can take, the console starts a machine with
+// that GPU running this server as a worker that teaches only. It stops
+// once it has had nothing to do for idle_minutes, and the console removes
+// the machine, so it is paid for only while it trains.
+message CloudGpu {
+  bool enabled = 1;
+  // provider is "modal", "aws", "gcp", "runpod", "lambda" or "vast".
+  string provider = 15;
+  // token_id is the credential's public part: the Modal token id (ak-...)
+  // or the AWS access key id. The secret part (the Modal token secret, AWS
+  // secret key, Google service account JSON key, or RunPod, Lambda or
+  // Vast.ai API key) is never shown; has_token_secret says one is stored.
+  string token_id = 2;
+  bool has_token_secret = 3;
+  // gpu is what the provider calls the machine, one of the provider's
+  // CloudGpuProvider.gpus.
+  string gpu = 4;
+  // region is the AWS or Lambda Cloud region, or the Google Cloud zone.
+  string region = 16;
+  // ssh_key names the SSH key Lambda Cloud requires on every instance.
+  string ssh_key = 17;
+  // console_url is the https address the GPU machine reaches this console
+  // at, such as https://mimir.example.com.
+  string console_url = 5;
+  // idle_minutes is how long it waits for more work before it stops.
+  int32 idle_minutes = 6;
+  // max_hours is the longest one machine runs. A run still going then
+  // goes back in the queue and resumes on a fresh one.
+  int32 max_hours = 7;
+  // capacity is how many runs it trains at once.
+  int32 capacity = 8;
+  // program_url, when set, is where the machine downloads mimir-server
+  // for linux/amd64 from. Empty takes it from this console, which works
+  // when the console itself runs on linux/amd64 (can_serve_program).
+  string program_url = 9;
+  bool can_serve_program = 10;
+  // worker_id is the worker the rented GPU joins as.
+  string worker_id = 11;
+  // state is "off", "asleep" (nothing waiting), "starting", "running" or
+  // "failed"; state_time is when it got there and error says why it
+  // failed.
+  string state = 12;
+  google.protobuf.Timestamp state_time = 13;
+  string error = 14;
+}
+
+message GetCloudGpuRequest {}
+
+message GetCloudGpuResponse {
+  CloudGpu cloud_gpu = 1;
+  // providers are where a GPU can be rented, with what each offers.
+  repeated CloudGpuProvider providers = 2;
+}
+
+// CloudGpuProvider is a place that rents GPUs.
+message CloudGpuProvider {
+  string id = 1;
+  string name = 2;
+  // gpus are the machines offered, cheapest first, labelled with their
+  // memory and about what an hour costs.
+  repeated CloudGpuChoice gpus = 3;
+  string default_gpu = 4;
+  // regions are suggested where the provider asks for a region or zone.
+  repeated string regions = 5;
+  string default_region = 6;
+}
+
+message CloudGpuChoice {
+  string id = 1;
+  string label = 2;
+}
+
+message UpdateCloudGpuRequest {
+  bool enabled = 1;
+  string provider = 10;
+  string token_id = 2;
+  // token_secret replaces the stored one; empty keeps it, unless the
+  // provider changes.
+  string token_secret = 3;
+  string gpu = 4;
+  string region = 11;
+  string ssh_key = 12;
+  string console_url = 5;
+  int32 idle_minutes = 6;
+  int32 max_hours = 7;
+  int32 capacity = 8;
+  string program_url = 9;
+}
+
+message UpdateCloudGpuResponse {
+  CloudGpu cloud_gpu = 1;
+}
+
+message StopCloudGpuRequest {}
+
+message StopCloudGpuResponse {
+  CloudGpu cloud_gpu = 1;
 }

@@ -71,6 +71,9 @@ func (s *Service) DeleteWorker(ctx context.Context, req *connect.Request[mimirv1
 	if i < 0 {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("No such worker."))
 	}
+	if err := s.forgetCloudGPUWorker(ctx, id); err != nil {
+		return nil, s.internal(ctx, err)
+	}
 	if err := s.store.DeleteWorker(ctx, id); err != nil {
 		return nil, s.internal(ctx, err)
 	}
