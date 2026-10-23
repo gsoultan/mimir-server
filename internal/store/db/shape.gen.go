@@ -289,6 +289,7 @@ func _assertWorkerShape(m m0.Worker) {
 		m.LastSeen,
 		m.PublicKey,
 		m.LastAddress,
+		m.Tasks,
 	}
 }
 

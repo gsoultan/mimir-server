@@ -29,11 +29,77 @@ type Retention struct {
 // DefaultRetention applies until an admin changes it.
 var DefaultRetention = Retention{AuditDays: 365, DeliveryDays: 30}
 
-// KeyRetention and KeyTrim are settings keys.
+// KeyRetention, KeyTrim and KeyTraining are settings keys.
 const (
 	KeyRetention = "retention"
 	KeyTrim      = "trim.last"
+	KeyTraining  = "training"
 )
+
+// Training is where this console's training runs go.
+type Training struct {
+	// TrainHere lets a standalone console train runs in its own process
+	// when no worker takes them.
+	TrainHere bool `json:"train_here"`
+}
+
+// LoadTraining reads the training setting, or def when none is stored.
+func LoadTraining(ctx context.Context, st *store.Store, def Training) (Training, error) {
+	raw, err := st.GetSetting(ctx, KeyTraining)
+	if err != nil || raw == "" {
+		return def, err
+	}
+	t := def
+	return t, json.Unmarshal([]byte(raw), &t)
+}
+
+// SaveTraining stores the training setting.
+func SaveTraining(ctx context.Context, st *store.Store, t Training) error {
+	b, err := json.Marshal(t)
+	if err != nil {
+		return err
+	}
+	return st.SetSetting(ctx, KeyTraining, string(b))
+}
+
+// LoadTrainingSetting reads the stored training setting into the service,
+// over the default the flags gave. Call it once at start.
+func (s *Service) LoadTrainingSetting(ctx context.Context) error {
+	t, err := LoadTraining(ctx, s.store, Training{TrainHere: s.TrainHereDefault})
+	if err != nil {
+		return err
+	}
+	s.trainHere.Store(t.TrainHere)
+	return nil
+}
+
+// TrainsHere reports whether this console trains runs in its own process
+// when no worker takes them: it runs models itself (Local) and the
+// setting allows it. The training runner asks before each job.
+func (s *Service) TrainsHere() bool { return s.Local && s.trainHere.Load() }
+
+func (s *Service) trainingProto() *mimirv1.Training {
+	return &mimirv1.Training{TrainHere: s.trainHere.Load(), CanTrainHere: s.Local}
+}
+
+// UpdateTraining turns training on this console on or off.
+func (s *Service) UpdateTraining(ctx context.Context, req *connect.Request[mimirv1.UpdateTrainingRequest]) (*connect.Response[mimirv1.UpdateTrainingResponse], error) {
+	p, _ := auth.From(ctx)
+	t := Training{TrainHere: req.Msg.GetTrainHere()}
+	if err := SaveTraining(ctx, s.store, t); err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	s.trainHere.Store(t.TrainHere)
+	what := "training runs wait for a worker; this console trains none itself"
+	if t.TrainHere {
+		what = "this console trains runs itself when no worker takes them"
+	}
+	s.audit(ctx, p.Actor(), "settings.training", "", what)
+	if s.KickTraining != nil {
+		s.KickTraining()
+	}
+	return connect.NewResponse(&mimirv1.UpdateTrainingResponse{Training: s.trainingProto()}), nil
+}
 
 // TrimRecord is what the janitor writes after each run.
 type TrimRecord struct {
@@ -87,7 +153,7 @@ func (s *Service) GetSettings(ctx context.Context, _ *connect.Request[mimirv1.Ge
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	return connect.NewResponse(&mimirv1.GetSettingsResponse{Email: emailProto(e), Telegram: telegramProto(t), Retention: retentionProto(r), Security: securityProto(sec), Limits: limitsProto(l)}), nil
+	return connect.NewResponse(&mimirv1.GetSettingsResponse{Email: emailProto(e), Telegram: telegramProto(t), Retention: retentionProto(r), Security: securityProto(sec), Limits: limitsProto(l), Training: s.trainingProto()}), nil
 }
 
 func (s *Service) UpdateAlerts(ctx context.Context, req *connect.Request[mimirv1.UpdateAlertsRequest]) (*connect.Response[mimirv1.UpdateAlertsResponse], error) {

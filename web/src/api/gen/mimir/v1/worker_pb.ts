@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/worker.proto.
  */
 export const file_mimir_v1_worker: GenFile = /*@__PURE__*/
-  fileDesc("ChVtaW1pci92MS93b3JrZXIucHJvdG8SCG1pbWlyLnYxIo0ECgZXb3JrZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZvbmxpbmUYAyABKAgSLQoJbGFzdF9zZWVuGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtjcmVhdGVfdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGZGV2aWNlGAYgASgJEgwKBGNwdXMYByABKAUSFAoMbWVtb3J5X2J5dGVzGAggASgDEhUKDWFyY2hpdGVjdHVyZXMYCSADKAkSDgoGdHJhaW5zGAogASgIEhAKCGNhcGFjaXR5GAsgASgFEgwKBGJ1c3kYDCABKAUSDwoHdmVyc2lvbhgNIAEoCRIPCgdhZGRyZXNzGA4gASgJEhIKCmNyZWF0ZWRfYnkYDyABKAkSHgoFc3RhdHMYECABKAsyDy5taW1pci52MS5TdGF0cxIwCgxjb25uZWN0X3RpbWUYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhcKD2tleV9maW5nZXJwcmludBgSIAEoCRIQCghzZWN1cml0eRgTIAEoCRITCgt0bHNfdmVyc2lvbhgUIAEoCRIOCgZtb2RlbHMYFSABKAUSDwoHd2FpdGluZxgWIAEoBRIVCg10cmFpbmluZ19vbmx5GBcgASgIIrQBCgVTdGF0cxITCgtjcHVfcGVyY2VudBgBIAEoARIZChFtZW1vcnlfdXNlZF9ieXRlcxgCIAEoAxIaChJtZW1vcnlfdG90YWxfYnl0ZXMYAyABKAMSFwoPZGlza191c2VkX2J5dGVzGAQgASgDEhgKEGRpc2tfdG90YWxfYnl0ZXMYBSABKAMSFgoOdXB0aW1lX3NlY29uZHMYBiABKAMSFAoMbG9hZF9hdmVyYWdlGAcgASgBItcBCgxXb3JrZXJTYW1wbGUSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoLY3B1X3BlcmNlbnQYAiABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYAyABKAMSGgoSbWVtb3J5X3RvdGFsX2J5dGVzGAQgASgDEhcKD2Rpc2tfdXNlZF9ieXRlcxgFIAEoAxIYChBkaXNrX3RvdGFsX2J5dGVzGAYgASgDEgwKBGJ1c3kYByABKAUSEAoIY2FwYWNpdHkYCCABKAUioQEKCldvcmtlclRhc2sSDAoEa2luZBgBIAEoCRIQCghtb2RlbF9pZBgCIAEoCRISCgptb2RlbF9uYW1lGAMgASgJEg4KBmpvYl9pZBgEIAEoCRIQCghqb2JfbmFtZRgFIAEoCRIuCgpzdGFydF90aW1lGAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVjb3VudBgHIAEoBSJgCgpXb3JrZXJJdGVtEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGc3RhdHVzGAMgASgJEigKBHRpbWUYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIi0KEEdldFdvcmtlclJlcXVlc3QSCgoCaWQYASABKAkSDQoFaG91cnMYAiABKAUi8wEKEUdldFdvcmtlclJlc3BvbnNlEiAKBndvcmtlchgBIAEoCzIQLm1pbWlyLnYxLldvcmtlchInCgdzYW1wbGVzGAIgAygLMhYubWltaXIudjEuV29ya2VyU2FtcGxlEiMKBXRhc2tzGAMgAygLMhQubWltaXIudjEuV29ya2VyVGFzaxIkCgZtb2RlbHMYBCADKAsyFC5taW1pci52MS5Xb3JrZXJJdGVtEiIKBHJ1bnMYBSADKAsyFC5taW1pci52MS5Xb3JrZXJJdGVtEiQKBmV2ZW50cxgGIAMoCzIULm1pbWlyLnYxLldvcmtlckl0ZW0iJwoZUmVwbGFjZVdvcmtlclRva2VuUmVxdWVzdBIKCgJpZBgBIAEoCSIrChpSZXBsYWNlV29ya2VyVG9rZW5SZXNwb25zZRINCgV0b2tlbhgBIAEoCSIaChhMaXN0V29ya2VyQ2hvaWNlc1JlcXVlc3QiPgoZTGlzdFdvcmtlckNob2ljZXNSZXNwb25zZRIhCgd3b3JrZXJzGAEgAygLMhAubWltaXIudjEuV29ya2VyIhQKEkxpc3RXb3JrZXJzUmVxdWVzdCJNChNMaXN0V29ya2Vyc1Jlc3BvbnNlEiEKB3dvcmtlcnMYASADKAsyEC5taW1pci52MS5Xb3JrZXISEwoLc2VjdXJlX2pvaW4YAiABKAgiIwoTQ3JlYXRlV29ya2VyUmVxdWVzdBIMCgRuYW1lGAEgASgJIkcKFENyZWF0ZVdvcmtlclJlc3BvbnNlEiAKBndvcmtlchgBIAEoCzIQLm1pbWlyLnYxLldvcmtlchINCgV0b2tlbhgCIAEoCSIhChNEZWxldGVXb3JrZXJSZXF1ZXN0EgoKAmlkGAEgASgJIhYKFERlbGV0ZVdvcmtlclJlc3BvbnNlIpgCCgtMaW5rUmVxdWVzdBIgCgVoZWxsbxgBIAEoCzIPLm1pbWlyLnYxLkhlbGxvSAASMQoOcHJlZGljdF9yZXN1bHQYAiABKAsyFy5taW1pci52MS5QcmVkaWN0UmVzdWx0SAASMQoOdHJhaW5fcHJvZ3Jlc3MYAyABKAsyFy5taW1pci52MS5UcmFpblByb2dyZXNzSAASLQoMdHJhaW5fcmVzdWx0GAQgASgLMhUubWltaXIudjEuVHJhaW5SZXN1bHRIABIoCgloZWFydGJlYXQYBSABKAsyEy5taW1pci52MS5IZWFydGJlYXRIABIgCgVwcm9vZhgGIAEoCzIPLm1pbWlyLnYxLlByb29mSABCBgoEYm9keSLeAQoMTGlua1Jlc3BvbnNlEiQKB3dlbGNvbWUYASABKAsyES5taW1pci52MS5XZWxjb21lSAASKAoHcHJlZGljdBgCIAEoCzIVLm1pbWlyLnYxLlByZWRpY3RUYXNrSAASJAoFdHJhaW4YAyABKAsyEy5taW1pci52MS5UcmFpblRhc2tIABImCgZjYW5jZWwYBCABKAsyFC5taW1pci52MS5DYW5jZWxUYXNrSAASKAoJY2hhbGxlbmdlGAUgASgLMhMubWltaXIudjEuQ2hhbGxlbmdlSABCBgoEYm9keSIaCglDaGFsbGVuZ2USDQoFbm9uY2UYASABKAwiGgoFUHJvb2YSEQoJc2lnbmF0dXJlGAEgASgMItABCgVIZWxsbxIOCgZkZXZpY2UYASABKAkSDAoEY3B1cxgCIAEoBRIUCgxtZW1vcnlfYnl0ZXMYAyABKAMSFQoNYXJjaGl0ZWN0dXJlcxgEIAMoCRIOCgZ0cmFpbnMYBSABKAgSEAoIY2FwYWNpdHkYBiABKAUSDwoHdmVyc2lvbhgHIAEoCRISCgpwdWJsaWNfa2V5GAggASgMEh4KBXN0YXRzGAkgASgLMg8ubWltaXIudjEuU3RhdHMSFQoNdHJhaW5pbmdfb25seRgKIAEoCCIrCglIZWFydGJlYXQSHgoFc3RhdHMYASABKAsyDy5taW1pci52MS5TdGF0cyIqCgdXZWxjb21lEhEKCXdvcmtlcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJImUKCU1vZGVsU3BlYxITCgtpbnB1dF9zaGFwZRgBIAMoAxIOCgZsYWJlbHMYAiADKAkSEAoIZmVhdHVyZXMYAyADKAkSIQoHY29sdW1ucxgEIAMoCzIQLm1pbWlyLnYxLkNvbHVtbiKbAQoLUHJlZGljdFRhc2sSDwoHdGFza19pZBgBIAEoCRIQCghtb2RlbF9pZBgCIAEoCRIUCgxhcmNoaXRlY3R1cmUYAyABKAkSIQoEc3BlYxgEIAEoCzITLm1pbWlyLnYxLk1vZGVsU3BlYxIPCgd3ZWlnaHRzGAUgASgMEh8KBWlucHV0GAYgASgLMhAubWltaXIudjEuVGVuc29yIpABCg1QcmVkaWN0UmVzdWx0Eg8KB3Rhc2tfaWQYASABKAkSIAoGb3V0cHV0GAIgASgLMhAubWltaXIudjEuVGVuc29yEicKDXByb2JhYmlsaXRpZXMYAyABKAsyEC5taW1pci52MS5UZW5zb3ISDQoFZXJyb3IYBCABKAkSFAoMbmVlZF93ZWlnaHRzGAUgASgIItgCCglUcmFpblRhc2sSDwoHdGFza19pZBgBIAEoCRIOCgZqb2JfaWQYAiABKAkSFAoMYXJjaGl0ZWN0dXJlGAMgASgJEiwKCHNldHRpbmdzGAQgASgLMhoubWltaXIudjEuVHJhaW5pbmdTZXR0aW5ncxIrCgxkYXRhc2V0X2tpbmQYBSABKA4yFS5taW1pci52MS5EYXRhc2V0S2luZBILCgNjc3YYBiABKAwSDgoGdGFyZ2V0GAcgASgJEiYKB2hpc3RvcnkYCCADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdBIUCgxiYXNlX3dlaWdodHMYCSABKAwSEwoLYmFzZV9sYWJlbHMYCiADKAkSFQoNYmFzZV9mZWF0dXJlcxgLIAMoCRIPCgdhcmNoaXZlGAwgASgMEiEKB2NvbHVtbnMYDSADKAsyEC5taW1pci52MS5Db2x1bW4ifgoNVHJhaW5Qcm9ncmVzcxIPCgd0YXNrX2lkGAEgASgJEg0KBWVwb2NoGAIgASgFEgwKBHN0ZXAYAyABKAUSFwoPc3RlcHNfcGVyX2Vwb2NoGAQgASgFEiYKB2hpc3RvcnkYBSADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdCKrAQoLVHJhaW5SZXN1bHQSDwoHdGFza19pZBgBIAEoCRIPCgd3ZWlnaHRzGAIgASgMEiYKB2hpc3RvcnkYAyADKAsyFS5taW1pci52MS5FcG9jaFJlc3VsdBIhCgRzcGVjGAQgASgLMhMubWltaXIudjEuTW9kZWxTcGVjEg0KBWVycm9yGAUgASgJEhEKCWNhbmNlbGxlZBgGIAEoCBINCgVmcmVzaBgHIAEoCCIdCgpDYW5jZWxUYXNrEg8KB3Rhc2tfaWQYASABKAkyyAQKDVdvcmtlclNlcnZpY2USTwoLTGlzdFdvcmtlcnMSHC5taW1pci52MS5MaXN0V29ya2Vyc1JlcXVlc3QaHS5taW1pci52MS5MaXN0V29ya2Vyc1Jlc3BvbnNlIgOQAgESTQoMQ3JlYXRlV29ya2VyEh0ubWltaXIudjEuQ3JlYXRlV29ya2VyUmVxdWVzdBoeLm1pbWlyLnYxLkNyZWF0ZVdvcmtlclJlc3BvbnNlEk0KDERlbGV0ZVdvcmtlchIdLm1pbWlyLnYxLkRlbGV0ZVdvcmtlclJlcXVlc3QaHi5taW1pci52MS5EZWxldGVXb3JrZXJSZXNwb25zZRJJCglHZXRXb3JrZXISGi5taW1pci52MS5HZXRXb3JrZXJSZXF1ZXN0GhsubWltaXIudjEuR2V0V29ya2VyUmVzcG9uc2UiA5ACARJfChJSZXBsYWNlV29ya2VyVG9rZW4SIy5taW1pci52MS5SZXBsYWNlV29ya2VyVG9rZW5SZXF1ZXN0GiQubWltaXIudjEuUmVwbGFjZVdvcmtlclRva2VuUmVzcG9uc2USYQoRTGlzdFdvcmtlckNob2ljZXMSIi5taW1pci52MS5MaXN0V29ya2VyQ2hvaWNlc1JlcXVlc3QaIy5taW1pci52MS5MaXN0V29ya2VyQ2hvaWNlc1Jlc3BvbnNlIgOQAgESOQoETGluaxIVLm1pbWlyLnYxLkxpbmtSZXF1ZXN0GhYubWltaXIudjEuTGlua1Jlc3BvbnNlKAEwAUI3WjVnaXRodWIuY29tL2dzb3VsdGFuL21pbWlyLXNlcnZlci9nZW4vbWltaXIvdjE7bWltaXJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_mimir_v1_model, file_mimir_v1_training]);
+  fileDesc("ChVtaW1pci92MS93b3JrZXIucHJvdG8SCG1pbWlyLnYxIpwECgZXb3JrZXISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZvbmxpbmUYAyABKAgSLQoJbGFzdF9zZWVuGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtjcmVhdGVfdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGZGV2aWNlGAYgASgJEgwKBGNwdXMYByABKAUSFAoMbWVtb3J5X2J5dGVzGAggASgDEhUKDWFyY2hpdGVjdHVyZXMYCSADKAkSDgoGdHJhaW5zGAogASgIEhAKCGNhcGFjaXR5GAsgASgFEgwKBGJ1c3kYDCABKAUSDwoHdmVyc2lvbhgNIAEoCRIPCgdhZGRyZXNzGA4gASgJEhIKCmNyZWF0ZWRfYnkYDyABKAkSHgoFc3RhdHMYECABKAsyDy5taW1pci52MS5TdGF0cxIwCgxjb25uZWN0X3RpbWUYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhcKD2tleV9maW5nZXJwcmludBgSIAEoCRIQCghzZWN1cml0eRgTIAEoCRITCgt0bHNfdmVyc2lvbhgUIAEoCRIOCgZtb2RlbHMYFSABKAUSDwoHd2FpdGluZxgWIAEoBRIVCg10cmFpbmluZ19vbmx5GBcgASgIEg0KBXRhc2tzGBggASgJIrQBCgVTdGF0cxITCgtjcHVfcGVyY2VudBgBIAEoARIZChFtZW1vcnlfdXNlZF9ieXRlcxgCIAEoAxIaChJtZW1vcnlfdG90YWxfYnl0ZXMYAyABKAMSFwoPZGlza191c2VkX2J5dGVzGAQgASgDEhgKEGRpc2tfdG90YWxfYnl0ZXMYBSABKAMSFgoOdXB0aW1lX3NlY29uZHMYBiABKAMSFAoMbG9hZF9hdmVyYWdlGAcgASgBItcBCgxXb3JrZXJTYW1wbGUSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoLY3B1X3BlcmNlbnQYAiABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYAyABKAMSGgoSbWVtb3J5X3RvdGFsX2J5dGVzGAQgASgDEhcKD2Rpc2tfdXNlZF9ieXRlcxgFIAEoAxIYChBkaXNrX3RvdGFsX2J5dGVzGAYgASgDEgwKBGJ1c3kYByABKAUSEAoIY2FwYWNpdHkYCCABKAUioQEKCldvcmtlclRhc2sSDAoEa2luZBgBIAEoCRIQCghtb2RlbF9pZBgCIAEoCRISCgptb2RlbF9uYW1lGAMgASgJEg4KBmpvYl9pZBgEIAEoCRIQCghqb2JfbmFtZRgFIAEoCRIuCgpzdGFydF90aW1lGAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVjb3VudBgHIAEoBSJgCgpXb3JrZXJJdGVtEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGc3RhdHVzGAMgASgJEigKBHRpbWUYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIi0KEEdldFdvcmtlclJlcXVlc3QSCgoCaWQYASABKAkSDQoFaG91cnMYAiABKAUi8wEKEUdldFdvcmtlclJlc3BvbnNlEiAKBndvcmtlchgBIAEoCzIQLm1pbWlyLnYxLldvcmtlchInCgdzYW1wbGVzGAIgAygLMhYubWltaXIudjEuV29ya2VyU2FtcGxlEiMKBXRhc2tzGAMgAygLMhQubWltaXIudjEuV29ya2VyVGFzaxIkCgZtb2RlbHMYBCADKAsyFC5taW1pci52MS5Xb3JrZXJJdGVtEiIKBHJ1bnMYBSADKAsyFC5taW1pci52MS5Xb3JrZXJJdGVtEiQKBmV2ZW50cxgGIAMoCzIULm1pbWlyLnYxLldvcmtlckl0ZW0iJwoZUmVwbGFjZVdvcmtlclRva2VuUmVxdWVzdBIKCgJpZBgBIAEoCSIrChpSZXBsYWNlV29ya2VyVG9rZW5SZXNwb25zZRINCgV0b2tlbhgBIAEoCSIyChVTZXRXb3JrZXJUYXNrc1JlcXVlc3QSCgoCaWQYASABKAkSDQoFdGFza3MYAiABKAkiOgoWU2V0V29ya2VyVGFza3NSZXNwb25zZRIgCgZ3b3JrZXIYASABKAsyEC5taW1pci52MS5Xb3JrZXIiGgoYTGlzdFdvcmtlckNob2ljZXNSZXF1ZXN0Ij4KGUxpc3RXb3JrZXJDaG9pY2VzUmVzcG9uc2USIQoHd29ya2VycxgBIAMoCzIQLm1pbWlyLnYxLldvcmtlciIUChJMaXN0V29ya2Vyc1JlcXVlc3QiTQoTTGlzdFdvcmtlcnNSZXNwb25zZRIhCgd3b3JrZXJzGAEgAygLMhAubWltaXIudjEuV29ya2VyEhMKC3NlY3VyZV9qb2luGAIgASgIIiMKE0NyZWF0ZVdvcmtlclJlcXVlc3QSDAoEbmFtZRgBIAEoCSJHChRDcmVhdGVXb3JrZXJSZXNwb25zZRIgCgZ3b3JrZXIYASABKAsyEC5taW1pci52MS5Xb3JrZXISDQoFdG9rZW4YAiABKAkiIQoTRGVsZXRlV29ya2VyUmVxdWVzdBIKCgJpZBgBIAEoCSIWChREZWxldGVXb3JrZXJSZXNwb25zZSKYAgoLTGlua1JlcXVlc3QSIAoFaGVsbG8YASABKAsyDy5taW1pci52MS5IZWxsb0gAEjEKDnByZWRpY3RfcmVzdWx0GAIgASgLMhcubWltaXIudjEuUHJlZGljdFJlc3VsdEgAEjEKDnRyYWluX3Byb2dyZXNzGAMgASgLMhcubWltaXIudjEuVHJhaW5Qcm9ncmVzc0gAEi0KDHRyYWluX3Jlc3VsdBgEIAEoCzIVLm1pbWlyLnYxLlRyYWluUmVzdWx0SAASKAoJaGVhcnRiZWF0GAUgASgLMhMubWltaXIudjEuSGVhcnRiZWF0SAASIAoFcHJvb2YYBiABKAsyDy5taW1pci52MS5Qcm9vZkgAQgYKBGJvZHki3gEKDExpbmtSZXNwb25zZRIkCgd3ZWxjb21lGAEgASgLMhEubWltaXIudjEuV2VsY29tZUgAEigKB3ByZWRpY3QYAiABKAsyFS5taW1pci52MS5QcmVkaWN0VGFza0gAEiQKBXRyYWluGAMgASgLMhMubWltaXIudjEuVHJhaW5UYXNrSAASJgoGY2FuY2VsGAQgASgLMhQubWltaXIudjEuQ2FuY2VsVGFza0gAEigKCWNoYWxsZW5nZRgFIAEoCzITLm1pbWlyLnYxLkNoYWxsZW5nZUgAQgYKBGJvZHkiGgoJQ2hhbGxlbmdlEg0KBW5vbmNlGAEgASgMIhoKBVByb29mEhEKCXNpZ25hdHVyZRgBIAEoDCLQAQoFSGVsbG8SDgoGZGV2aWNlGAEgASgJEgwKBGNwdXMYAiABKAUSFAoMbWVtb3J5X2J5dGVzGAMgASgDEhUKDWFyY2hpdGVjdHVyZXMYBCADKAkSDgoGdHJhaW5zGAUgASgIEhAKCGNhcGFjaXR5GAYgASgFEg8KB3ZlcnNpb24YByABKAkSEgoKcHVibGljX2tleRgIIAEoDBIeCgVzdGF0cxgJIAEoCzIPLm1pbWlyLnYxLlN0YXRzEhUKDXRyYWluaW5nX29ubHkYCiABKAgiKwoJSGVhcnRiZWF0Eh4KBXN0YXRzGAEgASgLMg8ubWltaXIudjEuU3RhdHMiOQoHV2VsY29tZRIRCgl3b3JrZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgV0YXNrcxgDIAEoCSJlCglNb2RlbFNwZWMSEwoLaW5wdXRfc2hhcGUYASADKAMSDgoGbGFiZWxzGAIgAygJEhAKCGZlYXR1cmVzGAMgAygJEiEKB2NvbHVtbnMYBCADKAsyEC5taW1pci52MS5Db2x1bW4imwEKC1ByZWRpY3RUYXNrEg8KB3Rhc2tfaWQYASABKAkSEAoIbW9kZWxfaWQYAiABKAkSFAoMYXJjaGl0ZWN0dXJlGAMgASgJEiEKBHNwZWMYBCABKAsyEy5taW1pci52MS5Nb2RlbFNwZWMSDwoHd2VpZ2h0cxgFIAEoDBIfCgVpbnB1dBgGIAEoCzIQLm1pbWlyLnYxLlRlbnNvciKQAQoNUHJlZGljdFJlc3VsdBIPCgd0YXNrX2lkGAEgASgJEiAKBm91dHB1dBgCIAEoCzIQLm1pbWlyLnYxLlRlbnNvchInCg1wcm9iYWJpbGl0aWVzGAMgASgLMhAubWltaXIudjEuVGVuc29yEg0KBWVycm9yGAQgASgJEhQKDG5lZWRfd2VpZ2h0cxgFIAEoCCLYAgoJVHJhaW5UYXNrEg8KB3Rhc2tfaWQYASABKAkSDgoGam9iX2lkGAIgASgJEhQKDGFyY2hpdGVjdHVyZRgDIAEoCRIsCghzZXR0aW5ncxgEIAEoCzIaLm1pbWlyLnYxLlRyYWluaW5nU2V0dGluZ3MSKwoMZGF0YXNldF9raW5kGAUgASgOMhUubWltaXIudjEuRGF0YXNldEtpbmQSCwoDY3N2GAYgASgMEg4KBnRhcmdldBgHIAEoCRImCgdoaXN0b3J5GAggAygLMhUubWltaXIudjEuRXBvY2hSZXN1bHQSFAoMYmFzZV93ZWlnaHRzGAkgASgMEhMKC2Jhc2VfbGFiZWxzGAogAygJEhUKDWJhc2VfZmVhdHVyZXMYCyADKAkSDwoHYXJjaGl2ZRgMIAEoDBIhCgdjb2x1bW5zGA0gAygLMhAubWltaXIudjEuQ29sdW1uIn4KDVRyYWluUHJvZ3Jlc3MSDwoHdGFza19pZBgBIAEoCRINCgVlcG9jaBgCIAEoBRIMCgRzdGVwGAMgASgFEhcKD3N0ZXBzX3Blcl9lcG9jaBgEIAEoBRImCgdoaXN0b3J5GAUgAygLMhUubWltaXIudjEuRXBvY2hSZXN1bHQiqwEKC1RyYWluUmVzdWx0Eg8KB3Rhc2tfaWQYASABKAkSDwoHd2VpZ2h0cxgCIAEoDBImCgdoaXN0b3J5GAMgAygLMhUubWltaXIudjEuRXBvY2hSZXN1bHQSIQoEc3BlYxgEIAEoCzITLm1pbWlyLnYxLk1vZGVsU3BlYxINCgVlcnJvchgFIAEoCRIRCgljYW5jZWxsZWQYBiABKAgSDQoFZnJlc2gYByABKAgiHQoKQ2FuY2VsVGFzaxIPCgd0YXNrX2lkGAEgASgJMp0FCg1Xb3JrZXJTZXJ2aWNlEk8KC0xpc3RXb3JrZXJzEhwubWltaXIudjEuTGlzdFdvcmtlcnNSZXF1ZXN0Gh0ubWltaXIudjEuTGlzdFdvcmtlcnNSZXNwb25zZSIDkAIBEk0KDENyZWF0ZVdvcmtlchIdLm1pbWlyLnYxLkNyZWF0ZVdvcmtlclJlcXVlc3QaHi5taW1pci52MS5DcmVhdGVXb3JrZXJSZXNwb25zZRJNCgxEZWxldGVXb3JrZXISHS5taW1pci52MS5EZWxldGVXb3JrZXJSZXF1ZXN0Gh4ubWltaXIudjEuRGVsZXRlV29ya2VyUmVzcG9uc2USSQoJR2V0V29ya2VyEhoubWltaXIudjEuR2V0V29ya2VyUmVxdWVzdBobLm1pbWlyLnYxLkdldFdvcmtlclJlc3BvbnNlIgOQAgESXwoSUmVwbGFjZVdvcmtlclRva2VuEiMubWltaXIudjEuUmVwbGFjZVdvcmtlclRva2VuUmVxdWVzdBokLm1pbWlyLnYxLlJlcGxhY2VXb3JrZXJUb2tlblJlc3BvbnNlElMKDlNldFdvcmtlclRhc2tzEh8ubWltaXIudjEuU2V0V29ya2VyVGFza3NSZXF1ZXN0GiAubWltaXIudjEuU2V0V29ya2VyVGFza3NSZXNwb25zZRJhChFMaXN0V29ya2VyQ2hvaWNlcxIiLm1pbWlyLnYxLkxpc3RXb3JrZXJDaG9pY2VzUmVxdWVzdBojLm1pbWlyLnYxLkxpc3RXb3JrZXJDaG9pY2VzUmVzcG9uc2UiA5ACARI5CgRMaW5rEhUubWltaXIudjEuTGlua1JlcXVlc3QaFi5taW1pci52MS5MaW5rUmVzcG9uc2UoATABQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_mimir_v1_model, file_mimir_v1_training]);
 
 /**
  * Worker is a process that runs models for this server, here or elsewhere.
@@ -153,11 +153,20 @@ export type Worker = Message<"mimir.v1.Worker"> & {
 
   /**
    * training_only says the worker takes training runs and no predictions
-   * (it was started with -tasks train).
+   * (it was started with -tasks train, or tasks below says train).
    *
    * @generated from field: bool training_only = 23;
    */
   trainingOnly: boolean;
+
+  /**
+   * tasks is what the console tells the worker to take, set from its
+   * page: "all", "train" or "serve". Empty leaves it to the worker's own
+   * -tasks flag; trains and training_only say what applies now.
+   *
+   * @generated from field: string tasks = 24;
+   */
+  tasks: string;
 };
 
 /**
@@ -470,6 +479,45 @@ export const ReplaceWorkerTokenResponseSchema: GenMessage<ReplaceWorkerTokenResp
   messageDesc(file_mimir_v1_worker, 8);
 
 /**
+ * @generated from message mimir.v1.SetWorkerTasksRequest
+ */
+export type SetWorkerTasksRequest = Message<"mimir.v1.SetWorkerTasksRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string tasks = 2;
+   */
+  tasks: string;
+};
+
+/**
+ * Describes the message mimir.v1.SetWorkerTasksRequest.
+ * Use `create(SetWorkerTasksRequestSchema)` to create a new message.
+ */
+export const SetWorkerTasksRequestSchema: GenMessage<SetWorkerTasksRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 9);
+
+/**
+ * @generated from message mimir.v1.SetWorkerTasksResponse
+ */
+export type SetWorkerTasksResponse = Message<"mimir.v1.SetWorkerTasksResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Worker worker = 1;
+   */
+  worker?: Worker | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.SetWorkerTasksResponse.
+ * Use `create(SetWorkerTasksResponseSchema)` to create a new message.
+ */
+export const SetWorkerTasksResponseSchema: GenMessage<SetWorkerTasksResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_worker, 10);
+
+/**
  * @generated from message mimir.v1.ListWorkerChoicesRequest
  */
 export type ListWorkerChoicesRequest = Message<"mimir.v1.ListWorkerChoicesRequest"> & {
@@ -480,7 +528,7 @@ export type ListWorkerChoicesRequest = Message<"mimir.v1.ListWorkerChoicesReques
  * Use `create(ListWorkerChoicesRequestSchema)` to create a new message.
  */
 export const ListWorkerChoicesRequestSchema: GenMessage<ListWorkerChoicesRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 9);
+  messageDesc(file_mimir_v1_worker, 11);
 
 /**
  * @generated from message mimir.v1.ListWorkerChoicesResponse
@@ -497,7 +545,7 @@ export type ListWorkerChoicesResponse = Message<"mimir.v1.ListWorkerChoicesRespo
  * Use `create(ListWorkerChoicesResponseSchema)` to create a new message.
  */
 export const ListWorkerChoicesResponseSchema: GenMessage<ListWorkerChoicesResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 10);
+  messageDesc(file_mimir_v1_worker, 12);
 
 /**
  * @generated from message mimir.v1.ListWorkersRequest
@@ -510,7 +558,7 @@ export type ListWorkersRequest = Message<"mimir.v1.ListWorkersRequest"> & {
  * Use `create(ListWorkersRequestSchema)` to create a new message.
  */
 export const ListWorkersRequestSchema: GenMessage<ListWorkersRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 11);
+  messageDesc(file_mimir_v1_worker, 13);
 
 /**
  * @generated from message mimir.v1.ListWorkersResponse
@@ -535,7 +583,7 @@ export type ListWorkersResponse = Message<"mimir.v1.ListWorkersResponse"> & {
  * Use `create(ListWorkersResponseSchema)` to create a new message.
  */
 export const ListWorkersResponseSchema: GenMessage<ListWorkersResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 12);
+  messageDesc(file_mimir_v1_worker, 14);
 
 /**
  * @generated from message mimir.v1.CreateWorkerRequest
@@ -552,7 +600,7 @@ export type CreateWorkerRequest = Message<"mimir.v1.CreateWorkerRequest"> & {
  * Use `create(CreateWorkerRequestSchema)` to create a new message.
  */
 export const CreateWorkerRequestSchema: GenMessage<CreateWorkerRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 13);
+  messageDesc(file_mimir_v1_worker, 15);
 
 /**
  * @generated from message mimir.v1.CreateWorkerResponse
@@ -577,7 +625,7 @@ export type CreateWorkerResponse = Message<"mimir.v1.CreateWorkerResponse"> & {
  * Use `create(CreateWorkerResponseSchema)` to create a new message.
  */
 export const CreateWorkerResponseSchema: GenMessage<CreateWorkerResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 14);
+  messageDesc(file_mimir_v1_worker, 16);
 
 /**
  * @generated from message mimir.v1.DeleteWorkerRequest
@@ -594,7 +642,7 @@ export type DeleteWorkerRequest = Message<"mimir.v1.DeleteWorkerRequest"> & {
  * Use `create(DeleteWorkerRequestSchema)` to create a new message.
  */
 export const DeleteWorkerRequestSchema: GenMessage<DeleteWorkerRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 15);
+  messageDesc(file_mimir_v1_worker, 17);
 
 /**
  * @generated from message mimir.v1.DeleteWorkerResponse
@@ -607,7 +655,7 @@ export type DeleteWorkerResponse = Message<"mimir.v1.DeleteWorkerResponse"> & {
  * Use `create(DeleteWorkerResponseSchema)` to create a new message.
  */
 export const DeleteWorkerResponseSchema: GenMessage<DeleteWorkerResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 16);
+  messageDesc(file_mimir_v1_worker, 18);
 
 /**
  * LinkRequest is what a worker sends on its link.
@@ -662,7 +710,7 @@ export type LinkRequest = Message<"mimir.v1.LinkRequest"> & {
  * Use `create(LinkRequestSchema)` to create a new message.
  */
 export const LinkRequestSchema: GenMessage<LinkRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 17);
+  messageDesc(file_mimir_v1_worker, 19);
 
 /**
  * LinkResponse is what the server sends down a link.
@@ -711,7 +759,7 @@ export type LinkResponse = Message<"mimir.v1.LinkResponse"> & {
  * Use `create(LinkResponseSchema)` to create a new message.
  */
 export const LinkResponseSchema: GenMessage<LinkResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 18);
+  messageDesc(file_mimir_v1_worker, 20);
 
 /**
  * Challenge asks the worker to prove it holds its key.
@@ -730,7 +778,7 @@ export type Challenge = Message<"mimir.v1.Challenge"> & {
  * Use `create(ChallengeSchema)` to create a new message.
  */
 export const ChallengeSchema: GenMessage<Challenge> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 19);
+  messageDesc(file_mimir_v1_worker, 21);
 
 /**
  * Proof is the worker's Ed25519 signature of "mimir-worker-link-v1\n"
@@ -750,7 +798,7 @@ export type Proof = Message<"mimir.v1.Proof"> & {
  * Use `create(ProofSchema)` to create a new message.
  */
 export const ProofSchema: GenMessage<Proof> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 20);
+  messageDesc(file_mimir_v1_worker, 22);
 
 /**
  * Hello is the first message on a link: what the worker can do.
@@ -825,7 +873,7 @@ export type Hello = Message<"mimir.v1.Hello"> & {
  * Use `create(HelloSchema)` to create a new message.
  */
 export const HelloSchema: GenMessage<Hello> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 21);
+  messageDesc(file_mimir_v1_worker, 23);
 
 /**
  * Heartbeat keeps the link alive and carries fresh stats.
@@ -844,7 +892,7 @@ export type Heartbeat = Message<"mimir.v1.Heartbeat"> & {
  * Use `create(HeartbeatSchema)` to create a new message.
  */
 export const HeartbeatSchema: GenMessage<Heartbeat> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 22);
+  messageDesc(file_mimir_v1_worker, 24);
 
 /**
  * @generated from message mimir.v1.Welcome
@@ -859,6 +907,14 @@ export type Welcome = Message<"mimir.v1.Welcome"> & {
    * @generated from field: string name = 2;
    */
   name: string;
+
+  /**
+   * tasks is what the console wants the worker to take ("all", "train"
+   * or "serve"); empty keeps the worker's own -tasks.
+   *
+   * @generated from field: string tasks = 3;
+   */
+  tasks: string;
 };
 
 /**
@@ -866,7 +922,7 @@ export type Welcome = Message<"mimir.v1.Welcome"> & {
  * Use `create(WelcomeSchema)` to create a new message.
  */
 export const WelcomeSchema: GenMessage<Welcome> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 23);
+  messageDesc(file_mimir_v1_worker, 25);
 
 /**
  * ModelSpec is what a model reads and answers.
@@ -900,7 +956,7 @@ export type ModelSpec = Message<"mimir.v1.ModelSpec"> & {
  * Use `create(ModelSpecSchema)` to create a new message.
  */
 export const ModelSpecSchema: GenMessage<ModelSpec> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 24);
+  messageDesc(file_mimir_v1_worker, 26);
 
 /**
  * PredictTask asks for one prediction. weights travel only the first time
@@ -945,7 +1001,7 @@ export type PredictTask = Message<"mimir.v1.PredictTask"> & {
  * Use `create(PredictTaskSchema)` to create a new message.
  */
 export const PredictTaskSchema: GenMessage<PredictTask> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 25);
+  messageDesc(file_mimir_v1_worker, 27);
 
 /**
  * @generated from message mimir.v1.PredictResult
@@ -984,7 +1040,7 @@ export type PredictResult = Message<"mimir.v1.PredictResult"> & {
  * Use `create(PredictResultSchema)` to create a new message.
  */
 export const PredictResultSchema: GenMessage<PredictResult> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 26);
+  messageDesc(file_mimir_v1_worker, 28);
 
 /**
  * TrainTask asks the worker to train a model from the examples it carries.
@@ -1077,7 +1133,7 @@ export type TrainTask = Message<"mimir.v1.TrainTask"> & {
  * Use `create(TrainTaskSchema)` to create a new message.
  */
 export const TrainTaskSchema: GenMessage<TrainTask> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 27);
+  messageDesc(file_mimir_v1_worker, 29);
 
 /**
  * @generated from message mimir.v1.TrainProgress
@@ -1114,7 +1170,7 @@ export type TrainProgress = Message<"mimir.v1.TrainProgress"> & {
  * Use `create(TrainProgressSchema)` to create a new message.
  */
 export const TrainProgressSchema: GenMessage<TrainProgress> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 28);
+  messageDesc(file_mimir_v1_worker, 30);
 
 /**
  * @generated from message mimir.v1.TrainResult
@@ -1163,7 +1219,7 @@ export type TrainResult = Message<"mimir.v1.TrainResult"> & {
  * Use `create(TrainResultSchema)` to create a new message.
  */
 export const TrainResultSchema: GenMessage<TrainResult> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 29);
+  messageDesc(file_mimir_v1_worker, 31);
 
 /**
  * @generated from message mimir.v1.CancelTask
@@ -1180,7 +1236,7 @@ export type CancelTask = Message<"mimir.v1.CancelTask"> & {
  * Use `create(CancelTaskSchema)` to create a new message.
  */
 export const CancelTaskSchema: GenMessage<CancelTask> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_worker, 30);
+  messageDesc(file_mimir_v1_worker, 32);
 
 /**
  * WorkerService manages the workers that run models for this server, and
@@ -1237,6 +1293,18 @@ export const WorkerService: GenService<{
     methodKind: "unary";
     input: typeof ReplaceWorkerTokenRequestSchema;
     output: typeof ReplaceWorkerTokenResponseSchema;
+  },
+  /**
+   * SetWorkerTasks tells a worker what to take: "all", "train" (training
+   * runs only) or "serve" (predictions only). Empty leaves it to the
+   * worker's own -tasks flag. It applies at once to a connected worker.
+   *
+   * @generated from rpc mimir.v1.WorkerService.SetWorkerTasks
+   */
+  setWorkerTasks: {
+    methodKind: "unary";
+    input: typeof SetWorkerTasksRequestSchema;
+    output: typeof SetWorkerTasksResponseSchema;
   },
   /**
    * ListWorkerChoices lists the workers a model or training run can be

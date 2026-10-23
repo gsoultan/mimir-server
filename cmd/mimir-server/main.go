@@ -96,7 +96,7 @@ func run() error {
 	cacheMB := flag.Int("model-cache-mb", env.int("MIMIR_MODEL_CACHE_MB", api.DefaultModelCacheBytes>>20), "console and worker: how many MB of models to keep loaded, by file size; the least recently used are dropped first, and the last one loaded always stays; 0 for no limit ($MIMIR_MODEL_CACHE_MB)")
 	maxUploads := flag.Int("max-uploads", env.int("MIMIR_MAX_UPLOADS", server.DefaultMaxUploads), "console: how many model and dataset uploads to take at once; each is held in memory, so more are refused until one finishes ($MIMIR_MAX_UPLOADS)")
 	trainingJobs := flag.Int("training-jobs", env.int("MIMIR_TRAINING_JOBS", 0), "console: how many training jobs run at once (default: one per training slot of the connected workers, plus one for a standalone server that trains here, at least 2) ($MIMIR_TRAINING_JOBS)")
-	trainHere := flag.Bool("train-here", env.bool("MIMIR_TRAIN_HERE", true), "standalone: train runs in this process when no worker takes them; false leaves every run to workers, so training never slows the API served here ($MIMIR_TRAIN_HERE)")
+	trainHere := flag.Bool("train-here", env.bool("MIMIR_TRAIN_HERE", true), "standalone: train runs in this process when no worker takes them, until Settings → Workers says otherwise; false leaves every run to workers, so training never slows the API served here ($MIMIR_TRAIN_HERE)")
 	webhookWorkers := flag.Int("webhook-workers", env.int("MIMIR_WEBHOOK_WORKERS", 0), "console: how many webhooks are sent to at once; each webhook still gets its events one at a time, in order (default 8) ($MIMIR_WEBHOOK_WORKERS)")
 	flag.Parse()
 	if err := env.err(); err != nil {
@@ -141,9 +141,9 @@ func run() error {
 	}
 	local := *role == "standalone"
 	// A standalone console answers predictions itself; whether it also
-	// trains here is its own choice, so training can be kept off the
-	// machine that serves the API.
-	trainsHere := local && *trainHere
+	// trains here is a setting (Settings → Workers), -train-here being
+	// its default, so training can be kept off the machine that serves
+	// the API.
 
 	proxies, err := auth.ParseProxies(*trustedProxies)
 	if err != nil {
@@ -170,7 +170,7 @@ func run() error {
 	listen := func() {
 		listening.Do(func() {
 			go func() {
-				log.Info("listening", "addr", *addr, "data", *data, "role", *role, "trains_here", trainsHere, "tls", tlsConfig != nil, "version", version)
+				log.Info("listening", "addr", *addr, "data", *data, "role", *role, "tls", tlsConfig != nil, "version", version)
 				if tlsConfig != nil {
 					errc <- srv.ListenAndServeTLS("", "")
 					return
@@ -251,6 +251,10 @@ func run() error {
 	svc.SetModelCacheBytes(int64(max(*cacheMB, 0)) << 20)
 	svc.Pool.OnSample = svc.KeepSample
 	svc.Local = local
+	svc.TrainHereDefault = *trainHere
+	if err := svc.LoadTrainingSetting(ctx); err != nil {
+		return fmt.Errorf("training setting: %w", err)
+	}
 	svc.MaxModelBytes = *maxModelMB << 20
 	svc.AllowPlainWorkers = *plainWorkers
 	svc.Proxies = proxies
@@ -317,7 +321,8 @@ func run() error {
 	// checkpoint.
 	runner := training.New(st, log)
 	runner.Jobs = *trainingJobs
-	runner.Local = trainsHere
+	runner.Local = local
+	runner.TrainHere = svc.TrainsHere
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
 	svc.KickTraining = runner.Kick

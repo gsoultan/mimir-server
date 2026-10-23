@@ -81,6 +81,9 @@ type Runner struct {
 	// Local says this process trains jobs itself when no worker takes
 	// them. It is off for a server that only coordinates workers.
 	Local bool
+	// TrainHere, when set, is asked alongside Local before each job, so
+	// a setting can turn training here off while the server runs.
+	TrainHere func() bool
 	// Remote hands jobs to connected workers; nil means there are none.
 	Remote Remote
 	// Now tells the time, for keep-learning schedules; tests move it.
@@ -182,10 +185,15 @@ func (r *Runner) limit() int {
 	if s, ok := r.Remote.(TrainSlots); ok {
 		n = s.TrainSlots()
 	}
-	if r.Local {
+	if r.trainsHere() {
 		n++
 	}
 	return max(n, DefaultJobs)
+}
+
+// trainsHere reports whether this process trains jobs itself right now.
+func (r *Runner) trainsHere() bool {
+	return r.Local && (r.TrainHere == nil || r.TrainHere())
 }
 
 // acquire waits for a free slot. It reports false when ctx ends first.
@@ -248,7 +256,7 @@ func (r *Runner) drain(ctx context.Context) {
 			return
 		}
 		pinned := j.RunOn != ""
-		if (pinned || !r.Local) && (r.Remote == nil || !r.Remote.CanTrain(j.Architecture, j.RunOn)) {
+		if (pinned || !r.trainsHere()) && (r.Remote == nil || !r.Remote.CanTrain(j.Architecture, j.RunOn)) {
 			// Nobody can run it right now; leave it queued for when a
 			// worker connects or comes free.
 			r.st.SetJobStatus(ctx, j.ID, store.JobQueued, "", "")
@@ -358,7 +366,7 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	}
 	if !ran {
 		// A custom architecture's code is only on the workers that run it.
-		if !r.Local || j.RunOn != "" || a.Custom {
+		if !r.trainsHere() || j.RunOn != "" || a.Custom {
 			return "", errNoWorker
 		}
 		select {

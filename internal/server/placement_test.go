@@ -423,4 +423,109 @@ func TestWorkerTasks(t *testing.T) {
 	if got, _ := own.training.GetJob(ctx, connect.NewRequest(&mimirv1.GetJobRequest{Id: j.Msg.GetJob().GetId()})); got.Msg.GetJob().GetStatus() != mimirv1.JobStatus_JOB_STATUS_QUEUED {
 		t.Fatalf("run pinned to the serving worker: %v", got.Msg.GetJob())
 	}
+
+	// From the console, a worker started for both can be told what to
+	// take, at once. Told to teach only, the model placed on it goes back
+	// to automatic; told to answer only, the run waiting for it does too.
+	both := join("both-box", worker.TasksAll)
+	bw := waitOnline(t, own, both, true)
+	if !bw.GetTrains() || bw.GetTrainingOnly() || bw.GetTasks() != "" {
+		t.Fatalf("worker for both reports %v", bw)
+	}
+	if _, err := own.models.SetModelWorker(ctx, connect.NewRequest(&mimirv1.SetModelWorkerRequest{Id: m.GetId(), WorkerId: both})); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := own.workers.SetWorkerTasks(ctx, connect.NewRequest(&mimirv1.SetWorkerTasksRequest{Id: both, Tasks: "sometimes"})); code(err) != connect.CodeInvalidArgument {
+		t.Fatalf("odd tasks: %v", err)
+	}
+	set := func(tasks string) *mimirv1.Worker {
+		t.Helper()
+		res, err := own.workers.SetWorkerTasks(ctx, connect.NewRequest(&mimirv1.SetWorkerTasksRequest{Id: both, Tasks: tasks}))
+		if err != nil {
+			t.Fatalf("SetWorkerTasks(%q): %v", tasks, err)
+		}
+		return res.Msg.GetWorker()
+	}
+	if w := set("train"); !w.GetTrainingOnly() || !w.GetTrains() || w.GetTasks() != "train" {
+		t.Fatalf("told to train only: %v", w)
+	}
+	if got, _ := own.models.GetModel(ctx, connect.NewRequest(&mimirv1.GetModelRequest{Id: m.GetId()})); got.Msg.GetModel().GetWorkerId() != "" {
+		t.Fatalf("model placed on a worker told to train only still runs on %q", got.Msg.GetModel().GetWorkerId())
+	}
+	if _, err := own.models.SetModelWorker(ctx, connect.NewRequest(&mimirv1.SetModelWorkerRequest{Id: m.GetId(), WorkerId: both})); code(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("placing a model on a worker told to train only: %v", err)
+	}
+	pinned, err := own.training.CreateJob(ctx, connect.NewRequest(&mimirv1.CreateJobRequest{Name: "For both", Architecture: "table-mlp", DatasetId: ds.Msg.GetDataset().GetId(), Settings: &mimirv1.TrainingSettings{Epochs: 1}, WorkerId: both}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := set("serve"); w.GetTrainingOnly() || w.GetTrains() || w.GetTasks() != "serve" {
+		t.Fatalf("told to serve only: %v", w)
+	}
+	if got, _ := own.training.GetJob(ctx, connect.NewRequest(&mimirv1.GetJobRequest{Id: pinned.Msg.GetJob().GetId()})); got.Msg.GetJob().GetRunOn() != "" {
+		t.Fatalf("run pinned to a worker told to serve only still waits for %q", got.Msg.GetJob().GetRunOn())
+	}
+	if w := set(""); !w.GetTrains() || w.GetTrainingOnly() || w.GetTasks() != "" {
+		t.Fatalf("back to its own choice: %v", w)
+	}
+	if ls, _ := own.workers.ListWorkers(ctx, connect.NewRequest(&mimirv1.ListWorkersRequest{})); len(ls.Msg.GetWorkers()) != 3 {
+		t.Fatalf("ListWorkers = %v", ls)
+	}
+}
+
+// TestTrainHereSetting turns training on the console itself off from
+// Settings: a run nobody else can take waits, and runs again when it is
+// turned back on.
+func TestTrainHereSetting(t *testing.T) {
+	srv := newServer(t)
+	ctx := context.Background()
+	own := owner(t, srv)
+	runner.TrainHere = svc.TrainsHere
+	t.Cleanup(func() { runner.TrainHere = nil })
+
+	got, err := own.settings.GetSettings(ctx, connect.NewRequest(&mimirv1.GetSettingsRequest{}))
+	if err != nil || !got.Msg.GetTraining().GetTrainHere() || !got.Msg.GetTraining().GetCanTrainHere() {
+		t.Fatalf("GetSettings training = %v, %v", got.Msg.GetTraining(), err)
+	}
+	ds, err := own.datasets.CreateDataset(ctx, connect.NewRequest(&mimirv1.CreateDatasetRequest{Name: "Fruit", Kind: mimirv1.DatasetKind_DATASET_KIND_TABLE, Csv: []byte(blobs(200))}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := own.settings.UpdateTraining(ctx, connect.NewRequest(&mimirv1.UpdateTrainingRequest{TrainHere: false})); err != nil {
+		t.Fatal(err)
+	}
+	if svc.TrainsHere() {
+		t.Fatal("the console still trains here after the setting was turned off")
+	}
+	j, err := own.training.CreateJob(ctx, connect.NewRequest(&mimirv1.CreateJobRequest{Name: "Waits", Architecture: "table-mlp", DatasetId: ds.Msg.GetDataset().GetId(), Settings: &mimirv1.TrainingSettings{Epochs: 2}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := func() *mimirv1.Job {
+		res, err := own.training.GetJob(ctx, connect.NewRequest(&mimirv1.GetJobRequest{Id: j.Msg.GetJob().GetId()}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res.Msg.GetJob()
+	}
+	runner.Tick(ctx)
+	if s := job().GetStatus(); s != mimirv1.JobStatus_JOB_STATUS_QUEUED {
+		t.Fatalf("with training here off and no worker, the run is %v, want queued", s)
+	}
+	res, err := own.settings.UpdateTraining(ctx, connect.NewRequest(&mimirv1.UpdateTrainingRequest{TrainHere: true}))
+	if err != nil || !res.Msg.GetTraining().GetTrainHere() {
+		t.Fatalf("UpdateTraining on = %v, %v", res, err)
+	}
+	runner.Tick(ctx)
+	if jb := job(); jb.GetStatus() != mimirv1.JobStatus_JOB_STATUS_SUCCEEDED || jb.GetWorker() != "" {
+		t.Fatalf("with training here back on, the run is %v", jb)
+	}
+	events, _ := own.audit.ListAuditEvents(ctx, connect.NewRequest(&mimirv1.ListAuditEventsRequest{}))
+	found := false
+	for _, e := range events.Msg.GetEvents() {
+		found = found || e.GetAction() == "settings.training"
+	}
+	if !found {
+		t.Fatal("no settings.training audit event")
+	}
 }

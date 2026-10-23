@@ -26,6 +26,10 @@ service WorkerService {
   // token stops working, the worker is disconnected, and its key is
   // forgotten so it can join again with the new token.
   rpc ReplaceWorkerToken(ReplaceWorkerTokenRequest) returns (ReplaceWorkerTokenResponse);
+  // SetWorkerTasks tells a worker what to take: "all", "train" (training
+  // runs only) or "serve" (predictions only). Empty leaves it to the
+  // worker's own -tasks flag. It applies at once to a connected worker.
+  rpc SetWorkerTasks(SetWorkerTasksRequest) returns (SetWorkerTasksResponse);
   // ListWorkerChoices lists the workers a model or training run can be
   // placed on, for anyone who can add models. It leaves out tokens,
   // addresses and who added them.
@@ -76,8 +80,12 @@ message Worker {
   // waiting is how many runs are waiting for it.
   int32 waiting = 22;
   // training_only says the worker takes training runs and no predictions
-  // (it was started with -tasks train).
+  // (it was started with -tasks train, or tasks below says train).
   bool training_only = 23;
+  // tasks is what the console tells the worker to take, set from its
+  // page: "all", "train" or "serve". Empty leaves it to the worker's own
+  // -tasks flag; trains and training_only say what applies now.
+  string tasks = 24;
 }
 
 // Stats is how a worker's machine is doing.
@@ -151,6 +159,15 @@ message ReplaceWorkerTokenRequest {
 
 message ReplaceWorkerTokenResponse {
   string token = 1;
+}
+
+message SetWorkerTasksRequest {
+  string id = 1;
+  string tasks = 2;
+}
+
+message SetWorkerTasksResponse {
+  Worker worker = 1;
 }
 
 message ListWorkerChoicesRequest {}
@@ -247,6 +264,9 @@ message Heartbeat {
 message Welcome {
   string worker_id = 1;
   string name = 2;
+  // tasks is what the console wants the worker to take ("all", "train"
+  // or "serve"); empty keeps the worker's own -tasks.
+  string tasks = 3;
 }
 
 // ModelSpec is what a model reads and answers.

@@ -276,4 +276,28 @@ func TestTrainingOnlyWorker(t *testing.T) {
 	if !p.TrainingOnly("trainer") || p.TrainingOnly("server") || p.TrainingOnly("offline") {
 		t.Fatal("TrainingOnly is wrong")
 	}
+
+	// The console's choice narrows what a worker said: a worker that runs
+	// and teaches is told to teach only, then to answer only.
+	newLink("both", &mimirv1.Hello{Architectures: []string{"x"}, Trains: true, Capacity: 4})
+	if !p.CanPredict("x", "both") || !p.CanTrain("x", "both") || p.TrainSlots() != 7 {
+		t.Fatal("a worker that does both isn't offered both")
+	}
+	p.SetTasks("both", "train")
+	if p.CanPredict("x", "both") || !p.CanTrain("x", "both") || !p.TrainingOnly("both") {
+		t.Fatal("told to train only, the worker is still offered predictions")
+	}
+	p.SetTasks("both", "serve")
+	if !p.CanPredict("x", "both") || p.CanTrain("x", "both") || p.TrainSlots() != 3 {
+		t.Fatal("told to serve only, the worker is still offered training")
+	}
+	p.SetTasks("both", "")
+	if !p.CanPredict("x", "both") || !p.CanTrain("x", "both") {
+		t.Fatal("back to its own choice, the worker isn't offered both")
+	}
+	for _, st := range p.Statuses() {
+		if st.Worker.ID == "both" && (!st.Trains || st.TrainingOnly) {
+			t.Fatalf("status of both = %+v", st)
+		}
+	}
 }

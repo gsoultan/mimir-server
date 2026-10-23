@@ -126,7 +126,7 @@ func (s *Service) Link(ctx context.Context, stream *connect.BidiStream[mimirv1.L
 }
 
 func workerProto(w store.Worker) *mimirv1.Worker {
-	pw := &mimirv1.Worker{Id: w.ID, Name: w.Name, CreatedBy: w.CreatedBy, CreateTime: timestamppb.New(w.Created)}
+	pw := &mimirv1.Worker{Id: w.ID, Name: w.Name, CreatedBy: w.CreatedBy, CreateTime: timestamppb.New(w.Created), Tasks: w.Tasks}
 	if !w.LastSeen.IsZero() {
 		pw.LastSeen = timestamppb.New(w.LastSeen)
 	}

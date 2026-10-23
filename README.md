@@ -582,13 +582,21 @@ mimir-server -role=worker -tasks train -server https://mimir.example.com -token 
 mimir-server -role=worker -tasks serve -server https://mimir.example.com -token mimirw_...
 ```
 
+You can also decide this from the console: each worker's page under
+**Settings → Workers** has a **What it takes** choice (*As started*,
+*Runs and teaches*, *Teaches only*, *Answers only*) that applies at once
+to a connected worker. Told to teach only, the models placed on it go back
+to *Automatic*; told to answer only, the runs waiting for it do.
+
 The console itself runs no models with `-role=console`, so the API stays
 quick whatever the workers are doing. A `standalone` console answers
-small models itself and, by default, trains runs no worker takes; start
-it with `-train-here=false` (`MIMIR_TRAIN_HERE=false`) to leave every run
-to the workers, so training never shares the machine the API is served
-from. A run with no worker to take it waits in the queue, and starts when
-one connects.
+small models itself and, by default, trains runs no worker takes; the
+**Training on this console** switch under **Settings → Workers** turns
+that off so every run goes to a worker and training never shares the
+machine the API is served from (`-train-here=false`, or
+`MIMIR_TRAIN_HERE=false`, is the default before anyone has chosen). A run
+with no worker to take it waits in the queue, and starts when one
+connects.
 
 ### Where work runs
 

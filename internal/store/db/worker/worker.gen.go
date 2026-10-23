@@ -28,6 +28,7 @@ type Row struct {
 	LastSeen    runtime.Null[time.Time]
 	PublicKey   []byte
 	LastAddress string
+	Tasks       string
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -66,7 +67,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 8
+const nCols = 9
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -233,6 +234,13 @@ func (q *Query) cursor(col uint32, r Row) {
 		}
 		q.strs[q.ns] = r.LastAddress
 		q.ns++
+	case 8:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Tasks
+		q.ns++
 	}
 }
 
@@ -397,6 +405,7 @@ var (
 	LastSeen    = NullTimeCol{5}
 	PublicKey   = NullBytesCol{6}
 	LastAddress = TextCol{7}
+	Tasks       = TextCol{8}
 )
 
 // TextCol addresses a text column.
@@ -660,6 +669,13 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 8:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
 		}
 		q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 		return
@@ -719,6 +735,13 @@ func (q *Query) leaf(p Pred) {
 		q.byts[q.nby] = p.byt
 		q.nby++
 	case 7:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 8:
 		if int(q.ns) >= 6 {
 			q.over = true
 			return
@@ -803,8 +826,19 @@ func (q Query) LastAddressLike(v string) Query     { return q.Where(LastAddress.
 func (q Query) LastAddressILike(v string) Query    { return q.Where(LastAddress.ILike(v)) }
 func (q Query) LastAddressIn(v ...string) Query    { return q.Where(LastAddress.In(v...)) }
 func (q Query) LastAddressNotIn(v ...string) Query { return q.Where(LastAddress.NotIn(v...)) }
+func (q Query) TasksEq(v string) Query             { return q.Where(Tasks.Eq(v)) }
+func (q Query) TasksNotEq(v string) Query          { return q.Where(Tasks.NotEq(v)) }
+func (q Query) TasksGt(v string) Query             { return q.Where(Tasks.Gt(v)) }
+func (q Query) TasksGte(v string) Query            { return q.Where(Tasks.Gte(v)) }
+func (q Query) TasksLt(v string) Query             { return q.Where(Tasks.Lt(v)) }
+func (q Query) TasksLte(v string) Query            { return q.Where(Tasks.Lte(v)) }
+func (q Query) TasksEqLower(v string) Query        { return q.Where(Tasks.EqLower(v)) }
+func (q Query) TasksLike(v string) Query           { return q.Where(Tasks.Like(v)) }
+func (q Query) TasksILike(v string) Query          { return q.Where(Tasks.ILike(v)) }
+func (q Query) TasksIn(v ...string) Query          { return q.Where(Tasks.In(v...)) }
+func (q Query) TasksNotIn(v ...string) Query       { return q.Where(Tasks.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "token_hash", "created_by", "last_seen", "public_key", "last_address" FROM "workers"`
+const selectPrefix = `SELECT "id", "create_time", "name", "token_hash", "created_by", "last_seen", "public_key", "last_address", "tasks" FROM "workers"`
 const countPrefix = `SELECT count(*) FROM "workers"`
 const existsPrefix = `SELECT 1 FROM "workers"`
 const existsSuffix = ` LIMIT 1`
@@ -889,6 +923,12 @@ var orderTable = [nCols][4]string{
 		"\"last_address\" ASC NULLS FIRST",
 		"\"last_address\" DESC NULLS LAST",
 	},
+	{ // tasks
+		"\"tasks\"",
+		"\"tasks\" DESC",
+		"\"tasks\" ASC NULLS FIRST",
+		"\"tasks\" DESC NULLS LAST",
+	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
@@ -902,6 +942,7 @@ var identTable = [nCols]string{
 	"\"last_seen\"",
 	"\"public_key\"",
 	"\"last_address\"",
+	"\"tasks\"",
 }
 
 var lowering = runtime.Lowering{
@@ -934,7 +975,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [8][28]runtime.Frag{
+var fragTable = [9][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -1175,6 +1216,36 @@ var fragTable = [8][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // tasks
+		{}, // opNone
+		{A: "\"tasks\" = $", B: ""},
+		{A: "\"tasks\" <> $", B: ""},
+		{A: "\"tasks\" > $", B: ""},
+		{A: "\"tasks\" >= $", B: ""},
+		{A: "\"tasks\" < $", B: ""},
+		{A: "\"tasks\" <= $", B: ""},
+		{A: "lower(\"tasks\") = lower($", B: ")"},
+		{A: "\"tasks\" LIKE $", B: ""},
+		{A: "\"tasks\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"tasks\" = ANY($", B: ")"},
+		{A: "\"tasks\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 }
 
 func fragOf(op, col uint32) runtime.Frag {
@@ -1339,6 +1410,7 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.LastSeen = runtime.Nullable(rv[5], runtime.Timestamptz)
 	r.PublicKey = runtime.Bytes(rv[6])
 	r.LastAddress = sl.Str(rv[7])
+	r.Tasks = sl.Str(rv[8])
 	return nil
 }
 
@@ -1419,6 +1491,10 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 8:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
 			}
 			continue
 		}
@@ -1452,6 +1528,10 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.byts[nby])
 			nby++
 		case 7:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 8:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
@@ -1592,7 +1672,7 @@ func (q Query) Prepare(b *Binder) (string, []any) {
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "workers" ("id", "create_time", "name", "token_hash", "created_by", "last_seen", "public_key", "last_address") VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "id", "create_time", "name", "token_hash", "created_by", "last_seen", "public_key", "last_address"`
+const insertSQL = `INSERT INTO "workers" ("id", "create_time", "name", "token_hash", "created_by", "last_seen", "public_key", "last_address", "tasks") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING "id", "create_time", "name", "token_hash", "created_by", "last_seen", "public_key", "last_address", "tasks"`
 
 const updatePrefix = `UPDATE "workers" SET `
 const deletePrefix = `DELETE FROM "workers"`
@@ -1605,9 +1685,10 @@ const (
 	dLastSeen    uint64 = 1 << 2
 	dPublicKey   uint64 = 1 << 3
 	dLastAddress uint64 = 1 << 4
+	dTasks       uint64 = 1 << 5
 )
 
-const nUpdatable = 5
+const nUpdatable = 6
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
@@ -1616,6 +1697,7 @@ var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"last_seen\" = $", B: ""},    // last_seen
 	{A: "\"public_key\" = $", B: ""},   // public_key
 	{A: "\"last_address\" = $", B: ""}, // last_address
+	{A: "\"tasks\" = $", B: ""},        // tasks
 }
 
 // exprFrags is the SERVER-side assignment each column may take instead
@@ -1627,6 +1709,7 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{A: "\"last_seen\" = now()", B: ""}, // last_seen = the database's clock
 	{},                                  // public_key has no server-side form
 	{},                                  // last_address has no server-side form
+	{},                                  // tasks has no server-side form
 }
 
 // pkFrags addresses one row.
@@ -1646,9 +1729,10 @@ const (
 	iLastSeen    uint64 = 1 << 5
 	iPublicKey   uint64 = 1 << 6
 	iLastAddress uint64 = 1 << 7
+	iTasks       uint64 = 1 << 8
 )
 
-const nInsertable = 8
+const nInsertable = 9
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -1660,6 +1744,7 @@ var insCols = [nInsertable]string{
 	"\"last_seen\"",
 	"\"public_key\"",
 	"\"last_address\"",
+	"\"tasks\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -1668,7 +1753,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"workers\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"token_hash\", \"created_by\", \"last_seen\", \"public_key\", \"last_address\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"token_hash\", \"created_by\", \"last_seen\", \"public_key\", \"last_address\", \"tasks\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -1687,7 +1772,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"token_hash\", \"created_by\", \"last_seen\", \"public_key\", \"last_address\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"token_hash\", \"created_by\", \"last_seen\", \"public_key\", \"last_address\", \"tasks\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -1784,6 +1869,12 @@ func (m *Mut) SetLastAddress(v string) {
 	m.expr &^= dLastAddress
 }
 
+func (m *Mut) SetTasks(v string) {
+	m.row.Tasks = v
+	m.dirty |= dTasks
+	m.expr &^= dTasks
+}
+
 // Ins stages a new row. Unlike Mut it has a setter for every insertable
 // column including the primary key and Immutable ones — supplying your
 // own id is legitimate, changing it later is not.
@@ -1856,6 +1947,11 @@ func (n *Ins) SetLastAddress(v string) {
 	n.set |= iLastAddress
 }
 
+func (n *Ins) SetTasks(v string) {
+	n.row.Tasks = v
+	n.set |= iTasks
+}
+
 // The conflict encoding. One byte holds both which unique index an
 // upsert names and what it does on collision, so the insert statement
 // cache stays keyed by one mask and one byte:
@@ -1902,7 +1998,7 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 5)
+	set := make([]string, 0, 6)
 	switch i {
 	case 0:
 		if mask&(1<<2) != 0 {
@@ -1920,6 +2016,9 @@ func assignable(i uint8, mask uint64) []string {
 		if mask&(1<<7) != 0 {
 			set = append(set, "last_address")
 		}
+		if mask&(1<<8) != 0 {
+			set = append(set, "tasks")
+		}
 	case 1:
 		if mask&(1<<2) != 0 {
 			set = append(set, "name")
@@ -1932,6 +2031,9 @@ func assignable(i uint8, mask uint64) []string {
 		}
 		if mask&(1<<7) != 0 {
 			set = append(set, "last_address")
+		}
+		if mask&(1<<8) != 0 {
+			set = append(set, "tasks")
 		}
 	}
 	return set
@@ -1996,6 +2098,7 @@ var assignFor = map[string]string{
 	"last_seen":    "\"last_seen\" = EXCLUDED.\"last_seen\"",
 	"public_key":   "\"public_key\" = EXCLUDED.\"public_key\"",
 	"last_address": "\"last_address\" = EXCLUDED.\"last_address\"",
+	"tasks":        "\"tasks\" = EXCLUDED.\"tasks\"",
 }
 
 func assignExcluded(c string) string { return assignFor[c] }
@@ -2055,6 +2158,8 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 			args = append(args, n.row.PublicKey)
 		case 7:
 			args = append(args, n.row.LastAddress)
+		case 8:
+			args = append(args, n.row.Tasks)
 		}
 	}
 	var out Row
@@ -2092,7 +2197,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 8)
+	args := make([]any, 0, 9)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -2101,6 +2206,7 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.LastSeen.Arg())
 	args = append(args, r.PublicKey)
 	args = append(args, r.LastAddress)
+	args = append(args, r.Tasks)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -2135,13 +2241,14 @@ var copyCols = []string{
 	"last_seen",
 	"public_key",
 	"last_address",
+	"tasks",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [8]any
+	buf  [9]any
 }
 
 func (s *rowSource) Next() bool {
@@ -2167,6 +2274,7 @@ func (s *rowSource) Values() []any {
 	s.buf[5] = r.LastSeen.Ptr()
 	s.buf[6] = &r.PublicKey
 	s.buf[7] = &r.LastAddress
+	s.buf[8] = &r.Tasks
 	return s.buf[:]
 }
 
@@ -2205,8 +2313,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 5
 	mask |= 1 << 6
 	mask |= 1 << 7
+	mask |= 1 << 8
 	st := stmtForInsertNoReturn(mask, 0)
-	args := make([]any, 0, 8)
+	args := make([]any, 0, 9)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -2215,6 +2324,7 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.LastSeen.Arg())
 	args = append(args, r.PublicKey)
 	args = append(args, r.LastAddress)
+	args = append(args, r.Tasks)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -2264,6 +2374,8 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 			args = append(args, n.row.PublicKey)
 		case 7:
 			args = append(args, n.row.LastAddress)
+		case 8:
+			args = append(args, n.row.Tasks)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
@@ -2320,6 +2432,8 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 			args = append(args, m.row.PublicKey)
 		case 4:
 			args = append(args, m.row.LastAddress)
+		case 5:
+			args = append(args, m.row.Tasks)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -2412,6 +2526,8 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 			args = append(args, m.row.PublicKey)
 		case 4:
 			args = append(args, m.row.LastAddress)
+		case 5:
+			args = append(args, m.row.Tasks)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -2570,6 +2686,8 @@ func (q Query) UpdateAll(ctx context.Context, ex runtime.Executor, m Mut) (int64
 			args = append(args, m.row.PublicKey)
 		case 4:
 			args = append(args, m.row.LastAddress)
+		case 5:
+			args = append(args, m.row.Tasks)
 		}
 	}
 	args = append(args, q.bindPreds(b)...)

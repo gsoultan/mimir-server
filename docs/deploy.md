@@ -161,20 +161,23 @@ connects out to the console; it needs no open ports.
 ### Keeping training off the machines that answer
 
 A worker takes predictions and training runs alike unless you tell it
-which (`-tasks`, or `MIMIR_WORKER_TASKS` in `worker.env`): `train` for
-training runs only, `serve` for predictions only. Three shapes, from one
-machine up:
+which: `train` for training runs only, `serve` for predictions only. Set
+it where the worker starts (`-tasks`, or `MIMIR_WORKER_TASKS` in
+`worker.env`) or from the console, under **What it takes** on the
+worker's page, which applies at once and wins over the flag. Three
+shapes, from one machine up:
 
 1. **One machine.** The unit from step 1 as it is (`-role standalone`):
    the console answers predictions itself and trains runs itself, two at
    a time (`MIMIR_TRAINING_JOBS`). A training run and the API share the
    CPUs.
 2. **Console plus workers.** Keep the console on its machine and add
-   workers with `-tasks all`. Set `MIMIR_TRAIN_HERE=false` in `mimir.env`
-   so the console never trains itself: it still answers small models from
-   its own process, and every run goes to a worker. Or run it as
-   `-role console` (edit `ExecStart` in the unit) so it runs no models at
-   all and only coordinates.
+   workers with `-tasks all`. Turn off **Training on this console** under
+   **Settings → Workers** (or set `MIMIR_TRAIN_HERE=false` in `mimir.env`
+   as the default) so the console never trains itself: it still answers
+   small models from its own process, and every run goes to a worker. Or
+   run it as `-role console` (edit `ExecStart` in the unit) so it runs no
+   models at all and only coordinates.
 3. **Training and serving apart.** The console as in 2, one or more
    workers with `MIMIR_WORKER_TASKS=train` on the machines with the cores
    or the GPU, and one or more with `MIMIR_WORKER_TASKS=serve` close to
