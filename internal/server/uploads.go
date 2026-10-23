@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -27,6 +28,17 @@ var uploadProcedures = map[string]bool{
 	"/api/uploads": true,
 }
 
+// An upload holding a slot must keep sending: it gets uploadGrace plus a
+// second for every uploadMinRate bytes it says it sends (or the largest
+// upload allowed, when it doesn't say) before its body is cut off.
+// Without that bound, anyone able to open a connection could hold every
+// slot by sending a large upload a byte at a time, before signing in:
+// Connect reads a whole message before the interceptor sees who sent it.
+const (
+	uploadGrace   = 2 * time.Minute
+	uploadMinRate = 1 << 20 // bytes per second
+)
+
 // uploadGate caps how many uploads are read and handled at once, so a
 // burst of them can't take all the server's memory. An upload over the
 // cap is refused with ResourceExhausted rather than queued: the client
@@ -34,14 +46,21 @@ var uploadProcedures = map[string]bool{
 type uploadGate struct {
 	slots chan struct{}
 	small int64 // uploads that say they are at most this big skip the gate
-	errs  *connect.ErrorWriter
+	max   int64 // the largest upload, for ones that don't say their size
+	// patience is how long an upload of size bytes may take to arrive.
+	patience func(size int64) time.Duration
+	errs     *connect.ErrorWriter
 }
 
-func newUploadGate(n int, small int64) *uploadGate {
+func newUploadGate(n int, small, max int64) *uploadGate {
 	if n <= 0 {
 		n = DefaultMaxUploads
 	}
-	return &uploadGate{slots: make(chan struct{}, n), small: small, errs: connect.NewErrorWriter()}
+	return &uploadGate{slots: make(chan struct{}, n), small: small, max: max, patience: uploadPatience, errs: connect.NewErrorWriter()}
+}
+
+func uploadPatience(size int64) time.Duration {
+	return uploadGrace + time.Duration(size/uploadMinRate)*time.Second
 }
 
 func (g *uploadGate) wrap(next http.Handler) http.Handler {
@@ -62,6 +81,13 @@ func (g *uploadGate) wrap(next http.Handler) http.Handler {
 			return
 		}
 		defer func() { <-g.slots }()
+		size := r.ContentLength
+		if size < 0 || size > g.max {
+			size = g.max
+		}
+		// Best effort: a writer that can't set a deadline reports so, and
+		// the upload then runs as before.
+		http.NewResponseController(w).SetReadDeadline(time.Now().Add(g.patience(size)))
 		next.ServeHTTP(w, r)
 	})
 }
