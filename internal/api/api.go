@@ -281,6 +281,7 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 	}
 	s.audit(ctx, p.Actor(), "model.create", m.Name, detail)
 	s.emit(ctx, "model.created", modelEvent(m, p))
+	s.WarmModel(m.ID)
 	s.log.InfoContext(ctx, "model created", "model_id", m.ID, "architecture", m.Architecture, "size_bytes", m.SizeBytes)
 	return connect.NewResponse(&mimirv1.CreateModelResponse{Model: toProto(m)}), nil
 }

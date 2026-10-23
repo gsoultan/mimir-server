@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/cluster"
+	"github.com/gsoultan/mimir-server/internal/store"
 	builtin "github.com/gsoultan/mimir-server/internal/worker"
 	"github.com/gsoultan/mimir-server/worker"
 )
@@ -528,4 +531,143 @@ func TestTrainHereSetting(t *testing.T) {
 	if !found {
 		t.Fatal("no settings.training audit event")
 	}
+}
+
+// loadedOn waits until the worker's link holds version ver of the model,
+// which Warm brings about without any prediction asking for it.
+func loadedOn(t *testing.T, workerID, modelID, ver string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		for _, st := range svc.Pool.Statuses() {
+			if st.Worker.ID == workerID && st.Loaded[modelID] == ver {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("worker %s never got version %s of model %s", workerID, ver, modelID)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// TestWarmHandoff has a training-only worker train a model and checks
+// that the serving worker gets the weights before anyone asks, and that
+// predictions keep succeeding while the model is replaced by a new
+// version underneath them.
+func TestWarmHandoff(t *testing.T) {
+	srv := newServer(t)
+	ctx := context.Background()
+	own := owner(t, srv)
+	svc.Local, runner.Local = false, false
+
+	join := func(name string, tasks worker.Tasks) string {
+		t.Helper()
+		created, err := own.workers.CreateWorker(ctx, connect.NewRequest(&mimirv1.CreateWorkerRequest{Name: name}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		runWorkerFor(t, srv.URL, created.Msg.GetToken(), t.TempDir(), tasks)
+		waitOnline(t, own, created.Msg.GetWorker().GetId(), true)
+		return created.Msg.GetWorker().GetId()
+	}
+	join("trainer", worker.TasksTrain)
+	server := join("server", worker.TasksServe)
+
+	ds, err := own.datasets.CreateDataset(ctx, connect.NewRequest(&mimirv1.CreateDatasetRequest{Name: "Fruit", Kind: mimirv1.DatasetKind_DATASET_KIND_TABLE, Csv: []byte(blobs(200))}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	train := func(name string) *mimirv1.Model {
+		t.Helper()
+		j, err := own.training.CreateJob(ctx, connect.NewRequest(&mimirv1.CreateJobRequest{Name: name, Architecture: "table-mlp", DatasetId: ds.Msg.GetDataset().GetId(), Settings: &mimirv1.TrainingSettings{Epochs: 4, LearningRate: 0.01}}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		runner.Tick(ctx)
+		got, _ := own.training.GetJob(ctx, connect.NewRequest(&mimirv1.GetJobRequest{Id: j.Msg.GetJob().GetId()}))
+		if got.Msg.GetJob().GetStatus() != mimirv1.JobStatus_JOB_STATUS_SUCCEEDED {
+			t.Fatalf("run %s: %v", name, got.Msg.GetJob())
+		}
+		m, err := own.models.GetModel(ctx, connect.NewRequest(&mimirv1.GetModelRequest{Id: got.Msg.GetJob().GetModelId()}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m.Msg.GetModel()
+	}
+
+	// The serving worker holds the model before anyone asks for it.
+	m := train("Fruit sorter")
+	loadedOn(t, server, m.GetId(), m.GetVersion())
+
+	// Predictions keep coming while the model is replaced, twice, by
+	// the weights of a fresh run: none fails, and the serving worker
+	// ends up with the newest version.
+	st2, err := store.Open(ctx, dbURL, dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st2.Close()
+	var (
+		stop   atomic.Bool
+		asked  atomic.Int64
+		failed atomic.Value // the first error
+		wg     sync.WaitGroup
+	)
+	for range 4 {
+		wg.Go(func() {
+			for !stop.Load() {
+				_, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: m.GetId(), Input: &mimirv1.Tensor{Values: []float32{-1, -1}}}))
+				asked.Add(1)
+				if err != nil {
+					failed.CompareAndSwap(nil, err)
+					return
+				}
+			}
+		})
+	}
+	ver := m.GetVersion()
+	for i := range 2 {
+		fresh := train("Fresh " + string(rune('A'+i)))
+		w, err := st2.Weights(fresh.GetId())
+		if err != nil {
+			t.Fatal(err)
+		}
+		cur, err := st2.Get(ctx, m.GetId())
+		if err != nil {
+			t.Fatal(err)
+		}
+		next := cur
+		next.InputShape, next.Labels, next.Features, next.Accuracy = ints(fresh.GetInputShape()), fresh.GetLabels(), fresh.GetFeatures(), fresh.GetAccuracy()
+		if err := st2.Replace(ctx, m.GetId(), next, w); err != nil {
+			t.Fatal(err)
+		}
+		replaced, err := st2.Get(ctx, m.GetId())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if replaced.WeightsVersion() == ver {
+			t.Fatal("the replacement has the same version")
+		}
+		ver = replaced.WeightsVersion()
+		svc.Warm(ctx, replaced) // what the console does when a run replaces a model
+		loadedOn(t, server, m.GetId(), ver)
+		time.Sleep(100 * time.Millisecond) // a few predictions on the new version
+	}
+	stop.Store(true)
+	wg.Wait()
+	if err := failed.Load(); err != nil {
+		t.Fatalf("a prediction failed during the switch: %v", err)
+	}
+	if asked.Load() < 20 {
+		t.Fatalf("only %d predictions were made; the switch should not have held them up", asked.Load())
+	}
+}
+
+func ints(v []int64) []int {
+	out := make([]int, len(v))
+	for i, x := range v {
+		out[i] = int(x)
+	}
+	return out
 }

@@ -223,6 +223,7 @@ message LinkRequest {
     TrainResult train_result = 4;
     Heartbeat heartbeat = 5;
     Proof proof = 6;
+    LoadResult load_result = 7;
   }
 }
 
@@ -234,7 +235,26 @@ message LinkResponse {
     TrainTask train = 3;
     CancelTask cancel = 4;
     Challenge challenge = 5;
+    LoadTask load = 6;
   }
+}
+
+// LoadTask hands a worker a model's weights ahead of any prediction, so
+// the first one after a run finishes is as quick as the rest. The
+// worker keeps answering with the version it has until this one is
+// loaded.
+message LoadTask {
+  string task_id = 1;
+  string model_id = 2;
+  string architecture = 3;
+  ModelSpec spec = 4;
+  bytes weights = 5;
+}
+
+message LoadResult {
+  string task_id = 1;
+  // error says why the model couldn't be loaded; empty means it is.
+  string error = 2;
 }
 
 // Challenge asks the worker to prove it holds its key.

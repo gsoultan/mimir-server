@@ -276,6 +276,7 @@ func run() error {
 	svc.MaxUploads = *maxUploads
 	svc.SetModelCacheBytes(int64(max(*cacheMB, 0)) << 20)
 	svc.Pool.OnSample = svc.KeepSample
+	svc.Pool.OnLink = svc.WorkerLinked
 	svc.Local = local
 	svc.TrainHereDefault = *trainHere
 	if err := svc.LoadTrainingSetting(ctx); err != nil {
