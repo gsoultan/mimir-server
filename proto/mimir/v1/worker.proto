@@ -43,8 +43,8 @@ service WorkerService {
   // sent tasks. The first key a token joins with is the one it must keep
   // using.
   rpc Link(stream LinkRequest) returns (stream LinkResponse);
-  // GetCloudGpu says how training runs rent a GPU on Modal when they
-  // wait, and whether one is running now.
+  // GetCloudGpu says how training runs rent a GPU when they wait, and
+  // whether one is running now.
   rpc GetCloudGpu(GetCloudGpuRequest) returns (GetCloudGpuResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -357,20 +357,29 @@ message CancelTask {
   string task_id = 1;
 }
 
-// CloudGpu is a GPU rented on Modal (modal.com) by the minute for training.
-// When a training run waits that no other worker can take, the console
-// starts a machine with that GPU on Modal running this server as a
-// worker that teaches only. It stops once it has had nothing to do for
-// idle_minutes, so it is paid for only while it trains.
+// CloudGpu is a GPU rented by the minute for training, from Modal, AWS
+// EC2, Google Cloud, RunPod, Lambda Cloud or Vast.ai. When a training run
+// waits that no other worker can take, the console starts a machine with
+// that GPU running this server as a worker that teaches only. It stops
+// once it has had nothing to do for idle_minutes, and the console removes
+// the machine, so it is paid for only while it trains.
 message CloudGpu {
   bool enabled = 1;
-  // token_id is the Modal token's id (ak-...). Its secret is never shown;
-  // has_token_secret says one is stored.
+  // provider is "modal", "aws", "gcp", "runpod", "lambda" or "vast".
+  string provider = 15;
+  // token_id is the credential's public part: the Modal token id (ak-...)
+  // or the AWS access key id. The secret part (the Modal token secret, AWS
+  // secret key, Google service account JSON key, or RunPod, Lambda or
+  // Vast.ai API key) is never shown; has_token_secret says one is stored.
   string token_id = 2;
   bool has_token_secret = 3;
-  // gpu is the Modal GPU type, such as T4, L4, A10, L40S, A100-40GB,
-  // A100-80GB, H100, H200 or B200.
+  // gpu is what the provider calls the machine, one of the provider's
+  // CloudGpuProvider.gpus.
   string gpu = 4;
+  // region is the AWS or Lambda Cloud region, or the Google Cloud zone.
+  string region = 16;
+  // ssh_key names the SSH key Lambda Cloud requires on every instance.
+  string ssh_key = 17;
   // console_url is the https address the GPU machine reaches this console
   // at, such as https://mimir.example.com.
   string console_url = 5;
@@ -400,14 +409,38 @@ message GetCloudGpuRequest {}
 
 message GetCloudGpuResponse {
   CloudGpu cloud_gpu = 1;
+  // providers are where a GPU can be rented, with what each offers.
+  repeated CloudGpuProvider providers = 2;
+}
+
+// CloudGpuProvider is a place that rents GPUs.
+message CloudGpuProvider {
+  string id = 1;
+  string name = 2;
+  // gpus are the machines offered, cheapest first, labelled with their
+  // memory and about what an hour costs.
+  repeated CloudGpuChoice gpus = 3;
+  string default_gpu = 4;
+  // regions are suggested where the provider asks for a region or zone.
+  repeated string regions = 5;
+  string default_region = 6;
+}
+
+message CloudGpuChoice {
+  string id = 1;
+  string label = 2;
 }
 
 message UpdateCloudGpuRequest {
   bool enabled = 1;
+  string provider = 10;
   string token_id = 2;
-  // token_secret replaces the stored one; empty keeps it.
+  // token_secret replaces the stored one; empty keeps it, unless the
+  // provider changes.
   string token_secret = 3;
   string gpu = 4;
+  string region = 11;
+  string ssh_key = 12;
   string console_url = 5;
   int32 idle_minutes = 6;
   int32 max_hours = 7;

@@ -352,9 +352,16 @@ func run() error {
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
 
-	// A GPU rented on Modal when training waits, if set up under
+	// A GPU rented when training waits, if set up under
 	// Settings → Workers.
-	gpu := gpucloud.NewLauncher(gpucloud.NewModal(log), log)
+	gpu := gpucloud.NewLauncher(map[string]gpucloud.Cloud{
+		gpucloud.ProviderModal:  gpucloud.NewModal(log),
+		gpucloud.ProviderAWS:    gpucloud.NewAWS(),
+		gpucloud.ProviderGCP:    gpucloud.NewGCP(),
+		gpucloud.ProviderRunPod: gpucloud.NewRunPod(),
+		gpucloud.ProviderLambda: gpucloud.NewLambda(),
+		gpucloud.ProviderVast:   gpucloud.NewVast(),
+	}, log)
 	gpu.Wanted = svc.CloudGPUWanted
 	gpu.Online = svc.Pool.Online
 	gpu.ServesProgram = api.CanServeProgram()

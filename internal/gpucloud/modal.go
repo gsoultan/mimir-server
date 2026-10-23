@@ -83,7 +83,7 @@ func (m *Modal) Start(ctx context.Context, c Config, mc Machine) (string, error)
 		CPU:       mc.CPU,
 		MemoryMiB: mc.MemoryMiB,
 		Timeout:   mc.Timeout,
-		Command:   mc.Command,
+		Command:   []string{"sh", "-c", mc.Script()},
 		Env:       mc.Env,
 		Secrets:   []*modal.Secret{secret},
 		Tags:      map[string]string{tag: mc.WorkerID},

@@ -94,8 +94,8 @@ type WorkerServiceClient interface {
 	// sent tasks. The first key a token joins with is the one it must keep
 	// using.
 	Link(context.Context) *connect.BidiStreamForClient[v1.LinkRequest, v1.LinkResponse]
-	// GetCloudGpu says how training runs rent a GPU on Modal when they
-	// wait, and whether one is running now.
+	// GetCloudGpu says how training runs rent a GPU when they wait, and
+	// whether one is running now.
 	GetCloudGpu(context.Context, *connect.Request[v1.GetCloudGpuRequest]) (*connect.Response[v1.GetCloudGpuResponse], error)
 	// UpdateCloudGpu sets it up, changes it, or turns it off. Turning it on
 	// the first time adds a worker for it, which teaches only.
@@ -288,8 +288,8 @@ type WorkerServiceHandler interface {
 	// sent tasks. The first key a token joins with is the one it must keep
 	// using.
 	Link(context.Context, *connect.BidiStream[v1.LinkRequest, v1.LinkResponse]) error
-	// GetCloudGpu says how training runs rent a GPU on Modal when they
-	// wait, and whether one is running now.
+	// GetCloudGpu says how training runs rent a GPU when they wait, and
+	// whether one is running now.
 	GetCloudGpu(context.Context, *connect.Request[v1.GetCloudGpuRequest]) (*connect.Response[v1.GetCloudGpuResponse], error)
 	// UpdateCloudGpu sets it up, changes it, or turns it off. Turning it on
 	// the first time adds a worker for it, which teaches only.

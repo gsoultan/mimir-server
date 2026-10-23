@@ -74,7 +74,7 @@ type Service struct {
 	CancelTraining func(id string) bool
 	// Pool holds connected workers; nil means this server takes none.
 	Pool *cluster.Pool
-	// GPU rents a GPU on Modal for training runs that wait; nil means
+	// GPU rents a GPU for training runs that wait; nil means
 	// this server doesn't.
 	GPU   *gpucloud.Launcher
 	gpuMu sync.Mutex // serialises changes to the rented GPU's setting

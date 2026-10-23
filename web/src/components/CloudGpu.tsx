@@ -1,28 +1,49 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Anchor, Badge, Button, Card, Code, Collapse, Group, NumberInput, PasswordInput, Select, SimpleGrid, Stack, Switch, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Anchor, Autocomplete, Badge, Button, Card, Code, Collapse, Group, NumberInput, PasswordInput, Select, SimpleGrid, Stack, Switch, Text, TextInput, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { Children, useEffect, useState } from "react";
 
 import { message } from "../api/client";
-import { WorkerService, type CloudGpu as Gpu } from "../api/gen/mimir/v1/worker_pb";
+import { WorkerService, type CloudGpu as Gpu, type CloudGpuProvider } from "../api/gen/mimir/v1/worker_pb";
 import { allWorkerQueries, cloudGpu } from "../api/queries";
 import { ago } from "../lib/format";
 
-// GPUS are Modal's GPUs with what an hour of each costs there, from
-// modal.com/pricing. The machine's CPU and memory add about $0.24 an hour.
-const GPUS = [
-  { value: "T4", label: "T4, 16 GB · about $0.59 an hour" },
-  { value: "L4", label: "L4, 24 GB · about $0.80 an hour" },
-  { value: "A10", label: "A10, 24 GB · about $1.10 an hour" },
-  { value: "L40S", label: "L40S, 48 GB · about $1.95 an hour" },
-  { value: "A100-40GB", label: "A100, 40 GB · about $2.10 an hour" },
-  { value: "A100-80GB", label: "A100, 80 GB · about $2.50 an hour" },
-  { value: "H100", label: "H100, 80 GB · about $3.95 an hour" },
-  { value: "H200", label: "H200, 141 GB · about $4.54 an hour" },
-  { value: "B200", label: "B200, 180 GB · about $6.25 an hour" },
-];
+// HELP says, for each provider, where its credentials come from and what
+// its prices mean. The GPUs and prices themselves come from the server.
+const HELP: Record<string, { site: string; keys: React.ReactNode; prices: string }> = {
+  modal: {
+    site: "https://modal.com",
+    keys: <>From Settings → API tokens on modal.com. Leave both empty to use <Code>MODAL_TOKEN_ID</Code> and <Code>MODAL_TOKEN_SECRET</Code> from the console's environment.</>,
+    prices: "Prices are Modal's, per hour the machine runs; its CPU and memory add about $0.24.",
+  },
+  aws: {
+    site: "https://aws.amazon.com/ec2/",
+    keys: <>An access key of an IAM user allowed to run, describe and terminate EC2 instances. Leave both empty to use the console's own AWS credentials. A new account must first ask AWS to raise its quota for G instances.</>,
+    prices: "On-demand prices in us-east-1, per hour; other regions differ a little, and the 100 GB disk adds about a cent.",
+  },
+  gcp: {
+    site: "https://cloud.google.com/compute",
+    keys: <>Paste the JSON key of a service account with the Compute Instance Admin role, from IAM → Service accounts. The machine starts in that account's project, in a zone that has the GPU.</>,
+    prices: "On-demand prices in us-central1, per hour, with the machine around the GPU.",
+  },
+  runpod: {
+    site: "https://www.runpod.io",
+    keys: <>From Settings → API Keys on runpod.io.</>,
+    prices: "RunPod's Secure Cloud prices, per hour the pod runs.",
+  },
+  lambda: {
+    site: "https://lambda.ai",
+    keys: <>From API keys in the Lambda Cloud dashboard. Lambda puts an SSH key on every machine; name one you added there. The console never uses it.</>,
+    prices: "Lambda's prices, per hour the machine runs. Lambda often runs out of a GPU in a region; try another then.",
+  },
+  vast: {
+    site: "https://vast.ai",
+    keys: <>From Account → Keys on vast.ai. It rents the cheapest verified machine with that GPU when one is needed.</>,
+    prices: "Vast.ai is a market: each start takes the cheapest offer at the time, usually near these prices.",
+  },
+};
 
 const STATES: Record<string, { label: string; color: string }> = {
   off: { label: "Off", color: "gray" },
@@ -32,13 +53,16 @@ const STATES: Record<string, { label: string; color: string }> = {
   failed: { label: "Didn't start", color: "red" },
 };
 
-type Form = { enabled: boolean; tokenId: string; tokenSecret: string; gpu: string; consoleUrl: string; idleMinutes: number; maxHours: number; capacity: number; programUrl: string };
+type Form = { enabled: boolean; provider: string; tokenId: string; tokenSecret: string; gpu: string; region: string; sshKey: string; consoleUrl: string; idleMinutes: number; maxHours: number; capacity: number; programUrl: string };
 
 const formOf = (g: Gpu | undefined): Form => ({
   enabled: g?.enabled ?? false,
+  provider: g?.provider || "modal",
   tokenId: g?.tokenId ?? "",
   tokenSecret: "",
   gpu: g?.gpu || "L4",
+  region: g?.region ?? "",
+  sshKey: g?.sshKey ?? "",
   consoleUrl: g?.consoleUrl || location.origin,
   idleMinutes: g?.idleMinutes || 5,
   maxHours: g?.maxHours || 6,
@@ -52,12 +76,30 @@ function Hint({ children }: { children: React.ReactNode }) {
   return <Text size="xs" c="dimmed" mt={-4}>{children}</Text>;
 }
 
-// CloudGpu sets up renting a GPU on Modal for training: the console starts
-// one when a run waits that nothing else takes, and it stops itself once
-// it has had nothing to do for a few minutes.
+const SECRET_LABEL: Record<string, string> = {
+  modal: "Token secret",
+  aws: "Secret access key",
+  gcp: "Service account key (JSON)",
+};
+
+// Fields lays fields out two to a row; an odd one out at the end takes the
+// whole row, so the form stays even whichever provider asks for what.
+function Fields({ children }: { children: React.ReactNode }) {
+  const items = Children.toArray(children).filter(Boolean);
+  return (
+    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="sm">
+      {items.map((c, i) => (items.length % 2 === 1 && i === items.length - 1 ? <div key={i} style={{ gridColumn: "1 / -1" }}>{c}</div> : c))}
+    </SimpleGrid>
+  );
+}
+
+// CloudGpu sets up renting a GPU for training: the console starts one on
+// the chosen provider when a run waits that nothing else takes, and it
+// stops once it has had nothing to do for a few minutes.
 export function CloudGpu() {
   const { data } = useSuspenseQuery({ ...cloudGpu, refetchInterval: 5000 });
   const g = data.cloudGpu;
+  const providers = data.providers;
   const queryClient = useQueryClient();
   const [form, setForm] = useState<Form>(() => formOf(g));
   const [advanced, setAdvanced] = useState(!!g?.programUrl || (g ? !g.canServeProgram : false));
@@ -65,17 +107,30 @@ export function CloudGpu() {
   // Start over from what is stored when it changes elsewhere.
   useEffect(() => setForm(formOf(g)), [saved]);
   const set = (p: Partial<Form>) => setForm((f) => ({ ...f, ...p }));
+  const provider: CloudGpuProvider | undefined = providers.find((p) => p.id === form.provider);
+  const name = provider?.name ?? "the provider";
+  const savedName = providers.find((p) => p.id === g?.provider)?.name ?? "the provider";
+  const help = HELP[form.provider] ?? HELP.modal!;
+  // A secret stored for this provider is kept when the field is empty.
+  const hasSecret = !!g?.hasTokenSecret && g.provider === form.provider;
+  const pick = (id: string | null) => {
+    const p = providers.find((x) => x.id === id);
+    if (!p) return;
+    const same = p.id === g?.provider;
+    set({ provider: p.id, gpu: same ? g!.gpu : p.defaultGpu, region: same ? g!.region : p.defaultRegion, tokenId: same ? g!.tokenId : "", tokenSecret: "" });
+  };
   const save = useMutation(WorkerService.method.updateCloudGpu, {
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: allWorkerQueries });
       setForm(formOf(res.cloudGpu));
-      notifications.show({ color: "teal", message: res.cloudGpu?.enabled ? `Training runs that wait will start a ${res.cloudGpu.gpu} on Modal.` : "Renting a GPU is off." });
+      const on = providers.find((p) => p.id === res.cloudGpu?.provider);
+      notifications.show({ color: "teal", message: res.cloudGpu?.enabled ? `Training runs that wait will start a ${on?.gpus.find((x) => x.id === res.cloudGpu?.gpu)?.label.split(" ·")[0] ?? res.cloudGpu.gpu} on ${on?.name}.` : "Renting a GPU is off." });
     },
   });
   const stop = useMutation(WorkerService.method.stopCloudGpu, {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: allWorkerQueries });
-      notifications.show({ color: "teal", message: "The GPU on Modal is stopped. Runs on it went back in the queue." });
+      notifications.show({ color: "teal", message: `The GPU on ${savedName} is stopped. Runs on it went back in the queue.` });
     },
   });
   const st = STATES[g?.state ?? "off"] ?? { label: "Off", color: "gray" };
@@ -89,11 +144,11 @@ export function CloudGpu() {
       </Group>
       <Stack gap="sm">
         <Text size="sm" c="dimmed">
-          When a training run waits that nothing here takes, the console starts a machine with a GPU on <Anchor href="https://modal.com" target="_blank" rel="noreferrer">Modal</Anchor>, trains there, and stops it once it has had nothing to do for a few minutes. Modal bills by the second while it runs. The models it trains are answered by your other workers, which get the new weights with the next question.
+          When a training run waits that nothing here takes, the console starts a machine with a GPU on <Anchor href={help.site} target="_blank" rel="noreferrer">{name}</Anchor>, trains there, and removes it once it has had nothing to do for a few minutes, so you pay only while it trains. The models it trains are answered by your other workers, which get the new weights with the next question.
         </Text>
         {g?.state === "asleep" && <Text size="sm">Nothing is waiting for it. It starts when a run waits.</Text>}
-        {g?.state === "starting" && <Text size="sm">Starting on Modal{g.stateTime ? `, ${ago(g.stateTime)}` : ""}. The first start downloads the CUDA image and takes a few minutes; later ones take under a minute.</Text>}
-        {g?.state === "running" && <Text size="sm">Running and training. It shows as <b>Modal GPU</b> under Workers above.</Text>}
+        {g?.state === "starting" && <Text size="sm">Starting on {savedName}{g.stateTime ? `, ${ago(g.stateTime)}` : ""}. A machine takes from one to a few minutes to boot and join.</Text>}
+        {g?.state === "running" && <Text size="sm">Running and training. It shows as <b>Rented GPU</b> under Workers above.</Text>}
         {g?.state === "failed" && <Alert color="red" icon={<IconAlertCircle />}>{g.error}</Alert>}
         {live && (
           <Group>
@@ -102,19 +157,26 @@ export function CloudGpu() {
           </Group>
         )}
 
-        <Switch label="Start a GPU on Modal when a training run waits" checked={form.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} />
+        <Switch label="Start a GPU when a training run waits" checked={form.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} />
         <Collapse expanded={form.enabled}>
           <Stack gap="sm">
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="sm">
-              <TextInput label="Modal token id" placeholder="ak-…" value={form.tokenId} onChange={(e) => set({ tokenId: e.currentTarget.value })} />
-              <PasswordInput label="Token secret" placeholder={g?.hasTokenSecret ? "Saved; leave empty to keep" : "as-…"} value={form.tokenSecret} onChange={(e) => set({ tokenSecret: e.currentTarget.value })} />
+              <Select label="Rent from" data={providers.map((p) => ({ value: p.id, label: p.name }))} value={form.provider} onChange={pick} allowDeselect={false} />
+              <Select label="GPU" data={(provider?.gpus ?? []).map((x) => ({ value: x.id, label: x.label }))} value={form.gpu} onChange={(v) => v && set({ gpu: v })} allowDeselect={false} />
             </SimpleGrid>
-            <Hint>From Settings → API tokens on modal.com. The secret is stored encrypted and never shown again. Leave both empty to use <Code>MODAL_TOKEN_ID</Code> and <Code>MODAL_TOKEN_SECRET</Code> from the console's environment.</Hint>
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="sm">
-              <Select label="GPU" data={GPUS} value={form.gpu} onChange={(v) => set({ gpu: v ?? "L4" })} allowDeselect={false} />
+            <Hint>{help.prices} A T4, L4 or A10 suits table, text and small photo models.</Hint>
+            <Fields>
+              {(form.provider === "modal" || form.provider === "aws") && (
+                <TextInput label={form.provider === "aws" ? "Access key id" : "Modal token id"} placeholder={form.provider === "aws" ? "AKIA…" : "ak-…"} value={form.tokenId} onChange={(e) => set({ tokenId: e.currentTarget.value })} />
+              )}
+              <PasswordInput label={SECRET_LABEL[form.provider] ?? "API key"} placeholder={hasSecret ? "Saved; leave empty to keep" : form.provider === "modal" ? "as-…" : form.provider === "gcp" ? "{ \"type\": \"service_account\", … }" : ""} value={form.tokenSecret} onChange={(e) => set({ tokenSecret: e.currentTarget.value })} />
+              {form.provider === "lambda" && <TextInput label="SSH key name" placeholder="As named in Lambda Cloud" value={form.sshKey} onChange={(e) => set({ sshKey: e.currentTarget.value })} />}
+              {(provider?.regions.length ?? 0) > 0 && (
+                <Autocomplete label={form.provider === "gcp" ? "Zone" : "Region"} data={provider!.regions} value={form.region} onChange={(v) => set({ region: v })} />
+              )}
               <TextInput label="This console's address" placeholder="https://mimir.example.com" value={form.consoleUrl} onChange={(e) => set({ consoleUrl: e.currentTarget.value })} />
-            </SimpleGrid>
-            <Hint>Prices are Modal's, per hour the machine runs; its CPU and memory add about $0.24. A T4 or L4 suits table, text and small photo models. The address is where the GPU machine reaches this console over https, from the internet.</Hint>
+            </Fields>
+            <Hint>{help.keys} Secrets are stored encrypted and never shown again. The address is where the GPU machine reaches this console over https, from the internet.</Hint>
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" verticalSpacing="sm">
               <NumberInput label="Stop after idle" suffix=" min" min={1} max={120} value={form.idleMinutes} onChange={(v) => set({ idleMinutes: Number(v) || 5 })} />
               <NumberInput label="Longest per machine" suffix=" h" min={1} max={24} value={form.maxHours} onChange={(v) => set({ maxHours: Number(v) || 6 })} />
@@ -135,7 +197,7 @@ export function CloudGpu() {
           <Button loading={save.isPending} disabled={!form.enabled && !g?.enabled} onClick={() => save.mutate(form)}>Save</Button>
         </Group>
         <Text size="xs" c="dimmed">
-          A run goes to it when nothing else takes it. To send a run there anyway, pick <b>Modal GPU</b> under <b>Train on</b> when you start it. Turn off <b>Training on this console</b> above, or runs placed on <i>Automatic</i> train here instead.
+          A run goes to it when nothing else takes it. To send a run there anyway, pick <b>Rented GPU</b> under <b>Train on</b> when you start it. Turn off <b>Training on this console</b> above, or runs placed on <i>Automatic</i> train here instead.
         </Text>
       </Stack>
     </Card>

@@ -84,7 +84,7 @@ func TestCloudGPU(t *testing.T) {
 	fake := &fakeCloud{t: t, done: map[string]chan error{}, stopped: map[string]context.CancelFunc{}}
 	var gpu *gpucloud.Launcher
 	srv := startServerWith(t, false, func(s *api.Service) {
-		gpu = gpucloud.NewLauncher(fake, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		gpu = gpucloud.NewLauncher(map[string]gpucloud.Cloud{gpucloud.ProviderModal: fake, gpucloud.ProviderRunPod: fake}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 		gpu.Wanted = s.CloudGPUWanted
 		gpu.Online = s.Pool.Online
 		gpu.ServesProgram = true
@@ -102,8 +102,11 @@ func TestCloudGPU(t *testing.T) {
 		}
 		return r.Msg.GetCloudGpu()
 	}
-	if g := get(); g.GetEnabled() || g.GetState() != gpucloud.StateOff || g.GetGpu() != "L4" || g.GetIdleMinutes() != 5 {
+	if g := get(); g.GetEnabled() || g.GetState() != gpucloud.StateOff || g.GetProvider() != "modal" || g.GetGpu() != "L4" || g.GetIdleMinutes() != 5 {
 		t.Fatalf("before setup: %v", g)
+	}
+	if r, _ := own.workers.GetCloudGpu(ctx, connect.NewRequest(&mimirv1.GetCloudGpuRequest{})); len(r.Msg.GetProviders()) != 6 || r.Msg.GetProviders()[1].GetName() != "AWS EC2" || len(r.Msg.GetProviders()[1].GetGpus()) == 0 {
+		t.Fatalf("providers: %v", r.Msg.GetProviders())
 	}
 
 	// Mistakes are refused in words.
@@ -113,6 +116,8 @@ func TestCloudGPU(t *testing.T) {
 		{Enabled: true, Gpu: "V100", ConsoleUrl: "https://mimir.example.com"},
 		{Enabled: true, Gpu: "L4", ConsoleUrl: "https://mimir.example.com", TokenId: "ak-x"},
 		{Enabled: true, Gpu: "L4", ConsoleUrl: "https://mimir.example.com", MaxHours: 48},
+		{Enabled: true, Provider: "runpod", Gpu: "NVIDIA L4", ConsoleUrl: "https://mimir.example.com"},
+		{Enabled: true, Provider: "azure", Gpu: "L4", ConsoleUrl: "https://mimir.example.com"},
 	} {
 		if _, err := own.workers.UpdateCloudGpu(ctx, connect.NewRequest(bad)); code(err) != connect.CodeInvalidArgument {
 			t.Fatalf("UpdateCloudGpu(%v) = %v", bad, err)
@@ -135,6 +140,12 @@ func TestCloudGPU(t *testing.T) {
 	}))
 	if err != nil || up.Msg.GetCloudGpu().GetWorkerId() != g.GetWorkerId() || !up.Msg.GetCloudGpu().GetHasTokenSecret() || gpu.Config().TokenSecret != "as-secret" {
 		t.Fatalf("change = %v, %v", up, err)
+	}
+	// Another provider doesn't get Modal's secret.
+	if _, err := own.workers.UpdateCloudGpu(ctx, connect.NewRequest(&mimirv1.UpdateCloudGpuRequest{
+		Enabled: true, Provider: "runpod", Gpu: "NVIDIA L4", ConsoleUrl: "https://mimir.example.com",
+	})); code(err) != connect.CodeInvalidArgument {
+		t.Fatalf("moving to RunPod without a key: %v", err)
 	}
 
 	// Its worker teaches only, and its key is known before it joins.
@@ -204,7 +215,7 @@ func TestCloudGPU(t *testing.T) {
 	if m.GPU != "L4" || m.Timeout != 2*time.Hour || m.Env["MIMIR_DEVICE"] != "gpu" || m.Secrets["MIMIR_WORKER_TOKEN"] != cfg.Token {
 		t.Fatalf("machine = %+v", m)
 	}
-	script := strings.Join(m.Command, " ")
+	script := m.Script()
 	if !strings.Contains(script, "https://mimir.example.com"+gpucloud.ProgramPath) || !strings.Contains(script, "-tasks=train") || !strings.Contains(script, "-exit-when-idle 3m") || strings.Contains(script, secret) {
 		t.Fatalf("command = %s", script)
 	}
