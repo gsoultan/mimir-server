@@ -46,6 +46,12 @@ const formOf = (g: Gpu | undefined): Form => ({
   programUrl: g?.programUrl ?? "",
 });
 
+// Hint explains the row of fields above it, so fields side by side stay
+// the same height.
+function Hint({ children }: { children: React.ReactNode }) {
+  return <Text size="xs" c="dimmed" mt={-4}>{children}</Text>;
+}
+
 // CloudGpu sets up renting a GPU on Modal for training: the console starts
 // one when a run waits that nothing else takes, and it stops itself once
 // it has had nothing to do for a few minutes.
@@ -99,22 +105,23 @@ export function CloudGpu() {
         <Switch label="Start a GPU on Modal when a training run waits" checked={form.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} />
         <Collapse expanded={form.enabled}>
           <Stack gap="sm">
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <TextInput label="Modal token id" placeholder="ak-…" value={form.tokenId} onChange={(e) => set({ tokenId: e.currentTarget.value })}
-                description={<>From Settings → API tokens on modal.com. Empty uses <Code>MODAL_TOKEN_ID</Code> from the console's environment.</>} />
-              <PasswordInput label="Token secret" placeholder={g?.hasTokenSecret ? "Saved; leave empty to keep it" : "as-…"} value={form.tokenSecret} onChange={(e) => set({ tokenSecret: e.currentTarget.value })}
-                description="Stored encrypted, and never shown again." />
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="sm">
+              <TextInput label="Modal token id" placeholder="ak-…" value={form.tokenId} onChange={(e) => set({ tokenId: e.currentTarget.value })} />
+              <PasswordInput label="Token secret" placeholder={g?.hasTokenSecret ? "Saved; leave empty to keep" : "as-…"} value={form.tokenSecret} onChange={(e) => set({ tokenSecret: e.currentTarget.value })} />
             </SimpleGrid>
-            <Select label="GPU" data={GPUS} value={form.gpu} onChange={(v) => set({ gpu: v ?? "L4" })} allowDeselect={false}
-              description="Prices are Modal's, per hour the machine runs; its CPU and memory add about $0.24. A T4 or L4 suits table, text and small photo models; an A100 or H100 pays off on large photo sets." />
-            <TextInput label="This console's address" value={form.consoleUrl} onChange={(e) => set({ consoleUrl: e.currentTarget.value })}
-              description="The https address the GPU machine reaches this console at, from the internet." />
-            <SimpleGrid cols={{ base: 1, sm: 3 }}>
-              <NumberInput label="Stop after idle" suffix=" min" min={1} max={120} value={form.idleMinutes} onChange={(v) => set({ idleMinutes: Number(v) || 5 })} description="Waits this long for more runs." />
-              <NumberInput label="Longest run of a machine" suffix=" h" min={1} max={24} value={form.maxHours} onChange={(v) => set({ maxHours: Number(v) || 6 })} description="A run still going resumes on a new one." />
-              <NumberInput label="Runs at once" min={1} max={16} value={form.capacity} onChange={(v) => set({ capacity: Number(v) || 1 })} description="On the one GPU." />
+            <Hint>From Settings → API tokens on modal.com. The secret is stored encrypted and never shown again. Leave both empty to use <Code>MODAL_TOKEN_ID</Code> and <Code>MODAL_TOKEN_SECRET</Code> from the console's environment.</Hint>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="sm">
+              <Select label="GPU" data={GPUS} value={form.gpu} onChange={(v) => set({ gpu: v ?? "L4" })} allowDeselect={false} />
+              <TextInput label="This console's address" placeholder="https://mimir.example.com" value={form.consoleUrl} onChange={(e) => set({ consoleUrl: e.currentTarget.value })} />
             </SimpleGrid>
-            <Anchor component="button" type="button" size="sm" onClick={() => setAdvanced((a) => !a)}>{advanced ? "Hide" : "Where the GPU gets mimir-server"}</Anchor>
+            <Hint>Prices are Modal's, per hour the machine runs; its CPU and memory add about $0.24. A T4 or L4 suits table, text and small photo models. The address is where the GPU machine reaches this console over https, from the internet.</Hint>
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" verticalSpacing="sm">
+              <NumberInput label="Stop after idle" suffix=" min" min={1} max={120} value={form.idleMinutes} onChange={(v) => set({ idleMinutes: Number(v) || 5 })} />
+              <NumberInput label="Longest per machine" suffix=" h" min={1} max={24} value={form.maxHours} onChange={(v) => set({ maxHours: Number(v) || 6 })} />
+              <NumberInput label="Runs at once" min={1} max={16} value={form.capacity} onChange={(v) => set({ capacity: Number(v) || 1 })} />
+            </SimpleGrid>
+            <Hint>It waits this long for more runs before stopping. A run still going when a machine reaches its limit resumes on a new one. Runs at once share the one GPU.</Hint>
+            <Anchor component="button" type="button" size="sm" style={{ alignSelf: "flex-start" }} onClick={() => setAdvanced((a) => !a)}>{advanced ? "Hide" : "Where the GPU gets mimir-server"}</Anchor>
             <Collapse expanded={advanced}>
               <TextInput label="Download address" placeholder="https://…/mimir-server" value={form.programUrl} onChange={(e) => set({ programUrl: e.currentTarget.value })}
                 description={g?.canServeProgram
