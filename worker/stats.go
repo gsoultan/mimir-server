@@ -5,6 +5,7 @@ import (
 	"time"
 
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 )
 
 // sampler measures the machine for the console's dashboard. CPU use is
@@ -12,6 +13,7 @@ import (
 type sampler struct {
 	dir     string
 	started time.Time
+	memory  *memguard.Guard // the worker's budget; nil means none
 
 	mu          sync.Mutex
 	total, idle uint64
@@ -46,5 +48,6 @@ func (s *sampler) read() *mimirv1.Stats {
 		st.MemoryTotalBytes = memory()
 	}
 	st.DiskUsedBytes, st.DiskTotalBytes = diskUse(s.dir)
+	st.MemoryPressure, st.MemoryBudgetBytes = int32(s.memory.Level()), s.memory.Limit()
 	return st
 }

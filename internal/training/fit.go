@@ -131,6 +131,14 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	if testSet != nil {
 		opts = append(opts, train.Eval(testSet, scores...))
 	}
+	// Under a compute budget (see runtime.SetComputeBudget) a batch too
+	// big for it is split into chunks that add up to the same step,
+	// rather than failing or running out of memory: a run trains in the
+	// memory there is. Every run sets the same budget, so runs side by
+	// side don't undo each other's.
+	if b := tensor.MemoryBudget(tensor.DefaultDevice()); b > 0 {
+		opts = append(opts, train.MemoryBudget(b))
+	}
 	progress(len(history), 0, steps, history)
 	if err := train.Fit(ctx, model, opt, trainSet, opts...); err != nil {
 		return Result{}, err

@@ -18,6 +18,8 @@ import (
 	"github.com/gsoultan/mimir-model/interp"
 	"github.com/gsoultan/mimir-model/ref"
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/memguard"
+	"github.com/gsoultan/mimir-server/internal/safe"
 	"github.com/gsoultan/mimir/io/mim"
 	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/tensor"
@@ -287,6 +289,43 @@ func (f *File) forward(ctx context.Context, x *tensor.Tensor) *tensor.Tensor {
 // Close releases the file.
 func (f *File) Close() error { return f.m.Close() }
 
+// SetComputeBudget bounds the memory computations on the default device
+// may hold, predictions and training alike, to bytes: work that would go
+// past it is refused with tensor.ErrMemoryBudget before it allocates,
+// rather than running the process out of memory, and training splits its
+// batches to fit (see training.Fit). 0 removes the bound. Set it at start,
+// before models are loaded: a Mimir Model file loaded under one budget
+// runs on the interpreter only while that budget stands.
+func SetComputeBudget(bytes int64) {
+	tensor.SetMemoryBudget(tensor.DefaultDevice(), max(bytes, 0))
+}
+
+// ThrottleCompute keeps the compute budget at normal (see
+// SetComputeBudget) while memory is OK or high, and cuts it to a quarter
+// while it is critical, so a training run keeps going in smaller pieces
+// rather than being stopped: each step that no longer fits is split into
+// chunks that add up to the same step. A nil guard or a normal of 0
+// leaves the budget as it is.
+func ThrottleCompute(g *memguard.Guard, normal int64) {
+	if g == nil || normal <= 0 {
+		return
+	}
+	SetComputeBudget(normal)
+	g.Watch(func(l memguard.Level) { SetComputeBudget(ComputeBudgetAt(l, normal)) })
+}
+
+// minThrottled is the least a critical level cuts the compute budget to.
+const minThrottled = 64 << 20
+
+// ComputeBudgetAt is the compute budget at memory level l, for a normal
+// budget of normal bytes.
+func ComputeBudgetAt(l memguard.Level, normal int64) int64 {
+	if l != memguard.Critical {
+		return normal
+	}
+	return min(normal, max(normal/4, minThrottled))
+}
+
 // Cache keeps loaded models in memory by model id. It is safe for
 // concurrent use; mimir tensors are immutable, so one module serves many
 // requests at once. Each entry remembers the version of the weights it
@@ -308,6 +347,30 @@ type Cache struct {
 
 	batching atomic.Pointer[Batching]
 	observer atomic.Pointer[Observer]
+	gate     atomic.Pointer[func() error]
+}
+
+// SetGate makes gate asked before each model is loaded: a load it returns
+// an error for fails with that error, and the next request asks again.
+// Models already loaded keep answering. A server uses it to refuse
+// loading more models while memory is short.
+func (c *Cache) SetGate(gate func() error) { c.gate.Store(&gate) }
+
+// Shed drops the least recently used models until the cache holds at most
+// keep bytes, keeping the one used last, and returns how many bytes went.
+// The limit stays as it was, so the cache fills again as memory allows.
+func (c *Cache) Shed(keep int64) int64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	before := c.used
+	for c.used > max(keep, 0) && c.lru.Len() > 1 {
+		old := c.lru.Back().Value.(*entry)
+		c.unlist(old)
+		if c.loaded[old.id] == old {
+			delete(c.loaded, old.id)
+		}
+	}
+	return before - c.used
 }
 
 // SetBatching changes how predictions are batched (see Batching), for
@@ -502,9 +565,18 @@ func (c *Cache) ready(id, ver string, a arch.Architecture, spec arch.Spec, load 
 func (c *Cache) get(id, ver string, load func() ([]byte, error), build func(e *entry, w []byte)) (*entry, error) {
 	e := c.entry(id, ver)
 	e.once.Do(func() {
+		if g := c.gate.Load(); g != nil {
+			if e.err = (*g)(); e.err != nil {
+				return
+			}
+		}
 		var w []byte
 		if w, e.err = load(); e.err == nil {
-			build(e, w)
+			// A file that makes the loader panic fails its own requests,
+			// not the server.
+			if err := safe.Run(nil, "loading model "+id, func() { build(e, w) }); err != nil {
+				e.err, e.batch, e.lm = err, nil, nil
+			}
 			e.size = int64(len(w))
 		}
 	})

@@ -20,8 +20,10 @@ import (
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/gpucloud"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 	"github.com/gsoultan/mimir-server/internal/obs"
 	"github.com/gsoultan/mimir-server/internal/openai"
+	"github.com/gsoultan/mimir-server/internal/safe"
 	"github.com/gsoultan/mimir-server/internal/setup"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
@@ -94,12 +96,19 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	mux.Handle("/v1/", openai.Handler(svc, st, log))
 	mux.Handle(grpchealth.NewHandler(newHealthChecker(st.Ping), connect.WithInterceptors(metrics.Interceptor())))
 	mux.Handle("GET /healthz", liveHandler())
-	mux.Handle("GET /readyz", readyHandler(st.Ping, log))
+	mux.Handle("GET /readyz", readyHandler(st.Ping, svc.Memory(), log))
 	mux.Handle("GET /metrics", metrics.Handler(o.metricsToken))
 	mux.Handle("/", uiHandler(ui))
 
 	uploads := newUploadGate(svc.MaxUploads, smallUpload, int64(max(uploadBytes, maxModelBytes)))
-	return obs.RequestIDs(metrics.HTTP(logRequests(harden(uploads.wrap(svc.WithConn(mux)), func() auth.Proxies { return svc.Proxies }), log), route))
+	if g := svc.Memory(); g != nil {
+		uploads.lowMemory = func() bool { return g.Level() == memguard.Critical }
+		metrics.WatchMemory(g.Used, g.Limit, func() int { return int(g.Level()) })
+	}
+	metrics.WatchPanics(safe.Panics)
+	// A handler that panics answers 500 and the server carries on; the
+	// recovery sits inside the metrics, so the 500 is counted.
+	return obs.RequestIDs(metrics.HTTP(safe.HTTP(logRequests(harden(uploads.wrap(svc.WithConn(mux)), func() auth.Proxies { return svc.Proxies }), log), log), route))
 }
 
 // SetupHandler serves a console that has no configuration yet: the web UI,

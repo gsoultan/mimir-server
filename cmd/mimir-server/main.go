@@ -32,8 +32,10 @@ import (
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/config"
 	"github.com/gsoultan/mimir-server/internal/gpucloud"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 	"github.com/gsoultan/mimir-server/internal/obs"
 	"github.com/gsoultan/mimir-server/internal/runtime"
+	"github.com/gsoultan/mimir-server/internal/safe"
 	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/server"
 	"github.com/gsoultan/mimir-server/internal/setup"
@@ -105,6 +107,7 @@ func run() error {
 	trainingJobs := flag.Int("training-jobs", env.int("MIMIR_TRAINING_JOBS", 0), "console: how many training jobs run at once (default: one per training slot of the connected workers, plus one for a standalone server that trains here, at least 2) ($MIMIR_TRAINING_JOBS)")
 	trainHere := flag.Bool("train-here", env.bool("MIMIR_TRAIN_HERE", true), "standalone: train runs in this process when no worker takes them, until Settings → Workers says otherwise; false leaves every run to workers, so training never slows the API served here ($MIMIR_TRAIN_HERE)")
 	webhookWorkers := flag.Int("webhook-workers", env.int("MIMIR_WEBHOOK_WORKERS", 0), "console: how many webhooks are sent to at once; each webhook still gets its events one at a time, in order (default 8) ($MIMIR_WEBHOOK_WORKERS)")
+	memoryLimit := flag.String("memory-limit", os.Getenv("MIMIR_MEMORY_LIMIT"), "console and worker: the most memory this process lets itself use, such as 6GiB or 75% (of the container's or machine's memory), or off; as it nears it, loaded models are let go, training here waits or stops and goes back in the queue, and new model loads and uploads are turned away, so the process slows down instead of running out. Default: $GOMEMLIMIT, else 85% of the container's memory limit, else of the machine's ($MIMIR_MEMORY_LIMIT)")
 	bf16 := flag.Bool("bf16", env.bool("MIMIR_BF16", false), "console and worker: train and run models with bfloat16 matrix products on CPUs with Intel AMX (Xeon from Sapphire Rapids on), about 1.6 times faster training of deep table models for a tenth of a point of accuracy or less; elsewhere it changes nothing ($MIMIR_BF16)")
 	flag.Parse()
 	if err := env.err(); err != nil {
@@ -113,9 +116,14 @@ func run() error {
 	if *trainingJobs < 0 || *webhookWorkers < 0 {
 		return errors.New("-training-jobs and -webhook-workers can't be negative")
 	}
+	memLimit, err := memguard.Parse(*memoryLimit)
+	if err != nil {
+		return fmt.Errorf("-memory-limit: %w", err)
+	}
 
 	// Lines logged with a request's context carry its request id.
 	log := slog.New(obs.NewLogHandler(slog.NewJSONHandler(os.Stderr, nil)))
+	slog.SetDefault(log) // for what logs without a logger of its own, such as a recovered panic
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if *bf16 {
@@ -143,6 +151,8 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("-tasks: %w", err)
 		}
+		memory := memguard.New(memguard.Config{Limit: memLimit, Log: log, Name: "worker"})
+		runtime.ThrottleCompute(memory, computeShare(memory.Limit()))
 		var key ed25519.PrivateKey
 		if v := os.Getenv(worker.KeyEnv); v != "" {
 			if key, err = worker.ParseKey(v); err != nil {
@@ -154,7 +164,7 @@ func run() error {
 		if dev := tensor.DefaultDevice(); dev.Name() != "cpu" {
 			device += ", " + dev.String()
 		}
-		err = worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Device: device, Capacity: *capacity, Tasks: kind, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes, Key: key, ExitWhenIdle: *exitWhenIdle}, builtin.Builtin(*data))
+		err = worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Device: device, Capacity: *capacity, Tasks: kind, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes, Key: key, ExitWhenIdle: *exitWhenIdle, MemoryLimit: memLimit, Memory: memory}, builtin.Builtin(*data))
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -264,6 +274,12 @@ func run() error {
 		os.Exit(2)
 	}
 	runtime.SetDefaultBatching(runtime.Batching{Max: *predictBatch, Wait: *predictBatchWait})
+	// The console keeps within a memory budget, so it slows down and sheds
+	// work rather than running out (see memguard).
+	memory := memguard.New(memguard.Config{Limit: memLimit, Log: log, Name: "console"})
+	// Training here keeps going in smaller pieces while memory is
+	// critical, rather than being stopped.
+	runtime.ThrottleCompute(memory, computeShare(memory.Limit()))
 	svc := api.New(st, log)
 	if err := svc.LoadArchitectures(ctx); err != nil {
 		log.Error("couldn't read the described model types", "error", err)
@@ -275,6 +291,7 @@ func run() error {
 	svc.PredictTimeout = *predictTimeout
 	svc.MaxUploads = *maxUploads
 	svc.SetModelCacheBytes(int64(max(*cacheMB, 0)) << 20)
+	svc.WatchMemory(memory)
 	svc.Pool.OnSample = svc.KeepSample
 	svc.Pool.OnLink = svc.WorkerLinked
 	svc.Local = local
@@ -322,25 +339,30 @@ func run() error {
 	}
 	dispatcher.Workers = *webhookWorkers
 	svc.Kick = dispatcher.Kick
-	bg.Go(func() { dispatcher.Run(bgCtx, 5*time.Second) })
-	bg.Go(func() { janitor(bgCtx, st, log) })
+	// Each background loop starts again if it panics; none takes the
+	// process with it.
+	bg.Go(func() { memory.Run(bgCtx) })
+	bg.Go(func() { safe.Loop(bgCtx, log, "webhook dispatcher", func() { dispatcher.Run(bgCtx, 5*time.Second) }) })
+	bg.Go(func() { safe.Loop(bgCtx, log, "janitor", func() { janitor(bgCtx, st, log) }) })
 	// Prediction counts are written in batches, and once more on the way out.
 	bg.Go(func() {
 		t := time.NewTicker(5 * time.Second)
 		defer t.Stop()
-		for {
-			select {
-			case <-bgCtx.Done():
-				if err := svc.FlushUsage(context.Background()); err != nil {
-					log.Error("usage: flush", "error", err)
-				}
-				return
-			case <-t.C:
-				if err := svc.FlushUsage(bgCtx); err != nil {
-					log.Error("usage: flush", "error", err)
+		safe.Loop(bgCtx, log, "usage flush", func() {
+			for {
+				select {
+				case <-bgCtx.Done():
+					if err := svc.FlushUsage(context.Background()); err != nil {
+						log.Error("usage: flush", "error", err)
+					}
+					return
+				case <-t.C:
+					if err := svc.FlushUsage(bgCtx); err != nil {
+						log.Error("usage: flush", "error", err)
+					}
 				}
 			}
-		}
+		})
 	})
 
 	// Training runs several jobs at once; shutdown waits for them. A job cut
@@ -352,6 +374,7 @@ func run() error {
 	runner.TrainHere = svc.TrainsHere
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
+	runner.WatchMemory(memory)
 
 	// A GPU rented when training waits, if set up under
 	// Settings → Workers.
@@ -374,9 +397,9 @@ func run() error {
 		runner.Kick()
 		gpu.Kick()
 	}
-	bg.Go(func() { gpu.Run(bgCtx) })
+	bg.Go(func() { safe.Loop(bgCtx, log, "GPU launcher", func() { gpu.Run(bgCtx) }) })
 	svc.CancelTraining = runner.Cancel
-	bg.Go(func() { runner.Run(bgCtx) })
+	bg.Go(func() { safe.Loop(bgCtx, log, "training runner", func() { runner.Run(bgCtx) }) })
 
 	if *metricsToken == "" && !loopbackOnly(*addr) {
 		log.Warn("/metrics is open to anyone who can reach this address; set -metrics-token ($MIMIR_METRICS_TOKEN) to require a token", "addr", *addr)
@@ -526,6 +549,16 @@ func (e *envDefaults) fail(err error) {
 }
 
 func (e *envDefaults) err() error { return e.bad }
+
+// computeShare is the part of a memory budget that computations may hold
+// at once (see runtime.SetComputeBudget); the rest is for loaded models,
+// requests and the runtime itself. 0 for no budget.
+func computeShare(limit int64) int64 {
+	if limit <= 0 {
+		return 0
+	}
+	return limit / 4 * 3
+}
 
 // loopbackOnly reports whether addr listens only on this machine's
 // loopback, where an open /metrics reaches no one else.
