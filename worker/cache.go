@@ -85,6 +85,30 @@ func (c *modelCache) remove(m *Model) {
 	}
 }
 
+// shed drops the least recently used models, unloading them, until at
+// most keep bytes are held, keeping the one used last. It returns the
+// bytes that went.
+func (c *modelCache) shed(keep int64) int64 {
+	c.mu.Lock()
+	before := c.used
+	var gone []*cached
+	for c.used > max(keep, 0) && c.lru.Len() > 1 {
+		old := c.lru.Back().Value.(*cached)
+		c.lru.Remove(old.elem)
+		delete(c.items, old.m.ID)
+		c.used -= old.size
+		gone = append(gone, old)
+	}
+	freed := before - c.used
+	c.mu.Unlock()
+	for _, old := range gone {
+		if old.unload != nil {
+			old.unload()
+		}
+	}
+	return freed
+}
+
 // usage returns the bytes and number of models held.
 func (c *modelCache) usage() (int64, int) {
 	c.mu.Lock()

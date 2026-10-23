@@ -91,6 +91,39 @@ file is written twice (as sent, and converted), so disk speed sets most of
 the 12 s. Apps that still send the file inside `CreateModel` as `weights`
 take about 5 GB for the same file, from reading the request into memory.
 
+### Staying up when memory runs short
+
+The console and every worker keep within a memory budget, so they slow
+down and turn work away rather than run out and be killed. The budget is
+`-memory-limit` (`$MIMIR_MEMORY_LIMIT`), such as `6GiB` or `75%`; without
+it, `$GOMEMLIMIT`, else 85% of the container's memory limit, else 85% of
+the machine's memory. It is also handed to Go's collector as its soft
+limit, so garbage is collected harder before the budget is reached.
+
+| memory in use | what happens |
+| --- | --- |
+| under 80% of the budget | everything runs |
+| 80% (high) | half of the loaded models are let go; no new training run starts here, and a worker this high is given none |
+| 92% (critical) | all loaded models but the last used are let go; training here stops and goes back in the queue, to resume from its checkpoint; no new model is loaded and no upload is read into memory (both answer "try again in a minute"), while loaded models keep answering |
+
+Levels ease off 5 points under where they start. A run stopped for memory
+waits a minute before it is tried again, and fails with an explanation
+after three stops rather than starting over for ever. Training also runs
+within three quarters of the budget: a batch too big for it is split into
+smaller ones that add up to the same step.
+
+You can watch it in `/metrics` (`mimir_memory_used_bytes`,
+`mimir_memory_limit_bytes`, `mimir_memory_pressure`), in `/readyz`, which
+stays 200 but adds a `memory:` line, in the logs, on each worker's card,
+and by alert: owners hear when the console turns critical, at most once
+an hour.
+
+A panic in one request, prediction, model load, training run, webhook or
+background loop fails only that piece of work: it is logged with its
+stack, counted in `mimir_panics_recovered_total`, and the process carries
+on. A worker that loses its link reconnects with backoff, and a run it was
+training goes back in the queue and resumes from its checkpoint.
+
 ## Database connections
 
 At every load above the main database had at most 11 connections open and

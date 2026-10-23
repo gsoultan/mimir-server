@@ -415,10 +415,18 @@ func (p *Pool) pick(archName string, train bool, workerID string) *link {
 	return p.best(archName, train, workerID)
 }
 
-// best is pick with p.mu held.
+// Memory pressure as a worker reports it in its stats (see memguard).
+const (
+	pressureHigh     = 1
+	pressureCritical = 2
+)
+
+// best is pick with p.mu held. A worker whose memory is running short
+// takes no training runs, and gets a prediction only when every other
+// worker that could run it is as short.
 func (p *Pool) best(archName string, train bool, workerID string) *link {
 	var best *link
-	bestBusy := 0
+	bestBusy, bestShort := 0, false
 	for _, l := range p.links {
 		if workerID != "" && l.worker.ID != workerID {
 			continue
@@ -428,12 +436,14 @@ func (p *Pool) best(archName string, train bool, workerID string) *link {
 		}
 		l.mu.Lock()
 		busy, cap := l.busy, int(l.hello.Capacity)
+		pressure := l.stats.GetMemoryPressure()
 		l.mu.Unlock()
-		if busy >= cap {
+		if busy >= cap || (train && pressure >= pressureHigh) {
 			continue
 		}
-		if best == nil || busy < bestBusy {
-			best, bestBusy = l, busy
+		short := pressure >= pressureCritical
+		if best == nil || (bestShort && !short) || (short == bestShort && busy < bestBusy) {
+			best, bestBusy, bestShort = l, busy, short
 		}
 	}
 	return best
@@ -616,6 +626,8 @@ func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Tas
 		case *mimirv1.LinkRequest_TrainResult:
 			r := b.TrainResult
 			switch {
+			case r.LowMemory && !cancelled:
+				return res, l.worker.Name, true, fmt.Errorf("%w on %s", training.ErrLowMemory, l.worker.Name)
 			case cancelled || r.Cancelled:
 				return res, l.worker.Name, true, cmpCause(ctx)
 			case r.Error != "":

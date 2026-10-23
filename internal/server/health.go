@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"connectrpc.com/grpchealth"
 
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 )
 
 // readyTimeout bounds the database ping behind a readiness check, so a
@@ -32,8 +34,11 @@ func liveHandler() http.Handler {
 }
 
 // readyHandler answers /readyz: 200 when the database answers a ping
-// within readyTimeout, 503 otherwise.
-func readyHandler(ping func(context.Context) error, log *slog.Logger) http.Handler {
+// within readyTimeout, 503 otherwise. When memory is short it says so on
+// a second line but stays ready: the console keeps answering from the
+// models it has loaded, and a single console taken out of its load
+// balancer would answer nothing.
+func readyHandler(ping func(context.Context) error, memory *memguard.Guard, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -46,6 +51,9 @@ func readyHandler(ping func(context.Context) error, log *slog.Logger) http.Handl
 			return
 		}
 		w.Write([]byte("ok\n"))
+		if l := memory.Level(); l != memguard.OK {
+			fmt.Fprintf(w, "memory: %s (%s of %s)\n", l, memguard.Format(memory.Used()), memguard.Format(memory.Limit()))
+		}
 	})
 }
 

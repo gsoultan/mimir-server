@@ -8,6 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gsoultan/mimir-server/internal/safe"
 )
 
 // Batching says how predictions to one model are put together into
@@ -213,7 +215,13 @@ func (b *batcher) runBatch(batch []*question) ([][]float32, error) {
 			x = append(x, q.x...)
 		}
 	}
-	outs, err := b.run(ctx, x, len(batch))
+	var outs [][]float32
+	// A model that panics on some input fails that batch, which then runs
+	// again one question at a time; the server keeps answering.
+	var err error
+	if p := safe.Run(nil, "running a "+b.engine+" batch", func() { outs, err = b.run(ctx, x, len(batch)) }); p != nil {
+		outs, err = nil, p
+	}
 	if err == nil && len(outs) != len(batch) {
 		err = fmt.Errorf("runtime: %d answers for %d questions", len(outs), len(batch))
 	}
