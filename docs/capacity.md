@@ -38,6 +38,12 @@ By default a standalone console runs 2 jobs at once and queues the rest
 (`-training-jobs`). With 2 jobs learning, 16 prediction callers still got
 2,200 predictions/s at p99 22 ms; training slows rather than predictions.
 
+On a CPU with Intel AMX (Xeon from Sapphire Rapids on), `-bf16` (or
+`MIMIR_BF16=true`) multiplies matrices in bfloat16 with float32 sums.
+A deep table model (layers of 1024, 1024, 512 and 256 units, 500,000 rows)
+trained 1.6 times faster, 70 s instead of 111 s for 3 epochs, at 99.2%
+accuracy instead of 99.3%. Without AMX the flag changes nothing.
+
 ## Chat
 
 A language model the size of TinyLlama 1.1B (22 layers, Q8_0, 1.1 GB file,
