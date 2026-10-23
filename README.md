@@ -562,6 +562,42 @@ The worker connects out to the console (no ports to open on its side),
 says what it can run, and shows as online. Weights travel to a worker once
 per connection. A stopped worker's runs go back to the queue.
 
+### Training machines and serving machines
+
+Training is the heavy work: a run holds CPUs or a GPU for minutes, while a
+prediction wants an answer in milliseconds. To keep one from slowing the
+other, give each worker a job with `-tasks` (or `$MIMIR_WORKER_TASKS`):
+
+- `-tasks all` (the default) takes predictions and training runs alike.
+- `-tasks train` takes training runs only. The console sends it no
+  predictions, and a model it trains is left on *Automatic*, so the
+  serving workers answer it. Its page says **Teaches only**.
+- `-tasks serve` answers predictions only. The console sends it no runs,
+  and the teach wizard won't offer it. Its page says **Runs only**.
+
+```sh
+# on the GPU box
+mimir-server -role=worker -tasks train -server https://mimir.example.com -token mimirw_...
+# on each box that answers the API
+mimir-server -role=worker -tasks serve -server https://mimir.example.com -token mimirw_...
+```
+
+You can also decide this from the console: each worker's page under
+**Settings → Workers** has a **What it takes** choice (*As started*,
+*Runs and teaches*, *Teaches only*, *Answers only*) that applies at once
+to a connected worker. Told to teach only, the models placed on it go back
+to *Automatic*; told to answer only, the runs waiting for it do.
+
+The console itself runs no models with `-role=console`, so the API stays
+quick whatever the workers are doing. A `standalone` console answers
+small models itself and, by default, trains runs no worker takes; the
+**Training on this console** switch under **Settings → Workers** turns
+that off so every run goes to a worker and training never shares the
+machine the API is served from (`-train-here=false`, or
+`MIMIR_TRAIN_HERE=false`, is the default before anyone has chosen). A run
+with no worker to take it waits in the queue, and starts when one
+connects.
+
 ### Where work runs
 
 - **Each model has a "Runs on" choice** on its page: *Automatic* sends

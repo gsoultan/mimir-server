@@ -1,6 +1,6 @@
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Code, Group, Modal, RingProgress, SegmentedControl, SimpleGrid, Stack, Table, Text, Title, Tooltip } from "@mantine/core";
+import { Alert, Badge, Button, Card, Code, Group, Modal, RingProgress, SegmentedControl, Select, SimpleGrid, Stack, Table, Text, Title, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconArrowLeft, IconKey, IconLock, IconLockOpen, IconTrash } from "@tabler/icons-react";
@@ -63,6 +63,14 @@ function WorkerPage() {
   const newToken = useMutation(WorkerService.method.replaceWorkerToken, {
     onSuccess: async (res) => { replace.close(); setToken(res.token); await refresh(); },
   });
+  const setTasks = useMutation(WorkerService.method.setWorkerTasks, {
+    onSuccess: async (res) => {
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: allModelQueries });
+      const w = res.worker;
+      notifications.show({ color: "teal", message: w?.tasks === "train" ? `${w.name} now only teaches. Models that ran only there run wherever there's room.` : w?.tasks === "serve" ? `${w.name} now only answers. Runs that waited for it go to any worker that teaches.` : w?.tasks === "all" ? `${w.name} now runs and teaches.` : `${w?.name} takes what it was started with.` });
+    },
+  });
   if (!data?.worker) return null;
   const w = data.worker;
   const s = w.stats;
@@ -123,8 +131,28 @@ function WorkerPage() {
             </Stack>
           )}
           {w.online && w.architectures.length > 0 && (
-            <Text size="xs" c="dimmed" mt="md">{w.trains ? "Runs and teaches" : "Runs"}: {w.architectures.map(title).join(", ")}</Text>
+            <Text size="xs" c="dimmed" mt="md">{w.trainingOnly ? "Teaches only" : w.trains ? "Runs and teaches" : "Runs only"}: {w.architectures.map(title).join(", ")}</Text>
           )}
+        </Card>
+
+        <Card withBorder radius="lg" padding="lg">
+          <Title order={3} fz="md" mb="sm">What it takes</Title>
+          <Text size="sm" c="dimmed" mb="sm">Keep training off the machines that answer: a worker that only teaches gets no predictions, and one that only answers gets no training runs. The change applies at once; work already on it finishes.</Text>
+          <Select
+            label="Work for this worker"
+            value={w.tasks}
+            onChange={(v) => setTasks.mutate({ id: w.id, tasks: v ?? "" })}
+            disabled={setTasks.isPending}
+            allowDeselect={false}
+            data={[
+              { value: "", label: "As started (its -tasks flag)" },
+              { value: "all", label: "Runs and teaches" },
+              { value: "train", label: "Teaches only" },
+              { value: "serve", label: "Answers only" },
+            ]}
+          />
+          {w.online && w.tasks === "train" && !w.trains && <Alert color="yellow" icon={<IconAlertCircle />} mt="sm">This worker can't teach, so set to teach only it does nothing. Pick another choice.</Alert>}
+          {setTasks.error && <Alert color="red" icon={<IconAlertCircle />} mt="sm">{message(setTasks.error)}</Alert>}
         </Card>
 
         <Card withBorder radius="lg" padding="lg">

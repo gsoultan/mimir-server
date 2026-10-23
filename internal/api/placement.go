@@ -40,6 +40,9 @@ func (s *Service) SetModelWorker(ctx context.Context, req *connect.Request[mimir
 		if err != nil {
 			return nil, err
 		}
+		if s.trainingOnly(wid) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("%s only teaches models (it was started with -tasks train). Pick a worker that runs them.", w.Name))
+		}
 		where = w.Name
 	}
 	if err := s.store.SetModelWorker(ctx, m.ID, wid); err != nil {
@@ -70,6 +73,21 @@ func (s *Service) worker(ctx context.Context, id string) (store.Worker, error) {
 	return w, nil
 }
 
+// trainingOnly reports whether a worker is connected and takes no
+// predictions (started with -tasks train). An offline worker's tasks
+// aren't known, so it reports false.
+func (s *Service) trainingOnly(id string) bool {
+	if s.Pool == nil {
+		return false
+	}
+	for _, st := range s.Pool.Statuses() {
+		if st.Worker.ID == id && st.TrainingOnly {
+			return true
+		}
+	}
+	return false
+}
+
 // workerName names a worker for a message, or says it's gone.
 func (s *Service) workerName(ctx context.Context, id string) string {
 	if w, err := s.store.GetWorker(ctx, id); err == nil {
@@ -91,7 +109,7 @@ func (s *Service) ListWorkerChoices(ctx context.Context, _ *connect.Request[mimi
 		c := &mimirv1.Worker{Id: w.ID, Name: w.Name}
 		for _, st := range live[w.ID] {
 			c.Online = true
-			c.Device, c.Architectures, c.Trains = st.Hello.Device, st.Hello.Architectures, st.Hello.Trains
+			c.Device, c.Architectures, c.Trains, c.TrainingOnly = st.Hello.Device, st.Hello.Architectures, st.Trains, st.TrainingOnly
 			c.Capacity += st.Hello.Capacity
 			c.Busy += int32(st.Busy)
 		}
@@ -223,7 +241,7 @@ func (s *Service) workerView(w store.Worker, live []cluster.Status, models, wait
 		pw.Online = true
 		pw.LastSeen = timestamppb.Now()
 		pw.Device, pw.Cpus, pw.MemoryBytes = st.Hello.Device, st.Hello.Cpus, st.Hello.MemoryBytes
-		pw.Architectures, pw.Trains = st.Hello.Architectures, st.Hello.Trains
+		pw.Architectures, pw.Trains, pw.TrainingOnly = st.Hello.Architectures, st.Trains, st.TrainingOnly
 		pw.Capacity += st.Hello.Capacity
 		pw.Busy += int32(st.Busy)
 		pw.Version, pw.Address = st.Hello.Version, hostOf(st.Addr)
@@ -254,6 +272,42 @@ func (s *Service) ReplaceWorkerToken(ctx context.Context, req *connect.Request[m
 	}
 	s.auditIn(ctx, "", p.Actor(), "worker.token", w.Name, "made a new token; the old one stopped working")
 	return connect.NewResponse(&mimirv1.ReplaceWorkerTokenResponse{Token: s.joinToken(token)}), nil
+}
+
+// SetWorkerTasks tells a worker what to take, from its page.
+func (s *Service) SetWorkerTasks(ctx context.Context, req *connect.Request[mimirv1.SetWorkerTasksRequest]) (*connect.Response[mimirv1.SetWorkerTasksResponse], error) {
+	p, _ := auth.From(ctx)
+	w, err := s.worker(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, err
+	}
+	tasks := strings.ToLower(strings.TrimSpace(req.Msg.GetTasks()))
+	switch tasks {
+	case "", "all", "train", "serve":
+	default:
+		return nil, invalid("A worker takes all work, train (training runs only) or serve (predictions only); leave it empty to use what the worker was started with.")
+	}
+	if err := s.store.SetWorkerTasks(ctx, w.ID, tasks); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("That worker doesn't exist anymore."))
+		}
+		return nil, s.internal(ctx, err)
+	}
+	if s.Pool != nil {
+		s.Pool.SetTasks(w.ID, tasks)
+	}
+	w.Tasks = tasks
+	what := map[string]string{"": "takes what it was started with", "all": "takes predictions and training runs", "train": "takes training runs only", "serve": "takes predictions only"}[tasks]
+	s.auditIn(ctx, "", p.Actor(), "worker.tasks", w.Name, what)
+	if s.KickTraining != nil {
+		s.KickTraining() // runs waiting for a trainer may have one now
+	}
+	live := s.statuses()
+	models, waiting, err := s.store.Placement(ctx)
+	if err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	return connect.NewResponse(&mimirv1.SetWorkerTasksResponse{Worker: s.workerView(w, live[w.ID], models, waiting)}), nil
 }
 
 // joinToken is what a person copies to a worker: the secret, then the

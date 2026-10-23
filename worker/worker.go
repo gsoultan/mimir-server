@@ -186,6 +186,11 @@ type Config struct {
 	Device string
 	// Capacity is how many tasks to run at once. Defaults to the CPU count.
 	Capacity int
+	// Tasks is the kind of work the worker takes: TasksAll (the default),
+	// TasksServe for predictions only, or TasksTrain for training runs
+	// only. A machine dedicated to training keeps its load away from the
+	// ones answering the API, and the other way round.
+	Tasks Tasks
 	// Version is reported to the server for display.
 	Version string
 	// Log receives connection events; nil means the default logger.
@@ -216,6 +221,33 @@ type Config struct {
 // DefaultCacheBytes is how many bytes of models a worker keeps when
 // Config.CacheBytes isn't set.
 const DefaultCacheBytes = 4 << 30
+
+// Tasks is the kind of work a worker takes; see Config.Tasks.
+type Tasks string
+
+const (
+	// TasksAll takes predictions and training runs alike.
+	TasksAll Tasks = "all"
+	// TasksServe answers predictions only. The console sends no training
+	// runs to the worker.
+	TasksServe Tasks = "serve"
+	// TasksTrain takes training runs only. The console sends no
+	// predictions to the worker, and a model it trains runs elsewhere.
+	TasksTrain Tasks = "train"
+)
+
+// ParseTasks reads a Tasks value as typed on a command line; empty means
+// TasksAll.
+func ParseTasks(s string) (Tasks, error) {
+	switch t := Tasks(strings.ToLower(strings.TrimSpace(s))); t {
+	case "":
+		return TasksAll, nil
+	case TasksAll, TasksServe, TasksTrain:
+		return t, nil
+	default:
+		return "", fmt.Errorf("worker: unknown tasks %q: use all, serve or train", s)
+	}
+}
 
 // Run joins the server and serves tasks until ctx ends. It returns ctx's
 // error, or a configuration error found before connecting.
@@ -266,6 +298,16 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	}
 	if cfg.Capacity <= 0 {
 		cfg.Capacity = runtime.NumCPU()
+	}
+	if cfg.Tasks, err = ParseTasks(string(cfg.Tasks)); err != nil {
+		return err
+	}
+	if cfg.Tasks == TasksTrain {
+		for name, h := range handlers {
+			if _, ok := h.(Trainer); !ok {
+				return fmt.Errorf("worker: Tasks is train, but the handler for %s doesn't train", name)
+			}
+		}
 	}
 	client := cfg.HTTPClient
 	if client == nil {
@@ -328,6 +370,9 @@ type worker struct {
 
 	mu      sync.Mutex
 	running map[string]context.CancelFunc
+	// tasks is what this link takes: the console's choice from the
+	// welcome, else cfg.Tasks. Set before any task arrives.
+	tasks Tasks
 }
 
 func (w *worker) serve(ctx context.Context) error {
@@ -345,7 +390,7 @@ func (w *worker) serve(ctx context.Context) error {
 	w.running = map[string]context.CancelFunc{}
 
 	archs := make([]string, 0, len(w.handlers))
-	trains := true
+	trains := w.cfg.Tasks != TasksServe
 	for name, h := range w.handlers {
 		archs = append(archs, name)
 		if _, ok := h.(Trainer); !ok {
@@ -353,7 +398,7 @@ func (w *worker) serve(ctx context.Context) error {
 		}
 	}
 	slices.Sort(archs)
-	hello := &mimirv1.Hello{Device: w.cfg.Device, Cpus: int32(runtime.NumCPU()), MemoryBytes: memory(), Architectures: archs, Trains: trains, Capacity: int32(w.cfg.Capacity), Version: w.cfg.Version,
+	hello := &mimirv1.Hello{Device: w.cfg.Device, Cpus: int32(runtime.NumCPU()), MemoryBytes: memory(), Architectures: archs, Trains: trains, TrainingOnly: w.cfg.Tasks == TasksTrain, Capacity: int32(w.cfg.Capacity), Version: w.cfg.Version,
 		PublicKey: w.key.Public().(ed25519.PublicKey), Stats: w.stats.read()}
 	if err := w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Hello{Hello: hello}}); err != nil {
 		return err
@@ -375,7 +420,11 @@ func (w *worker) serve(ctx context.Context) error {
 	if welcome == nil {
 		return errors.New("worker: the server didn't say welcome")
 	}
-	w.cfg.Log.Info("worker: linked", "server", w.cfg.Server, "as", welcome.Name)
+	w.tasks = w.cfg.Tasks
+	if t, err := ParseTasks(welcome.Tasks); err == nil && welcome.Tasks != "" {
+		w.tasks = t // the console's choice, from the worker's page
+	}
+	w.cfg.Log.Info("worker: linked", "server", w.cfg.Server, "as", welcome.Name, "tasks", string(w.tasks))
 
 	beat := time.NewTicker(15 * time.Second)
 	defer beat.Stop()
@@ -452,6 +501,10 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 		r.TaskId = t.TaskId
 		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_PredictResult{PredictResult: r}})
 	}
+	if w.tasks == TasksTrain {
+		reply(&mimirv1.PredictResult{Error: "this worker only trains models; it doesn't answer predictions"})
+		return
+	}
 	h := w.handlers[t.Architecture]
 	if h == nil {
 		reply(&mimirv1.PredictResult{Error: "this worker doesn't run " + t.Architecture})
@@ -500,6 +553,9 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_TrainResult{TrainResult: r}})
 	}
 	tr, _ := w.handlers[t.Architecture].(Trainer)
+	if w.tasks == TasksServe {
+		tr = nil // it only answers; the console knows and sends none
+	}
 	if tr == nil {
 		reply(&mimirv1.TrainResult{Error: "this worker doesn't train " + t.Architecture})
 		return

@@ -241,3 +241,63 @@ func TestCloseEndsLinks(t *testing.T) {
 	}
 	p.Close() // a second Close is harmless
 }
+
+// A worker that only trains is offered training and never predictions,
+// and counts towards the training slots.
+func TestTrainingOnlyWorker(t *testing.T) {
+	p := testPool()
+	newLink := func(id string, hello *mimirv1.Hello) {
+		p.links[id] = &link{id: id, worker: store.Worker{ID: id}, hello: hello, pending: map[string]chan *mimirv1.LinkRequest{}, tasks: map[string]Task{}}
+	}
+	newLink("trainer", &mimirv1.Hello{Architectures: []string{"x"}, Trains: true, TrainingOnly: true, Capacity: 3})
+	newLink("server", &mimirv1.Hello{Architectures: []string{"x"}, Trains: false, Capacity: 2})
+
+	if p.CanPredict("x", "trainer") {
+		t.Fatal("a training-only worker was offered a prediction")
+	}
+	if !p.CanTrain("x", "trainer") {
+		t.Fatal("a training-only worker wasn't offered training")
+	}
+	if p.CanTrain("x", "server") {
+		t.Fatal("a serving-only worker was offered training")
+	}
+	if !p.CanPredict("x", "server") {
+		t.Fatal("a serving-only worker wasn't offered a prediction")
+	}
+	if l := p.pick("x", false, ""); l == nil || l.id != "server" {
+		t.Fatalf("automatic prediction picked %v, want the serving worker", l)
+	}
+	if l := p.pick("x", true, ""); l == nil || l.id != "trainer" {
+		t.Fatalf("automatic training picked %v, want the training worker", l)
+	}
+	if n := p.TrainSlots(); n != 3 {
+		t.Fatalf("TrainSlots = %d, want 3", n)
+	}
+	if !p.TrainingOnly("trainer") || p.TrainingOnly("server") || p.TrainingOnly("offline") {
+		t.Fatal("TrainingOnly is wrong")
+	}
+
+	// The console's choice narrows what a worker said: a worker that runs
+	// and teaches is told to teach only, then to answer only.
+	newLink("both", &mimirv1.Hello{Architectures: []string{"x"}, Trains: true, Capacity: 4})
+	if !p.CanPredict("x", "both") || !p.CanTrain("x", "both") || p.TrainSlots() != 7 {
+		t.Fatal("a worker that does both isn't offered both")
+	}
+	p.SetTasks("both", "train")
+	if p.CanPredict("x", "both") || !p.CanTrain("x", "both") || !p.TrainingOnly("both") {
+		t.Fatal("told to train only, the worker is still offered predictions")
+	}
+	p.SetTasks("both", "serve")
+	if !p.CanPredict("x", "both") || p.CanTrain("x", "both") || p.TrainSlots() != 3 {
+		t.Fatal("told to serve only, the worker is still offered training")
+	}
+	p.SetTasks("both", "")
+	if !p.CanPredict("x", "both") || !p.CanTrain("x", "both") {
+		t.Fatal("back to its own choice, the worker isn't offered both")
+	}
+	for _, st := range p.Statuses() {
+		if st.Worker.ID == "both" && (!st.Trains || st.TrainingOnly) {
+			t.Fatalf("status of both = %+v", st)
+		}
+	}
+}
