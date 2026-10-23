@@ -55,6 +55,15 @@ const (
 	WorkerServiceListWorkerChoicesProcedure = "/mimir.v1.WorkerService/ListWorkerChoices"
 	// WorkerServiceLinkProcedure is the fully-qualified name of the WorkerService's Link RPC.
 	WorkerServiceLinkProcedure = "/mimir.v1.WorkerService/Link"
+	// WorkerServiceGetCloudGpuProcedure is the fully-qualified name of the WorkerService's GetCloudGpu
+	// RPC.
+	WorkerServiceGetCloudGpuProcedure = "/mimir.v1.WorkerService/GetCloudGpu"
+	// WorkerServiceUpdateCloudGpuProcedure is the fully-qualified name of the WorkerService's
+	// UpdateCloudGpu RPC.
+	WorkerServiceUpdateCloudGpuProcedure = "/mimir.v1.WorkerService/UpdateCloudGpu"
+	// WorkerServiceStopCloudGpuProcedure is the fully-qualified name of the WorkerService's
+	// StopCloudGpu RPC.
+	WorkerServiceStopCloudGpuProcedure = "/mimir.v1.WorkerService/StopCloudGpu"
 )
 
 // WorkerServiceClient is a client for the mimir.v1.WorkerService service.
@@ -85,6 +94,16 @@ type WorkerServiceClient interface {
 	// sent tasks. The first key a token joins with is the one it must keep
 	// using.
 	Link(context.Context) *connect.BidiStreamForClient[v1.LinkRequest, v1.LinkResponse]
+	// GetCloudGpu says how training runs rent a GPU when they wait, and
+	// whether one is running now.
+	GetCloudGpu(context.Context, *connect.Request[v1.GetCloudGpuRequest]) (*connect.Response[v1.GetCloudGpuResponse], error)
+	// UpdateCloudGpu sets it up, changes it, or turns it off. Turning it on
+	// the first time adds a worker for it, which teaches only.
+	UpdateCloudGpu(context.Context, *connect.Request[v1.UpdateCloudGpuRequest]) (*connect.Response[v1.UpdateCloudGpuResponse], error)
+	// StopCloudGpu stops the rented GPU now, whatever it is doing. Runs on
+	// it go back in the queue to resume from their checkpoints, and start
+	// it again if they still wait.
+	StopCloudGpu(context.Context, *connect.Request[v1.StopCloudGpuRequest]) (*connect.Response[v1.StopCloudGpuResponse], error)
 }
 
 // NewWorkerServiceClient constructs a client for the mimir.v1.WorkerService service. By default, it
@@ -149,6 +168,25 @@ func NewWorkerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(workerServiceMethods.ByName("Link")),
 			connect.WithClientOptions(opts...),
 		),
+		getCloudGpu: connect.NewClient[v1.GetCloudGpuRequest, v1.GetCloudGpuResponse](
+			httpClient,
+			baseURL+WorkerServiceGetCloudGpuProcedure,
+			connect.WithSchema(workerServiceMethods.ByName("GetCloudGpu")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		updateCloudGpu: connect.NewClient[v1.UpdateCloudGpuRequest, v1.UpdateCloudGpuResponse](
+			httpClient,
+			baseURL+WorkerServiceUpdateCloudGpuProcedure,
+			connect.WithSchema(workerServiceMethods.ByName("UpdateCloudGpu")),
+			connect.WithClientOptions(opts...),
+		),
+		stopCloudGpu: connect.NewClient[v1.StopCloudGpuRequest, v1.StopCloudGpuResponse](
+			httpClient,
+			baseURL+WorkerServiceStopCloudGpuProcedure,
+			connect.WithSchema(workerServiceMethods.ByName("StopCloudGpu")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -162,6 +200,9 @@ type workerServiceClient struct {
 	setWorkerTasks     *connect.Client[v1.SetWorkerTasksRequest, v1.SetWorkerTasksResponse]
 	listWorkerChoices  *connect.Client[v1.ListWorkerChoicesRequest, v1.ListWorkerChoicesResponse]
 	link               *connect.Client[v1.LinkRequest, v1.LinkResponse]
+	getCloudGpu        *connect.Client[v1.GetCloudGpuRequest, v1.GetCloudGpuResponse]
+	updateCloudGpu     *connect.Client[v1.UpdateCloudGpuRequest, v1.UpdateCloudGpuResponse]
+	stopCloudGpu       *connect.Client[v1.StopCloudGpuRequest, v1.StopCloudGpuResponse]
 }
 
 // ListWorkers calls mimir.v1.WorkerService.ListWorkers.
@@ -204,6 +245,21 @@ func (c *workerServiceClient) Link(ctx context.Context) *connect.BidiStreamForCl
 	return c.link.CallBidiStream(ctx)
 }
 
+// GetCloudGpu calls mimir.v1.WorkerService.GetCloudGpu.
+func (c *workerServiceClient) GetCloudGpu(ctx context.Context, req *connect.Request[v1.GetCloudGpuRequest]) (*connect.Response[v1.GetCloudGpuResponse], error) {
+	return c.getCloudGpu.CallUnary(ctx, req)
+}
+
+// UpdateCloudGpu calls mimir.v1.WorkerService.UpdateCloudGpu.
+func (c *workerServiceClient) UpdateCloudGpu(ctx context.Context, req *connect.Request[v1.UpdateCloudGpuRequest]) (*connect.Response[v1.UpdateCloudGpuResponse], error) {
+	return c.updateCloudGpu.CallUnary(ctx, req)
+}
+
+// StopCloudGpu calls mimir.v1.WorkerService.StopCloudGpu.
+func (c *workerServiceClient) StopCloudGpu(ctx context.Context, req *connect.Request[v1.StopCloudGpuRequest]) (*connect.Response[v1.StopCloudGpuResponse], error) {
+	return c.stopCloudGpu.CallUnary(ctx, req)
+}
+
 // WorkerServiceHandler is an implementation of the mimir.v1.WorkerService service.
 type WorkerServiceHandler interface {
 	ListWorkers(context.Context, *connect.Request[v1.ListWorkersRequest]) (*connect.Response[v1.ListWorkersResponse], error)
@@ -232,6 +288,16 @@ type WorkerServiceHandler interface {
 	// sent tasks. The first key a token joins with is the one it must keep
 	// using.
 	Link(context.Context, *connect.BidiStream[v1.LinkRequest, v1.LinkResponse]) error
+	// GetCloudGpu says how training runs rent a GPU when they wait, and
+	// whether one is running now.
+	GetCloudGpu(context.Context, *connect.Request[v1.GetCloudGpuRequest]) (*connect.Response[v1.GetCloudGpuResponse], error)
+	// UpdateCloudGpu sets it up, changes it, or turns it off. Turning it on
+	// the first time adds a worker for it, which teaches only.
+	UpdateCloudGpu(context.Context, *connect.Request[v1.UpdateCloudGpuRequest]) (*connect.Response[v1.UpdateCloudGpuResponse], error)
+	// StopCloudGpu stops the rented GPU now, whatever it is doing. Runs on
+	// it go back in the queue to resume from their checkpoints, and start
+	// it again if they still wait.
+	StopCloudGpu(context.Context, *connect.Request[v1.StopCloudGpuRequest]) (*connect.Response[v1.StopCloudGpuResponse], error)
 }
 
 // NewWorkerServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -292,6 +358,25 @@ func NewWorkerServiceHandler(svc WorkerServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(workerServiceMethods.ByName("Link")),
 		connect.WithHandlerOptions(opts...),
 	)
+	workerServiceGetCloudGpuHandler := connect.NewUnaryHandler(
+		WorkerServiceGetCloudGpuProcedure,
+		svc.GetCloudGpu,
+		connect.WithSchema(workerServiceMethods.ByName("GetCloudGpu")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	workerServiceUpdateCloudGpuHandler := connect.NewUnaryHandler(
+		WorkerServiceUpdateCloudGpuProcedure,
+		svc.UpdateCloudGpu,
+		connect.WithSchema(workerServiceMethods.ByName("UpdateCloudGpu")),
+		connect.WithHandlerOptions(opts...),
+	)
+	workerServiceStopCloudGpuHandler := connect.NewUnaryHandler(
+		WorkerServiceStopCloudGpuProcedure,
+		svc.StopCloudGpu,
+		connect.WithSchema(workerServiceMethods.ByName("StopCloudGpu")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.WorkerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WorkerServiceListWorkersProcedure:
@@ -310,6 +395,12 @@ func NewWorkerServiceHandler(svc WorkerServiceHandler, opts ...connect.HandlerOp
 			workerServiceListWorkerChoicesHandler.ServeHTTP(w, r)
 		case WorkerServiceLinkProcedure:
 			workerServiceLinkHandler.ServeHTTP(w, r)
+		case WorkerServiceGetCloudGpuProcedure:
+			workerServiceGetCloudGpuHandler.ServeHTTP(w, r)
+		case WorkerServiceUpdateCloudGpuProcedure:
+			workerServiceUpdateCloudGpuHandler.ServeHTTP(w, r)
+		case WorkerServiceStopCloudGpuProcedure:
+			workerServiceStopCloudGpuHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -349,4 +440,16 @@ func (UnimplementedWorkerServiceHandler) ListWorkerChoices(context.Context, *con
 
 func (UnimplementedWorkerServiceHandler) Link(context.Context, *connect.BidiStream[v1.LinkRequest, v1.LinkResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.Link is not implemented"))
+}
+
+func (UnimplementedWorkerServiceHandler) GetCloudGpu(context.Context, *connect.Request[v1.GetCloudGpuRequest]) (*connect.Response[v1.GetCloudGpuResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.GetCloudGpu is not implemented"))
+}
+
+func (UnimplementedWorkerServiceHandler) UpdateCloudGpu(context.Context, *connect.Request[v1.UpdateCloudGpuRequest]) (*connect.Response[v1.UpdateCloudGpuResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.UpdateCloudGpu is not implemented"))
+}
+
+func (UnimplementedWorkerServiceHandler) StopCloudGpu(context.Context, *connect.Request[v1.StopCloudGpuRequest]) (*connect.Response[v1.StopCloudGpuResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.StopCloudGpu is not implemented"))
 }
