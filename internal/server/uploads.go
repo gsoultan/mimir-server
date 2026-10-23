@@ -50,6 +50,9 @@ type uploadGate struct {
 	// patience is how long an upload of size bytes may take to arrive.
 	patience func(size int64) time.Duration
 	errs     *connect.ErrorWriter
+	// lowMemory, when set, says memory is too short to read an upload
+	// into it; uploads streamed to disk still go through.
+	lowMemory func() bool
 }
 
 func newUploadGate(n int, small, max int64) *uploadGate {
@@ -69,15 +72,15 @@ func (g *uploadGate) wrap(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		if g.lowMemory != nil && r.URL.Path != "/api/uploads" && g.lowMemory() {
+			w.Header().Set("Retry-After", "30")
+			g.refuse(w, r, connect.NewError(connect.CodeUnavailable, errors.New("The server is low on memory right now. Try the upload again in a minute.")), http.StatusServiceUnavailable)
+			return
+		}
 		select {
 		case g.slots <- struct{}{}:
 		default:
-			err := connect.NewError(connect.CodeResourceExhausted, errors.New("The server is busy with other uploads. Try again in a moment."))
-			if g.errs.IsSupported(r) {
-				g.errs.Write(w, r, err)
-			} else {
-				http.Error(w, err.Message(), http.StatusTooManyRequests)
-			}
+			g.refuse(w, r, connect.NewError(connect.CodeResourceExhausted, errors.New("The server is busy with other uploads. Try again in a moment.")), http.StatusTooManyRequests)
 			return
 		}
 		defer func() { <-g.slots }()
@@ -90,4 +93,13 @@ func (g *uploadGate) wrap(next http.Handler) http.Handler {
 		http.NewResponseController(w).SetReadDeadline(time.Now().Add(g.patience(size)))
 		next.ServeHTTP(w, r)
 	})
+}
+
+// refuse answers with err, in Connect's shape where the client speaks it.
+func (g *uploadGate) refuse(w http.ResponseWriter, r *http.Request, err *connect.Error, status int) {
+	if g.errs.IsSupported(r) {
+		g.errs.Write(w, r, err)
+		return
+	}
+	http.Error(w, err.Message(), status)
 }

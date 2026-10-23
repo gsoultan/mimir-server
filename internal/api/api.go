@@ -27,6 +27,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/convert"
 	"github.com/gsoultan/mimir-server/internal/mapfile"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
@@ -98,6 +99,60 @@ type Service struct {
 	// PredictTimeout bounds one prediction, here or on a worker, on top
 	// of the caller's own deadline; 0 means DefaultPredictTimeout.
 	PredictTimeout time.Duration
+
+	memory      *memguard.Guard
+	memoryAlert atomic.Int64 // unix seconds of the last low-memory alert
+}
+
+// memoryAlertEvery is the least time between two low-memory alerts.
+const memoryAlertEvery = time.Hour
+
+// WatchMemory keeps the console within g's budget: as memory runs short
+// the least recently used models are let go (half of them when it is
+// high, all but the last used when critical), and while it is critical no
+// model is loaded, so the ones already loaded keep answering. Owners are
+// alerted when it turns critical, at most once an hour.
+func (s *Service) WatchMemory(g *memguard.Guard) {
+	s.memory = g
+	if g == nil {
+		return
+	}
+	s.cache.SetGate(func() error { return g.Check(memguard.Critical) })
+	g.Watch(func(l memguard.Level) {
+		used, _ := s.cache.Used()
+		switch l {
+		case memguard.High:
+			if freed := s.cache.Shed(used / 2); freed > 0 {
+				s.log.Warn("memory: let go of models", "bytes", freed, "level", l.String())
+			}
+		case memguard.Critical:
+			if freed := s.cache.Shed(0); freed > 0 {
+				s.log.Warn("memory: let go of models", "bytes", freed, "level", l.String())
+			}
+			s.alertLowMemory(g)
+		}
+	})
+}
+
+// Memory returns the guard WatchMemory was given; nil means none.
+func (s *Service) Memory() *memguard.Guard { return s.memory }
+
+// alertLowMemory tells the owners memory ran short, unless it did so
+// within memoryAlertEvery. It doesn't wait for the alert to go out.
+func (s *Service) alertLowMemory(g *memguard.Guard) {
+	now := time.Now().Unix()
+	last := s.memoryAlert.Load()
+	if s.Notifier == nil || now-last < int64(memoryAlertEvery/time.Second) || !s.memoryAlert.CompareAndSwap(last, now) {
+		return
+	}
+	body := fmt.Sprintf("The console is using %s of the %s it may use. To stay up it has let go of loaded models, paused training here and is turning away new model loads and uploads until memory frees up.\n\nIf this keeps happening, give the console more memory (-memory-limit), lower -model-cache-mb, or move training to a worker.", memguard.Format(g.Used()), memguard.Format(g.Limit()))
+	go s.Notifier.Notify(context.Background(), "mimir is running low on memory", body)
+}
+
+// lowMemory is the answer to a request turned away to keep the server
+// within its memory budget.
+func lowMemory() error {
+	return connect.NewError(connect.CodeUnavailable, errors.New("The server is low on memory right now and isn't loading more models. Models already loaded keep answering; try this one again in a minute."))
 }
 
 // DefaultModelCacheBytes is how many bytes of loaded models the console
@@ -547,6 +602,8 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		return nil, invalid("%v", err2)
 	case tooBig(err2):
 		return nil, tooBigError(err2)
+	case errors.Is(err2, memguard.ErrLowMemory):
+		return nil, lowMemory()
 	case errors.Is(err2, cluster.ErrWorkerFailed), errors.Is(err2, cluster.ErrLinkLost):
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("The worker couldn't answer: %v", err2))
 	case err2 != nil:
