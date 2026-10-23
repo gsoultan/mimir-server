@@ -199,46 +199,71 @@ Language models (chat) are the exception: they run on the console
 itself, not on workers, so a console that serves them needs memory for
 them (see step 9) whatever the workers do.
 
-### Training on a GPU rented from Modal
+### Training on a rented GPU
 
-Instead of keeping a GPU machine of your own, the console can rent one
-from [Modal](https://modal.com) by the second, only while a run trains.
-When a training run waits that nothing connected takes, the console
-starts a machine with the GPU you chose on Modal, running this same
-mimir-server as a worker that teaches only (`-tasks train`). It trains
-the run on the GPU, waits a few minutes for more, and stops itself. The
-model it made is answered by your serving workers, which get the new
-weights with the first question after it was trained.
+Instead of keeping a GPU machine of your own, the console can rent one by
+the minute, only while a run trains, from [Modal](https://modal.com),
+[AWS EC2](https://aws.amazon.com/ec2/),
+[Google Cloud](https://cloud.google.com/compute),
+[RunPod](https://www.runpod.io), [Lambda Cloud](https://lambda.ai) or
+[Vast.ai](https://vast.ai). When a training run waits that nothing
+connected takes, the console starts a machine with the GPU you chose,
+running this same mimir-server as a worker that teaches only
+(`-tasks train`). It trains the run on the GPU, waits a few minutes for
+more, and stops; the console then removes the machine, so nothing is left
+running or billing. The model it made is answered by your serving
+workers, which get the new weights with the first question after it was
+trained.
 
 **Set it up**
 
-1. Make an account on modal.com and an API token under **Settings → API
-   tokens**. It is a pair: an id starting `ak-` and a secret starting
-   `as-`.
+1. Get credentials from the provider (see the table below).
 2. Under **Settings → Workers**, in **Rent a GPU for training**, turn on
-   **Start a GPU on Modal when a training run waits**, paste the token,
-   pick a GPU and check **This console's address**. Save.
-   Instead of pasting the token, you can set `MODAL_TOKEN_ID` and
-   `MODAL_TOKEN_SECRET` in `/etc/mimir/mimir.env` and leave the fields
-   empty.
+   **Start a GPU when a training run waits**, pick the provider under
+   **Rent from**, paste the credentials, pick a GPU (and a region or zone
+   where it asks) and check **This console's address**. Save.
 3. Make sure runs go to it: turn off **Training on this console** (or run
    the console as `-role console`), so runs placed on *Automatic* that no
-   other worker takes wait for the GPU, or pick **Modal GPU** under
+   other worker takes wait for the GPU, or pick **Rented GPU** under
    **Train on** when you start a run.
 
-Saving adds a worker called **Modal GPU** to the list. Its card says
-*Asleep* until a run waits; then it starts (a few minutes the first time,
-while Modal fetches the CUDA image, under a minute after that), shows as
-online while it trains, and goes back to sleep. **Stop it now** stops it
-at once; a run it was training goes back in the queue and resumes from its
-checkpoint. If it can't start, the card says why and the console tries
-again after a minute, then less often.
+| Provider | Credentials | Also asks for | The machine |
+| --- | --- | --- | --- |
+| Modal | API token (`ak-…` and `as-…`) from **Settings → API tokens**; or leave empty and set `MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET` for the console | | a sandbox from NVIDIA's CUDA 12.6 image; Modal ends it at **Longest per machine** |
+| AWS EC2 | access key of an IAM user allowed `ec2:RunInstances`, `ec2:CreateTags`, `ec2:DescribeInstances`, `ec2:DescribeImages` and `ec2:TerminateInstances`; or leave empty for the console's own AWS credentials | region | an on-demand instance from AWS's *Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 22.04)* with a 100 GB disk, in the region's default VPC; it terminates itself when it powers off |
+| Google Cloud | JSON key of a service account with **Compute Instance Admin (v1)**; the machine starts in its project | zone | a VM from the Deep Learning VM image `common-cu129-ubuntu-2204-nvidia-580` with a 100 GB disk, on the `default` network; Google deletes it at **Longest per machine** |
+| RunPod | API key from **Settings → API Keys** | | a Secure Cloud pod from NVIDIA's CUDA 12.4 image |
+| Lambda Cloud | API key from **API keys** in the dashboard | region, and the name of an SSH key added there (Lambda requires one; the console never uses it) | an instance with Lambda Stack |
+| Vast.ai | API key from **Account → Keys** | | the cheapest verified on-demand offer of that GPU, running NVIDIA's CUDA 12.4 image |
+
+AWS gives new accounts no quota for GPU instances: before the first
+start, ask for **Running On-Demand G and VT instances** of at least 4
+vCPUs under **Service Quotas → Amazon EC2**. Google Cloud has a similar
+GPU quota per region, and Lambda Cloud and Vast.ai sometimes have no
+machine of a GPU free; the card then says so and the console tries again
+later.
+
+Saving adds a worker called **Rented GPU** to the list. Its card says
+*Asleep* until a run waits; then it starts (from under a minute on Modal
+to a few minutes for a VM to boot), shows as online while it trains, and
+goes back to sleep. **Stop it now** stops it at once; a run it was
+training goes back in the queue and resumes from its checkpoint. If it
+can't start or never joins within 15 minutes, the console removes the
+machine, the card says why, and the console tries again after a minute,
+then less often.
+
+The console removes a machine when its worker has stopped (after
+**Stop after idle**) and stayed away for 3 minutes, when it has run past
+**Longest per machine**, or when you turn renting off or pick another
+provider. The VMs (AWS, Google Cloud, Lambda) also power themselves off
+when the worker stops and at **Longest per machine**, in case the console
+can't reach the provider then.
 
 What it needs:
 
 - **The console reachable from the internet over https**, at the address
-  you give, through the proxy from step 4 or `-tls-auto`. The machine on
-  Modal connects out to it, like any worker. A console on a private
+  you give, through the proxy from step 4 or `-tls-auto`. The rented
+  machine connects out to it, like any worker. A console on a private
   network can't use this.
 - **The program.** The machine downloads mimir-server from the console
   itself (it shows the worker's token for it), so both run the same
@@ -247,33 +272,34 @@ What it needs:
   build of the same version. The proxy must pass `/api/workers/program`
   (both configs in `deploy/` do; it is about 80 MB).
 - **Its identity.** The console makes the worker's token and key itself
-  and keeps them encrypted with its other secrets, so every machine it
-  starts is the same worker. To replace them, remove the **Modal GPU**
-  worker (which turns renting off) and turn it on again.
+  and keeps them, with the provider's credentials, encrypted with its
+  other secrets, so every machine it starts is the same worker. The
+  machine gets them in its environment (on a VM, in a file only root can
+  read), so anyone who can read your instances' settings at the provider
+  can read them too. To replace them, remove the **Rented GPU** worker
+  (which turns renting off) and turn it on again.
 
-What it costs: Modal bills each second the machine runs, from starting to
-stopping, at its price for the GPU plus about $0.24 an hour for the CPU
-core and 4 GB of memory that come with it (Modal charges a sandbox's CPU
-and memory at three times its usual rate). GPU prices on
-modal.com/pricing when this was written:
+What it costs: the provider bills the time the machine runs, from start
+to removal. An hour of each GPU when this was written:
 
-| GPU | Memory | An hour |
-| --- | --- | --- |
-| T4 | 16 GB | $0.59 |
-| L4 | 24 GB | $0.80 |
-| A10 | 24 GB | $1.10 |
-| L40S | 48 GB | $1.95 |
-| A100 | 40 GB | $2.10 |
-| A100 | 80 GB | $2.50 |
-| H100 | 80 GB | $3.95 |
+| Provider | GPUs and prices an hour |
+| --- | --- |
+| Modal | T4 $0.59, L4 $0.80, A10 $1.10, L40S $1.95, A100 40 GB $2.10, A100 80 GB $2.50, H100 $3.95, H200 $4.54, B200 $6.25, plus about $0.24 for the CPU core and 4 GB of memory (Modal charges a sandbox's at three times its usual rate) |
+| AWS EC2 (us-east-1) | T4 (g4dn.xlarge) $0.53, L4 (g6.xlarge) $0.81, A10G (g5.xlarge) $1.01, L40S (g6e.xlarge) $1.86 |
+| Google Cloud (us-central1) | T4 (n1-standard-4) $0.54, L4 (g2-standard-4) $0.71, A100 40 GB (a2-highgpu-1g) $3.67, A100 80 GB (a2-ultragpu-1g) $5.07 |
+| RunPod (Secure Cloud) | RTX A5000 $0.27, L4 $0.43, RTX A6000 $0.49, RTX 4090 $0.69, L40S $0.86, A100 80 GB $1.64, H100 $2.69 |
+| Lambda Cloud | A10 $0.75, RTX A6000 $0.80, A100 40 GB $1.29, H100 $2.49 |
+| Vast.ai | a market: often RTX 3090 $0.20, RTX 4090 $0.35, RTX A6000 $0.45, L40S $0.70, A100 80 GB $1.00, H100 $1.90 |
 
 So a 10-minute run on an L4 with the default 5 minutes of waiting costs
-about 15 minutes, or $0.26. Modal's free Starter plan includes $30 of
-use a month, and you can set a spending limit for the workspace there. Tables, text and small photo sets train well on a T4 or L4; large
-photo sets are where an A100 or H100 pays off. **Longest run of a
-machine** (6 hours by default, at most 24) caps what one machine can
-cost; a run still going then resumes on a fresh machine. The machines run
-under an app called `mimir-worker` on modal.com, where their logs and
+about 15 minutes of the machine, or about $0.20 on Modal or AWS; a VM
+also takes a few minutes to boot. Modal's free Starter plan includes $30
+of use a month. Tables, text and small photo sets train well on a T4, L4
+or A10; large photo sets are where an A100 or H100 pays off. **Longest
+per machine** (6 hours by default, at most 24) caps what one machine can
+cost; a run still going then resumes on a fresh machine. Each machine is
+named `mimir-worker-` and the start of the worker's id at the provider
+(on Modal, it runs under the app `mimir-worker`), where its logs and
 spending are.
 
 ## 7. Backups

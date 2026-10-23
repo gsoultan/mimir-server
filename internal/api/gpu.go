@@ -25,10 +25,10 @@ import (
 
 // KeyCloudGPU is the setting that holds the rented GPU's config. It is
 // sealed, like every "cloud." setting.
-const KeyCloudGPU = "cloud.modal"
+const KeyCloudGPU = "cloud.gpu"
 
 // CloudGPUWorkerName is the name of the worker a rented GPU joins as.
-const CloudGPUWorkerName = "Modal GPU"
+const CloudGPUWorkerName = "Rented GPU"
 
 // LoadCloudGPU reads the rented GPU's config into s.GPU. Call it once at
 // start.
@@ -71,8 +71,8 @@ func (s *Service) cloudGPUWorker(id string) bool {
 
 func (s *Service) cloudGPUProto(c gpucloud.Config) *mimirv1.CloudGpu {
 	pc := &mimirv1.CloudGpu{
-		Enabled: c.Enabled, TokenId: c.TokenID, HasTokenSecret: c.TokenSecret != "",
-		Gpu: c.GPU, ConsoleUrl: c.ConsoleURL, IdleMinutes: int32(c.IdleMinutes), MaxHours: int32(c.MaxHours),
+		Enabled: c.Enabled, Provider: c.Provider, TokenId: c.TokenID, HasTokenSecret: c.TokenSecret != "",
+		Gpu: c.GPU, Region: c.Region, SshKey: c.SSHKey, ConsoleUrl: c.ConsoleURL, IdleMinutes: int32(c.IdleMinutes), MaxHours: int32(c.MaxHours),
 		Capacity: int32(c.Capacity), ProgramUrl: c.ProgramURL, CanServeProgram: canServeProgram(), WorkerId: c.WorkerID,
 		State: gpucloud.StateOff,
 	}
@@ -90,7 +90,15 @@ func (s *Service) GetCloudGpu(ctx context.Context, _ *connect.Request[mimirv1.Ge
 	if s.GPU == nil {
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("This server doesn't take workers."))
 	}
-	return connect.NewResponse(&mimirv1.GetCloudGpuResponse{CloudGpu: s.cloudGPUProto(s.GPU.Config())}), nil
+	res := &mimirv1.GetCloudGpuResponse{CloudGpu: s.cloudGPUProto(s.GPU.Config())}
+	for _, p := range gpucloud.Providers {
+		pp := &mimirv1.CloudGpuProvider{Id: p.ID, Name: p.Name, DefaultGpu: p.DefaultGPU, Regions: p.Regions, DefaultRegion: p.DefaultRegion}
+		for _, g := range p.GPUs {
+			pp.Gpus = append(pp.Gpus, &mimirv1.CloudGpuChoice{Id: g.ID, Label: g.Label})
+		}
+		res.Providers = append(res.Providers, pp)
+	}
+	return connect.NewResponse(res), nil
 }
 
 func (s *Service) UpdateCloudGpu(ctx context.Context, req *connect.Request[mimirv1.UpdateCloudGpuRequest]) (*connect.Response[mimirv1.UpdateCloudGpuResponse], error) {
@@ -107,14 +115,29 @@ func (s *Service) UpdateCloudGpu(ctx context.Context, req *connect.Request[mimir
 	m := req.Msg
 	c := old
 	c.Enabled = m.GetEnabled()
+	c.Provider = strings.TrimSpace(m.GetProvider())
+	if c.Provider == "" {
+		c.Provider = gpucloud.DefaultProvider
+	}
+	if c.Provider != old.Provider {
+		// Another provider's credentials are no use here.
+		c.TokenSecret = ""
+	}
 	c.TokenID = strings.TrimSpace(m.GetTokenId())
 	if v := strings.TrimSpace(m.GetTokenSecret()); v != "" {
 		c.TokenSecret = v
 	}
-	if c.TokenID == "" {
-		c.TokenSecret = "" // the console's own environment then
+	switch c.Provider {
+	case gpucloud.ProviderModal, gpucloud.ProviderAWS:
+		if c.TokenID == "" {
+			c.TokenSecret = "" // the console's own environment then
+		}
+	default:
+		c.TokenID = "" // these have a key alone
 	}
 	c.GPU = strings.TrimSpace(m.GetGpu())
+	c.Region = strings.TrimSpace(m.GetRegion())
+	c.SSHKey = strings.TrimSpace(m.GetSshKey())
 	c.ConsoleURL = strings.TrimRight(strings.TrimSpace(m.GetConsoleUrl()), "/")
 	c.IdleMinutes, c.MaxHours, c.Capacity = int(m.GetIdleMinutes()), int(m.GetMaxHours()), int(m.GetCapacity())
 	c.ProgramURL = strings.TrimSpace(m.GetProgramUrl())
@@ -136,7 +159,8 @@ func (s *Service) UpdateCloudGpu(ctx context.Context, req *connect.Request[mimir
 	s.GPU.Configure(c)
 	what := "off"
 	if c.Enabled {
-		what = "rents a " + c.GPU + " on Modal when training waits; stops after " + strconv.Itoa(c.IdleMinutes) + " idle minutes"
+		pr, _ := gpucloud.ProviderByID(c.Provider)
+		what = "rents a " + c.GPU + " on " + pr.Name + " when training waits; stops after " + strconv.Itoa(c.IdleMinutes) + " idle minutes"
 	}
 	s.audit(ctx, p.Actor(), "settings.cloud_gpu", "", what)
 	if s.KickTraining != nil {
@@ -176,7 +200,7 @@ func (s *Service) ensureCloudGPUWorker(ctx context.Context, c gpucloud.Config, a
 	if err := s.store.SetWorkerTasks(ctx, w.ID, "train"); err != nil {
 		return c, s.internal(ctx, err)
 	}
-	s.audit(ctx, actor, "worker.create", w.Name, "for the GPU rented on Modal, with key "+Fingerprint(pub))
+	s.audit(ctx, actor, "worker.create", w.Name, "for the rented GPU, with key "+Fingerprint(pub))
 	c.WorkerID, c.Token, c.Key = w.ID, s.joinToken(secret), worker.EncodeKey(key)
 	return c, nil
 }
@@ -187,9 +211,9 @@ func (s *Service) StopCloudGpu(ctx context.Context, _ *connect.Request[mimirv1.S
 	}
 	p, _ := auth.From(ctx)
 	if err := s.GPU.Stop(ctx); err != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("Modal didn't stop the machine: "+err.Error()))
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("The provider didn't stop the machine: "+err.Error()))
 	}
-	s.audit(ctx, p.Actor(), "worker.cloud_gpu.stop", CloudGPUWorkerName, "stopped the GPU rented on Modal")
+	s.audit(ctx, p.Actor(), "worker.cloud_gpu.stop", CloudGPUWorkerName, "stopped the rented GPU")
 	return connect.NewResponse(&mimirv1.StopCloudGpuResponse{CloudGpu: s.cloudGPUProto(s.GPU.Config())}), nil
 }
 

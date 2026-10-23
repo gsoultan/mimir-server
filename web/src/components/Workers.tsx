@@ -24,9 +24,10 @@ const plainConsole = () => location.protocol !== "https:" && !["localhost", "127
 export function Workers() {
   const { data } = useSuspenseQuery({ ...listWorkers, refetchInterval: 5000 });
   const { data: gpu } = useSuspenseQuery({ ...cloudGpu, refetchInterval: 5000 });
-  // rented is the worker of the GPU rented on Modal, offline until a run
+  // rented is the worker of the rented GPU, offline until a run
   // waits for it.
   const rented = gpu.cloudGpu?.enabled ? gpu.cloudGpu.workerId : "";
+  const gpuProvider = gpu.providers.find((p) => p.id === gpu.cloudGpu?.provider)?.name ?? "";
   const queryClient = useQueryClient();
   const [adding, add] = useDisclosure(false);
   const [name, setName] = useState("");
@@ -86,7 +87,7 @@ export function Workers() {
         </Card>
       ) : (
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-          {ws.map((w) => <WorkerCard key={w.id} w={w} rented={w.id === rented} />)}
+          {ws.map((w) => <WorkerCard key={w.id} w={w} rented={w.id === rented} gpuProvider={gpuProvider} />)}
         </SimpleGrid>
       )}
 
@@ -131,7 +132,7 @@ export function Meter({ label, pct, detail }: { label: string; pct: number; deta
   );
 }
 
-function WorkerCard({ w, rented }: { w: Worker; rented: boolean }) {
+function WorkerCard({ w, rented, gpuProvider = "" }: { w: Worker; rented: boolean; gpuProvider?: string }) {
   const s = w.stats;
   const full = w.online && w.busy >= w.capacity;
   const hot = s && Math.max(s.cpuPercent, share(s.memoryUsedBytes, s.memoryTotalBytes), share(s.diskUsedBytes, s.diskTotalBytes)) >= 90;
@@ -159,7 +160,7 @@ function WorkerCard({ w, rented }: { w: Worker; rented: boolean }) {
           <Meter label="Storage" pct={share(s.diskUsedBytes, s.diskTotalBytes)} detail={s.diskTotalBytes > 0n ? `${bytes(s.diskTotalBytes - s.diskUsedBytes)} free` : "unknown"} />
         </Stack>
       ) : (
-        <Text size="sm" c="dimmed">{rented ? "A GPU on Modal, started when a training run waits for it." : w.lastSeen ? `Last seen ${ago(w.lastSeen)}` : "Never connected. Run the command from when you added it."}</Text>
+        <Text size="sm" c="dimmed">{rented ? `A GPU on ${gpuProvider}, started when a training run waits for it.` : w.lastSeen ? `Last seen ${ago(w.lastSeen)}` : "Never connected. Run the command from when you added it."}</Text>
       )}
       <Group gap="md" mt="sm">
         {w.online && <Text size="xs" c="dimmed">{w.busy} of {w.capacity} tasks</Text>}

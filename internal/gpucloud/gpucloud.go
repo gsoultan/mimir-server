@@ -1,9 +1,10 @@
 // Package gpucloud rents a GPU for training by the minute. When a
 // training run waits that no connected worker can take, the console starts
-// a machine on Modal (modal.com) with the GPU chosen under Settings →
-// Workers, running this server as a worker that teaches only. The worker
-// stops itself once it has had nothing to do for a while, so the GPU is
-// paid for only while it trains.
+// a machine with the GPU chosen under Settings → Workers, on the provider
+// chosen there (Modal, AWS EC2, Google Cloud, RunPod, Lambda Cloud or
+// Vast.ai), running this server as a worker that teaches only. The worker
+// stops once it has had nothing to do for a while, and the console removes
+// the machine, so the GPU is paid for only while it trains.
 //
 // The rented machine joins as an ordinary worker, with a token and key
 // the console made for it and keeps sealed with its other secrets, so it
@@ -18,22 +19,35 @@ import (
 	"log/slog"
 	"net"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 )
 
 // Config is how the console rents a GPU. It is stored as one setting,
-// sealed, since it holds the Modal token and the worker's token and key.
+// sealed, since it holds the provider's credentials and the worker's token
+// and key.
 type Config struct {
 	Enabled bool `json:"enabled"`
-	// TokenID and TokenSecret are a Modal API token. Without them the
-	// console uses MODAL_TOKEN_ID and MODAL_TOKEN_SECRET from its own
-	// environment, or ~/.modal.toml.
+	// Provider is where the GPU is rented: one of Providers.
+	Provider string `json:"provider"`
+	// TokenID and TokenSecret are the provider's credentials:
+	//   - Modal: an API token. Without it the console uses MODAL_TOKEN_ID
+	//     and MODAL_TOKEN_SECRET from its environment, or ~/.modal.toml.
+	//   - AWS: an access key. Without it the console uses its own AWS
+	//     credentials (environment, ~/.aws or an instance role).
+	//   - Google Cloud: TokenSecret is a service account's JSON key.
+	//   - RunPod, Lambda Cloud, Vast.ai: TokenSecret is an API key.
 	TokenID     string `json:"token_id,omitempty"`
 	TokenSecret string `json:"token_secret,omitempty"`
-	// GPU is the Modal GPU type, such as "L4" or "A100-80GB".
+	// GPU is what the provider calls the machine: a GPU type ("L4"), an
+	// instance type ("g6.xlarge") or a GPU name ("RTX 4090").
 	GPU string `json:"gpu"`
+	// Region is the AWS or Lambda region, or Google Cloud zone.
+	Region string `json:"region,omitempty"`
+	// SSHKey names the SSH key Lambda Cloud requires on every machine.
+	SSHKey string `json:"ssh_key,omitempty"`
 	// ConsoleURL is the https address the machine reaches the console at.
 	ConsoleURL string `json:"console_url"`
 	// IdleMinutes is how long the worker waits for more work before it
@@ -54,21 +68,26 @@ type Config struct {
 
 // Defaults for a Config left at zero.
 const (
-	DefaultGPU         = "L4"
+	DefaultProvider    = ProviderModal
 	DefaultIdleMinutes = 5
 	DefaultMaxHours    = 6
 	DefaultCapacity    = 1
-	// MaxHours is the longest Modal lets a machine run.
+	// MaxHours is the longest a machine may run; Modal allows no more.
 	MaxHours = 24
 )
 
-// GPUs are the Modal GPU types offered, cheapest first.
-var GPUs = []string{"T4", "L4", "A10", "L40S", "A100-40GB", "A100-80GB", "H100", "H200", "B200"}
-
 // WithDefaults fills what c leaves at zero.
 func (c Config) WithDefaults() Config {
-	if c.GPU == "" {
-		c.GPU = DefaultGPU
+	if c.Provider == "" {
+		c.Provider = DefaultProvider
+	}
+	if p, ok := ProviderByID(c.Provider); ok {
+		if c.GPU == "" {
+			c.GPU = p.DefaultGPU
+		}
+		if c.Region == "" {
+			c.Region = p.DefaultRegion
+		}
 	}
 	if c.IdleMinutes <= 0 {
 		c.IdleMinutes = DefaultIdleMinutes
@@ -88,22 +107,19 @@ func (c Config) Check() error {
 	if !c.Enabled {
 		return nil
 	}
-	if (c.TokenID == "") != (c.TokenSecret == "") {
-		return errors.New("Give both the Modal token id and its secret, or neither to use the console's MODAL_TOKEN_ID and MODAL_TOKEN_SECRET.")
+	p, ok := ProviderByID(c.Provider)
+	if !ok {
+		return fmt.Errorf("There is no GPU provider called %q.", c.Provider)
 	}
-	if c.TokenID != "" && (!strings.HasPrefix(c.TokenID, "ak-") || !strings.HasPrefix(c.TokenSecret, "as-")) {
-		return errors.New("A Modal token id starts with ak- and its secret with as-. Make one under Settings → API tokens on modal.com.")
-	}
-	gpu, _, _ := strings.Cut(c.GPU, ":")
-	if !validGPU(gpu) {
-		return fmt.Errorf("Modal has no GPU called %q. Pick one of %s.", c.GPU, strings.Join(GPUs, ", "))
+	if err := c.checkProvider(p); err != nil {
+		return err
 	}
 	u, err := url.Parse(c.ConsoleURL)
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.Path != "" && u.Path != "/" {
 		return errors.New("The console address must be the https address the GPU machine can reach this console at, such as https://mimir.example.com.")
 	}
 	if isLocal(u.Hostname()) {
-		return errors.New("The console address must be reachable from the internet: a machine on Modal can't reach localhost or a private address.")
+		return fmt.Errorf("The console address must be reachable from the internet: a machine on %s can't reach localhost or a private address.", p.Name)
 	}
 	if c.IdleMinutes < 1 || c.IdleMinutes > 120 {
 		return errors.New("Wait between 1 and 120 minutes for more work before stopping.")
@@ -122,20 +138,6 @@ func (c Config) Check() error {
 	return nil
 }
 
-func validGPU(g string) bool {
-	for _, x := range GPUs {
-		if strings.EqualFold(x, g) {
-			return true
-		}
-	}
-	// Modal also takes other names for some.
-	switch strings.ToUpper(g) {
-	case "A10G", "A100", "H100!":
-		return true
-	}
-	return false
-}
-
 func isLocal(host string) bool {
 	h := strings.ToLower(host)
 	if h == "localhost" || strings.HasSuffix(h, ".localhost") || strings.HasSuffix(h, ".local") || strings.HasSuffix(h, ".internal") {
@@ -149,27 +151,88 @@ func isLocal(host string) bool {
 
 // Machine is what the console asks a cloud to start.
 type Machine struct {
-	// WorkerID tags the machine, so a console that restarts finds it.
+	// WorkerID tags the machine, so a console that restarts finds it;
+	// Name is what the provider shows for it.
 	WorkerID string
+	Name     string
 	GPU      string
-	// CPU and MemoryMiB are what the machine gets besides the GPU.
+	Region   string
+	// CPU and MemoryMiB are what the machine gets besides the GPU, where
+	// the provider lets them be picked.
 	CPU       float64
 	MemoryMiB int
 	Timeout   time.Duration
-	// Command runs on the machine, with Secrets in its environment.
-	Command []string
+	// Setup fetches the program; Run then runs the worker until it has
+	// been idle long enough. Both are sh, with Env and Secrets in the
+	// environment.
+	Setup   string
+	Run     string
 	Env     map[string]string
 	Secrets map[string]string
 }
 
-// Cloud starts and stops machines. Modal is the real one; tests use a
-// fake.
+// Script is Setup then Run, ending when the worker does: for a container
+// that stops when its command ends.
+func (m Machine) Script() string {
+	return "set -e\n" + m.Setup + "\nexec " + m.Run
+}
+
+// containerImage is NVIDIA's CUDA runtime, which carries the libraries
+// mimir's GPU backend loads, for providers that run a container. CUDA
+// 12.4 runs on the drivers most hosts have.
+const containerImage = "nvidia/cuda:12.4.1-runtime-ubuntu22.04"
+
+// ContainerScript is for a container that the provider restarts when its
+// command ends: it gets curl, runs the worker, then waits for the console
+// to remove the machine, rather than starting the worker again.
+func (m Machine) ContainerScript() string {
+	return "set -e\n" +
+		"command -v curl >/dev/null || { apt-get update -qq && apt-get install -y -qq --no-install-recommends curl ca-certificates >/dev/null; }\n" +
+		m.Setup + "\nset +e\n" + m.Run + "\necho 'mimir-worker: stopped; waiting for the console to remove this machine'\nexec sleep infinity"
+}
+
+// VMScript is the boot script for a virtual machine with NVIDIA's driver
+// and CUDA installed: it runs the worker as root in the background, then
+// powers the machine off once the worker stops or MaxHours pass, in case
+// the console can't remove it.
+func (m Machine) VMScript() string {
+	var env strings.Builder
+	for _, kv := range []map[string]string{m.Env, m.Secrets} {
+		for _, k := range sortedKeys(kv) {
+			fmt.Fprintf(&env, "export %s=%s\n", k, shellQuote(kv[k]))
+		}
+	}
+	run := "set -e\n" +
+		"for i in $(seq 120); do nvidia-smi >/dev/null 2>&1 && break; sleep 5; done\n" +
+		"export LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\n" +
+		". /etc/mimir-worker/env\n" +
+		m.Setup + "\nset +e\n" + m.Run + "\nshutdown -h now\n"
+	return "#!/bin/bash\n" +
+		"mkdir -p /etc/mimir-worker && chmod 700 /etc/mimir-worker\n" +
+		"cat >/etc/mimir-worker/env <<'MIMIR_ENV'\n" + env.String() + "MIMIR_ENV\n" +
+		"cat >/etc/mimir-worker/run.sh <<'MIMIR_RUN'\n" + run + "MIMIR_RUN\n" +
+		"chmod 600 /etc/mimir-worker/env\n" +
+		fmt.Sprintf("shutdown -h +%d || true\n", int(m.Timeout.Minutes())) +
+		"setsid nohup bash /etc/mimir-worker/run.sh >/var/log/mimir-worker.log 2>&1 </dev/null &\n"
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+// Cloud starts and stops machines on one provider; tests use a fake.
 type Cloud interface {
 	// Start starts m and returns its id.
 	Start(ctx context.Context, c Config, m Machine) (string, error)
-	// Exited reports whether machine id has stopped, and its exit code.
+	// Exited reports whether machine id has stopped or is gone, and its
+	// exit code, or -1 where the provider doesn't say.
 	Exited(ctx context.Context, c Config, id string) (exited bool, code int, err error)
-	// Stop stops machine id.
+	// Stop stops machine id and removes it, so it costs nothing more.
 	Stop(ctx context.Context, c Config, id string) error
 	// Find returns a running machine started for workerID, or "".
 	Find(ctx context.Context, c Config, workerID string) (string, error)
@@ -195,8 +258,9 @@ type Status struct {
 // Launcher starts a machine when training waits for one, and keeps track
 // of it.
 type Launcher struct {
-	Cloud Cloud
-	Log   *slog.Logger
+	// Clouds are the providers, by Provider.ID.
+	Clouds map[string]Cloud
+	Log    *slog.Logger
 	// Wanted reports whether a training run waits that the worker could
 	// take. Online reports whether the worker has a link open.
 	Wanted func(ctx context.Context, workerID string) (bool, error)
@@ -215,9 +279,11 @@ type Launcher struct {
 	cfg     Config
 	status  Status
 	machine string
+	mcfg    Config // the config the machine was started with
 	started time.Time
-	joined  bool // the machine's worker linked since it started
-	looked  bool // looked for a machine a previous run left
+	joined  bool      // the machine's worker linked since it started
+	gone    time.Time // when the joined worker was last seen gone
+	looked  bool      // looked for a machine a previous run left
 	retry   time.Time
 	backoff time.Duration
 	wake    chan struct{}
@@ -231,9 +297,23 @@ const ProgramPath = "/api/workers/program"
 // and join; pulling the CUDA image the first time takes a few minutes.
 const DefaultConnectTimeout = 15 * time.Minute
 
-// NewLauncher returns a Launcher over cloud.
-func NewLauncher(cloud Cloud, log *slog.Logger) *Launcher {
-	return &Launcher{Cloud: cloud, Log: log, Now: time.Now, wake: make(chan struct{}, 1), cfg: Config{}.WithDefaults(), status: Status{State: StateOff}}
+// GoneGrace is how long a worker that joined may stay away while its
+// machine still runs before the console removes the machine: the worker
+// stopped when idle, or lost its way back.
+const GoneGrace = 3 * time.Minute
+
+// NewLauncher returns a Launcher over clouds, by provider.
+func NewLauncher(clouds map[string]Cloud, log *slog.Logger) *Launcher {
+	return &Launcher{Clouds: clouds, Log: log, Now: time.Now, wake: make(chan struct{}, 1), cfg: Config{}.WithDefaults(), status: Status{State: StateOff}}
+}
+
+// cloud returns the Cloud for c's provider.
+func (l *Launcher) cloud(c Config) (Cloud, Provider, error) {
+	p, ok := ProviderByID(c.Provider)
+	if cl := l.Clouds[c.Provider]; ok && cl != nil {
+		return cl, p, nil
+	}
+	return nil, p, fmt.Errorf("this console can't rent from %q", c.Provider)
 }
 
 // Configure sets the config. Turning it off stops a running machine on
@@ -241,7 +321,7 @@ func NewLauncher(cloud Cloud, log *slog.Logger) *Launcher {
 func (l *Launcher) Configure(c Config) {
 	l.mu.Lock()
 	l.cfg = c.WithDefaults()
-	l.retry, l.backoff = time.Time{}, 0
+	l.retry, l.backoff, l.looked = time.Time{}, 0, false
 	if !c.Enabled {
 		if l.machine == "" {
 			l.setLocked(StateOff, "")
@@ -294,12 +374,16 @@ func (l *Launcher) Run(ctx context.Context) {
 // Stop stops the machine now, if one runs.
 func (l *Launcher) Stop(ctx context.Context) error {
 	l.mu.Lock()
-	c, id := l.cfg, l.machine
+	c, mc, id := l.cfg, l.mcfg, l.machine
 	l.mu.Unlock()
 	if id == "" {
 		return nil
 	}
-	if err := l.Cloud.Stop(ctx, c, id); err != nil {
+	cl, _, err := l.cloud(mc)
+	if err != nil {
+		return err
+	}
+	if err := cl.Stop(ctx, mc, id); err != nil {
 		return err
 	}
 	l.mu.Lock()
@@ -316,31 +400,42 @@ func (l *Launcher) Stop(ctx context.Context) error {
 // Step looks once: at the machine running, or at whether one is wanted.
 func (l *Launcher) Step(ctx context.Context) {
 	l.mu.Lock()
-	c, id, looked := l.cfg, l.machine, l.looked
+	c, mc, id, looked := l.cfg, l.mcfg, l.machine, l.looked
 	l.mu.Unlock()
 	if c.WorkerID == "" {
 		return
 	}
-	if id == "" && !looked && c.Enabled {
+	if id != "" {
+		l.watch(ctx, c, mc, id)
+		return
+	}
+	if !c.Enabled {
+		return
+	}
+	cl, p, err := l.cloud(c)
+	if err != nil {
+		l.fail(err)
+		return
+	}
+	if !looked {
 		// A console that restarted may have left a machine running.
-		found, err := l.Cloud.Find(ctx, c, c.WorkerID)
+		found, err := cl.Find(ctx, c, c.WorkerID)
 		if err != nil {
-			l.fail(fmt.Errorf("couldn't reach Modal: %w", err))
+			l.fail(fmt.Errorf("couldn't reach %s: %w", p.Name, err))
 			return
 		}
 		l.mu.Lock()
 		l.looked = true
 		if found != "" && l.machine == "" {
-			l.machine, l.started, l.joined, id = found, l.now(), false, found
+			l.machine, l.mcfg, l.started, l.joined, l.gone = found, c, l.now(), false, time.Time{}
 			l.setLocked(StateStarting, "")
 		}
 		l.mu.Unlock()
+		if found != "" {
+			return
+		}
 	}
-	if id != "" {
-		l.watch(ctx, c, id)
-		return
-	}
-	if !c.Enabled || l.Online(c.WorkerID) {
+	if l.Online(c.WorkerID) {
 		return
 	}
 	l.mu.Lock()
@@ -370,64 +465,100 @@ func (l *Launcher) Step(ctx context.Context) {
 	l.mu.Lock()
 	l.setLocked(StateStarting, "")
 	l.mu.Unlock()
-	l.Log.InfoContext(ctx, "gpucloud: starting a GPU on Modal", "gpu", c.GPU, "worker_id", c.WorkerID)
-	newID, err := l.Cloud.Start(ctx, c, m)
+	l.Log.InfoContext(ctx, "gpucloud: starting a GPU", "provider", p.ID, "gpu", c.GPU, "worker_id", c.WorkerID)
+	newID, err := cl.Start(ctx, c, m)
 	if err != nil {
-		l.fail(fmt.Errorf("Modal didn't start the machine: %w", err))
+		l.fail(fmt.Errorf("%s didn't start the machine: %w", p.Name, err))
 		return
 	}
 	l.mu.Lock()
-	l.machine, l.started, l.joined = newID, l.now(), false
+	l.machine, l.mcfg, l.started, l.joined, l.gone = newID, c, l.now(), false, time.Time{}
 	l.setLocked(StateStarting, "")
 	l.mu.Unlock()
 	l.Log.InfoContext(ctx, "gpucloud: started", "machine", newID)
 }
 
-// watch follows a running machine: it notes when its worker joins, and
-// notices when it stops or never joins.
-func (l *Launcher) watch(ctx context.Context, c Config, id string) {
-	exited, code, err := l.Cloud.Exited(ctx, c, id)
+// watch follows a running machine, started with mc: it notes when its
+// worker joins, notices when it stops or never joins, and removes it once
+// it is no longer wanted or has run too long.
+func (l *Launcher) watch(ctx context.Context, c, mc Config, id string) {
+	cl, p, err := l.cloud(mc)
 	if err != nil {
-		l.Log.WarnContext(ctx, "gpucloud: ask Modal about the machine", "machine", id, "error", err)
+		l.fail(err)
 		return
 	}
-	online := l.Online(c.WorkerID)
+	exited, code, err := cl.Exited(ctx, mc, id)
+	if err != nil {
+		l.Log.WarnContext(ctx, "gpucloud: ask about the machine", "provider", p.ID, "machine", id, "error", err)
+		return
+	}
+	online := l.Online(mc.WorkerID)
+	now := l.now()
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.machine != id {
 		return
 	}
-	if online && !l.joined {
-		l.joined, l.backoff = true, 0
-		l.setLocked(StateRunning, "")
+	if online {
+		l.gone = time.Time{}
+		if !l.joined {
+			l.joined, l.backoff = true, 0
+			l.setLocked(StateRunning, "")
+		}
+	} else if l.joined && l.gone.IsZero() {
+		l.gone = now
 	}
+	// stop removes the machine; it reports whether it did.
+	stop := func() bool {
+		if err := cl.Stop(ctx, mc, id); err != nil {
+			l.Log.WarnContext(ctx, "gpucloud: stop the machine", "provider", p.ID, "machine", id, "error", err)
+			return false
+		}
+		l.machine = ""
+		return true
+	}
+	asleep := map[bool]string{true: StateAsleep, false: StateOff}[c.Enabled]
 	switch {
 	case exited:
+		// Remove what is left of it, such as its disk.
+		if !p.OwnTimeout {
+			if err := cl.Stop(ctx, mc, id); err != nil {
+				l.Log.WarnContext(ctx, "gpucloud: remove the stopped machine", "provider", p.ID, "machine", id, "error", err)
+			}
+		}
 		l.machine = ""
 		if !l.joined {
-			l.failLocked(fmt.Errorf("the machine stopped (exit code %d) before it joined; see its logs under Apps on modal.com", code))
+			how := "stopped"
+			if code >= 0 {
+				how = fmt.Sprintf("stopped (exit code %d)", code)
+			}
+			l.failLocked(fmt.Errorf("the machine %s before it joined; %s", how, p.Logs))
 			return
 		}
-		l.Log.InfoContext(ctx, "gpucloud: the GPU stopped", "machine", id, "code", code)
-		l.setLocked(map[bool]string{true: StateAsleep, false: StateOff}[c.Enabled], "")
-		if !c.Enabled {
-			return
+		l.Log.InfoContext(ctx, "gpucloud: the GPU stopped", "provider", p.ID, "machine", id, "code", code)
+		l.setLocked(asleep, "")
+	case !c.Enabled || c.Provider != mc.Provider:
+		// Turned off or moved while it runs: stop it, and its runs go back
+		// in the queue.
+		if stop() {
+			l.setLocked(asleep, "")
 		}
-	case !c.Enabled:
-		// Turned off while it runs: stop it, and its runs go back in the
-		// queue.
-		if err := l.Cloud.Stop(ctx, c, id); err != nil {
-			l.Log.WarnContext(ctx, "gpucloud: stop the machine", "machine", id, "error", err)
-			return
-		}
+	case !l.joined && now.Sub(l.started) > l.connectTimeout():
+		stop()
 		l.machine = ""
-		l.setLocked(StateOff, "")
-	case !l.joined && l.now().Sub(l.started) > l.connectTimeout():
-		if err := l.Cloud.Stop(ctx, c, id); err != nil {
-			l.Log.WarnContext(ctx, "gpucloud: stop the machine", "machine", id, "error", err)
+		l.failLocked(fmt.Errorf("the machine didn't join within %s; check that it can reach %s, and %s", l.connectTimeout(), mc.ConsoleURL, p.Logs))
+	case l.joined && !l.gone.IsZero() && now.Sub(l.gone) > GoneGrace:
+		// The worker stopped when idle, and the machine stays.
+		l.Log.InfoContext(ctx, "gpucloud: the worker left; removing its machine", "provider", p.ID, "machine", id)
+		if stop() {
+			l.setLocked(asleep, "")
 		}
-		l.machine = ""
-		l.failLocked(fmt.Errorf("the machine didn't join within %s; check that it can reach %s, and its logs under Apps on modal.com", l.connectTimeout(), c.ConsoleURL))
+	case now.Sub(l.started) > time.Duration(mc.MaxHours)*time.Hour+10*time.Minute:
+		// Past its limit: runs on it resume on a new machine.
+		l.Log.InfoContext(ctx, "gpucloud: the machine reached its time limit", "provider", p.ID, "machine", id)
+		if stop() {
+			l.setLocked(asleep, "")
+		}
 	}
 }
 
@@ -482,7 +613,7 @@ func (l *Launcher) machineFor(c Config) (Machine, error) {
 		}
 		program, auth = strings.TrimRight(c.ConsoleURL, "/")+ProgramPath, true
 	}
-	if c.Token == "" || c.Key == "" {
+	if c.Token == "" || c.Key == "" || len(c.WorkerID) < 8 {
 		return Machine{}, errors.New("the GPU's worker has no token; turn renting a GPU off and on again")
 	}
 	secret, pin, _ := strings.Cut(c.Token, ".")
@@ -501,24 +632,26 @@ func (l *Launcher) machineFor(c Config) (Machine, error) {
 		}
 	}
 	curl = append(curl, shellQuote(program))
-	script := strings.Join([]string{
-		"set -e",
+	setup := strings.Join([]string{
 		"nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true",
 		strings.Join(curl, " "),
 		"chmod +x " + programPath,
-		fmt.Sprintf("exec %s -role=worker -tasks=train -server %s -data %s -capacity %d -exit-when-idle %dm -name modal-%s",
-			programPath, shellQuote(strings.TrimRight(c.ConsoleURL, "/")), dataDir, c.Capacity, c.IdleMinutes, strings.ToLower(c.GPU)),
 	}, "\n")
+	run := fmt.Sprintf("%s -role=worker -tasks=train -server %s -data %s -capacity %d -exit-when-idle %dm -name %s",
+		programPath, shellQuote(strings.TrimRight(c.ConsoleURL, "/")), dataDir, c.Capacity, c.IdleMinutes, shellQuote(workerName(c)))
 	return Machine{
 		WorkerID: c.WorkerID,
+		Name:     machineName(c.WorkerID),
 		GPU:      c.GPU,
+		Region:   c.Region,
 		// A physical core (two vCPUs) and 4 GB: Modal bills a sandbox's
 		// CPU and memory at three times its usual rate, so only what
 		// feeding the GPU needs.
 		CPU:       1,
 		MemoryMiB: 4 << 10,
 		Timeout:   time.Duration(c.MaxHours) * time.Hour,
-		Command:   []string{"sh", "-c", script},
+		Setup:     setup,
+		Run:       run,
 		Env: map[string]string{
 			"MIMIR_DEVICE":    "gpu",
 			"MIMIR_CACHE_DIR": dataDir + "/cache",
@@ -529,6 +662,24 @@ func (l *Launcher) machineFor(c Config) (Machine, error) {
 			"MIMIR_WORKER_KEY":    c.Key,
 		},
 	}, nil
+}
+
+// machineName is what the provider shows for the machine of workerID; the
+// providers without tags find it by this name.
+func machineName(workerID string) string {
+	return "mimir-worker-" + strings.ToLower(workerID[:min(8, len(workerID))])
+}
+
+// workerName is the name the machine's worker gives itself, such as
+// modal-l4 or aws-g6.xlarge.
+func workerName(c Config) string {
+	g := strings.Map(func(r rune) rune {
+		if r == ' ' || r == '_' {
+			return '-'
+		}
+		return r
+	}, strings.ToLower(c.GPU))
+	return c.Provider + "-" + g
 }
 
 // shellQuote quotes s for sh.
