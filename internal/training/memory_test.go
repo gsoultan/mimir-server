@@ -3,6 +3,7 @@ package training
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -10,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/memguard"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir/tensor"
 )
 
 // fakeMemory is a memory guard whose use the test sets.
@@ -114,7 +117,7 @@ func TestRunnerWaitsForMemory(t *testing.T) {
 	}
 }
 
-// When memory turns critical a run training here stops and goes back in
+// When memory stays critical a run training here stops and goes back in
 // the queue, and a run stopped MaxLowMemoryStops times fails with a
 // reason instead of starting over for ever.
 func TestRunnerStopsRunsWhenMemoryIsCritical(t *testing.T) {
@@ -124,6 +127,7 @@ func TestRunnerStopsRunsWhenMemoryIsCritical(t *testing.T) {
 	st.SetJobStatus(ctx, ids[1], store.JobCancelled, "", "")
 	mem := newFakeMemory()
 	r := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	r.StopAfter = 50 * time.Millisecond
 	r.WatchMemory(mem.g)
 	started := make(chan struct{})
 	r.fit = func(ctx context.Context, task Task, p Progress) (Result, error) {
@@ -188,4 +192,67 @@ func (handBack) CanTrain(string, string) bool { return true }
 
 func (handBack) Train(context.Context, string, string, Task, Progress) (Result, string, bool, error) {
 	return Result{}, "w1", true, errors.Join(ErrLowMemory, errors.New("on w1"))
+}
+
+// Memory that turns critical and eases again within StopAfter leaves the
+// run training: it keeps going and finishes.
+func TestRunnerKeepsTrainingThroughABriefCrunch(t *testing.T) {
+	st, ids := newRunnerStore(t)
+	ctx := context.Background()
+	st.SetJobStatus(ctx, ids[1], store.JobCancelled, "", "")
+	mem := newFakeMemory()
+	r := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	r.StopAfter = 300 * time.Millisecond
+	r.WatchMemory(mem.g)
+	started, finish := make(chan struct{}), make(chan struct{})
+	r.fit = func(ctx context.Context, task Task, p Progress) (Result, error) {
+		close(started)
+		select {
+		case <-finish:
+			return trained(ctx, task, p)
+		case <-ctx.Done():
+			return Result{}, context.Cause(ctx)
+		}
+	}
+	done := make(chan struct{})
+	go func() { r.Tick(ctx); close(done) }()
+	<-started
+	mem.set(950) // critical
+	time.Sleep(100 * time.Millisecond)
+	mem.set(100) // eased before StopAfter
+	time.Sleep(400 * time.Millisecond)
+	close(finish)
+	<-done
+	if s := statuses(t, st, ids[:1]); s[0] != store.JobSucceeded {
+		t.Fatalf("a run through a brief crunch is %v, want succeeded", s[0])
+	}
+}
+
+// Under a compute budget too small for a whole batch, as a critical level
+// sets one, a run still trains: its batches go through in smaller pieces.
+func TestFitTrainsUnderATightComputeBudget(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("x,y,kind\n")
+	for i := range 8000 {
+		x, y := float64(i%50)/50, float64(i%37)/37
+		kind := "a"
+		if x+y > 1 {
+			kind = "b"
+		}
+		fmt.Fprintf(&b, "%.3f,%.3f,%s\n", x, y, kind)
+	}
+	a, _ := arch.Lookup("table-mlp")
+	dev := tensor.DefaultDevice()
+	prev := tensor.MemoryBudget(dev)
+	tensor.SetMemoryBudget(dev, 8<<20) // 8 MiB: a batch of 4096 rows doesn't fit in one piece
+	defer tensor.SetMemoryBudget(dev, prev)
+	s := TableDefaults
+	s.Epochs, s.BatchSize = 2, 4096
+	res, err := Fit(context.Background(), Task{Arch: a, Source: Source{Kind: store.DatasetTable, CSV: []byte(b.String())}, Settings: s}, nil)
+	if err != nil {
+		t.Fatalf("training under a tight budget: %v", err)
+	}
+	if len(res.History) != 2 {
+		t.Fatalf("trained %d epochs, want 2", len(res.History))
+	}
 }

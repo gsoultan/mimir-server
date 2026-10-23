@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -174,5 +175,31 @@ func TestFormat(t *testing.T) {
 		if got := Format(n); got != want {
 			t.Errorf("Format(%d) = %q, want %q", n, got, want)
 		}
+	}
+}
+
+// StaysCritical fires only for a stretch of critical memory that lasts
+// the grace, and once for it.
+func TestStaysCritical(t *testing.T) {
+	var mem fake
+	g := New(Config{Limit: 1000, Read: mem.read, Log: quiet, KeepRuntimeLimit: true})
+	var fired atomic.Int32
+	g.StaysCritical(100*time.Millisecond, func() { fired.Add(1) })
+	mem.n.Store(950)
+	g.Measure()
+	time.Sleep(30 * time.Millisecond)
+	mem.n.Store(100)
+	g.Measure()
+	time.Sleep(150 * time.Millisecond)
+	if fired.Load() != 0 {
+		t.Fatal("fired for a stretch shorter than the grace")
+	}
+	mem.n.Store(950)
+	g.Measure()
+	time.Sleep(200 * time.Millisecond)
+	g.Measure()
+	time.Sleep(150 * time.Millisecond)
+	if fired.Load() != 1 {
+		t.Fatalf("fired %d times for one long stretch, want 1", fired.Load())
 	}
 }

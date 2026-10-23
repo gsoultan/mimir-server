@@ -18,6 +18,7 @@ import (
 	"github.com/gsoultan/mimir-model/interp"
 	"github.com/gsoultan/mimir-model/ref"
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 	"github.com/gsoultan/mimir-server/internal/safe"
 	"github.com/gsoultan/mimir/io/mim"
 	"github.com/gsoultan/mimir/nn"
@@ -297,6 +298,32 @@ func (f *File) Close() error { return f.m.Close() }
 // runs on the interpreter only while that budget stands.
 func SetComputeBudget(bytes int64) {
 	tensor.SetMemoryBudget(tensor.DefaultDevice(), max(bytes, 0))
+}
+
+// ThrottleCompute keeps the compute budget at normal (see
+// SetComputeBudget) while memory is OK or high, and cuts it to a quarter
+// while it is critical, so a training run keeps going in smaller pieces
+// rather than being stopped: each step that no longer fits is split into
+// chunks that add up to the same step. A nil guard or a normal of 0
+// leaves the budget as it is.
+func ThrottleCompute(g *memguard.Guard, normal int64) {
+	if g == nil || normal <= 0 {
+		return
+	}
+	SetComputeBudget(normal)
+	g.Watch(func(l memguard.Level) { SetComputeBudget(ComputeBudgetAt(l, normal)) })
+}
+
+// minThrottled is the least a critical level cuts the compute budget to.
+const minThrottled = 64 << 20
+
+// ComputeBudgetAt is the compute budget at memory level l, for a normal
+// budget of normal bytes.
+func ComputeBudgetAt(l memguard.Level, normal int64) int64 {
+	if l != memguard.Critical {
+		return normal
+	}
+	return min(normal, max(normal/4, minThrottled))
 }
 
 // Cache keeps loaded models in memory by model id. It is safe for

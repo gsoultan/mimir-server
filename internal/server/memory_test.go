@@ -154,7 +154,7 @@ func startWorker(t *testing.T, srv string, own clients, name string, headroom in
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		worker.Run(wctx, worker.Config{Server: srv, Token: created.Msg.GetToken(), Capacity: 2, Version: "test", DataDir: t.TempDir(), MemoryLimit: limit, Log: quietLog}, handlers)
+		worker.Run(wctx, worker.Config{Server: srv, Token: created.Msg.GetToken(), Capacity: 2, Version: "test", DataDir: t.TempDir(), MemoryLimit: limit, StopTrainingAfter: 300 * time.Millisecond, Log: quietLog}, handlers)
 	}()
 	t.Cleanup(func() { stop(); <-done })
 	id := created.Msg.GetWorker().GetId()

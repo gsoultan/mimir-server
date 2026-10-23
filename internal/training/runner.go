@@ -102,6 +102,11 @@ type Runner struct {
 	lowMemory   map[string]int
 	cooling     map[string]time.Time
 	pausedUntil time.Time
+	// StopAfter is how long memory may stay critical before the runs
+	// training here are stopped and put back in the queue; until then
+	// they keep going in smaller pieces (see runtime.ThrottleCompute).
+	// Zero means DefaultStopAfter. Set it before WatchMemory.
+	StopAfter time.Duration
 	// fit trains a task in this process; tests replace it.
 	fit func(ctx context.Context, t Task, progress Progress) (Result, error)
 }
@@ -110,6 +115,10 @@ type Runner struct {
 // keep the process within its memory budget. The run goes back in the
 // queue and resumes from its checkpoint.
 var ErrLowMemory = memguard.ErrLowMemory
+
+// DefaultStopAfter is how long memory may stay critical before training
+// here stops, when Runner.StopAfter isn't set.
+const DefaultStopAfter = time.Minute
 
 // MaxLowMemoryStops is how many times a run may be stopped for memory
 // before it fails: one that needs more than the machine can spare would
@@ -164,21 +173,24 @@ func New(st *store.Store, log *slog.Logger) *Runner {
 }
 
 // WatchMemory keeps training in this process within g's budget, so it
-// never starves the predictions served here: a run starts here only while
-// memory is OK, and when memory turns critical the runs training here
-// stop and go back in the queue, to resume from their checkpoints once
-// memory is free again. Runs on workers are left alone; each worker
-// guards its own memory.
+// never starves the predictions served here. A run starts here only while
+// memory is OK. A run already training keeps going when memory runs short,
+// in smaller pieces once it is critical; only when memory stays critical
+// for StopAfter are the runs training here stopped and put back in the
+// queue, to resume from their checkpoints once memory is free again. Runs
+// on workers are left alone; each worker guards its own memory.
 func (r *Runner) WatchMemory(g *memguard.Guard) {
 	r.memory = g
-	g.Watch(func(l memguard.Level) {
-		if l != memguard.Critical {
-			return
-		}
+	grace := r.StopAfter
+	if grace <= 0 {
+		grace = DefaultStopAfter
+	}
+	g.StaysCritical(grace, func() {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		for id := range r.localJobs {
 			if cancel := r.running[id]; cancel != nil {
+				r.log.Warn("training: memory stayed critical; stopping the run here, which goes back in the queue", "job_id", id, "after", grace)
 				cancel(ErrLowMemory)
 			}
 		}
@@ -540,7 +552,7 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 }
 
 // fitHere trains task in this process, when memory allows, as one of the
-// runs WatchMemory stops when memory turns critical.
+// runs WatchMemory stops when memory stays critical.
 func (r *Runner) fitHere(ctx context.Context, id string, task Task, progress Progress) (res Result, err error) {
 	select {
 	case r.local <- struct{}{}:

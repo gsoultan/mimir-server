@@ -151,10 +151,8 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("-tasks: %w", err)
 		}
-		if memLimit == 0 {
-			memLimit, _ = memguard.Detect()
-		}
-		runtime.SetComputeBudget(computeShare(memLimit))
+		memory := memguard.New(memguard.Config{Limit: memLimit, Log: log, Name: "worker"})
+		runtime.ThrottleCompute(memory, computeShare(memory.Limit()))
 		var key ed25519.PrivateKey
 		if v := os.Getenv(worker.KeyEnv); v != "" {
 			if key, err = worker.ParseKey(v); err != nil {
@@ -166,7 +164,7 @@ func run() error {
 		if dev := tensor.DefaultDevice(); dev.Name() != "cpu" {
 			device += ", " + dev.String()
 		}
-		err = worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Device: device, Capacity: *capacity, Tasks: kind, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes, Key: key, ExitWhenIdle: *exitWhenIdle, MemoryLimit: memLimit}, builtin.Builtin(*data))
+		err = worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Device: device, Capacity: *capacity, Tasks: kind, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes, Key: key, ExitWhenIdle: *exitWhenIdle, MemoryLimit: memLimit, Memory: memory}, builtin.Builtin(*data))
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -279,7 +277,9 @@ func run() error {
 	// The console keeps within a memory budget, so it slows down and sheds
 	// work rather than running out (see memguard).
 	memory := memguard.New(memguard.Config{Limit: memLimit, Log: log, Name: "console"})
-	runtime.SetComputeBudget(computeShare(memory.Limit()))
+	// Training here keeps going in smaller pieces while memory is
+	// critical, rather than being stopped.
+	runtime.ThrottleCompute(memory, computeShare(memory.Limit()))
 	svc := api.New(st, log)
 	if err := svc.LoadArchitectures(ctx); err != nil {
 		log.Error("couldn't read the described model types", "error", err)
