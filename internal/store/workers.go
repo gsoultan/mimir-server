@@ -28,6 +28,9 @@ type Worker struct {
 	PublicKey []byte
 	// LastAddress is where it last connected from.
 	LastAddress string
+	// Tasks is what the console tells it to take: "all", "train" or
+	// "serve"; "" leaves it to the worker's own -tasks flag.
+	Tasks string
 }
 
 func fromWorker(r worker.Row) Worker {
@@ -39,7 +42,39 @@ func fromWorker(r worker.Row) Worker {
 		LastSeen:    timeOf(r.LastSeen),
 		PublicKey:   r.PublicKey,
 		LastAddress: r.LastAddress,
+		Tasks:       r.Tasks,
 	}
+}
+
+// SetWorkerTasks records what a worker is to take. A worker that only
+// trains can't answer, so models placed on it go back to automatic; one
+// that only answers can't train, so its waiting runs do too.
+func (s *Store) SetWorkerTasks(ctx context.Context, id, tasks string) error {
+	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
+		m := worker.MutateKey(id)
+		m.SetTasks(tasks)
+		if err := m.Update(ctx, ex); err != nil {
+			if errors.Is(err, runtime.ErrNoRow) {
+				return ErrNotFound
+			}
+			return fmt.Errorf("store: set worker tasks: %w", err)
+		}
+		if tasks == "train" {
+			var um model.Mut
+			um.SetWorkerID("")
+			if _, err := model.New().Where(model.WorkerID.Eq(id)).UpdateAll(ctx, ex, um); err != nil {
+				return fmt.Errorf("store: set worker tasks: %w", err)
+			}
+		}
+		if tasks == "serve" {
+			var ur trainingjob.Mut
+			ur.SetRunOn("")
+			if _, err := trainingjob.New().Where(trainingjob.RunOn.Eq(id), trainingjob.Status.Eq(int32(JobQueued))).UpdateAll(ctx, ex, ur); err != nil {
+				return fmt.Errorf("store: set worker tasks: %w", err)
+			}
+		}
+		return nil
+	})
 }
 
 // CreateWorker registers a worker whose token hashes to tokenHash.

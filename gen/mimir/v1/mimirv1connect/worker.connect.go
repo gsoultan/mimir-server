@@ -47,6 +47,9 @@ const (
 	// WorkerServiceReplaceWorkerTokenProcedure is the fully-qualified name of the WorkerService's
 	// ReplaceWorkerToken RPC.
 	WorkerServiceReplaceWorkerTokenProcedure = "/mimir.v1.WorkerService/ReplaceWorkerToken"
+	// WorkerServiceSetWorkerTasksProcedure is the fully-qualified name of the WorkerService's
+	// SetWorkerTasks RPC.
+	WorkerServiceSetWorkerTasksProcedure = "/mimir.v1.WorkerService/SetWorkerTasks"
 	// WorkerServiceListWorkerChoicesProcedure is the fully-qualified name of the WorkerService's
 	// ListWorkerChoices RPC.
 	WorkerServiceListWorkerChoicesProcedure = "/mimir.v1.WorkerService/ListWorkerChoices"
@@ -67,6 +70,10 @@ type WorkerServiceClient interface {
 	// token stops working, the worker is disconnected, and its key is
 	// forgotten so it can join again with the new token.
 	ReplaceWorkerToken(context.Context, *connect.Request[v1.ReplaceWorkerTokenRequest]) (*connect.Response[v1.ReplaceWorkerTokenResponse], error)
+	// SetWorkerTasks tells a worker what to take: "all", "train" (training
+	// runs only) or "serve" (predictions only). Empty leaves it to the
+	// worker's own -tasks flag. It applies at once to a connected worker.
+	SetWorkerTasks(context.Context, *connect.Request[v1.SetWorkerTasksRequest]) (*connect.Response[v1.SetWorkerTasksResponse], error)
 	// ListWorkerChoices lists the workers a model or training run can be
 	// placed on, for anyone who can add models. It leaves out tokens,
 	// addresses and who added them.
@@ -123,6 +130,12 @@ func NewWorkerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(workerServiceMethods.ByName("ReplaceWorkerToken")),
 			connect.WithClientOptions(opts...),
 		),
+		setWorkerTasks: connect.NewClient[v1.SetWorkerTasksRequest, v1.SetWorkerTasksResponse](
+			httpClient,
+			baseURL+WorkerServiceSetWorkerTasksProcedure,
+			connect.WithSchema(workerServiceMethods.ByName("SetWorkerTasks")),
+			connect.WithClientOptions(opts...),
+		),
 		listWorkerChoices: connect.NewClient[v1.ListWorkerChoicesRequest, v1.ListWorkerChoicesResponse](
 			httpClient,
 			baseURL+WorkerServiceListWorkerChoicesProcedure,
@@ -146,6 +159,7 @@ type workerServiceClient struct {
 	deleteWorker       *connect.Client[v1.DeleteWorkerRequest, v1.DeleteWorkerResponse]
 	getWorker          *connect.Client[v1.GetWorkerRequest, v1.GetWorkerResponse]
 	replaceWorkerToken *connect.Client[v1.ReplaceWorkerTokenRequest, v1.ReplaceWorkerTokenResponse]
+	setWorkerTasks     *connect.Client[v1.SetWorkerTasksRequest, v1.SetWorkerTasksResponse]
 	listWorkerChoices  *connect.Client[v1.ListWorkerChoicesRequest, v1.ListWorkerChoicesResponse]
 	link               *connect.Client[v1.LinkRequest, v1.LinkResponse]
 }
@@ -175,6 +189,11 @@ func (c *workerServiceClient) ReplaceWorkerToken(ctx context.Context, req *conne
 	return c.replaceWorkerToken.CallUnary(ctx, req)
 }
 
+// SetWorkerTasks calls mimir.v1.WorkerService.SetWorkerTasks.
+func (c *workerServiceClient) SetWorkerTasks(ctx context.Context, req *connect.Request[v1.SetWorkerTasksRequest]) (*connect.Response[v1.SetWorkerTasksResponse], error) {
+	return c.setWorkerTasks.CallUnary(ctx, req)
+}
+
 // ListWorkerChoices calls mimir.v1.WorkerService.ListWorkerChoices.
 func (c *workerServiceClient) ListWorkerChoices(ctx context.Context, req *connect.Request[v1.ListWorkerChoicesRequest]) (*connect.Response[v1.ListWorkerChoicesResponse], error) {
 	return c.listWorkerChoices.CallUnary(ctx, req)
@@ -198,6 +217,10 @@ type WorkerServiceHandler interface {
 	// token stops working, the worker is disconnected, and its key is
 	// forgotten so it can join again with the new token.
 	ReplaceWorkerToken(context.Context, *connect.Request[v1.ReplaceWorkerTokenRequest]) (*connect.Response[v1.ReplaceWorkerTokenResponse], error)
+	// SetWorkerTasks tells a worker what to take: "all", "train" (training
+	// runs only) or "serve" (predictions only). Empty leaves it to the
+	// worker's own -tasks flag. It applies at once to a connected worker.
+	SetWorkerTasks(context.Context, *connect.Request[v1.SetWorkerTasksRequest]) (*connect.Response[v1.SetWorkerTasksResponse], error)
 	// ListWorkerChoices lists the workers a model or training run can be
 	// placed on, for anyone who can add models. It leaves out tokens,
 	// addresses and who added them.
@@ -250,6 +273,12 @@ func NewWorkerServiceHandler(svc WorkerServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(workerServiceMethods.ByName("ReplaceWorkerToken")),
 		connect.WithHandlerOptions(opts...),
 	)
+	workerServiceSetWorkerTasksHandler := connect.NewUnaryHandler(
+		WorkerServiceSetWorkerTasksProcedure,
+		svc.SetWorkerTasks,
+		connect.WithSchema(workerServiceMethods.ByName("SetWorkerTasks")),
+		connect.WithHandlerOptions(opts...),
+	)
 	workerServiceListWorkerChoicesHandler := connect.NewUnaryHandler(
 		WorkerServiceListWorkerChoicesProcedure,
 		svc.ListWorkerChoices,
@@ -275,6 +304,8 @@ func NewWorkerServiceHandler(svc WorkerServiceHandler, opts ...connect.HandlerOp
 			workerServiceGetWorkerHandler.ServeHTTP(w, r)
 		case WorkerServiceReplaceWorkerTokenProcedure:
 			workerServiceReplaceWorkerTokenHandler.ServeHTTP(w, r)
+		case WorkerServiceSetWorkerTasksProcedure:
+			workerServiceSetWorkerTasksHandler.ServeHTTP(w, r)
 		case WorkerServiceListWorkerChoicesProcedure:
 			workerServiceListWorkerChoicesHandler.ServeHTTP(w, r)
 		case WorkerServiceLinkProcedure:
@@ -306,6 +337,10 @@ func (UnimplementedWorkerServiceHandler) GetWorker(context.Context, *connect.Req
 
 func (UnimplementedWorkerServiceHandler) ReplaceWorkerToken(context.Context, *connect.Request[v1.ReplaceWorkerTokenRequest]) (*connect.Response[v1.ReplaceWorkerTokenResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.ReplaceWorkerToken is not implemented"))
+}
+
+func (UnimplementedWorkerServiceHandler) SetWorkerTasks(context.Context, *connect.Request[v1.SetWorkerTasksRequest]) (*connect.Response[v1.SetWorkerTasksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.WorkerService.SetWorkerTasks is not implemented"))
 }
 
 func (UnimplementedWorkerServiceHandler) ListWorkerChoices(context.Context, *connect.Request[v1.ListWorkerChoicesRequest]) (*connect.Response[v1.ListWorkerChoicesResponse], error) {

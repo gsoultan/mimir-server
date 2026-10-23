@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/settings.proto.
  */
 export const file_mimir_v1_settings: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW1pci92MS9zZXR0aW5ncy5wcm90bxIIbWltaXIudjEijgEKC0VtYWlsQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSDAoEaG9zdBgCIAEoCRIMCgRwb3J0GAMgASgFEhAKCHVzZXJuYW1lGAQgASgJEhAKCHBhc3N3b3JkGAUgASgJEhQKDHBhc3N3b3JkX3NldBgGIAEoCBIMCgRmcm9tGAcgASgJEgoKAnRvGAggAygJIlgKDlRlbGVncmFtQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSEQoJYm90X3Rva2VuGAIgASgJEhEKCXRva2VuX3NldBgDIAEoCBIPCgdjaGF0X2lkGAQgASgJIjYKCVJldGVudGlvbhISCgphdWRpdF9kYXlzGAEgASgFEhUKDWRlbGl2ZXJ5X2RheXMYAiABKAUiFAoSR2V0U2V0dGluZ3NSZXF1ZXN0ItcBChNHZXRTZXR0aW5nc1Jlc3BvbnNlEiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cxImCglyZXRlbnRpb24YAyABKAsyEy5taW1pci52MS5SZXRlbnRpb24SJAoIc2VjdXJpdHkYBCABKAsyEi5taW1pci52MS5TZWN1cml0eRIgCgZsaW1pdHMYBSABKAsyEC5taW1pci52MS5MaW1pdHMiaQoGTGltaXRzEh4KFnByZWRpY3Rpb25zX3Blcl9taW51dGUYASABKAUSHQoVcHJlZGljdGlvbnNfcGVyX21vbnRoGAIgASgDEiAKGHRyYWluaW5nX3J1bnNfcGVyX3BlcnNvbhgDIAEoBSI3ChNVcGRhdGVMaW1pdHNSZXF1ZXN0EiAKBmxpbWl0cxgBIAEoCzIQLm1pbWlyLnYxLkxpbWl0cyI4ChRVcGRhdGVMaW1pdHNSZXNwb25zZRIgCgZsaW1pdHMYASABKAsyEC5taW1pci52MS5MaW1pdHMiIAoPR2V0VXNhZ2VSZXF1ZXN0Eg0KBW1vbnRoGAEgASgJImQKCFVzYWdlUm93Eg8KB3VzZXJfaWQYASABKAkSEQoJdXNlcl9uYW1lGAIgASgJEg0KBWVtYWlsGAMgASgJEhAKCGtleV9uYW1lGAQgASgJEhMKC3ByZWRpY3Rpb25zGAUgASgDImEKEEdldFVzYWdlUmVzcG9uc2USDQoFbW9udGgYASABKAkSIAoEcm93cxgCIAMoCzISLm1pbWlyLnYxLlVzYWdlUm93Eg0KBXRvdGFsGAMgASgDEg0KBWxpbWl0GAQgASgDIjkKCFNlY3VyaXR5Ei0KCnR3b19mYWN0b3IYASABKA4yGS5taW1pci52MS5Ud29GYWN0b3JQb2xpY3kiPQoVVXBkYXRlU2VjdXJpdHlSZXF1ZXN0EiQKCHNlY3VyaXR5GAEgASgLMhIubWltaXIudjEuU2VjdXJpdHkiPgoWVXBkYXRlU2VjdXJpdHlSZXNwb25zZRIkCghzZWN1cml0eRgBIAEoCzISLm1pbWlyLnYxLlNlY3VyaXR5ImcKE1VwZGF0ZUFsZXJ0c1JlcXVlc3QSJAoFZW1haWwYASABKAsyFS5taW1pci52MS5FbWFpbEFsZXJ0cxIqCgh0ZWxlZ3JhbRgCIAEoCzIYLm1pbWlyLnYxLlRlbGVncmFtQWxlcnRzImgKFFVwZGF0ZUFsZXJ0c1Jlc3BvbnNlEiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cyInChRTZW5kVGVzdEFsZXJ0UmVxdWVzdBIPCgdjaGFubmVsGAEgASgJIhcKFVNlbmRUZXN0QWxlcnRSZXNwb25zZSJAChZVcGRhdGVSZXRlbnRpb25SZXF1ZXN0EiYKCXJldGVudGlvbhgBIAEoCzITLm1pbWlyLnYxLlJldGVudGlvbiJBChdVcGRhdGVSZXRlbnRpb25SZXNwb25zZRImCglyZXRlbnRpb24YASABKAsyEy5taW1pci52MS5SZXRlbnRpb24iGAoWR2V0RGF0YWJhc2VJbmZvUmVxdWVzdCKnAgoXR2V0RGF0YWJhc2VJbmZvUmVzcG9uc2USDAoEa2luZBgBIAEoCRIMCgRwYXRoGAIgASgJEhIKCnNpemVfYnl0ZXMYAyABKAMSFgoOc2NoZW1hX3ZlcnNpb24YBCABKAUSHQoVbGF0ZXN0X3NjaGVtYV92ZXJzaW9uGAUgASgFEg4KBm1vZGVscxgGIAEoBRINCgV1c2VycxgHIAEoBRIUCgxhdWRpdF9ldmVudHMYCCABKAUSEgoKZGVsaXZlcmllcxgJIAEoBRIyCg5sYXN0X3RyaW1fdGltZRgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoObGFzdF90cmltX3Jvd3MYCyABKAMSEAoIbG9nX3BhdGgYDCABKAkqkgEKD1R3b0ZhY3RvclBvbGljeRIhCh1UV09fRkFDVE9SX1BPTElDWV9VTlNQRUNJRklFRBAAEh4KGlRXT19GQUNUT1JfUE9MSUNZX09QVElPTkFMEAESHAoYVFdPX0ZBQ1RPUl9QT0xJQ1lfQURNSU5TEAISHgoaVFdPX0ZBQ1RPUl9QT0xJQ1lfRVZFUllPTkUQAzKkBQoPU2V0dGluZ3NTZXJ2aWNlEk8KC0dldFNldHRpbmdzEhwubWltaXIudjEuR2V0U2V0dGluZ3NSZXF1ZXN0Gh0ubWltaXIudjEuR2V0U2V0dGluZ3NSZXNwb25zZSIDkAIBEk0KDFVwZGF0ZUFsZXJ0cxIdLm1pbWlyLnYxLlVwZGF0ZUFsZXJ0c1JlcXVlc3QaHi5taW1pci52MS5VcGRhdGVBbGVydHNSZXNwb25zZRJQCg1TZW5kVGVzdEFsZXJ0Eh4ubWltaXIudjEuU2VuZFRlc3RBbGVydFJlcXVlc3QaHy5taW1pci52MS5TZW5kVGVzdEFsZXJ0UmVzcG9uc2USVgoPVXBkYXRlUmV0ZW50aW9uEiAubWltaXIudjEuVXBkYXRlUmV0ZW50aW9uUmVxdWVzdBohLm1pbWlyLnYxLlVwZGF0ZVJldGVudGlvblJlc3BvbnNlElMKDlVwZGF0ZVNlY3VyaXR5Eh8ubWltaXIudjEuVXBkYXRlU2VjdXJpdHlSZXF1ZXN0GiAubWltaXIudjEuVXBkYXRlU2VjdXJpdHlSZXNwb25zZRJNCgxVcGRhdGVMaW1pdHMSHS5taW1pci52MS5VcGRhdGVMaW1pdHNSZXF1ZXN0Gh4ubWltaXIudjEuVXBkYXRlTGltaXRzUmVzcG9uc2USRgoIR2V0VXNhZ2USGS5taW1pci52MS5HZXRVc2FnZVJlcXVlc3QaGi5taW1pci52MS5HZXRVc2FnZVJlc3BvbnNlIgOQAgESWwoPR2V0RGF0YWJhc2VJbmZvEiAubWltaXIudjEuR2V0RGF0YWJhc2VJbmZvUmVxdWVzdBohLm1pbWlyLnYxLkdldERhdGFiYXNlSW5mb1Jlc3BvbnNlIgOQAgFCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChdtaW1pci92MS9zZXR0aW5ncy5wcm90bxIIbWltaXIudjEijgEKC0VtYWlsQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSDAoEaG9zdBgCIAEoCRIMCgRwb3J0GAMgASgFEhAKCHVzZXJuYW1lGAQgASgJEhAKCHBhc3N3b3JkGAUgASgJEhQKDHBhc3N3b3JkX3NldBgGIAEoCBIMCgRmcm9tGAcgASgJEgoKAnRvGAggAygJIlgKDlRlbGVncmFtQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSEQoJYm90X3Rva2VuGAIgASgJEhEKCXRva2VuX3NldBgDIAEoCBIPCgdjaGF0X2lkGAQgASgJIjYKCVJldGVudGlvbhISCgphdWRpdF9kYXlzGAEgASgFEhUKDWRlbGl2ZXJ5X2RheXMYAiABKAUiFAoSR2V0U2V0dGluZ3NSZXF1ZXN0Iv0BChNHZXRTZXR0aW5nc1Jlc3BvbnNlEiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cxImCglyZXRlbnRpb24YAyABKAsyEy5taW1pci52MS5SZXRlbnRpb24SJAoIc2VjdXJpdHkYBCABKAsyEi5taW1pci52MS5TZWN1cml0eRIgCgZsaW1pdHMYBSABKAsyEC5taW1pci52MS5MaW1pdHMSJAoIdHJhaW5pbmcYBiABKAsyEi5taW1pci52MS5UcmFpbmluZyI2CghUcmFpbmluZxISCgp0cmFpbl9oZXJlGAEgASgIEhYKDmNhbl90cmFpbl9oZXJlGAIgASgIIisKFVVwZGF0ZVRyYWluaW5nUmVxdWVzdBISCgp0cmFpbl9oZXJlGAEgASgIIj4KFlVwZGF0ZVRyYWluaW5nUmVzcG9uc2USJAoIdHJhaW5pbmcYASABKAsyEi5taW1pci52MS5UcmFpbmluZyJpCgZMaW1pdHMSHgoWcHJlZGljdGlvbnNfcGVyX21pbnV0ZRgBIAEoBRIdChVwcmVkaWN0aW9uc19wZXJfbW9udGgYAiABKAMSIAoYdHJhaW5pbmdfcnVuc19wZXJfcGVyc29uGAMgASgFIjcKE1VwZGF0ZUxpbWl0c1JlcXVlc3QSIAoGbGltaXRzGAEgASgLMhAubWltaXIudjEuTGltaXRzIjgKFFVwZGF0ZUxpbWl0c1Jlc3BvbnNlEiAKBmxpbWl0cxgBIAEoCzIQLm1pbWlyLnYxLkxpbWl0cyIgCg9HZXRVc2FnZVJlcXVlc3QSDQoFbW9udGgYASABKAkiZAoIVXNhZ2VSb3cSDwoHdXNlcl9pZBgBIAEoCRIRCgl1c2VyX25hbWUYAiABKAkSDQoFZW1haWwYAyABKAkSEAoIa2V5X25hbWUYBCABKAkSEwoLcHJlZGljdGlvbnMYBSABKAMiYQoQR2V0VXNhZ2VSZXNwb25zZRINCgVtb250aBgBIAEoCRIgCgRyb3dzGAIgAygLMhIubWltaXIudjEuVXNhZ2VSb3cSDQoFdG90YWwYAyABKAMSDQoFbGltaXQYBCABKAMiOQoIU2VjdXJpdHkSLQoKdHdvX2ZhY3RvchgBIAEoDjIZLm1pbWlyLnYxLlR3b0ZhY3RvclBvbGljeSI9ChVVcGRhdGVTZWN1cml0eVJlcXVlc3QSJAoIc2VjdXJpdHkYASABKAsyEi5taW1pci52MS5TZWN1cml0eSI+ChZVcGRhdGVTZWN1cml0eVJlc3BvbnNlEiQKCHNlY3VyaXR5GAEgASgLMhIubWltaXIudjEuU2VjdXJpdHkiZwoTVXBkYXRlQWxlcnRzUmVxdWVzdBIkCgVlbWFpbBgBIAEoCzIVLm1pbWlyLnYxLkVtYWlsQWxlcnRzEioKCHRlbGVncmFtGAIgASgLMhgubWltaXIudjEuVGVsZWdyYW1BbGVydHMiaAoUVXBkYXRlQWxlcnRzUmVzcG9uc2USJAoFZW1haWwYASABKAsyFS5taW1pci52MS5FbWFpbEFsZXJ0cxIqCgh0ZWxlZ3JhbRgCIAEoCzIYLm1pbWlyLnYxLlRlbGVncmFtQWxlcnRzIicKFFNlbmRUZXN0QWxlcnRSZXF1ZXN0Eg8KB2NoYW5uZWwYASABKAkiFwoVU2VuZFRlc3RBbGVydFJlc3BvbnNlIkAKFlVwZGF0ZVJldGVudGlvblJlcXVlc3QSJgoJcmV0ZW50aW9uGAEgASgLMhMubWltaXIudjEuUmV0ZW50aW9uIkEKF1VwZGF0ZVJldGVudGlvblJlc3BvbnNlEiYKCXJldGVudGlvbhgBIAEoCzITLm1pbWlyLnYxLlJldGVudGlvbiIYChZHZXREYXRhYmFzZUluZm9SZXF1ZXN0IqcCChdHZXREYXRhYmFzZUluZm9SZXNwb25zZRIMCgRraW5kGAEgASgJEgwKBHBhdGgYAiABKAkSEgoKc2l6ZV9ieXRlcxgDIAEoAxIWCg5zY2hlbWFfdmVyc2lvbhgEIAEoBRIdChVsYXRlc3Rfc2NoZW1hX3ZlcnNpb24YBSABKAUSDgoGbW9kZWxzGAYgASgFEg0KBXVzZXJzGAcgASgFEhQKDGF1ZGl0X2V2ZW50cxgIIAEoBRISCgpkZWxpdmVyaWVzGAkgASgFEjIKDmxhc3RfdHJpbV90aW1lGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIWCg5sYXN0X3RyaW1fcm93cxgLIAEoAxIQCghsb2dfcGF0aBgMIAEoCSqSAQoPVHdvRmFjdG9yUG9saWN5EiEKHVRXT19GQUNUT1JfUE9MSUNZX1VOU1BFQ0lGSUVEEAASHgoaVFdPX0ZBQ1RPUl9QT0xJQ1lfT1BUSU9OQUwQARIcChhUV09fRkFDVE9SX1BPTElDWV9BRE1JTlMQAhIeChpUV09fRkFDVE9SX1BPTElDWV9FVkVSWU9ORRADMvkFCg9TZXR0aW5nc1NlcnZpY2USTwoLR2V0U2V0dGluZ3MSHC5taW1pci52MS5HZXRTZXR0aW5nc1JlcXVlc3QaHS5taW1pci52MS5HZXRTZXR0aW5nc1Jlc3BvbnNlIgOQAgESTQoMVXBkYXRlQWxlcnRzEh0ubWltaXIudjEuVXBkYXRlQWxlcnRzUmVxdWVzdBoeLm1pbWlyLnYxLlVwZGF0ZUFsZXJ0c1Jlc3BvbnNlElAKDVNlbmRUZXN0QWxlcnQSHi5taW1pci52MS5TZW5kVGVzdEFsZXJ0UmVxdWVzdBofLm1pbWlyLnYxLlNlbmRUZXN0QWxlcnRSZXNwb25zZRJWCg9VcGRhdGVSZXRlbnRpb24SIC5taW1pci52MS5VcGRhdGVSZXRlbnRpb25SZXF1ZXN0GiEubWltaXIudjEuVXBkYXRlUmV0ZW50aW9uUmVzcG9uc2USUwoOVXBkYXRlU2VjdXJpdHkSHy5taW1pci52MS5VcGRhdGVTZWN1cml0eVJlcXVlc3QaIC5taW1pci52MS5VcGRhdGVTZWN1cml0eVJlc3BvbnNlEk0KDFVwZGF0ZUxpbWl0cxIdLm1pbWlyLnYxLlVwZGF0ZUxpbWl0c1JlcXVlc3QaHi5taW1pci52MS5VcGRhdGVMaW1pdHNSZXNwb25zZRJTCg5VcGRhdGVUcmFpbmluZxIfLm1pbWlyLnYxLlVwZGF0ZVRyYWluaW5nUmVxdWVzdBogLm1pbWlyLnYxLlVwZGF0ZVRyYWluaW5nUmVzcG9uc2USRgoIR2V0VXNhZ2USGS5taW1pci52MS5HZXRVc2FnZVJlcXVlc3QaGi5taW1pci52MS5HZXRVc2FnZVJlc3BvbnNlIgOQAgESWwoPR2V0RGF0YWJhc2VJbmZvEiAubWltaXIudjEuR2V0RGF0YWJhc2VJbmZvUmVxdWVzdBohLm1pbWlyLnYxLkdldERhdGFiYXNlSW5mb1Jlc3BvbnNlIgOQAgFCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * EmailAlerts sends alerts through an SMTP server. The password is never
@@ -175,6 +175,11 @@ export type GetSettingsResponse = Message<"mimir.v1.GetSettingsResponse"> & {
    * @generated from field: mimir.v1.Limits limits = 5;
    */
   limits?: Limits | undefined;
+
+  /**
+   * @generated from field: mimir.v1.Training training = 6;
+   */
+  training?: Training | undefined;
 };
 
 /**
@@ -183,6 +188,71 @@ export type GetSettingsResponse = Message<"mimir.v1.GetSettingsResponse"> & {
  */
 export const GetSettingsResponseSchema: GenMessage<GetSettingsResponse> = /*@__PURE__*/
   messageDesc(file_mimir_v1_settings, 4);
+
+/**
+ * Training is where this console's training runs go.
+ *
+ * @generated from message mimir.v1.Training
+ */
+export type Training = Message<"mimir.v1.Training"> & {
+  /**
+   * train_here lets the console train runs in its own process when no
+   * worker takes them. Off, every run waits for a worker, so training
+   * never shares the machine with the API.
+   *
+   * @generated from field: bool train_here = 1;
+   */
+  trainHere: boolean;
+
+  /**
+   * can_train_here says the console runs models itself (-role
+   * standalone); a -role console never trains, whatever train_here says.
+   *
+   * @generated from field: bool can_train_here = 2;
+   */
+  canTrainHere: boolean;
+};
+
+/**
+ * Describes the message mimir.v1.Training.
+ * Use `create(TrainingSchema)` to create a new message.
+ */
+export const TrainingSchema: GenMessage<Training> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 5);
+
+/**
+ * @generated from message mimir.v1.UpdateTrainingRequest
+ */
+export type UpdateTrainingRequest = Message<"mimir.v1.UpdateTrainingRequest"> & {
+  /**
+   * @generated from field: bool train_here = 1;
+   */
+  trainHere: boolean;
+};
+
+/**
+ * Describes the message mimir.v1.UpdateTrainingRequest.
+ * Use `create(UpdateTrainingRequestSchema)` to create a new message.
+ */
+export const UpdateTrainingRequestSchema: GenMessage<UpdateTrainingRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 6);
+
+/**
+ * @generated from message mimir.v1.UpdateTrainingResponse
+ */
+export type UpdateTrainingResponse = Message<"mimir.v1.UpdateTrainingResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Training training = 1;
+   */
+  training?: Training | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.UpdateTrainingResponse.
+ * Use `create(UpdateTrainingResponseSchema)` to create a new message.
+ */
+export const UpdateTrainingResponseSchema: GenMessage<UpdateTrainingResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 7);
 
 /**
  * Limits keep one person or app from using up the server. 0 means no
@@ -219,7 +289,7 @@ export type Limits = Message<"mimir.v1.Limits"> & {
  * Use `create(LimitsSchema)` to create a new message.
  */
 export const LimitsSchema: GenMessage<Limits> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 5);
+  messageDesc(file_mimir_v1_settings, 8);
 
 /**
  * @generated from message mimir.v1.UpdateLimitsRequest
@@ -236,7 +306,7 @@ export type UpdateLimitsRequest = Message<"mimir.v1.UpdateLimitsRequest"> & {
  * Use `create(UpdateLimitsRequestSchema)` to create a new message.
  */
 export const UpdateLimitsRequestSchema: GenMessage<UpdateLimitsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 6);
+  messageDesc(file_mimir_v1_settings, 9);
 
 /**
  * @generated from message mimir.v1.UpdateLimitsResponse
@@ -253,7 +323,7 @@ export type UpdateLimitsResponse = Message<"mimir.v1.UpdateLimitsResponse"> & {
  * Use `create(UpdateLimitsResponseSchema)` to create a new message.
  */
 export const UpdateLimitsResponseSchema: GenMessage<UpdateLimitsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 7);
+  messageDesc(file_mimir_v1_settings, 10);
 
 /**
  * @generated from message mimir.v1.GetUsageRequest
@@ -272,7 +342,7 @@ export type GetUsageRequest = Message<"mimir.v1.GetUsageRequest"> & {
  * Use `create(GetUsageRequestSchema)` to create a new message.
  */
 export const GetUsageRequestSchema: GenMessage<GetUsageRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 8);
+  messageDesc(file_mimir_v1_settings, 11);
 
 /**
  * @generated from message mimir.v1.UsageRow
@@ -311,7 +381,7 @@ export type UsageRow = Message<"mimir.v1.UsageRow"> & {
  * Use `create(UsageRowSchema)` to create a new message.
  */
 export const UsageRowSchema: GenMessage<UsageRow> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 9);
+  messageDesc(file_mimir_v1_settings, 12);
 
 /**
  * @generated from message mimir.v1.GetUsageResponse
@@ -345,7 +415,7 @@ export type GetUsageResponse = Message<"mimir.v1.GetUsageResponse"> & {
  * Use `create(GetUsageResponseSchema)` to create a new message.
  */
 export const GetUsageResponseSchema: GenMessage<GetUsageResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 10);
+  messageDesc(file_mimir_v1_settings, 13);
 
 /**
  * Security says who must use two-step verification.
@@ -364,7 +434,7 @@ export type Security = Message<"mimir.v1.Security"> & {
  * Use `create(SecuritySchema)` to create a new message.
  */
 export const SecuritySchema: GenMessage<Security> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 11);
+  messageDesc(file_mimir_v1_settings, 14);
 
 /**
  * @generated from message mimir.v1.UpdateSecurityRequest
@@ -381,7 +451,7 @@ export type UpdateSecurityRequest = Message<"mimir.v1.UpdateSecurityRequest"> & 
  * Use `create(UpdateSecurityRequestSchema)` to create a new message.
  */
 export const UpdateSecurityRequestSchema: GenMessage<UpdateSecurityRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 12);
+  messageDesc(file_mimir_v1_settings, 15);
 
 /**
  * @generated from message mimir.v1.UpdateSecurityResponse
@@ -398,7 +468,7 @@ export type UpdateSecurityResponse = Message<"mimir.v1.UpdateSecurityResponse"> 
  * Use `create(UpdateSecurityResponseSchema)` to create a new message.
  */
 export const UpdateSecurityResponseSchema: GenMessage<UpdateSecurityResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 13);
+  messageDesc(file_mimir_v1_settings, 16);
 
 /**
  * @generated from message mimir.v1.UpdateAlertsRequest
@@ -420,7 +490,7 @@ export type UpdateAlertsRequest = Message<"mimir.v1.UpdateAlertsRequest"> & {
  * Use `create(UpdateAlertsRequestSchema)` to create a new message.
  */
 export const UpdateAlertsRequestSchema: GenMessage<UpdateAlertsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 14);
+  messageDesc(file_mimir_v1_settings, 17);
 
 /**
  * @generated from message mimir.v1.UpdateAlertsResponse
@@ -442,7 +512,7 @@ export type UpdateAlertsResponse = Message<"mimir.v1.UpdateAlertsResponse"> & {
  * Use `create(UpdateAlertsResponseSchema)` to create a new message.
  */
 export const UpdateAlertsResponseSchema: GenMessage<UpdateAlertsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 15);
+  messageDesc(file_mimir_v1_settings, 18);
 
 /**
  * @generated from message mimir.v1.SendTestAlertRequest
@@ -461,7 +531,7 @@ export type SendTestAlertRequest = Message<"mimir.v1.SendTestAlertRequest"> & {
  * Use `create(SendTestAlertRequestSchema)` to create a new message.
  */
 export const SendTestAlertRequestSchema: GenMessage<SendTestAlertRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 16);
+  messageDesc(file_mimir_v1_settings, 19);
 
 /**
  * @generated from message mimir.v1.SendTestAlertResponse
@@ -474,7 +544,7 @@ export type SendTestAlertResponse = Message<"mimir.v1.SendTestAlertResponse"> & 
  * Use `create(SendTestAlertResponseSchema)` to create a new message.
  */
 export const SendTestAlertResponseSchema: GenMessage<SendTestAlertResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 17);
+  messageDesc(file_mimir_v1_settings, 20);
 
 /**
  * @generated from message mimir.v1.UpdateRetentionRequest
@@ -491,7 +561,7 @@ export type UpdateRetentionRequest = Message<"mimir.v1.UpdateRetentionRequest"> 
  * Use `create(UpdateRetentionRequestSchema)` to create a new message.
  */
 export const UpdateRetentionRequestSchema: GenMessage<UpdateRetentionRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 18);
+  messageDesc(file_mimir_v1_settings, 21);
 
 /**
  * @generated from message mimir.v1.UpdateRetentionResponse
@@ -508,7 +578,7 @@ export type UpdateRetentionResponse = Message<"mimir.v1.UpdateRetentionResponse"
  * Use `create(UpdateRetentionResponseSchema)` to create a new message.
  */
 export const UpdateRetentionResponseSchema: GenMessage<UpdateRetentionResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 19);
+  messageDesc(file_mimir_v1_settings, 22);
 
 /**
  * @generated from message mimir.v1.GetDatabaseInfoRequest
@@ -521,7 +591,7 @@ export type GetDatabaseInfoRequest = Message<"mimir.v1.GetDatabaseInfoRequest"> 
  * Use `create(GetDatabaseInfoRequestSchema)` to create a new message.
  */
 export const GetDatabaseInfoRequestSchema: GenMessage<GetDatabaseInfoRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 20);
+  messageDesc(file_mimir_v1_settings, 23);
 
 /**
  * @generated from message mimir.v1.GetDatabaseInfoResponse
@@ -600,7 +670,7 @@ export type GetDatabaseInfoResponse = Message<"mimir.v1.GetDatabaseInfoResponse"
  * Use `create(GetDatabaseInfoResponseSchema)` to create a new message.
  */
 export const GetDatabaseInfoResponseSchema: GenMessage<GetDatabaseInfoResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_settings, 21);
+  messageDesc(file_mimir_v1_settings, 24);
 
 /**
  * @generated from enum mimir.v1.TwoFactorPolicy
@@ -695,6 +765,17 @@ export const SettingsService: GenService<{
     methodKind: "unary";
     input: typeof UpdateLimitsRequestSchema;
     output: typeof UpdateLimitsResponseSchema;
+  },
+  /**
+   * UpdateTraining says whether this console trains runs in its own
+   * process when no worker takes them.
+   *
+   * @generated from rpc mimir.v1.SettingsService.UpdateTraining
+   */
+  updateTraining: {
+    methodKind: "unary";
+    input: typeof UpdateTrainingRequestSchema;
+    output: typeof UpdateTrainingResponseSchema;
   },
   /**
    * GetUsage counts predictions in a month: everyone's for admins, the

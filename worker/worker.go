@@ -370,6 +370,9 @@ type worker struct {
 
 	mu      sync.Mutex
 	running map[string]context.CancelFunc
+	// tasks is what this link takes: the console's choice from the
+	// welcome, else cfg.Tasks. Set before any task arrives.
+	tasks Tasks
 }
 
 func (w *worker) serve(ctx context.Context) error {
@@ -417,7 +420,11 @@ func (w *worker) serve(ctx context.Context) error {
 	if welcome == nil {
 		return errors.New("worker: the server didn't say welcome")
 	}
-	w.cfg.Log.Info("worker: linked", "server", w.cfg.Server, "as", welcome.Name)
+	w.tasks = w.cfg.Tasks
+	if t, err := ParseTasks(welcome.Tasks); err == nil && welcome.Tasks != "" {
+		w.tasks = t // the console's choice, from the worker's page
+	}
+	w.cfg.Log.Info("worker: linked", "server", w.cfg.Server, "as", welcome.Name, "tasks", string(w.tasks))
 
 	beat := time.NewTicker(15 * time.Second)
 	defer beat.Stop()
@@ -494,7 +501,7 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 		r.TaskId = t.TaskId
 		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_PredictResult{PredictResult: r}})
 	}
-	if w.cfg.Tasks == TasksTrain {
+	if w.tasks == TasksTrain {
 		reply(&mimirv1.PredictResult{Error: "this worker only trains models; it doesn't answer predictions"})
 		return
 	}
@@ -546,8 +553,8 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_TrainResult{TrainResult: r}})
 	}
 	tr, _ := w.handlers[t.Architecture].(Trainer)
-	if w.cfg.Tasks == TasksServe {
-		tr = nil // it only answers; the console was told so in the hello
+	if w.tasks == TasksServe {
+		tr = nil // it only answers; the console knows and sends none
 	}
 	if tr == nil {
 		reply(&mimirv1.TrainResult{Error: "this worker doesn't train " + t.Architecture})
