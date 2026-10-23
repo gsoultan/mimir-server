@@ -158,6 +158,44 @@ systemctl daemon-reload && systemctl enable --now mimir-worker
 The token comes from **Settings → Workers → Add a worker**. The worker
 connects out to the console; it needs no open ports.
 
+### Keeping training off the machines that answer
+
+A worker takes predictions and training runs alike unless you tell it
+which (`-tasks`, or `MIMIR_WORKER_TASKS` in `worker.env`): `train` for
+training runs only, `serve` for predictions only. Three shapes, from one
+machine up:
+
+1. **One machine.** The unit from step 1 as it is (`-role standalone`):
+   the console answers predictions itself and trains runs itself, two at
+   a time (`MIMIR_TRAINING_JOBS`). A training run and the API share the
+   CPUs.
+2. **Console plus workers.** Keep the console on its machine and add
+   workers with `-tasks all`. Set `MIMIR_TRAIN_HERE=false` in `mimir.env`
+   so the console never trains itself: it still answers small models from
+   its own process, and every run goes to a worker. Or run it as
+   `-role console` (edit `ExecStart` in the unit) so it runs no models at
+   all and only coordinates.
+3. **Training and serving apart.** The console as in 2, one or more
+   workers with `MIMIR_WORKER_TASKS=train` on the machines with the cores
+   or the GPU, and one or more with `MIMIR_WORKER_TASKS=serve` close to
+   the API's callers. The console sends runs only to the training workers
+   and predictions only to the serving ones, and a model trained on a
+   training worker is left on *Automatic*, so the serving workers answer
+   it. Scale either side by adding machines: each training worker takes
+   as many runs at once as its `-capacity` (the CPU count by default),
+   and `MIMIR_TRAINING_JOBS` on the console caps the total.
+
+Whatever the shape, a run with no worker to take it waits in the queue
+and starts when one connects, and a worker that stops hands its runs
+back to the queue to resume from their checkpoints. Each worker's page
+under **Settings → Workers** says what it takes (*Teaches only*, *Runs
+only*, or *Runs and teaches*); the teach wizard only offers workers that
+train, and a model's **Runs on** choice only offers workers that answer.
+
+Language models (chat) are the exception: they run on the console
+itself, not on workers, so a console that serves them needs memory for
+them (see step 9) whatever the workers do.
+
 ## 7. Backups
 
 A backup is three things, and `mimir-server backup` takes all of them:

@@ -37,12 +37,17 @@ func joinWorker(t *testing.T, own clients, url, name string) (id, token string, 
 }
 
 func runWorker(t *testing.T, url, token, dir string) func() {
+	return runWorkerFor(t, url, token, dir, worker.TasksAll)
+}
+
+// runWorkerFor is runWorker for a worker that takes only some tasks.
+func runWorkerFor(t *testing.T, url, token, dir string, tasks worker.Tasks) func() {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		worker.Run(ctx, worker.Config{Server: url, Token: token, Capacity: 2, Version: "test", DataDir: dir, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}, builtin.Builtin(t.TempDir()))
+		worker.Run(ctx, worker.Config{Server: url, Token: token, Capacity: 2, Tasks: tasks, Version: "test", DataDir: dir, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}, builtin.Builtin(t.TempDir()))
 	}()
 	stop := func() { cancel(); <-done }
 	t.Cleanup(stop)
@@ -333,5 +338,89 @@ func TestWorkerPinnedTLS(t *testing.T) {
 	err = worker.Run(ctx, worker.Config{Server: "http://10.1.2.3:8080", Token: secret, DataDir: t.TempDir()}, builtin.Builtin(t.TempDir()))
 	if err == nil || !strings.Contains(err.Error(), "isn't encrypted") {
 		t.Fatalf("plain http to another machine: %v", err)
+	}
+}
+
+// TestWorkerTasks keeps training and serving apart: a worker started with
+// -tasks train gets the runs and none of the predictions, one with
+// -tasks serve the other way round, and a model trained on the training
+// worker answers on the serving one.
+func TestWorkerTasks(t *testing.T) {
+	srv := newServer(t)
+	ctx := context.Background()
+	own := owner(t, srv)
+	svc.Local, runner.Local = false, false
+
+	join := func(name string, tasks worker.Tasks) string {
+		t.Helper()
+		created, err := own.workers.CreateWorker(ctx, connect.NewRequest(&mimirv1.CreateWorkerRequest{Name: name}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		runWorkerFor(t, srv.URL, created.Msg.GetToken(), t.TempDir(), tasks)
+		return created.Msg.GetWorker().GetId()
+	}
+	trainer := join("gpu-box", worker.TasksTrain)
+	server := join("api-box", worker.TasksServe)
+	tw, sw := waitOnline(t, own, trainer, true), waitOnline(t, own, server, true)
+	if !tw.GetTrains() || !tw.GetTrainingOnly() {
+		t.Fatalf("training worker reports %v", tw)
+	}
+	if sw.GetTrains() || sw.GetTrainingOnly() {
+		t.Fatalf("serving worker reports %v", sw)
+	}
+
+	// A model can't be placed on the training worker.
+	m := createModel(t, own, "Digits", "mnist-mlp")
+	if _, err := own.models.SetModelWorker(ctx, connect.NewRequest(&mimirv1.SetModelWorkerRequest{Id: m.GetId(), WorkerId: trainer})); code(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("placing a model on the training worker: %v", err)
+	}
+
+	// An automatic run goes to the training worker, and the model it
+	// makes is left on automatic, so the serving worker answers it.
+	ds, err := own.datasets.CreateDataset(ctx, connect.NewRequest(&mimirv1.CreateDatasetRequest{Name: "Fruit", Kind: mimirv1.DatasetKind_DATASET_KIND_TABLE, Csv: []byte(blobs(200))}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, on := range []string{"", trainer} {
+		j, err := own.training.CreateJob(ctx, connect.NewRequest(&mimirv1.CreateJobRequest{Name: "Fruit sorter", Architecture: "table-mlp", DatasetId: ds.Msg.GetDataset().GetId(), Settings: &mimirv1.TrainingSettings{Epochs: 4, LearningRate: 0.01}, WorkerId: on}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		runner.Tick(ctx)
+		got, _ := own.training.GetJob(ctx, connect.NewRequest(&mimirv1.GetJobRequest{Id: j.Msg.GetJob().GetId()}))
+		jb := got.Msg.GetJob()
+		if jb.GetStatus() != mimirv1.JobStatus_JOB_STATUS_SUCCEEDED || jb.GetWorker() != "gpu-box" {
+			t.Fatalf("run placed on %q: %v", on, jb)
+		}
+		trained, _ := own.models.GetModel(ctx, connect.NewRequest(&mimirv1.GetModelRequest{Id: jb.GetModelId()}))
+		if trained.Msg.GetModel().GetWorkerId() != "" {
+			t.Fatalf("model trained on the training worker runs on %q, want automatic", trained.Msg.GetModel().GetWorkerId())
+		}
+		p, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: jb.GetModelId(), Input: &mimirv1.Tensor{Values: []float32{-1, -1}}}))
+		if err != nil || p.Msg.GetGuesses()[0].GetLabel() != "pear" {
+			t.Fatalf("Predict via the serving worker = %v, %v", p, err)
+		}
+	}
+	// Both runs show on the training worker's page and none on the
+	// serving worker's.
+	for id, want := range map[string]int{trainer: 2, server: 0} {
+		d, err := own.workers.GetWorker(ctx, connect.NewRequest(&mimirv1.GetWorkerRequest{Id: id, Hours: 1}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(d.Msg.GetRuns()) != want {
+			t.Fatalf("worker %s trained %v, want %d runs", d.Msg.GetWorker().GetName(), d.Msg.GetRuns(), want)
+		}
+	}
+
+	// A run pinned to the serving worker waits rather than running there.
+	j, err := own.training.CreateJob(ctx, connect.NewRequest(&mimirv1.CreateJobRequest{Name: "Nope", Architecture: "table-mlp", DatasetId: ds.Msg.GetDataset().GetId(), Settings: &mimirv1.TrainingSettings{Epochs: 1}, WorkerId: server}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner.Tick(ctx)
+	if got, _ := own.training.GetJob(ctx, connect.NewRequest(&mimirv1.GetJobRequest{Id: j.Msg.GetJob().GetId()})); got.Msg.GetJob().GetStatus() != mimirv1.JobStatus_JOB_STATUS_QUEUED {
+		t.Fatalf("run pinned to the serving worker: %v", got.Msg.GetJob())
 	}
 }

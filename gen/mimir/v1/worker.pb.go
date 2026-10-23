@@ -56,7 +56,10 @@ type Worker struct {
 	// models is how many models are set to run on it.
 	Models int32 `protobuf:"varint,21,opt,name=models,proto3" json:"models,omitempty"`
 	// waiting is how many runs are waiting for it.
-	Waiting       int32 `protobuf:"varint,22,opt,name=waiting,proto3" json:"waiting,omitempty"`
+	Waiting int32 `protobuf:"varint,22,opt,name=waiting,proto3" json:"waiting,omitempty"`
+	// training_only says the worker takes training runs and no predictions
+	// (it was started with -tasks train).
+	TrainingOnly  bool `protobuf:"varint,23,opt,name=training_only,json=trainingOnly,proto3" json:"training_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -243,6 +246,13 @@ func (x *Worker) GetWaiting() int32 {
 		return x.Waiting
 	}
 	return 0
+}
+
+func (x *Worker) GetTrainingOnly() bool {
+	if x != nil {
+		return x.TrainingOnly
+	}
+	return false
 }
 
 // Stats is how a worker's machine is doing.
@@ -1565,8 +1575,11 @@ type Hello struct {
 	Capacity int32  `protobuf:"varint,6,opt,name=capacity,proto3" json:"capacity,omitempty"`
 	Version  string `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`
 	// public_key is the worker's Ed25519 public key.
-	PublicKey     []byte `protobuf:"bytes,8,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
-	Stats         *Stats `protobuf:"bytes,9,opt,name=stats,proto3" json:"stats,omitempty"`
+	PublicKey []byte `protobuf:"bytes,8,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	Stats     *Stats `protobuf:"bytes,9,opt,name=stats,proto3" json:"stats,omitempty"`
+	// training_only says the worker trains the architectures and does not
+	// answer predictions for them, so the console sends it no predictions.
+	TrainingOnly  bool `protobuf:"varint,10,opt,name=training_only,json=trainingOnly,proto3" json:"training_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1662,6 +1675,13 @@ func (x *Hello) GetStats() *Stats {
 		return x.Stats
 	}
 	return nil
+}
+
+func (x *Hello) GetTrainingOnly() bool {
+	if x != nil {
+		return x.TrainingOnly
+	}
+	return false
 }
 
 // Heartbeat keeps the link alive and carries fresh stats.
@@ -2359,7 +2379,7 @@ var File_mimir_v1_worker_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\n" +
-	"\x15mimir/v1/worker.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mimir/v1/model.proto\x1a\x17mimir/v1/training.proto\"\xc8\x05\n" +
+	"\x15mimir/v1/worker.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mimir/v1/model.proto\x1a\x17mimir/v1/training.proto\"\xed\x05\n" +
 	"\x06Worker\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
@@ -2386,7 +2406,8 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\vtls_version\x18\x14 \x01(\tR\n" +
 	"tlsVersion\x12\x16\n" +
 	"\x06models\x18\x15 \x01(\x05R\x06models\x12\x18\n" +
-	"\awaiting\x18\x16 \x01(\x05R\awaiting\"\x9e\x02\n" +
+	"\awaiting\x18\x16 \x01(\x05R\awaiting\x12#\n" +
+	"\rtraining_only\x18\x17 \x01(\bR\ftrainingOnly\"\x9e\x02\n" +
 	"\x05Stats\x12\x1f\n" +
 	"\vcpu_percent\x18\x01 \x01(\x01R\n" +
 	"cpuPercent\x12*\n" +
@@ -2471,7 +2492,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\tChallenge\x12\x14\n" +
 	"\x05nonce\x18\x01 \x01(\fR\x05nonce\"%\n" +
 	"\x05Proof\x12\x1c\n" +
-	"\tsignature\x18\x01 \x01(\fR\tsignature\"\x90\x02\n" +
+	"\tsignature\x18\x01 \x01(\fR\tsignature\"\xb5\x02\n" +
 	"\x05Hello\x12\x16\n" +
 	"\x06device\x18\x01 \x01(\tR\x06device\x12\x12\n" +
 	"\x04cpus\x18\x02 \x01(\x05R\x04cpus\x12!\n" +
@@ -2482,7 +2503,9 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\aversion\x18\a \x01(\tR\aversion\x12\x1d\n" +
 	"\n" +
 	"public_key\x18\b \x01(\fR\tpublicKey\x12%\n" +
-	"\x05stats\x18\t \x01(\v2\x0f.mimir.v1.StatsR\x05stats\"2\n" +
+	"\x05stats\x18\t \x01(\v2\x0f.mimir.v1.StatsR\x05stats\x12#\n" +
+	"\rtraining_only\x18\n" +
+	" \x01(\bR\ftrainingOnly\"2\n" +
 	"\tHeartbeat\x12%\n" +
 	"\x05stats\x18\x01 \x01(\v2\x0f.mimir.v1.StatsR\x05stats\":\n" +
 	"\aWelcome\x12\x1b\n" +

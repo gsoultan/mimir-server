@@ -153,6 +153,8 @@ function WorkerCard({ w }: { w: Worker }) {
       )}
       <Group gap="md" mt="sm">
         {w.online && <Text size="xs" c="dimmed">{w.busy} of {w.capacity} tasks</Text>}
+        {w.online && w.trainingOnly && <Text size="xs" c="dimmed">teaches only</Text>}
+        {w.online && !w.trains && <Text size="xs" c="dimmed">answers only</Text>}
         {w.models > 0 && <Text size="xs" c="dimmed">{w.models} model{w.models === 1 ? "" : "s"} here</Text>}
         {w.waiting > 0 && <Text size="xs" c="dimmed">{w.waiting} waiting</Text>}
         {w.online && s && <Text size="xs" c="dimmed">up {duration(s.uptimeSeconds)}</Text>}
@@ -178,6 +180,7 @@ export function TokenModal({ token, onClose }: { token?: string; onClose: () => 
         The worker makes its own key the first time it connects, and from then on only that machine can use this token. If you rebuild the machine, make a new token on the worker's page.
         {token?.includes(".") && " The token also carries this console's fingerprint, so the worker checks it reached the right console."}
         {" "}You can put the token in the MIMIR_WORKER_TOKEN environment variable instead of -token.
+        {" "}Add -tasks train to make the worker only teach, or -tasks serve to make it only answer, so training never slows the machines that answer.
       </Text>
       <Group justify="flex-end" mt="lg"><Button onClick={onClose}>I've saved it</Button></Group>
     </Modal>

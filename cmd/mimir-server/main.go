@@ -74,6 +74,7 @@ func run() error {
 	configFile := flag.String("config", os.Getenv(config.Env), "console: the configuration file first-run setup writes and later starts read ($MIMIR_CONFIG); default <data>/mimir.json. Flags and environment variables come first")
 	allowPrivate := flag.Bool("allow-private-webhooks", false, "let webhooks point at local and private addresses (for development)")
 	role := flag.String("role", "standalone", "standalone (the console and a worker in one), console (the web app and API; workers run the models) or worker (runs models for a console)")
+	tasks := flag.String("tasks", os.Getenv("MIMIR_WORKER_TASKS"), "worker: the work it takes: all (predictions and training, the default), serve (predictions only) or train (training runs only), so training machines and serving machines stay apart ($MIMIR_WORKER_TASKS)")
 	tlsCert := flag.String("tls-cert", "", "console: serve TLS with this certificate file")
 	tlsKey := flag.String("tls-key", "", "console: the key for -tls-cert")
 	tlsAuto := flag.Bool("tls-auto", false, "console: serve TLS with a certificate made in the data folder; workers check it by fingerprint")
@@ -94,7 +95,8 @@ func run() error {
 	workerIdle := flag.Duration("worker-idle-timeout", env.duration("MIMIR_WORKER_IDLE_TIMEOUT", cluster.DefaultIdleTimeout), "console: how long a worker may go silent (it heartbeats every 15s) before its link is dropped and its tasks fail ($MIMIR_WORKER_IDLE_TIMEOUT)")
 	cacheMB := flag.Int("model-cache-mb", env.int("MIMIR_MODEL_CACHE_MB", api.DefaultModelCacheBytes>>20), "console and worker: how many MB of models to keep loaded, by file size; the least recently used are dropped first, and the last one loaded always stays; 0 for no limit ($MIMIR_MODEL_CACHE_MB)")
 	maxUploads := flag.Int("max-uploads", env.int("MIMIR_MAX_UPLOADS", server.DefaultMaxUploads), "console: how many model and dataset uploads to take at once; each is held in memory, so more are refused until one finishes ($MIMIR_MAX_UPLOADS)")
-	trainingJobs := flag.Int("training-jobs", env.int("MIMIR_TRAINING_JOBS", 0), "console: how many training jobs run at once (default: one per training slot of the connected workers, plus one for a standalone server, at least 2) ($MIMIR_TRAINING_JOBS)")
+	trainingJobs := flag.Int("training-jobs", env.int("MIMIR_TRAINING_JOBS", 0), "console: how many training jobs run at once (default: one per training slot of the connected workers, plus one for a standalone server that trains here, at least 2) ($MIMIR_TRAINING_JOBS)")
+	trainHere := flag.Bool("train-here", env.bool("MIMIR_TRAIN_HERE", true), "standalone: train runs in this process when no worker takes them; false leaves every run to workers, so training never slows the API served here ($MIMIR_TRAIN_HERE)")
 	webhookWorkers := flag.Int("webhook-workers", env.int("MIMIR_WEBHOOK_WORKERS", 0), "console: how many webhooks are sent to at once; each webhook still gets its events one at a time, in order (default 8) ($MIMIR_WEBHOOK_WORKERS)")
 	flag.Parse()
 	if err := env.err(); err != nil {
@@ -114,7 +116,7 @@ func run() error {
 		if *serverURL == "" || *token == "" {
 			return errors.New("a worker needs -server and -token (or $MIMIR_WORKER_TOKEN)")
 		}
-		log.Info("worker: starting", "server", *serverURL, "data", *data, "version", version)
+		log.Info("worker: starting", "server", *serverURL, "data", *data, "tasks", cmp.Or(*tasks, "all"), "version", version)
 		if err := os.MkdirAll(*data, 0o700); err != nil {
 			return err
 		}
@@ -122,7 +124,11 @@ func run() error {
 		if cacheBytes <= 0 {
 			cacheBytes = -1 // no limit
 		}
-		err := worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Capacity: *capacity, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes}, builtin.Builtin(*data))
+		kind, err := worker.ParseTasks(*tasks)
+		if err != nil {
+			return fmt.Errorf("-tasks: %w", err)
+		}
+		err = worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Capacity: *capacity, Tasks: kind, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes}, builtin.Builtin(*data))
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -134,6 +140,10 @@ func run() error {
 		return fmt.Errorf("unknown -role %q: use standalone, console or worker", *role)
 	}
 	local := *role == "standalone"
+	// A standalone console answers predictions itself; whether it also
+	// trains here is its own choice, so training can be kept off the
+	// machine that serves the API.
+	trainsHere := local && *trainHere
 
 	proxies, err := auth.ParseProxies(*trustedProxies)
 	if err != nil {
@@ -160,7 +170,7 @@ func run() error {
 	listen := func() {
 		listening.Do(func() {
 			go func() {
-				log.Info("listening", "addr", *addr, "data", *data, "role", *role, "tls", tlsConfig != nil, "version", version)
+				log.Info("listening", "addr", *addr, "data", *data, "role", *role, "trains_here", trainsHere, "tls", tlsConfig != nil, "version", version)
 				if tlsConfig != nil {
 					errc <- srv.ListenAndServeTLS("", "")
 					return
@@ -307,7 +317,7 @@ func run() error {
 	// checkpoint.
 	runner := training.New(st, log)
 	runner.Jobs = *trainingJobs
-	runner.Local = local
+	runner.Local = trainsHere
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
 	svc.KickTraining = runner.Kick
@@ -440,6 +450,19 @@ func (e *envDefaults) int(name string, def int) int {
 		return def
 	}
 	return n
+}
+
+func (e *envDefaults) bool(name string, def bool) bool {
+	v := os.Getenv(name)
+	if v == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		e.fail(fmt.Errorf("$%s=%q: want true or false", name, v))
+		return def
+	}
+	return b
 }
 
 func (e *envDefaults) fail(err error) {

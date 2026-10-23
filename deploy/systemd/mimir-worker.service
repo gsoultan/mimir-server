@@ -9,6 +9,13 @@
 #
 #   MIMIR_CONSOLE=https://mimir.example.com
 #   MIMIR_WORKER_TOKEN=mimirw_...
+#
+# To keep training off the machines that answer the API, give each worker
+# a job: `train` takes training runs only, `serve` predictions only, and
+# unset (or `all`) both. See "Keeping training off the machines that
+# answer" in docs/deploy.md.
+#
+#   MIMIR_WORKER_TASKS=train
 
 [Unit]
 Description=mimir-server worker
