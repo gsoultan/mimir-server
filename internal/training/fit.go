@@ -74,6 +74,9 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 		if spec.Layers, err = arch.ParseLayers(s.Layers); err != nil {
 			return Result{}, err
 		}
+		if len(spec.Layers) == 0 {
+			spec.Layers = defaultLayers(t.BaseWeights)
+		}
 	}
 	model := t.Arch.New(spec)
 	fresh := false
@@ -152,6 +155,30 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 		return Result{}, fmt.Errorf("couldn't save the model: %w", err)
 	}
 	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features, Columns: l.Columns, Fresh: fresh}, nil
+}
+
+// defaultLayers is the shape of an undesigned table model: the base
+// model's, when continuing from one, so its weights still fit, and
+// otherwise arch.DefaultLayers.
+func defaultLayers(base []byte) []arch.Layer {
+	if len(base) == 0 {
+		return arch.DefaultLayers
+	}
+	f, err := mim.Parse(base)
+	if err != nil {
+		return arch.DefaultLayers
+	}
+	defer f.Close()
+	md, err := f.Metadata()
+	if err != nil {
+		return arch.DefaultLayers
+	}
+	s, _ := md[arch.LayersKey].(string)
+	ls, err := arch.ParseLayers(s)
+	if err != nil {
+		return arch.DefaultLayers
+	}
+	return ls // nil for a model from before DefaultLayers
 }
 
 // numberLoss is the squared error of a number model, measured in the
