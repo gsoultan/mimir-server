@@ -10,12 +10,12 @@ package schema
 import (
 	"cmp"
 	"fmt"
-	"hash/fnv"
 	"math"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Kind is what a column holds.
@@ -324,6 +324,18 @@ func topValues(count map[string]int) []string {
 // Encode appends the numbers for one row to dst. cell returns the row's
 // value for column i.
 func Encode(dst []float32, cols []Column, cell func(i int) string) []float32 {
+	return encode(dst, cols, cell, nil)
+}
+
+// EncodeRow appends the numbers for one row to dst: cells holds the row's
+// value for each column. miss, when set, is called with the column of
+// every filled cell of a number column that holds no number and so reads
+// as the column's Fill.
+func EncodeRow(dst []float32, cols []Column, cells []string, miss func(j int)) []float32 {
+	return encode(dst, cols, func(i int) string { return cells[i] }, miss)
+}
+
+func encode(dst []float32, cols []Column, cell func(i int) string, miss func(j int)) []float32 {
 	for i, c := range cols {
 		v := strings.TrimSpace(cell(i))
 		switch c.Kind {
@@ -331,6 +343,9 @@ func Encode(dst []float32, cols []Column, cell func(i int) string) []float32 {
 			f, ok := parseNumber(v)
 			if !ok {
 				f = c.Fill
+				if miss != nil && v != "" {
+					miss(i)
+				}
 			}
 			dst = append(dst, float32(f))
 		case YesNo:
@@ -342,7 +357,7 @@ func Encode(dst []float32, cols []Column, cell func(i int) string) []float32 {
 				dst = append(dst, float32(b2i(j == at)))
 			}
 		case Text:
-			dst = append(dst, encodeText(v)...)
+			dst = encodeText(dst, v)
 		}
 	}
 	return dst
@@ -381,24 +396,67 @@ func parseYesNo(v string) (float32, bool) {
 	return 0, false
 }
 
-// Words splits text into lowercase words.
+// Words splits text into lowercase words: runs of letters and digits.
 func Words(s string) []string {
 	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
 	})
 }
 
-// encodeText turns text into TextDims numbers: each word lands in a slot
-// chosen by its hash, so no vocabulary needs keeping, and the counts are
-// scaled to length 1 so long and short messages compare. Only the first
-// MaxWords words count.
-func encodeText(s string) []float32 {
-	out := make([]float32, TextDims)
-	words := Words(s)
-	for _, w := range words[:min(len(words), MaxWords)] {
-		h := fnv.New32a()
-		h.Write([]byte(w))
-		out[h.Sum32()%TextDims]++
+// CountWords returns len(Words(s)) without building the words.
+func CountWords(s string) int {
+	n, in := 0, false
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			if !in {
+				n++
+			}
+			in = true
+		} else {
+			in = false
+		}
+	}
+	return n
+}
+
+// encodeText appends TextDims numbers for the text s to dst: each word
+// lands in a slot chosen by its hash, so no vocabulary needs keeping, and
+// the counts are scaled to length 1 so long and short messages compare.
+// Only the first MaxWords words count.
+//
+// The words are those of Words, and the hash is 32-bit FNV-1a of each
+// word's bytes, computed as the text is read so that a large table's text
+// cells are encoded without copying any of them.
+func encodeText(dst []float32, s string) []float32 {
+	const offset32, prime32 = 2166136261, 16777619
+	at := len(dst)
+	dst = append(dst, make([]float32, TextDims)...)
+	out := dst[at:]
+	words := 0
+	h, in := uint32(offset32), false
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			if r = unicode.ToLower(r); r < utf8.RuneSelf {
+				h = (h ^ uint32(r)) * prime32
+			} else {
+				var buf [utf8.UTFMax]byte
+				for _, b := range buf[:utf8.EncodeRune(buf[:], r)] {
+					h = (h ^ uint32(b)) * prime32
+				}
+			}
+			in = true
+			continue
+		}
+		if in {
+			out[h%TextDims]++
+			h, in = offset32, false
+			if words++; words == MaxWords {
+				break
+			}
+		}
+	}
+	if in && words < MaxWords {
+		out[h%TextDims]++
 	}
 	var norm float64
 	for i, n := range out {
@@ -413,7 +471,7 @@ func encodeText(s string) []float32 {
 			out[i] *= scale
 		}
 	}
-	return out
+	return dst
 }
 
 func b2i(b bool) int {

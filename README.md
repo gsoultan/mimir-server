@@ -593,6 +593,12 @@ mimir-server -role=worker -tasks train -server https://mimir.example.com -token 
 mimir-server -role=worker -tasks serve -server https://mimir.example.com -token mimirw_...
 ```
 
+No GPU of your own? Under **Settings → Workers**, **Rent a GPU for
+training** has the console start a GPU on Modal, AWS EC2, Google Cloud,
+RunPod, Lambda Cloud or Vast.ai when a training run waits, and remove it
+a few minutes after the last one; you pay only while it runs. See
+[Training on a rented GPU](docs/deploy.md#training-on-a-rented-gpu).
+
 You can also decide this from the console: each worker's page under
 **Settings → Workers** has a **What it takes** choice (*As started*,
 *Runs and teaches*, *Teaches only*, *Answers only*) that applies at once
