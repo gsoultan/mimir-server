@@ -588,6 +588,14 @@ You can also decide this from the console: each worker's page under
 to a connected worker. Told to teach only, the models placed on it go back
 to *Automatic*; told to answer only, the runs waiting for it do.
 
+When a run finishes, the console hands the new weights to every worker
+that answers for the model (and loads them itself when it answers)
+before anyone asks, so the first prediction is as quick as the rest. A
+worker keeps answering with the version it has until the new one is
+loaded, so apps calling the API see no error and no pause when a model
+is retrained. A worker that connects gets the models placed on it the
+same way.
+
 The console itself runs no models with `-role=console`, so the API stays
 quick whatever the workers are doing. A `standalone` console answers
 small models itself and, by default, trains runs no worker takes; the

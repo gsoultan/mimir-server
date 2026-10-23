@@ -36,6 +36,7 @@ var (
 	svc        *api.Service
 	dispatcher *webhook.Dispatcher
 	dbURL      string // the test server's own database
+	dataDir    string // and its data folder
 	runner     *training.Runner
 	setupToken string // the one-time token Setup needs on a fresh server
 )
@@ -57,7 +58,8 @@ func startServer(t *testing.T, tls bool) *httptest.Server {
 func startServerWith(t *testing.T, tls bool, configure func(*api.Service)) *httptest.Server {
 	t.Helper()
 	dbURL = testdb.URL(t)
-	st, err := store.Open(context.Background(), dbURL, t.TempDir())
+	dataDir = t.TempDir()
+	st, err := store.Open(context.Background(), dbURL, dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,6 +74,7 @@ func startServerWith(t *testing.T, tls bool, configure func(*api.Service)) *http
 	dispatcher = webhook.New(st, log, true)
 	svc.Pool = cluster.New(log)
 	svc.Pool.OnSample = svc.KeepSample
+	svc.Pool.OnLink = svc.WorkerLinked
 	runner = training.New(st, log)
 	runner.Remote = svc.Pool
 	runner.OnDone = svc.TrainingDone
