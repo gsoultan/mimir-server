@@ -225,6 +225,15 @@ type Config struct {
 	// runs out. 0 finds it from $GOMEMLIMIT, the container's limit or
 	// the machine's memory; negative turns it off.
 	MemoryLimit int64
+	// Key, when set, is the private key the worker proves itself with,
+	// in place of the one in KeyFile. A worker on a machine that starts
+	// fresh each time, such as a rented GPU, is given its key this way so
+	// it is the same worker every time.
+	Key ed25519.PrivateKey
+	// ExitWhenIdle, when above zero, makes Run return nil once the worker
+	// has run nothing for that long, so a machine rented by the minute
+	// stops when the work is done. Zero keeps it running.
+	ExitWhenIdle time.Duration
 }
 
 // DefaultCacheBytes is how many bytes of models a worker keeps when
@@ -259,7 +268,9 @@ func ParseTasks(s string) (Tasks, error) {
 }
 
 // Run joins the server and serves tasks until ctx ends. It returns ctx's
-// error, or a configuration error found before connecting.
+// error, or a configuration error found before connecting. With
+// Config.ExitWhenIdle it also returns nil once the worker has been idle
+// that long.
 func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	if cfg.Server == "" || cfg.Token == "" {
 		return errors.New("worker: Server and Token are required")
@@ -284,7 +295,7 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	case plain && !isLoopback(u.Hostname()):
 		cfg.Log.Warn("worker: connecting without encryption", "server", cfg.Server)
 	}
-	if cfg.KeyFile == "" {
+	if cfg.KeyFile == "" && cfg.Key == nil {
 		dir := cfg.DataDir
 		if dir == "" {
 			conf, err := os.UserConfigDir()
@@ -298,9 +309,13 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	if cfg.DataDir == "" {
 		cfg.DataDir = filepath.Dir(cfg.KeyFile)
 	}
-	key, err := loadKey(cfg.KeyFile)
-	if err != nil {
-		return err
+	key := cfg.Key
+	if key == nil {
+		if key, err = loadKey(cfg.KeyFile); err != nil {
+			return err
+		}
+	} else if len(key) != ed25519.PrivateKeySize {
+		return errors.New("worker: Key isn't an Ed25519 private key")
 	}
 	if cfg.Device == "" {
 		cfg.Device = runtime.GOOS + "/" + runtime.GOARCH
@@ -335,16 +350,25 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 	case cfg.CacheBytes < 0:
 		cfg.CacheBytes = 0 // no bound
 	}
-	w := &worker{cfg: cfg, handlers: handlers, key: key, stats: newSampler(cfg.DataDir), client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
+	w := &worker{cfg: cfg, handlers: handlers, key: key, stats: newSampler(cfg.DataDir), lastActive: time.Now(), client: mimirv1connect.NewWorkerServiceClient(client, strings.TrimRight(cfg.Server, "/"), connect.WithGRPC(), connect.WithSendMaxBytes(maxBytes), connect.WithReadMaxBytes(maxBytes))}
 	w.memory = memguard.New(memguard.Config{Limit: cfg.MemoryLimit, Log: cfg.Log, Name: "worker"})
 	w.stats.memory = w.memory
 	w.memory.Watch(w.memoryChanged)
 	go w.memory.Run(ctx)
 
+	ctx, stop := context.WithCancelCause(ctx)
+	defer stop(nil)
+	if cfg.ExitWhenIdle > 0 {
+		go w.exitWhenIdle(ctx, stop)
+	}
 	delay := time.Second
 	for {
 		started := time.Now()
 		err := w.serve(ctx)
+		if errors.Is(context.Cause(ctx), errIdle) {
+			cfg.Log.Info("worker: idle, stopping", "after", cfg.ExitWhenIdle)
+			return nil
+		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -359,10 +383,38 @@ func Run(ctx context.Context, cfg Config, handlers map[string]Handler) error {
 		}
 		select {
 		case <-ctx.Done():
+			if errors.Is(context.Cause(ctx), errIdle) {
+				return nil
+			}
 			return ctx.Err()
 		case <-time.After(delay):
 		}
 		delay = min(delay*2, 30*time.Second)
+	}
+}
+
+// errIdle is the cause Run's context ends with when the worker stops for
+// being idle.
+var errIdle = errors.New("worker: idle")
+
+// exitWhenIdle ends Run, through stop, once nothing has run for
+// cfg.ExitWhenIdle.
+func (w *worker) exitWhenIdle(ctx context.Context, stop context.CancelCauseFunc) {
+	check := time.NewTicker(min(w.cfg.ExitWhenIdle/4, 15*time.Second))
+	defer check.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-check.C:
+		}
+		w.mu.Lock()
+		idle := w.active == 0 && time.Since(w.lastActive) >= w.cfg.ExitWhenIdle
+		w.mu.Unlock()
+		if idle {
+			stop(errIdle)
+			return
+		}
 	}
 }
 
@@ -384,6 +436,10 @@ type worker struct {
 	mu      sync.Mutex
 	models  *modelCache // the link's; guarded by mu
 	running map[string]task
+	// active is how many tasks are running, and lastActive when one last
+	// started or finished, for Config.ExitWhenIdle. They outlive a link.
+	active     int
+	lastActive time.Time
 	// tasks is what this link takes: the console's choice from the
 	// welcome, else cfg.Tasks. Set before any task arrives.
 	tasks Tasks
@@ -479,6 +535,10 @@ func (w *worker) serve(ctx context.Context) error {
 			tasks.Go(func() {
 				w.slot(ctx, slots, b.Train.TaskId, true, func(tctx context.Context) { w.train(tctx, b.Train) })
 			})
+		case *mimirv1.LinkResponse_Load:
+			// Loading takes no slot: predictions keep flowing, answered
+			// by the version already here until this one is in.
+			tasks.Go(func() { w.load(ctx, b.Load) })
 		case *mimirv1.LinkResponse_Cancel:
 			w.mu.Lock()
 			if t, ok := w.running[b.Cancel.TaskId]; ok {
@@ -507,10 +567,14 @@ func (w *worker) slot(ctx context.Context, slots chan struct{}, id string, train
 	defer cancel(nil)
 	w.mu.Lock()
 	w.running[id] = task{cancel: cancel, train: train}
+	w.active++
+	w.lastActive = time.Now()
 	w.mu.Unlock()
 	defer func() {
 		w.mu.Lock()
 		delete(w.running, id)
+		w.active--
+		w.lastActive = time.Now()
 		w.mu.Unlock()
 	}()
 	f(tctx)
@@ -609,18 +673,11 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 		return
 	}
 	if len(t.Weights) > 0 {
-		m = &Model{ID: t.ModelId, Architecture: t.Architecture, InputShape: ints(t.GetSpec().GetInputShape()), Labels: t.GetSpec().GetLabels(), Features: t.GetSpec().GetFeatures(), Weights: t.Weights, Version: version(t.Weights)}
-		size := int64(len(t.Weights))
-		var unload func()
-		if ld, ok := h.(Loader); ok {
-			if err := ld.Load(ctx, m); err != nil {
-				reply(&mimirv1.PredictResult{Error: err.Error()})
-				return
-			}
-			m.Weights = nil // the handler has its own copy now
-			unload = func() { ld.Unload(m.ID) }
+		var err error
+		if m, err = w.install(ctx, h, t.ModelId, t.Architecture, t.GetSpec(), t.Weights); err != nil {
+			reply(&mimirv1.PredictResult{Error: err.Error()})
+			return
 		}
-		models.put(m, size, unload)
 	} else {
 		m = models.get(t.ModelId)
 	}
@@ -642,6 +699,52 @@ func (w *worker) predict(ctx context.Context, t *mimirv1.PredictTask) {
 		Output:        &mimirv1.Tensor{Shape: []int64{int64(len(p.Output))}, Values: p.Output},
 		Probabilities: &mimirv1.Tensor{Shape: []int64{int64(len(p.Probabilities))}, Values: p.Probabilities},
 	})
+}
+
+// install hands a model's weights to its handler and keeps the model,
+// replacing the version held before. It returns what Predict is given.
+func (w *worker) install(ctx context.Context, h Handler, modelID, archName string, spec *mimirv1.ModelSpec, weights []byte) (*Model, error) {
+	m := &Model{ID: modelID, Architecture: archName, InputShape: ints(spec.GetInputShape()), Labels: spec.GetLabels(), Features: spec.GetFeatures(), Weights: weights, Version: version(weights)}
+	size := int64(len(weights))
+	var unload func()
+	if ld, ok := h.(Loader); ok {
+		if err := ld.Load(ctx, m); err != nil {
+			return nil, err
+		}
+		m.Weights = nil // the handler has its own copy now
+		unload = func() { ld.Unload(m.ID) }
+	}
+	w.mu.Lock()
+	models := w.models
+	w.mu.Unlock()
+	models.put(m, size, unload)
+	return m, nil
+}
+
+// load takes a model's weights ahead of its first prediction.
+func (w *worker) load(ctx context.Context, t *mimirv1.LoadTask) {
+	reply := func(errText string) {
+		w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_LoadResult{LoadResult: &mimirv1.LoadResult{TaskId: t.TaskId, Error: errText}}})
+	}
+	defer w.recovered("loading a "+t.Architecture+" model", reply)
+	if w.tasks == TasksTrain {
+		reply("this worker only trains models; it doesn't answer predictions")
+		return
+	}
+	if w.memory.Level() == memguard.Critical {
+		reply(lowMemoryReply + " to load another model; models it has loaded keep answering")
+		return
+	}
+	h := w.handlers[t.Architecture]
+	if h == nil {
+		reply("this worker doesn't run " + t.Architecture)
+		return
+	}
+	if _, err := w.install(ctx, h, t.ModelId, t.Architecture, t.GetSpec(), t.Weights); err != nil {
+		reply(err.Error())
+		return
+	}
+	reply("")
 }
 
 func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {

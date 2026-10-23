@@ -53,6 +53,7 @@ func (s *Service) SetModelWorker(ctx context.Context, req *connect.Request[mimir
 	}
 	m.WorkerID = wid
 	s.cache.Forget(m.ID)
+	s.WarmModel(m.ID) // its new home gets the weights now, not on the first question
 	s.audit(ctx, p.Actor(), "model.worker", m.Name, "runs on "+where)
 	return connect.NewResponse(&mimirv1.SetModelWorkerResponse{Model: toProto(m)}), nil
 }
@@ -259,6 +260,9 @@ func (s *Service) ReplaceWorkerToken(ctx context.Context, req *connect.Request[m
 	w, err := s.worker(ctx, req.Msg.GetId())
 	if err != nil {
 		return nil, err
+	}
+	if s.cloudGPUWorker(w.ID) {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("The console keeps this worker's token for the GPU it rents. To give it a new one, remove the worker and turn renting a GPU on again."))
 	}
 	token, hash, err := auth.NewToken(WorkerPrefix)
 	if err != nil {
