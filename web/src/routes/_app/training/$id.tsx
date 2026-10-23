@@ -1,20 +1,20 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Group, Progress, SegmentedControl, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Group, NumberInput, Progress, SegmentedControl, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconPlayerPlay, IconRefresh } from "@tabler/icons-react";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { message } from "../../../api/client";
-import { TrainingService, JobStatus } from "../../../api/gen/mimir/v1/training_pb";
-import { allModelQueries, allTrainingQueries, getJob, listArchitectures } from "../../../api/queries";
+import { TrainingService, JobStatus, type Job } from "../../../api/gen/mimir/v1/training_pb";
+import { allModelQueries, allTrainingQueries, getJob, listArchitectures, listJobs } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { useWorkerChoices } from "../../../components/Placement";
 import { TrainingChart } from "../../../components/TrainingChart";
 import { ago } from "../../../lib/format";
-import { active, progress, repeatChoices, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
+import { active, keepWord, progress, repeatChoicesFor, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/training/$id")({
   loader: ({ context, params }) => Promise.all([
@@ -46,7 +46,7 @@ function Run() {
   const cancel = useMutation(TrainingService.method.cancelJob, { onSuccess: refresh });
   const resume = useMutation(TrainingService.method.resumeJob, { onSuccess: refresh });
   const setRepeat = useMutation(TrainingService.method.setRepeat, {
-    onSuccess: async (res) => { await refresh(); notifications.show({ message: res.job && res.job.repeatSeconds > 0n ? `It will keep learning ${repeatWord(res.job.repeatSeconds)}.` : "It won't learn again on its own." }); },
+    onSuccess: async (res) => { await refresh(); notifications.show({ message: res.job && res.job.repeatSeconds > 0n ? `It ${keepWord(res.job)}.` : "It won't learn again on its own." }); },
   });
   const remove = useMutation(TrainingService.method.deleteJob, {
     onSuccess: async () => { await navigate({ to: "/training" }); await refresh(); notifications.show({ message: "Run deleted." }); },
@@ -86,18 +86,25 @@ function Run() {
                 <Text fw={600}>{j.repeatSeconds > 0n ? `Keeps learning ${repeatWord(j.repeatSeconds)}` : "Keep learning is off for this run"}</Text>
                 <Text size="sm" c="dimmed">
                   {j.repeatSeconds > 0n
-                    ? <>Next pass {ago(j.nextRunTime)}: it fetches the examples again and continues from the model, replacing it only if it scores at least as well.</>
+                    ? j.minNewRows > 0n
+                      ? <>Next look {ago(j.nextRunTime)}: it fetches the examples again, and once there are {j.minNewRows.toLocaleString()} more rows than the {j.trainedRows.toLocaleString()} this pass learned from, it continues from the model, replacing it only if it scores at least as well.</>
+                      : <>Next pass {ago(j.nextRunTime)}: it fetches the examples again and continues from the model, replacing it only if it scores at least as well.</>
                     : j.parentId ? <>This was one pass of a model that keeps learning. <Link to="/training/$id" params={{ id: j.parentId }}>See the first run</Link>.</> : null}
                 </Text>
                 {j.note && <Text size="sm" mt={4}>{j.note}</Text>}
+                {j.repeatSeconds > 0n && j.checkTime && j.checkNote && <Text size="sm" mt={4}>Looked {ago(j.checkTime)}: {j.checkNote}</Text>}
               </div>
             </Group>
-            {(
-              <SegmentedControl size="xs" value={String(j.repeatSeconds)} onChange={(v) => setRepeat.mutate({ id, repeatSeconds: BigInt(v) })} data={repeatChoices.some((c) => c.value === String(j.repeatSeconds)) ? repeatChoices : [...repeatChoices, { value: String(j.repeatSeconds), label: repeatWord(j.repeatSeconds) }]} disabled={setRepeat.isPending} />
-            )}
+            <Stack gap="xs" align="flex-start" className="max-w-full">
+              <div className="max-w-full overflow-x-auto">
+              <SegmentedControl size="xs" value={String(j.repeatSeconds)} onChange={(v) => setRepeat.mutate({ id, repeatSeconds: BigInt(v), minNewRows: j.minNewRows })} data={repeatChoicesFor(j.minNewRows, j.repeatSeconds)} disabled={setRepeat.isPending} />
+              </div>
+              {j.repeatSeconds > 0n && <WaitForRows key={String(j.minNewRows)} job={j} pending={setRepeat.isPending} onSave={(n) => setRepeat.mutate({ id, repeatSeconds: n === 0n && j.repeatSeconds < 3600n ? 3600n : j.repeatSeconds, minNewRows: n })} />}
+            </Stack>
           </Group>
         </Card>
       )}
+      {chain && <Passes job={j} number={number} />}
       <Card withBorder radius="lg" padding="lg" aria-live="polite">
         <Group justify="space-between" mb="xs">
           <Group gap="xs">
@@ -155,6 +162,48 @@ function Run() {
         </Card>
       </SimpleGrid>
     </Page>
+  );
+}
+
+// WaitForRows sets how many new rows a pass waits for; 0 learns on every
+// schedule.
+function WaitForRows({ job, pending, onSave }: { job: Job; pending: boolean; onSave: (n: bigint) => void }) {
+  const [rows, setRows] = useState<number | string>(Number(job.minNewRows));
+  const n = BigInt(Math.max(0, Math.floor(Number(rows) || 0)));
+  return (
+    <Group gap="xs" align="flex-end" wrap="nowrap">
+      <NumberInput size="xs" w={170} label="Wait for new rows" min={0} max={1_000_000_000} step={100} thousandSeparator="," value={rows} onChange={setRows} />
+      <Button size="xs" variant="default" disabled={n === job.minNewRows} loading={pending} onClick={() => onSave(n)}>Save</Button>
+    </Group>
+  );
+}
+
+// Passes lists every pass of a model that keeps learning, newest first.
+function Passes({ job, number }: { job: Job; number: boolean }) {
+  const { data } = useQuery({ ...listJobs, refetchInterval: 10_000 });
+  const root = job.parentId || job.id;
+  const passes = (data?.jobs ?? []).filter((p) => p.id === root || p.parentId === root);
+  if (passes.length < 2) return null;
+  return (
+    <Card withBorder radius="lg" padding="lg">
+      <Title order={3} fz="lg" mb="sm">Every pass</Title>
+      <Table.ScrollContainer minWidth={560}>
+        <Table verticalSpacing="xs" fz="sm">
+          <Table.Thead><Table.Tr><Table.Th>Started</Table.Th><Table.Th>Status</Table.Th><Table.Th>Rows</Table.Th><Table.Th>{number ? "Close answers" : "Right answers"}</Table.Th><Table.Th>What happened</Table.Th></Table.Tr></Table.Thead>
+          <Table.Tbody>
+            {passes.map((p) => (
+              <Table.Tr key={p.id}>
+                <Table.Td>{p.id === job.id ? ago(p.createTime) : <Link to="/training/$id" params={{ id: p.id }}>{ago(p.createTime)}</Link>}</Table.Td>
+                <Table.Td><Badge color={statusColor[p.status]} variant="light">{statusWord[p.status]}</Badge></Table.Td>
+                <Table.Td>{p.trainedRows > 0n ? p.trainedRows.toLocaleString() : "–"}</Table.Td>
+                <Table.Td>{p.accuracy > 0 ? `${(p.accuracy * 100).toFixed(1)}%` : "–"}</Table.Td>
+                <Table.Td>{p.status === JobStatus.FAILED ? p.error : p.note || (p.id === root ? "The first run." : "")}</Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+    </Card>
   );
 }
 

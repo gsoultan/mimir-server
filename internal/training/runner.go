@@ -88,6 +88,13 @@ type Runner struct {
 	Remote Remote
 	// Now tells the time, for keep-learning schedules; tests move it.
 	Now func() time.Time
+	// Admit, when set, is asked before a keep-learning pass fetches its
+	// rows again, with a guess at the bytes the fetch takes; false puts
+	// the pass off for a few minutes. Nil admits every fetch.
+	Admit func(need int64) bool
+
+	refreshing   sync.WaitGroup // keep-learning passes being prepared
+	refreshSlots chan struct{}  // bounds them to RefreshesAtOnce
 }
 
 // Remote is a pool of workers that can train jobs.
@@ -125,7 +132,7 @@ var ErrWorkerLost = errors.New("the worker disconnected")
 
 // New returns a Runner over st that trains locally.
 func New(st *store.Store, log *slog.Logger) *Runner {
-	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1), freed: make(chan struct{}, 1), local: make(chan struct{}, 1), Local: true, Now: time.Now}
+	return &Runner{st: st, log: log, running: map[string]context.CancelCauseFunc{}, wake: make(chan struct{}, 1), freed: make(chan struct{}, 1), local: make(chan struct{}, 1), refreshSlots: make(chan struct{}, RefreshesAtOnce), Local: true, Now: time.Now}
 }
 
 // Kick asks the runner to look at the queue now.
@@ -156,6 +163,7 @@ func (r *Runner) Run(ctx context.Context) {
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
 	defer r.jobs.Wait()
+	defer r.refreshing.Wait()
 	for {
 		r.schedule(ctx)
 		r.drain(ctx)
@@ -172,6 +180,7 @@ func (r *Runner) Run(ctx context.Context) {
 // waits for them, for tests.
 func (r *Runner) Tick(ctx context.Context) {
 	r.schedule(ctx)
+	r.refreshing.Wait()
 	r.drain(ctx)
 	r.jobs.Wait()
 }
