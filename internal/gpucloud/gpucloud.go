@@ -510,8 +510,8 @@ func (l *Launcher) machineFor(c Config) (Machine, error) {
 			programPath, shellQuote(strings.TrimRight(c.ConsoleURL, "/")), dataDir, c.Capacity, c.IdleMinutes, strings.ToLower(c.GPU)),
 	}, "\n")
 	return Machine{
-		WorkerID:  c.WorkerID,
-		GPU:       c.GPU,
+		WorkerID: c.WorkerID,
+		GPU:      c.GPU,
 		// A physical core (two vCPUs) and 4 GB: Modal bills a sandbox's
 		// CPU and memory at three times its usual rate, so only what
 		// feeding the GPU needs.
