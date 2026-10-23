@@ -22,6 +22,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gsoultan/mimir/backend/cpu"
+
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
@@ -96,6 +98,7 @@ func run() error {
 	maxUploads := flag.Int("max-uploads", env.int("MIMIR_MAX_UPLOADS", server.DefaultMaxUploads), "console: how many model and dataset uploads to take at once; each is held in memory, so more are refused until one finishes ($MIMIR_MAX_UPLOADS)")
 	trainingJobs := flag.Int("training-jobs", env.int("MIMIR_TRAINING_JOBS", 0), "console: how many training jobs run at once (default: one per training slot of the connected workers, plus one for a standalone server, at least 2) ($MIMIR_TRAINING_JOBS)")
 	webhookWorkers := flag.Int("webhook-workers", env.int("MIMIR_WEBHOOK_WORKERS", 0), "console: how many webhooks are sent to at once; each webhook still gets its events one at a time, in order (default 8) ($MIMIR_WEBHOOK_WORKERS)")
+	bf16 := flag.Bool("bf16", env.bool("MIMIR_BF16", false), "console and worker: train and run models with bfloat16 matrix products on CPUs with Intel AMX (Xeon from Sapphire Rapids on), about 1.6 times faster training of deep table models for a tenth of a point of accuracy or less; elsewhere it changes nothing ($MIMIR_BF16)")
 	flag.Parse()
 	if err := env.err(); err != nil {
 		return err
@@ -108,6 +111,13 @@ func run() error {
 	log := slog.New(obs.NewLogHandler(slog.NewJSONHandler(os.Stderr, nil)))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if *bf16 {
+		if cpu.SetMatMulBFloat16(true) {
+			log.Info("bf16: matrix products in bfloat16 on AMX")
+		} else {
+			log.Warn("bf16: this CPU has no AMX, so matrix products stay in float32")
+		}
+	}
 
 	switch *role {
 	case "worker":
@@ -440,6 +450,19 @@ func (e *envDefaults) int(name string, def int) int {
 		return def
 	}
 	return n
+}
+
+func (e *envDefaults) bool(name string, def bool) bool {
+	v := os.Getenv(name)
+	if v == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		e.fail(fmt.Errorf("$%s=%q: want true or false", name, v))
+		return def
+	}
+	return b
 }
 
 func (e *envDefaults) fail(err error) {
