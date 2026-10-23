@@ -199,7 +199,6 @@ func TestWorkerStaysUpPastItsMemoryBudget(t *testing.T) {
 	ctx := context.Background()
 	own := owner(t, srv)
 	svc.Local, runner.Local = false, false
-	t.Cleanup(func() { svc.Local, runner.Local = true, true })
 	id := startWorker(t, srv.URL, own, "small", budgetHeadroom, nil)
 	waitPressure(t, own, id, 0)
 
@@ -298,7 +297,6 @@ func TestWorkerSurvivesAPanic(t *testing.T) {
 	ctx := context.Background()
 	own := owner(t, srv)
 	svc.Local = false
-	t.Cleanup(func() { svc.Local = true })
 	id := startWorker(t, srv.URL, own, "buggy", 0, func(hs map[string]worker.Handler) {
 		hs["mnist-mlp"] = panicky{hs["mnist-mlp"]}
 	})
