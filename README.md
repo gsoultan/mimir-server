@@ -582,6 +582,12 @@ mimir-server -role=worker -tasks train -server https://mimir.example.com -token 
 mimir-server -role=worker -tasks serve -server https://mimir.example.com -token mimirw_...
 ```
 
+No GPU of your own? Under **Settings → Workers**, **Rent a GPU for
+training** has the console start a GPU on [Modal](https://modal.com)
+when a training run waits, and stop it a few minutes after the last one;
+you pay Modal only while it runs. See
+[Training on a GPU rented from Modal](docs/deploy.md#training-on-a-gpu-rented-from-modal).
+
 You can also decide this from the console: each worker's page under
 **Settings → Workers** has a **What it takes** choice (*As started*,
 *Runs and teaches*, *Teaches only*, *Answers only*) that applies at once

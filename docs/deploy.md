@@ -199,6 +199,83 @@ Language models (chat) are the exception: they run on the console
 itself, not on workers, so a console that serves them needs memory for
 them (see step 9) whatever the workers do.
 
+### Training on a GPU rented from Modal
+
+Instead of keeping a GPU machine of your own, the console can rent one
+from [Modal](https://modal.com) by the second, only while a run trains.
+When a training run waits that nothing connected takes, the console
+starts a machine with the GPU you chose on Modal, running this same
+mimir-server as a worker that teaches only (`-tasks train`). It trains
+the run on the GPU, waits a few minutes for more, and stops itself. The
+model it made is answered by your serving workers, which get the new
+weights with the first question after it was trained.
+
+**Set it up**
+
+1. Make an account on modal.com and an API token under **Settings → API
+   tokens**. It is a pair: an id starting `ak-` and a secret starting
+   `as-`.
+2. Under **Settings → Workers**, in **Rent a GPU for training**, turn on
+   **Start a GPU on Modal when a training run waits**, paste the token,
+   pick a GPU and check **This console's address**. Save.
+   Instead of pasting the token, you can set `MODAL_TOKEN_ID` and
+   `MODAL_TOKEN_SECRET` in `/etc/mimir/mimir.env` and leave the fields
+   empty.
+3. Make sure runs go to it: turn off **Training on this console** (or run
+   the console as `-role console`), so runs placed on *Automatic* that no
+   other worker takes wait for the GPU, or pick **Modal GPU** under
+   **Train on** when you start a run.
+
+Saving adds a worker called **Modal GPU** to the list. Its card says
+*Asleep* until a run waits; then it starts (a few minutes the first time,
+while Modal fetches the CUDA image, under a minute after that), shows as
+online while it trains, and goes back to sleep. **Stop it now** stops it
+at once; a run it was training goes back in the queue and resumes from its
+checkpoint. If it can't start, the card says why and the console tries
+again after a minute, then less often.
+
+What it needs:
+
+- **The console reachable from the internet over https**, at the address
+  you give, through the proxy from step 4 or `-tls-auto`. The machine on
+  Modal connects out to it, like any worker. A console on a private
+  network can't use this.
+- **The program.** The machine downloads mimir-server from the console
+  itself (it shows the worker's token for it), so both run the same
+  version. That works when the console runs on linux/amd64, as the
+  release does. Otherwise give a **Download address** for the linux/amd64
+  build of the same version. The proxy must pass `/api/workers/program`
+  (both configs in `deploy/` do; it is about 80 MB).
+- **Its identity.** The console makes the worker's token and key itself
+  and keeps them encrypted with its other secrets, so every machine it
+  starts is the same worker. To replace them, remove the **Modal GPU**
+  worker (which turns renting off) and turn it on again.
+
+What it costs: Modal bills each second the machine runs, from starting to
+stopping, at its price for the GPU plus about $0.24 an hour for the CPU
+core and 4 GB of memory that come with it (Modal charges a sandbox's CPU
+and memory at three times its usual rate). GPU prices on
+modal.com/pricing when this was written:
+
+| GPU | Memory | An hour |
+| --- | --- | --- |
+| T4 | 16 GB | $0.59 |
+| L4 | 24 GB | $0.80 |
+| A10 | 24 GB | $1.10 |
+| L40S | 48 GB | $1.95 |
+| A100 | 40 GB | $2.10 |
+| A100 | 80 GB | $2.50 |
+| H100 | 80 GB | $3.95 |
+
+So a 10-minute run on an L4 with the default 5 minutes of waiting costs
+about 15 minutes, or $0.26. Modal's free Starter plan includes $30 of
+use a month, and you can set a spending limit for the workspace there. Tables, text and small photo sets train well on a T4 or L4; large
+photo sets are where an A100 or H100 pays off. **Longest run of a
+machine** (6 hours by default, at most 24) caps what one machine can
+cost; a run still going then resumes on a fresh machine. The machines run
+under an app called `mimir-worker` on modal.com, where their logs and
+spending are.
+
 ## 7. Backups
 
 A backup is three things, and `mimir-server backup` takes all of them:

@@ -43,6 +43,18 @@ service WorkerService {
   // sent tasks. The first key a token joins with is the one it must keep
   // using.
   rpc Link(stream LinkRequest) returns (stream LinkResponse);
+  // GetCloudGpu says how training runs rent a GPU on Modal when they
+  // wait, and whether one is running now.
+  rpc GetCloudGpu(GetCloudGpuRequest) returns (GetCloudGpuResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // UpdateCloudGpu sets it up, changes it, or turns it off. Turning it on
+  // the first time adds a worker for it, which teaches only.
+  rpc UpdateCloudGpu(UpdateCloudGpuRequest) returns (UpdateCloudGpuResponse);
+  // StopCloudGpu stops the rented GPU now, whatever it is doing. Runs on
+  // it go back in the queue to resume from their checkpoints, and start
+  // it again if they still wait.
+  rpc StopCloudGpu(StopCloudGpuRequest) returns (StopCloudGpuResponse);
 }
 
 // Worker is a process that runs models for this server, here or elsewhere.
@@ -343,4 +355,72 @@ message TrainResult {
 
 message CancelTask {
   string task_id = 1;
+}
+
+// CloudGpu is a GPU rented on Modal (modal.com) by the minute for training.
+// When a training run waits that no other worker can take, the console
+// starts a machine with that GPU on Modal running this server as a
+// worker that teaches only. It stops once it has had nothing to do for
+// idle_minutes, so it is paid for only while it trains.
+message CloudGpu {
+  bool enabled = 1;
+  // token_id is the Modal token's id (ak-...). Its secret is never shown;
+  // has_token_secret says one is stored.
+  string token_id = 2;
+  bool has_token_secret = 3;
+  // gpu is the Modal GPU type, such as T4, L4, A10, L40S, A100-40GB,
+  // A100-80GB, H100, H200 or B200.
+  string gpu = 4;
+  // console_url is the https address the GPU machine reaches this console
+  // at, such as https://mimir.example.com.
+  string console_url = 5;
+  // idle_minutes is how long it waits for more work before it stops.
+  int32 idle_minutes = 6;
+  // max_hours is the longest one machine runs. A run still going then
+  // goes back in the queue and resumes on a fresh one.
+  int32 max_hours = 7;
+  // capacity is how many runs it trains at once.
+  int32 capacity = 8;
+  // program_url, when set, is where the machine downloads mimir-server
+  // for linux/amd64 from. Empty takes it from this console, which works
+  // when the console itself runs on linux/amd64 (can_serve_program).
+  string program_url = 9;
+  bool can_serve_program = 10;
+  // worker_id is the worker the rented GPU joins as.
+  string worker_id = 11;
+  // state is "off", "asleep" (nothing waiting), "starting", "running" or
+  // "failed"; state_time is when it got there and error says why it
+  // failed.
+  string state = 12;
+  google.protobuf.Timestamp state_time = 13;
+  string error = 14;
+}
+
+message GetCloudGpuRequest {}
+
+message GetCloudGpuResponse {
+  CloudGpu cloud_gpu = 1;
+}
+
+message UpdateCloudGpuRequest {
+  bool enabled = 1;
+  string token_id = 2;
+  // token_secret replaces the stored one; empty keeps it.
+  string token_secret = 3;
+  string gpu = 4;
+  string console_url = 5;
+  int32 idle_minutes = 6;
+  int32 max_hours = 7;
+  int32 capacity = 8;
+  string program_url = 9;
+}
+
+message UpdateCloudGpuResponse {
+  CloudGpu cloud_gpu = 1;
+}
+
+message StopCloudGpuRequest {}
+
+message StopCloudGpuResponse {
+  CloudGpu cloud_gpu = 1;
 }

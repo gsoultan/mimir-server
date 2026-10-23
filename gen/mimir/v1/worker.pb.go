@@ -2492,6 +2492,489 @@ func (x *CancelTask) GetTaskId() string {
 	return ""
 }
 
+// CloudGpu is a GPU rented on Modal (modal.com) by the minute for training.
+// When a training run waits that no other worker can take, the console
+// starts a machine with that GPU on Modal running this server as a
+// worker that teaches only. It stops once it has had nothing to do for
+// idle_minutes, so it is paid for only while it trains.
+type CloudGpu struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Enabled bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// token_id is the Modal token's id (ak-...). Its secret is never shown;
+	// has_token_secret says one is stored.
+	TokenId        string `protobuf:"bytes,2,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	HasTokenSecret bool   `protobuf:"varint,3,opt,name=has_token_secret,json=hasTokenSecret,proto3" json:"has_token_secret,omitempty"`
+	// gpu is the Modal GPU type, such as T4, L4, A10, L40S, A100-40GB,
+	// A100-80GB, H100, H200 or B200.
+	Gpu string `protobuf:"bytes,4,opt,name=gpu,proto3" json:"gpu,omitempty"`
+	// console_url is the https address the GPU machine reaches this console
+	// at, such as https://mimir.example.com.
+	ConsoleUrl string `protobuf:"bytes,5,opt,name=console_url,json=consoleUrl,proto3" json:"console_url,omitempty"`
+	// idle_minutes is how long it waits for more work before it stops.
+	IdleMinutes int32 `protobuf:"varint,6,opt,name=idle_minutes,json=idleMinutes,proto3" json:"idle_minutes,omitempty"`
+	// max_hours is the longest one machine runs. A run still going then
+	// goes back in the queue and resumes on a fresh one.
+	MaxHours int32 `protobuf:"varint,7,opt,name=max_hours,json=maxHours,proto3" json:"max_hours,omitempty"`
+	// capacity is how many runs it trains at once.
+	Capacity int32 `protobuf:"varint,8,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	// program_url, when set, is where the machine downloads mimir-server
+	// for linux/amd64 from. Empty takes it from this console, which works
+	// when the console itself runs on linux/amd64 (can_serve_program).
+	ProgramUrl      string `protobuf:"bytes,9,opt,name=program_url,json=programUrl,proto3" json:"program_url,omitempty"`
+	CanServeProgram bool   `protobuf:"varint,10,opt,name=can_serve_program,json=canServeProgram,proto3" json:"can_serve_program,omitempty"`
+	// worker_id is the worker the rented GPU joins as.
+	WorkerId string `protobuf:"bytes,11,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	// state is "off", "asleep" (nothing waiting), "starting", "running" or
+	// "failed"; state_time is when it got there and error says why it
+	// failed.
+	State         string                 `protobuf:"bytes,12,opt,name=state,proto3" json:"state,omitempty"`
+	StateTime     *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=state_time,json=stateTime,proto3" json:"state_time,omitempty"`
+	Error         string                 `protobuf:"bytes,14,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CloudGpu) Reset() {
+	*x = CloudGpu{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CloudGpu) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloudGpu) ProtoMessage() {}
+
+func (x *CloudGpu) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloudGpu.ProtoReflect.Descriptor instead.
+func (*CloudGpu) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *CloudGpu) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *CloudGpu) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *CloudGpu) GetHasTokenSecret() bool {
+	if x != nil {
+		return x.HasTokenSecret
+	}
+	return false
+}
+
+func (x *CloudGpu) GetGpu() string {
+	if x != nil {
+		return x.Gpu
+	}
+	return ""
+}
+
+func (x *CloudGpu) GetConsoleUrl() string {
+	if x != nil {
+		return x.ConsoleUrl
+	}
+	return ""
+}
+
+func (x *CloudGpu) GetIdleMinutes() int32 {
+	if x != nil {
+		return x.IdleMinutes
+	}
+	return 0
+}
+
+func (x *CloudGpu) GetMaxHours() int32 {
+	if x != nil {
+		return x.MaxHours
+	}
+	return 0
+}
+
+func (x *CloudGpu) GetCapacity() int32 {
+	if x != nil {
+		return x.Capacity
+	}
+	return 0
+}
+
+func (x *CloudGpu) GetProgramUrl() string {
+	if x != nil {
+		return x.ProgramUrl
+	}
+	return ""
+}
+
+func (x *CloudGpu) GetCanServeProgram() bool {
+	if x != nil {
+		return x.CanServeProgram
+	}
+	return false
+}
+
+func (x *CloudGpu) GetWorkerId() string {
+	if x != nil {
+		return x.WorkerId
+	}
+	return ""
+}
+
+func (x *CloudGpu) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *CloudGpu) GetStateTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StateTime
+	}
+	return nil
+}
+
+func (x *CloudGpu) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type GetCloudGpuRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCloudGpuRequest) Reset() {
+	*x = GetCloudGpuRequest{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCloudGpuRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCloudGpuRequest) ProtoMessage() {}
+
+func (x *GetCloudGpuRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCloudGpuRequest.ProtoReflect.Descriptor instead.
+func (*GetCloudGpuRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{34}
+}
+
+type GetCloudGpuResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CloudGpu      *CloudGpu              `protobuf:"bytes,1,opt,name=cloud_gpu,json=cloudGpu,proto3" json:"cloud_gpu,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCloudGpuResponse) Reset() {
+	*x = GetCloudGpuResponse{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCloudGpuResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCloudGpuResponse) ProtoMessage() {}
+
+func (x *GetCloudGpuResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCloudGpuResponse.ProtoReflect.Descriptor instead.
+func (*GetCloudGpuResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *GetCloudGpuResponse) GetCloudGpu() *CloudGpu {
+	if x != nil {
+		return x.CloudGpu
+	}
+	return nil
+}
+
+type UpdateCloudGpuRequest struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Enabled bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	TokenId string                 `protobuf:"bytes,2,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	// token_secret replaces the stored one; empty keeps it.
+	TokenSecret   string `protobuf:"bytes,3,opt,name=token_secret,json=tokenSecret,proto3" json:"token_secret,omitempty"`
+	Gpu           string `protobuf:"bytes,4,opt,name=gpu,proto3" json:"gpu,omitempty"`
+	ConsoleUrl    string `protobuf:"bytes,5,opt,name=console_url,json=consoleUrl,proto3" json:"console_url,omitempty"`
+	IdleMinutes   int32  `protobuf:"varint,6,opt,name=idle_minutes,json=idleMinutes,proto3" json:"idle_minutes,omitempty"`
+	MaxHours      int32  `protobuf:"varint,7,opt,name=max_hours,json=maxHours,proto3" json:"max_hours,omitempty"`
+	Capacity      int32  `protobuf:"varint,8,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	ProgramUrl    string `protobuf:"bytes,9,opt,name=program_url,json=programUrl,proto3" json:"program_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCloudGpuRequest) Reset() {
+	*x = UpdateCloudGpuRequest{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCloudGpuRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCloudGpuRequest) ProtoMessage() {}
+
+func (x *UpdateCloudGpuRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCloudGpuRequest.ProtoReflect.Descriptor instead.
+func (*UpdateCloudGpuRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *UpdateCloudGpuRequest) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *UpdateCloudGpuRequest) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *UpdateCloudGpuRequest) GetTokenSecret() string {
+	if x != nil {
+		return x.TokenSecret
+	}
+	return ""
+}
+
+func (x *UpdateCloudGpuRequest) GetGpu() string {
+	if x != nil {
+		return x.Gpu
+	}
+	return ""
+}
+
+func (x *UpdateCloudGpuRequest) GetConsoleUrl() string {
+	if x != nil {
+		return x.ConsoleUrl
+	}
+	return ""
+}
+
+func (x *UpdateCloudGpuRequest) GetIdleMinutes() int32 {
+	if x != nil {
+		return x.IdleMinutes
+	}
+	return 0
+}
+
+func (x *UpdateCloudGpuRequest) GetMaxHours() int32 {
+	if x != nil {
+		return x.MaxHours
+	}
+	return 0
+}
+
+func (x *UpdateCloudGpuRequest) GetCapacity() int32 {
+	if x != nil {
+		return x.Capacity
+	}
+	return 0
+}
+
+func (x *UpdateCloudGpuRequest) GetProgramUrl() string {
+	if x != nil {
+		return x.ProgramUrl
+	}
+	return ""
+}
+
+type UpdateCloudGpuResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CloudGpu      *CloudGpu              `protobuf:"bytes,1,opt,name=cloud_gpu,json=cloudGpu,proto3" json:"cloud_gpu,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCloudGpuResponse) Reset() {
+	*x = UpdateCloudGpuResponse{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCloudGpuResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCloudGpuResponse) ProtoMessage() {}
+
+func (x *UpdateCloudGpuResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCloudGpuResponse.ProtoReflect.Descriptor instead.
+func (*UpdateCloudGpuResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *UpdateCloudGpuResponse) GetCloudGpu() *CloudGpu {
+	if x != nil {
+		return x.CloudGpu
+	}
+	return nil
+}
+
+type StopCloudGpuRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopCloudGpuRequest) Reset() {
+	*x = StopCloudGpuRequest{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopCloudGpuRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopCloudGpuRequest) ProtoMessage() {}
+
+func (x *StopCloudGpuRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopCloudGpuRequest.ProtoReflect.Descriptor instead.
+func (*StopCloudGpuRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{38}
+}
+
+type StopCloudGpuResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CloudGpu      *CloudGpu              `protobuf:"bytes,1,opt,name=cloud_gpu,json=cloudGpu,proto3" json:"cloud_gpu,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopCloudGpuResponse) Reset() {
+	*x = StopCloudGpuResponse{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopCloudGpuResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopCloudGpuResponse) ProtoMessage() {}
+
+func (x *StopCloudGpuResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopCloudGpuResponse.ProtoReflect.Descriptor instead.
+func (*StopCloudGpuResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *StopCloudGpuResponse) GetCloudGpu() *CloudGpu {
+	if x != nil {
+		return x.CloudGpu
+	}
+	return nil
+}
+
 var File_mimir_v1_worker_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_worker_proto_rawDesc = "" +
@@ -2686,7 +3169,46 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x05fresh\x18\a \x01(\bR\x05fresh\"%\n" +
 	"\n" +
 	"CancelTask\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId2\x9d\x05\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\xc9\x03\n" +
+	"\bCloudGpu\x12\x18\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x19\n" +
+	"\btoken_id\x18\x02 \x01(\tR\atokenId\x12(\n" +
+	"\x10has_token_secret\x18\x03 \x01(\bR\x0ehasTokenSecret\x12\x10\n" +
+	"\x03gpu\x18\x04 \x01(\tR\x03gpu\x12\x1f\n" +
+	"\vconsole_url\x18\x05 \x01(\tR\n" +
+	"consoleUrl\x12!\n" +
+	"\fidle_minutes\x18\x06 \x01(\x05R\vidleMinutes\x12\x1b\n" +
+	"\tmax_hours\x18\a \x01(\x05R\bmaxHours\x12\x1a\n" +
+	"\bcapacity\x18\b \x01(\x05R\bcapacity\x12\x1f\n" +
+	"\vprogram_url\x18\t \x01(\tR\n" +
+	"programUrl\x12*\n" +
+	"\x11can_serve_program\x18\n" +
+	" \x01(\bR\x0fcanServeProgram\x12\x1b\n" +
+	"\tworker_id\x18\v \x01(\tR\bworkerId\x12\x14\n" +
+	"\x05state\x18\f \x01(\tR\x05state\x129\n" +
+	"\n" +
+	"state_time\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tstateTime\x12\x14\n" +
+	"\x05error\x18\x0e \x01(\tR\x05error\"\x14\n" +
+	"\x12GetCloudGpuRequest\"F\n" +
+	"\x13GetCloudGpuResponse\x12/\n" +
+	"\tcloud_gpu\x18\x01 \x01(\v2\x12.mimir.v1.CloudGpuR\bcloudGpu\"\x9f\x02\n" +
+	"\x15UpdateCloudGpuRequest\x12\x18\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x19\n" +
+	"\btoken_id\x18\x02 \x01(\tR\atokenId\x12!\n" +
+	"\ftoken_secret\x18\x03 \x01(\tR\vtokenSecret\x12\x10\n" +
+	"\x03gpu\x18\x04 \x01(\tR\x03gpu\x12\x1f\n" +
+	"\vconsole_url\x18\x05 \x01(\tR\n" +
+	"consoleUrl\x12!\n" +
+	"\fidle_minutes\x18\x06 \x01(\x05R\vidleMinutes\x12\x1b\n" +
+	"\tmax_hours\x18\a \x01(\x05R\bmaxHours\x12\x1a\n" +
+	"\bcapacity\x18\b \x01(\x05R\bcapacity\x12\x1f\n" +
+	"\vprogram_url\x18\t \x01(\tR\n" +
+	"programUrl\"I\n" +
+	"\x16UpdateCloudGpuResponse\x12/\n" +
+	"\tcloud_gpu\x18\x01 \x01(\v2\x12.mimir.v1.CloudGpuR\bcloudGpu\"\x15\n" +
+	"\x13StopCloudGpuRequest\"G\n" +
+	"\x14StopCloudGpuResponse\x12/\n" +
+	"\tcloud_gpu\x18\x01 \x01(\v2\x12.mimir.v1.CloudGpuR\bcloudGpu2\x92\a\n" +
 	"\rWorkerService\x12O\n" +
 	"\vListWorkers\x12\x1c.mimir.v1.ListWorkersRequest\x1a\x1d.mimir.v1.ListWorkersResponse\"\x03\x90\x02\x01\x12M\n" +
 	"\fCreateWorker\x12\x1d.mimir.v1.CreateWorkerRequest\x1a\x1e.mimir.v1.CreateWorkerResponse\x12M\n" +
@@ -2695,7 +3217,10 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x12ReplaceWorkerToken\x12#.mimir.v1.ReplaceWorkerTokenRequest\x1a$.mimir.v1.ReplaceWorkerTokenResponse\x12S\n" +
 	"\x0eSetWorkerTasks\x12\x1f.mimir.v1.SetWorkerTasksRequest\x1a .mimir.v1.SetWorkerTasksResponse\x12a\n" +
 	"\x11ListWorkerChoices\x12\".mimir.v1.ListWorkerChoicesRequest\x1a#.mimir.v1.ListWorkerChoicesResponse\"\x03\x90\x02\x01\x129\n" +
-	"\x04Link\x12\x15.mimir.v1.LinkRequest\x1a\x16.mimir.v1.LinkResponse(\x010\x01B7Z5github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1b\x06proto3"
+	"\x04Link\x12\x15.mimir.v1.LinkRequest\x1a\x16.mimir.v1.LinkResponse(\x010\x01\x12O\n" +
+	"\vGetCloudGpu\x12\x1c.mimir.v1.GetCloudGpuRequest\x1a\x1d.mimir.v1.GetCloudGpuResponse\"\x03\x90\x02\x01\x12S\n" +
+	"\x0eUpdateCloudGpu\x12\x1f.mimir.v1.UpdateCloudGpuRequest\x1a .mimir.v1.UpdateCloudGpuResponse\x12M\n" +
+	"\fStopCloudGpu\x12\x1d.mimir.v1.StopCloudGpuRequest\x1a\x1e.mimir.v1.StopCloudGpuResponseB7Z5github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1b\x06proto3"
 
 var (
 	file_mimir_v1_worker_proto_rawDescOnce sync.Once
@@ -2709,7 +3234,7 @@ func file_mimir_v1_worker_proto_rawDescGZIP() []byte {
 	return file_mimir_v1_worker_proto_rawDescData
 }
 
-var file_mimir_v1_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_mimir_v1_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_mimir_v1_worker_proto_goTypes = []any{
 	(*Worker)(nil),                     // 0: mimir.v1.Worker
 	(*Stats)(nil),                      // 1: mimir.v1.Stats
@@ -2744,21 +3269,28 @@ var file_mimir_v1_worker_proto_goTypes = []any{
 	(*TrainProgress)(nil),              // 30: mimir.v1.TrainProgress
 	(*TrainResult)(nil),                // 31: mimir.v1.TrainResult
 	(*CancelTask)(nil),                 // 32: mimir.v1.CancelTask
-	(*timestamppb.Timestamp)(nil),      // 33: google.protobuf.Timestamp
-	(*Column)(nil),                     // 34: mimir.v1.Column
-	(*Tensor)(nil),                     // 35: mimir.v1.Tensor
-	(*TrainingSettings)(nil),           // 36: mimir.v1.TrainingSettings
-	(DatasetKind)(0),                   // 37: mimir.v1.DatasetKind
-	(*EpochResult)(nil),                // 38: mimir.v1.EpochResult
+	(*CloudGpu)(nil),                   // 33: mimir.v1.CloudGpu
+	(*GetCloudGpuRequest)(nil),         // 34: mimir.v1.GetCloudGpuRequest
+	(*GetCloudGpuResponse)(nil),        // 35: mimir.v1.GetCloudGpuResponse
+	(*UpdateCloudGpuRequest)(nil),      // 36: mimir.v1.UpdateCloudGpuRequest
+	(*UpdateCloudGpuResponse)(nil),     // 37: mimir.v1.UpdateCloudGpuResponse
+	(*StopCloudGpuRequest)(nil),        // 38: mimir.v1.StopCloudGpuRequest
+	(*StopCloudGpuResponse)(nil),       // 39: mimir.v1.StopCloudGpuResponse
+	(*timestamppb.Timestamp)(nil),      // 40: google.protobuf.Timestamp
+	(*Column)(nil),                     // 41: mimir.v1.Column
+	(*Tensor)(nil),                     // 42: mimir.v1.Tensor
+	(*TrainingSettings)(nil),           // 43: mimir.v1.TrainingSettings
+	(DatasetKind)(0),                   // 44: mimir.v1.DatasetKind
+	(*EpochResult)(nil),                // 45: mimir.v1.EpochResult
 }
 var file_mimir_v1_worker_proto_depIdxs = []int32{
-	33, // 0: mimir.v1.Worker.last_seen:type_name -> google.protobuf.Timestamp
-	33, // 1: mimir.v1.Worker.create_time:type_name -> google.protobuf.Timestamp
+	40, // 0: mimir.v1.Worker.last_seen:type_name -> google.protobuf.Timestamp
+	40, // 1: mimir.v1.Worker.create_time:type_name -> google.protobuf.Timestamp
 	1,  // 2: mimir.v1.Worker.stats:type_name -> mimir.v1.Stats
-	33, // 3: mimir.v1.Worker.connect_time:type_name -> google.protobuf.Timestamp
-	33, // 4: mimir.v1.WorkerSample.time:type_name -> google.protobuf.Timestamp
-	33, // 5: mimir.v1.WorkerTask.start_time:type_name -> google.protobuf.Timestamp
-	33, // 6: mimir.v1.WorkerItem.time:type_name -> google.protobuf.Timestamp
+	40, // 3: mimir.v1.Worker.connect_time:type_name -> google.protobuf.Timestamp
+	40, // 4: mimir.v1.WorkerSample.time:type_name -> google.protobuf.Timestamp
+	40, // 5: mimir.v1.WorkerTask.start_time:type_name -> google.protobuf.Timestamp
+	40, // 6: mimir.v1.WorkerItem.time:type_name -> google.protobuf.Timestamp
 	0,  // 7: mimir.v1.GetWorkerResponse.worker:type_name -> mimir.v1.Worker
 	2,  // 8: mimir.v1.GetWorkerResponse.samples:type_name -> mimir.v1.WorkerSample
 	3,  // 9: mimir.v1.GetWorkerResponse.tasks:type_name -> mimir.v1.WorkerTask
@@ -2782,39 +3314,49 @@ var file_mimir_v1_worker_proto_depIdxs = []int32{
 	21, // 27: mimir.v1.LinkResponse.challenge:type_name -> mimir.v1.Challenge
 	1,  // 28: mimir.v1.Hello.stats:type_name -> mimir.v1.Stats
 	1,  // 29: mimir.v1.Heartbeat.stats:type_name -> mimir.v1.Stats
-	34, // 30: mimir.v1.ModelSpec.columns:type_name -> mimir.v1.Column
+	41, // 30: mimir.v1.ModelSpec.columns:type_name -> mimir.v1.Column
 	26, // 31: mimir.v1.PredictTask.spec:type_name -> mimir.v1.ModelSpec
-	35, // 32: mimir.v1.PredictTask.input:type_name -> mimir.v1.Tensor
-	35, // 33: mimir.v1.PredictResult.output:type_name -> mimir.v1.Tensor
-	35, // 34: mimir.v1.PredictResult.probabilities:type_name -> mimir.v1.Tensor
-	36, // 35: mimir.v1.TrainTask.settings:type_name -> mimir.v1.TrainingSettings
-	37, // 36: mimir.v1.TrainTask.dataset_kind:type_name -> mimir.v1.DatasetKind
-	38, // 37: mimir.v1.TrainTask.history:type_name -> mimir.v1.EpochResult
-	34, // 38: mimir.v1.TrainTask.columns:type_name -> mimir.v1.Column
-	38, // 39: mimir.v1.TrainProgress.history:type_name -> mimir.v1.EpochResult
-	38, // 40: mimir.v1.TrainResult.history:type_name -> mimir.v1.EpochResult
+	42, // 32: mimir.v1.PredictTask.input:type_name -> mimir.v1.Tensor
+	42, // 33: mimir.v1.PredictResult.output:type_name -> mimir.v1.Tensor
+	42, // 34: mimir.v1.PredictResult.probabilities:type_name -> mimir.v1.Tensor
+	43, // 35: mimir.v1.TrainTask.settings:type_name -> mimir.v1.TrainingSettings
+	44, // 36: mimir.v1.TrainTask.dataset_kind:type_name -> mimir.v1.DatasetKind
+	45, // 37: mimir.v1.TrainTask.history:type_name -> mimir.v1.EpochResult
+	41, // 38: mimir.v1.TrainTask.columns:type_name -> mimir.v1.Column
+	45, // 39: mimir.v1.TrainProgress.history:type_name -> mimir.v1.EpochResult
+	45, // 40: mimir.v1.TrainResult.history:type_name -> mimir.v1.EpochResult
 	26, // 41: mimir.v1.TrainResult.spec:type_name -> mimir.v1.ModelSpec
-	13, // 42: mimir.v1.WorkerService.ListWorkers:input_type -> mimir.v1.ListWorkersRequest
-	15, // 43: mimir.v1.WorkerService.CreateWorker:input_type -> mimir.v1.CreateWorkerRequest
-	17, // 44: mimir.v1.WorkerService.DeleteWorker:input_type -> mimir.v1.DeleteWorkerRequest
-	5,  // 45: mimir.v1.WorkerService.GetWorker:input_type -> mimir.v1.GetWorkerRequest
-	7,  // 46: mimir.v1.WorkerService.ReplaceWorkerToken:input_type -> mimir.v1.ReplaceWorkerTokenRequest
-	9,  // 47: mimir.v1.WorkerService.SetWorkerTasks:input_type -> mimir.v1.SetWorkerTasksRequest
-	11, // 48: mimir.v1.WorkerService.ListWorkerChoices:input_type -> mimir.v1.ListWorkerChoicesRequest
-	19, // 49: mimir.v1.WorkerService.Link:input_type -> mimir.v1.LinkRequest
-	14, // 50: mimir.v1.WorkerService.ListWorkers:output_type -> mimir.v1.ListWorkersResponse
-	16, // 51: mimir.v1.WorkerService.CreateWorker:output_type -> mimir.v1.CreateWorkerResponse
-	18, // 52: mimir.v1.WorkerService.DeleteWorker:output_type -> mimir.v1.DeleteWorkerResponse
-	6,  // 53: mimir.v1.WorkerService.GetWorker:output_type -> mimir.v1.GetWorkerResponse
-	8,  // 54: mimir.v1.WorkerService.ReplaceWorkerToken:output_type -> mimir.v1.ReplaceWorkerTokenResponse
-	10, // 55: mimir.v1.WorkerService.SetWorkerTasks:output_type -> mimir.v1.SetWorkerTasksResponse
-	12, // 56: mimir.v1.WorkerService.ListWorkerChoices:output_type -> mimir.v1.ListWorkerChoicesResponse
-	20, // 57: mimir.v1.WorkerService.Link:output_type -> mimir.v1.LinkResponse
-	50, // [50:58] is the sub-list for method output_type
-	42, // [42:50] is the sub-list for method input_type
-	42, // [42:42] is the sub-list for extension type_name
-	42, // [42:42] is the sub-list for extension extendee
-	0,  // [0:42] is the sub-list for field type_name
+	40, // 42: mimir.v1.CloudGpu.state_time:type_name -> google.protobuf.Timestamp
+	33, // 43: mimir.v1.GetCloudGpuResponse.cloud_gpu:type_name -> mimir.v1.CloudGpu
+	33, // 44: mimir.v1.UpdateCloudGpuResponse.cloud_gpu:type_name -> mimir.v1.CloudGpu
+	33, // 45: mimir.v1.StopCloudGpuResponse.cloud_gpu:type_name -> mimir.v1.CloudGpu
+	13, // 46: mimir.v1.WorkerService.ListWorkers:input_type -> mimir.v1.ListWorkersRequest
+	15, // 47: mimir.v1.WorkerService.CreateWorker:input_type -> mimir.v1.CreateWorkerRequest
+	17, // 48: mimir.v1.WorkerService.DeleteWorker:input_type -> mimir.v1.DeleteWorkerRequest
+	5,  // 49: mimir.v1.WorkerService.GetWorker:input_type -> mimir.v1.GetWorkerRequest
+	7,  // 50: mimir.v1.WorkerService.ReplaceWorkerToken:input_type -> mimir.v1.ReplaceWorkerTokenRequest
+	9,  // 51: mimir.v1.WorkerService.SetWorkerTasks:input_type -> mimir.v1.SetWorkerTasksRequest
+	11, // 52: mimir.v1.WorkerService.ListWorkerChoices:input_type -> mimir.v1.ListWorkerChoicesRequest
+	19, // 53: mimir.v1.WorkerService.Link:input_type -> mimir.v1.LinkRequest
+	34, // 54: mimir.v1.WorkerService.GetCloudGpu:input_type -> mimir.v1.GetCloudGpuRequest
+	36, // 55: mimir.v1.WorkerService.UpdateCloudGpu:input_type -> mimir.v1.UpdateCloudGpuRequest
+	38, // 56: mimir.v1.WorkerService.StopCloudGpu:input_type -> mimir.v1.StopCloudGpuRequest
+	14, // 57: mimir.v1.WorkerService.ListWorkers:output_type -> mimir.v1.ListWorkersResponse
+	16, // 58: mimir.v1.WorkerService.CreateWorker:output_type -> mimir.v1.CreateWorkerResponse
+	18, // 59: mimir.v1.WorkerService.DeleteWorker:output_type -> mimir.v1.DeleteWorkerResponse
+	6,  // 60: mimir.v1.WorkerService.GetWorker:output_type -> mimir.v1.GetWorkerResponse
+	8,  // 61: mimir.v1.WorkerService.ReplaceWorkerToken:output_type -> mimir.v1.ReplaceWorkerTokenResponse
+	10, // 62: mimir.v1.WorkerService.SetWorkerTasks:output_type -> mimir.v1.SetWorkerTasksResponse
+	12, // 63: mimir.v1.WorkerService.ListWorkerChoices:output_type -> mimir.v1.ListWorkerChoicesResponse
+	20, // 64: mimir.v1.WorkerService.Link:output_type -> mimir.v1.LinkResponse
+	35, // 65: mimir.v1.WorkerService.GetCloudGpu:output_type -> mimir.v1.GetCloudGpuResponse
+	37, // 66: mimir.v1.WorkerService.UpdateCloudGpu:output_type -> mimir.v1.UpdateCloudGpuResponse
+	39, // 67: mimir.v1.WorkerService.StopCloudGpu:output_type -> mimir.v1.StopCloudGpuResponse
+	57, // [57:68] is the sub-list for method output_type
+	46, // [46:57] is the sub-list for method input_type
+	46, // [46:46] is the sub-list for extension type_name
+	46, // [46:46] is the sub-list for extension extendee
+	0,  // [0:46] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_worker_proto_init() }
@@ -2845,7 +3387,7 @@ func file_mimir_v1_worker_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_worker_proto_rawDesc), len(file_mimir_v1_worker_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   33,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -81,6 +81,24 @@ func loadKey(path string) (ed25519.PrivateKey, error) {
 	return k, nil
 }
 
+// KeyEnv is the environment variable a worker reads its key from when it
+// is given one rather than keeping it in a file.
+const KeyEnv = "MIMIR_WORKER_KEY"
+
+// EncodeKey writes k as text for KeyEnv: its 32-byte seed in base64.
+func EncodeKey(k ed25519.PrivateKey) string {
+	return base64.StdEncoding.EncodeToString(k.Seed())
+}
+
+// ParseKey reads a key EncodeKey wrote.
+func ParseKey(s string) (ed25519.PrivateKey, error) {
+	seed, err := base64.StdEncoding.DecodeString(strings.TrimSpace(s))
+	if err != nil || len(seed) != ed25519.SeedSize {
+		return nil, errors.New("worker: the key isn't a base64 Ed25519 seed")
+	}
+	return ed25519.NewKeyFromSeed(seed), nil
+}
+
 // sign answers a challenge.
 func sign(k ed25519.PrivateKey, nonce []byte) []byte {
 	return ed25519.Sign(k, append([]byte(proofContext), nonce...))

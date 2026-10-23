@@ -26,6 +26,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/convert"
+	"github.com/gsoultan/mimir-server/internal/gpucloud"
 	"github.com/gsoultan/mimir-server/internal/mapfile"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/schema"
@@ -73,6 +74,10 @@ type Service struct {
 	CancelTraining func(id string) bool
 	// Pool holds connected workers; nil means this server takes none.
 	Pool *cluster.Pool
+	// GPU rents a GPU on Modal for training runs that wait; nil means
+	// this server doesn't.
+	GPU   *gpucloud.Launcher
+	gpuMu sync.Mutex // serialises changes to the rented GPU's setting
 	// ConsolePin is the fingerprint of the console's own TLS key, put in
 	// join tokens so workers check they reached this console. Empty when
 	// a proxy or a publicly trusted certificate does that job.
