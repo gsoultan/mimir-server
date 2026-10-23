@@ -1,6 +1,9 @@
 package runtime
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
 
 // A model retrained in place keeps its id, so the cache must load it again
 // when the weights' version changes rather than serve the old module.
@@ -90,4 +93,47 @@ func TestCacheEvictsByBytes(t *testing.T) {
 	get("x", 10)
 	c.SetLimit(50)
 	used(10, 1)
+}
+
+// While a new version of a model loads, the version already loaded keeps
+// answering; the switch happens once the new one is in.
+func TestCacheKeepsOldVersionWhileNewLoads(t *testing.T) {
+	c := NewCache(0)
+	load := func(size int) func() ([]byte, error) {
+		return func() ([]byte, error) { return make([]byte, size), nil }
+	}
+	v1, err := c.get("m", "v1", load(10), func(*entry, []byte) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	release := make(chan struct{})
+	started := make(chan struct{})
+	var wg sync.WaitGroup
+	var v2 *entry
+	wg.Go(func() {
+		v2, _ = c.get("m", "v2", func() ([]byte, error) {
+			close(started)
+			<-release
+			return make([]byte, 20), nil
+		}, func(*entry, []byte) {})
+	})
+	<-started
+	// v1 still answers while v2 loads, and nobody waits for v2.
+	if e, err := c.get("m", "v1", load(10), func(*entry, []byte) {}); err != nil || e != v1 {
+		t.Fatalf("while v2 loads, v1 = %v, %v", e, err)
+	}
+	if b, n := c.Used(); b != 10 || n != 1 {
+		t.Fatalf("while v2 loads, Used() = %d bytes in %d models, want 10 in 1", b, n)
+	}
+	close(release)
+	wg.Wait()
+	if e, err := c.get("m", "v2", load(20), func(*entry, []byte) {}); err != nil || e != v2 {
+		t.Fatalf("after loading, v2 = %v, %v", e, err)
+	}
+	if b, n := c.Used(); b != 20 || n != 1 {
+		t.Fatalf("after loading, Used() = %d bytes in %d models, want 20 in 1", b, n)
+	}
+	if c.loaded["m"] != v2 || c.pending["m"] != nil {
+		t.Fatal("v2 isn't the loaded entry, or something is still pending")
+	}
 }

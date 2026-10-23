@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -61,10 +62,14 @@ type Pool struct {
 	// or reply, before it is dropped and its tasks fail with ErrLinkLost.
 	// Zero means DefaultIdleTimeout. Set it before the first Serve.
 	IdleTimeout time.Duration
+	// OnLink, when set, is called on its own goroutine once a worker's
+	// link is up, for example to hand it the models placed on it.
+	OnLink func(workerID string)
 
 	log      *slog.Logger
 	mu       sync.Mutex
 	links    map[string]*link
+	freed    chan struct{} // closed and replaced whenever a slot may have come free
 	seq      int64
 	stop     chan struct{} // closed by Close
 	stopOnce sync.Once
@@ -92,7 +97,7 @@ type Task struct {
 
 // New returns an empty pool.
 func New(log *slog.Logger) *Pool {
-	return &Pool{log: log, links: map[string]*link{}, stop: make(chan struct{})}
+	return &Pool{log: log, links: map[string]*link{}, freed: make(chan struct{}), stop: make(chan struct{})}
 }
 
 // Close ends every link and refuses new ones, for a server shutting down.
@@ -118,10 +123,13 @@ type Status struct {
 	// said in its hello, narrowed by what the console told it to take.
 	Trains       bool
 	TrainingOnly bool
+	// Loaded is the version of each model the link holds, by model id.
+	Loaded map[string]string
 }
 
 type link struct {
 	id     string
+	pool   *Pool // nil in tests that build links by hand
 	worker store.Worker
 	hello  *mimirv1.Hello
 	// wants is what the console told the worker to take ("", "all",
@@ -138,6 +146,7 @@ type link struct {
 	busy    int
 	seq     int64
 	sent    map[string]string // model id to the version of its weights sent down this link
+	loading map[string]string // model id to the version on its way down this link, from Warm
 	pending map[string]chan *mimirv1.LinkRequest
 	tasks   map[string]Task
 	stats   *mimirv1.Stats
@@ -194,12 +203,13 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 		}
 	}
 
-	l := &link{worker: w, hello: hello, join: j, wants: w.Tasks, since: time.Now(), stream: stream, sent: map[string]string{}, pending: map[string]chan *mimirv1.LinkRequest{}, tasks: map[string]Task{}, closed: make(chan struct{}), dropped: make(chan struct{})}
+	l := &link{pool: p, worker: w, hello: hello, join: j, wants: w.Tasks, since: time.Now(), stream: stream, sent: map[string]string{}, loading: map[string]string{}, pending: map[string]chan *mimirv1.LinkRequest{}, tasks: map[string]Task{}, closed: make(chan struct{}), dropped: make(chan struct{})}
 	l.note(p, hello.Stats)
 	p.mu.Lock()
 	p.seq++
 	l.id = fmt.Sprint(p.seq)
 	p.links[l.id] = l
+	p.wake()
 	p.mu.Unlock()
 	defer func() {
 		// No send may touch the stream once Serve returns: connect
@@ -218,6 +228,9 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 
 	if err := l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Welcome{Welcome: &mimirv1.Welcome{WorkerId: w.ID, Name: w.Name, Tasks: w.Tasks}}}); err != nil {
 		return err
+	}
+	if p.OnLink != nil {
+		go p.OnLink(w.ID)
 	}
 	// Receive blocks until the worker says something or the stream ends,
 	// so it runs on its own goroutine and the loop below can give up on a
@@ -284,6 +297,8 @@ func (p *Pool) Serve(ctx context.Context, stream *connect.BidiStream[mimirv1.Lin
 			taskID = b.TrainProgress.GetTaskId()
 		case *mimirv1.LinkRequest_TrainResult:
 			taskID = b.TrainResult.GetTaskId()
+		case *mimirv1.LinkRequest_LoadResult:
+			taskID = b.LoadResult.GetTaskId()
 		default:
 			continue // a second hello
 		}
@@ -401,10 +416,81 @@ func (l *link) open(t Task) (string, chan *mimirv1.LinkRequest) {
 
 func (l *link) finish(id string) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	delete(l.pending, id)
 	delete(l.tasks, id)
 	l.busy--
+	l.mu.Unlock()
+	if l.pool != nil {
+		l.pool.mu.Lock()
+		l.pool.wake()
+		l.pool.mu.Unlock()
+	}
+}
+
+// wake tells predictions waiting for a slot to try again. p.mu must be
+// held.
+func (p *Pool) wake() {
+	close(p.freed)
+	p.freed = make(chan struct{})
+}
+
+// able reports whether some link could do the job if it had room: the
+// difference between "wait" and "nobody can". With a workerID only that
+// worker's links count.
+func (p *Pool) able(archName string, train bool, workerID string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, l := range p.links {
+		if workerID != "" && l.worker.ID != workerID {
+			continue
+		}
+		if slices.Contains(l.hello.Architectures, archName) && (!train || l.trains()) && (train || !l.trainingOnly()) {
+			return true
+		}
+	}
+	return false
+}
+
+// reserveWait is reserve that waits for a slot while every link that
+// could do the job is full, so a burst of predictions queues rather than
+// fails. It returns no link when nobody can do the job, and ctx's error
+// when the wait ran out.
+func (p *Pool) reserveWait(ctx context.Context, archName string, train bool, workerID string, t Task) (*link, string, chan *mimirv1.LinkRequest, error) {
+	for {
+		p.mu.Lock()
+		freed := p.freed
+		p.mu.Unlock()
+		l, id, ch := p.reserve(archName, train, workerID, t)
+		if l != nil {
+			return l, id, ch, nil
+		}
+		if !p.able(archName, train, workerID) {
+			return nil, "", nil, nil
+		}
+		select {
+		case <-freed:
+		case <-ctx.Done():
+			return nil, "", nil, ctx.Err()
+		}
+	}
+}
+
+// listen is open for a message that is no task: it takes no slot and
+// shows on no dashboard, only a channel for the reply. Close with hangUp.
+func (l *link) listen() (string, chan *mimirv1.LinkRequest) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.seq++
+	id := fmt.Sprintf("%s-%d", l.id, l.seq)
+	ch := make(chan *mimirv1.LinkRequest, 1)
+	l.pending[id] = ch
+	return id, ch
+}
+
+func (l *link) hangUp(id string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.pending, id)
 }
 
 // pick returns the least busy link that can do the job and has room, or
@@ -499,7 +585,7 @@ func (p *Pool) Statuses() []Status {
 	out := make([]Status, 0, len(p.links))
 	for _, l := range p.links {
 		l.mu.Lock()
-		st := Status{Worker: l.worker, Hello: l.hello, Addr: l.join.Addr, Busy: l.busy, Since: l.since, Stats: l.stats, Security: l.join.Security, TLSVersion: l.join.TLSVersion, Trains: l.trains(), TrainingOnly: l.trainingOnly()}
+		st := Status{Worker: l.worker, Hello: l.hello, Addr: l.join.Addr, Busy: l.busy, Since: l.since, Stats: l.stats, Security: l.join.Security, TLSVersion: l.join.TLSVersion, Trains: l.trains(), TrainingOnly: l.trainingOnly(), Loaded: maps.Clone(l.sent)}
 		for _, t := range l.tasks {
 			st.Tasks = append(st.Tasks, t)
 		}
@@ -512,7 +598,10 @@ func (p *Pool) Statuses() []Status {
 // Predict runs input through version ver of a model on a worker. ran is
 // false when no worker can run the architecture.
 func (p *Pool) Predict(ctx context.Context, modelID, ver, workerID string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (res runtime.Result, worker string, ran bool, err error) {
-	l, id, replies := p.reserve(a.Name, false, workerID, Task{Kind: "predict", ModelID: modelID})
+	l, id, replies, err := p.reserveWait(ctx, a.Name, false, workerID, Task{Kind: "predict", ModelID: modelID})
+	if err != nil {
+		return res, "", true, err // a worker could have, but the wait ran out
+	}
 	if l == nil {
 		return res, "", false, nil
 	}
@@ -522,8 +611,11 @@ func (p *Pool) Predict(ctx context.Context, modelID, ver, workerID string, a arc
 		Spec:  &mimirv1.ModelSpec{InputShape: int64s(spec.InputShape), Labels: spec.Labels},
 		Input: &mimirv1.Tensor{Shape: int64s(spec.InputShape), Values: input},
 	}
+	// The weights ride along when the link hasn't got this version, unless
+	// Warm is sending them now: then the worker answers with the version
+	// it has, or asks, rather than loading the same weights twice.
 	l.mu.Lock()
-	need := l.sent[modelID] != ver
+	need := l.sent[modelID] != ver && l.loading[modelID] != ver
 	l.mu.Unlock()
 	for attempt := 0; attempt < 2; attempt++ {
 		if need {
@@ -561,6 +653,96 @@ func (p *Pool) Predict(ctx context.Context, modelID, ver, workerID string, a arc
 		return runtime.Result{Output: r.GetOutput().GetValues(), Probability: r.GetProbabilities().GetValues()}, l.worker.Name, true, nil
 	}
 	return res, l.worker.Name, true, fmt.Errorf("%w: it keeps asking for the weights", ErrWorkerFailed)
+}
+
+// Warm hands version ver of a model to every connected worker that can
+// answer for it (with a workerID, that worker only) and doesn't hold it
+// yet, so the first prediction after a run finishes is as quick as the
+// rest. A worker keeps answering with the version it has until the new
+// one is loaded. It returns how many workers took the weights and the
+// first failure, which leaves that worker to fetch them on its first
+// prediction as before.
+func (p *Pool) Warm(ctx context.Context, modelID, ver, workerID string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error)) (int, error) {
+	var links []*link
+	p.mu.Lock()
+	for _, l := range p.links {
+		if workerID != "" && l.worker.ID != workerID {
+			continue
+		}
+		if !slices.Contains(l.hello.Architectures, a.Name) || l.trainingOnly() {
+			continue
+		}
+		l.mu.Lock()
+		if l.sent[modelID] != ver && l.loading[modelID] != ver {
+			l.loading[modelID] = ver
+			links = append(links, l)
+		}
+		l.mu.Unlock()
+	}
+	p.mu.Unlock()
+	if len(links) == 0 {
+		return 0, nil
+	}
+	done := func(l *link, ok bool) {
+		l.mu.Lock()
+		if l.loading[modelID] == ver {
+			delete(l.loading, modelID)
+		}
+		if ok {
+			l.sent[modelID] = ver
+		}
+		l.mu.Unlock()
+	}
+	weights, err := load()
+	if err != nil {
+		for _, l := range links {
+			done(l, false)
+		}
+		return 0, err
+	}
+	var (
+		wg    sync.WaitGroup
+		mu    sync.Mutex
+		n     int
+		first error
+	)
+	for _, l := range links {
+		wg.Go(func() {
+			err := p.warm(ctx, l, modelID, a, spec, weights)
+			done(l, err == nil)
+			mu.Lock()
+			defer mu.Unlock()
+			if err == nil {
+				n++
+			} else if first == nil {
+				first = fmt.Errorf("%s: %w", l.worker.Name, err)
+			}
+		})
+	}
+	wg.Wait()
+	return n, first
+}
+
+// warm sends one link a model's weights and waits for it to load them.
+func (p *Pool) warm(ctx context.Context, l *link, modelID string, a arch.Architecture, spec arch.Spec, weights []byte) error {
+	id, replies := l.listen()
+	defer l.hangUp(id)
+	task := &mimirv1.LoadTask{TaskId: id, ModelId: modelID, Architecture: a.Name, Spec: &mimirv1.ModelSpec{InputShape: int64s(spec.InputShape), Labels: spec.Labels}, Weights: weights}
+	if err := l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Load{Load: task}}); err != nil {
+		return ErrLinkLost
+	}
+	msg, err := wait(ctx, replies, l.closed)
+	if err != nil {
+		return err
+	}
+	r := msg.GetLoadResult()
+	switch {
+	case r == nil:
+		return fmt.Errorf("%w: unexpected reply", ErrWorkerFailed)
+	case r.Error != "":
+		return fmt.Errorf("%w: %s", ErrWorkerFailed, r.Error)
+	}
+	return nil
 }
 
 // Train runs a training task on a worker, reporting progress as it goes.
