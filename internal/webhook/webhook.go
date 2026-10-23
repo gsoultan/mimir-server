@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/gsoultan/mimir-server/internal/netguard"
+	"github.com/gsoultan/mimir-server/internal/safe"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -297,14 +298,18 @@ func (d *Dispatcher) dispatch(ctx context.Context, seen map[string]bool) int {
 		d.sending.Go(func() {
 			recorded := false
 			defer func() { d.finish(id, recorded) }()
-			for _, del := range batch {
-				if ctx.Err() != nil {
-					return
+			// A delivery that panics stops this webhook's batch until the
+			// next round, not the server.
+			safe.Run(d.log, "sending to webhook "+id, func() {
+				for _, del := range batch {
+					if ctx.Err() != nil {
+						return
+					}
+					if d.attempt(ctx, del) {
+						recorded = true
+					}
 				}
-				if d.attempt(ctx, del) {
-					recorded = true
-				}
-			}
+			})
 		})
 	}
 	if started > 0 && len(due) == dueBatch {

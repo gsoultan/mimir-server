@@ -14,6 +14,7 @@ import (
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/auth"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
@@ -176,6 +177,8 @@ func (s *Service) Write(ctx context.Context, m store.Model, w Writing) (Written,
 		return Written{}, invalid("%s.", strings.TrimPrefix(err.Error(), runtime.ErrBadInput.Error()+": "))
 	case tooBig(err):
 		return Written{}, tooBigError(err)
+	case errors.Is(err, memguard.ErrLowMemory):
+		return Written{}, lowMemory()
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return Written{}, connect.NewError(connect.CodeCanceled, errors.New("The request ended before the model finished writing."))
 	case err != nil:

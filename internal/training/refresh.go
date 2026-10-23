@@ -101,7 +101,7 @@ func (r *Runner) nextPass(ctx context.Context, j store.Job) {
 	if d, err := r.st.GetDataset(ctx, j.DatasetID); err == nil {
 		rows = d.Rows
 		if d.FromQuery() {
-			if r.Admit != nil && !r.Admit(refreshNeed(d)) {
+			if !r.admitFetch(refreshNeed(d)) {
 				log.WarnContext(ctx, "training: short of memory to fetch new rows; trying again soon")
 				r.st.SetJobCheck(ctx, j.ID, "The server was short of memory to fetch new rows, so it will look again in a few minutes.", r.Now().Add(MemoryRetry))
 				return
@@ -151,6 +151,15 @@ func (r *Runner) nextPass(ctx context.Context, j store.Job) {
 	}
 	log.InfoContext(ctx, "training: next pass queued", "next_job_id", n.ID, "rows", rows)
 	r.Kick()
+}
+
+// admitFetch reports whether a keep-learning fetch of need bytes may run
+// now: Admit decides when set, else the memory budget from WatchMemory.
+func (r *Runner) admitFetch(need int64) bool {
+	if r.Admit != nil {
+		return r.Admit(need)
+	}
+	return r.memory.Admit(need)
 }
 
 // refreshNeed guesses the memory a dataset's fetch takes: its rows as
