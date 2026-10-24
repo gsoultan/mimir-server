@@ -41,6 +41,10 @@ type Task struct {
 	// never silently changes meaning.
 	BaseLabels   []string
 	BaseFeatures []string
+	// Group, when it has more than one member, trains the task together
+	// with other workers (see Group). Its members keep no checkpoints:
+	// a run that loses one starts again.
+	Group Group
 }
 
 // Progress is told where a task is: the finished epoch, the step within
@@ -69,6 +73,14 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 		return Result{}, err
 	}
 	trainSet, testSet, features := l.Train, l.Test, l.Features
+	if t.grouped() {
+		trainSet = shardOf(trainSet, t.Group.Rank(), t.Group.Size())
+		t.CheckpointDir = ""
+		if t.Group.Rank() != 0 {
+			// Member 0 scores the model and says how it goes.
+			testSet, progress = nil, func(int, int, int, []store.Epoch) {}
+		}
+	}
 	spec := arch.Resolve(t.Arch, l.Spec)
 	if t.Arch.Designable {
 		if spec.Layers, err = arch.ParseLayers(s.Layers); err != nil {
@@ -94,6 +106,13 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 			model, fresh = t.Arch.New(spec), true
 		}
 	}
+	var group *syncer
+	if t.grouped() {
+		group = newSyncer(t.Group, model)
+		if err := group.start(ctx); err != nil {
+			return Result{}, err
+		}
+	}
 	opt := optim.AdamW(nn.Parameters(model), optim.LR(s.LearningRate), optim.WeightDecay(0.01))
 
 	history := t.History
@@ -108,6 +127,11 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 		train.Epochs(s.Epochs),
 		train.Schedule(optim.Cosine(s.LearningRate, s.LearningRate/20, s.Epochs)),
 		train.OnBatch(func(b train.Batch) error {
+			if group != nil && ((b.Index+1)%GroupSyncSteps == 0 || b.Index+1 == steps) {
+				if err := group.average(ctx, 1); err != nil {
+					return err
+				}
+			}
 			if time.Since(lastWrite) > time.Second {
 				lastWrite = time.Now()
 				progress(b.Epoch-1, b.Index+1, steps, history)
@@ -143,7 +167,7 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	if err := train.Fit(ctx, model, opt, trainSet, opts...); err != nil {
 		return Result{}, err
 	}
-	if testSet == nil {
+	if testSet == nil && (group == nil || t.Group.Rank() == 0) {
 		// Nothing was held out, so score on what it learned from; better
 		// than no number at all, and the UI says so.
 		if m, err := train.Evaluate(ctx, model, trainSet, lossFn, scores...); err == nil && len(history) > 0 {

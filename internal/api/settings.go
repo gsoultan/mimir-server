@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/mail"
 	"strings"
 	"time"
@@ -41,7 +42,13 @@ type Training struct {
 	// TrainHere lets a standalone console train runs in its own process
 	// when no worker takes them.
 	TrainHere bool `json:"train_here"`
+	// GroupWorkers above 1 lets one run train on up to that many workers
+	// together.
+	GroupWorkers int `json:"group_workers,omitempty"`
 }
+
+// MaxGroupWorkers bounds Training.GroupWorkers.
+const MaxGroupWorkers = 16
 
 // LoadTraining reads the training setting, or def when none is stored.
 func LoadTraining(ctx context.Context, st *store.Store, def Training) (Training, error) {
@@ -70,6 +77,7 @@ func (s *Service) LoadTrainingSetting(ctx context.Context) error {
 		return err
 	}
 	s.trainHere.Store(t.TrainHere)
+	s.groupWorkers.Store(int32(t.GroupWorkers))
 	return nil
 }
 
@@ -78,21 +86,37 @@ func (s *Service) LoadTrainingSetting(ctx context.Context) error {
 // setting allows it. The training runner asks before each job.
 func (s *Service) TrainsHere() bool { return s.Local && s.trainHere.Load() }
 
+// GroupWorkers is how many workers one run may train on together; the
+// training runner asks before each run.
+func (s *Service) GroupWorkers() int { return int(s.groupWorkers.Load()) }
+
 func (s *Service) trainingProto() *mimirv1.Training {
-	return &mimirv1.Training{TrainHere: s.trainHere.Load(), CanTrainHere: s.Local}
+	return &mimirv1.Training{TrainHere: s.trainHere.Load(), CanTrainHere: s.Local, GroupWorkers: s.groupWorkers.Load()}
 }
 
 // UpdateTraining turns training on this console on or off.
 func (s *Service) UpdateTraining(ctx context.Context, req *connect.Request[mimirv1.UpdateTrainingRequest]) (*connect.Response[mimirv1.UpdateTrainingResponse], error) {
 	p, _ := auth.From(ctx)
-	t := Training{TrainHere: req.Msg.GetTrainHere()}
+	t := Training{TrainHere: req.Msg.GetTrainHere(), GroupWorkers: s.GroupWorkers()}
+	if req.Msg.GroupWorkers != nil {
+		t.GroupWorkers = int(req.Msg.GetGroupWorkers())
+		if t.GroupWorkers < 0 || t.GroupWorkers > MaxGroupWorkers {
+			return nil, invalid("A run can train on 1 to %d workers together.", MaxGroupWorkers)
+		}
+	}
 	if err := SaveTraining(ctx, s.store, t); err != nil {
 		return nil, s.internal(ctx, err)
 	}
 	s.trainHere.Store(t.TrainHere)
+	s.groupWorkers.Store(int32(t.GroupWorkers))
 	what := "training runs wait for a worker; this console trains none itself"
 	if t.TrainHere {
 		what = "this console trains runs itself when no worker takes them"
+	}
+	if t.GroupWorkers > 1 {
+		what += fmt.Sprintf("; a run trains on up to %d workers together", t.GroupWorkers)
+	} else {
+		what += "; each run trains on one worker"
 	}
 	s.audit(ctx, p.Actor(), "settings.training", "", what)
 	if s.KickTraining != nil {

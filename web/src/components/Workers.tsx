@@ -1,5 +1,5 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Code, CopyButton, Group, Modal, Progress, SimpleGrid, Stack, Switch, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Code, CopyButton, Group, Modal, Progress, Select, SimpleGrid, Stack, Switch, Text, TextInput, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconAlertTriangle, IconCheck, IconChevronRight, IconCopy, IconLock, IconLockOpen } from "@tabler/icons-react";
@@ -92,6 +92,7 @@ export function Workers() {
       )}
 
       <TrainHere />
+      <TrainTogether />
       <CloudGpu />
 
       <Modal opened={adding} onClose={add.close} title="Add a worker" centered>
@@ -204,6 +205,35 @@ function TrainHere() {
       ) : (
         <Text size="sm" c="dimmed">This console runs no models itself (it was started as <Code>-role console</Code>): every training run goes to a worker that teaches, and every prediction to one that answers.</Text>
       )}
+    </Card>
+  );
+}
+
+// TrainTogether chooses how many workers one run may train on at once.
+// Each learns from its share of the examples and they average what they
+// learned every few steps, so a run finishes sooner on several machines.
+function TrainTogether() {
+  const { data } = useSuspenseQuery(settings);
+  const queryClient = useQueryClient();
+  const t = data.training;
+  const n = Math.max(1, t?.groupWorkers ?? 0);
+  const save = useMutation(SettingsService.method.updateTraining, {
+    onSuccess: async (res) => {
+      await queryClient.invalidateQueries({ queryKey: allSettingsQueries });
+      const k = res.training?.groupWorkers ?? 0;
+      notifications.show({ color: "teal", message: k > 1 ? `A run now trains on up to ${k} workers together when they're free.` : "Each run now trains on one worker." });
+    },
+  });
+  const choices = [1, 2, 3, 4, 6, 8, 16].map((k) => ({ value: String(k), label: k === 1 ? "One worker" : `Up to ${k} workers` }));
+  return (
+    <Card withBorder radius="lg" padding="lg" className="max-w-xl">
+      <Title order={3} fz="md" mb={4}>One run on several workers</Title>
+      <Stack gap="sm">
+        <Text size="sm" c="dimmed">Split a run between workers that teach and are free: each learns from its share of the examples, and every few steps they combine what they learned, so the run finishes sooner. It uses as many as are free, at least two, and otherwise trains on one. Runs asked to train on a particular worker stay there.</Text>
+        <Select label="Train each run on" data={choices} value={String(n)} allowDeselect={false} disabled={save.isPending} className="max-w-xs"
+          onChange={(v) => v && save.mutate({ trainHere: t?.trainHere ?? false, groupWorkers: Number(v) })} />
+        {save.error && <Alert color="red" icon={<IconAlertCircle />}>{message(save.error)}</Alert>}
+      </Stack>
     </Card>
   );
 }

@@ -409,6 +409,12 @@ func (e *examples) SetEpoch(epoch int) { e.epoch.Store(int64(epoch)) }
 
 // All yields the batches of the next epoch, in a new shuffled order.
 func (e *examples) All(ctx context.Context) iter.Seq2[data.Batch, error] {
+	return e.only(ctx, nil)
+}
+
+// only is All for the batches keep keeps, by their place in the epoch;
+// nil keeps every one. The others are never built.
+func (e *examples) only(ctx context.Context, keep func(b int) bool) iter.Seq2[data.Batch, error] {
 	epoch := e.epoch.Add(1) - 1
 	return func(yield func(data.Batch, error) bool) {
 		order := rand.New(rand.NewPCG(e.seed, uint64(epoch))).Perm(len(e.rows))
@@ -420,6 +426,9 @@ func (e *examples) All(ctx context.Context) iter.Seq2[data.Batch, error] {
 			if err := ctx.Err(); err != nil {
 				yield(data.Batch{}, err)
 				return
+			}
+			if keep != nil && !keep(b) {
+				continue
 			}
 			idx := order[b*e.batch : min((b+1)*e.batch, len(order))]
 			x := make([]float32, 0, len(idx)*width)
