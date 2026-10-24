@@ -388,6 +388,17 @@ version. If the columns or answers changed, the pass learns from scratch.
 The run page shows the schedule, the next pass and what each pass did,
 and the schedule can be changed or turned off there.
 
+A run can also **wait for new rows**: with "Wait for new rows" set to, say,
+500, each look runs the query again and starts a pass only once it returns
+at least 500 more rows than the last pass learned from; otherwise the run
+page says how many new rows it found. Such a run may look as often as every
+15 minutes, so a model follows a table that keeps filling up without
+retraining on nothing. Due passes are claimed in the database, so several
+servers never start the same one, and their queries run in the background,
+at most two at a time, so a slow database never holds up the training
+queue. Passes go to training workers like any other run, and the run page
+lists every pass of the model with its rows, score and outcome.
+
 Datasets and runs are also in the API (`DatasetService`, `TrainingService`
 in `proto/mimir/v1/training.proto`), and webhooks can listen for
 `training.queued`, `training.finished` and `training.failed`.

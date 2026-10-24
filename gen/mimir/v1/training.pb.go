@@ -270,6 +270,8 @@ type SetRepeatRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	RepeatSeconds int64                  `protobuf:"varint,2,opt,name=repeat_seconds,json=repeatSeconds,proto3" json:"repeat_seconds,omitempty"`
+	// min_new_rows makes each pass wait for that many new rows; 0 doesn't.
+	MinNewRows    int64 `protobuf:"varint,3,opt,name=min_new_rows,json=minNewRows,proto3" json:"min_new_rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -314,6 +316,13 @@ func (x *SetRepeatRequest) GetId() string {
 func (x *SetRepeatRequest) GetRepeatSeconds() int64 {
 	if x != nil {
 		return x.RepeatSeconds
+	}
+	return 0
+}
+
+func (x *SetRepeatRequest) GetMinNewRows() int64 {
+	if x != nil {
+		return x.MinNewRows
 	}
 	return 0
 }
@@ -1894,7 +1903,16 @@ type Job struct {
 	Note string `protobuf:"bytes,25,opt,name=note,proto3" json:"note,omitempty"`
 	// run_on is the worker the run was asked to train on; empty means any.
 	// worker is where it actually ran.
-	RunOn         string `protobuf:"bytes,26,opt,name=run_on,json=runOn,proto3" json:"run_on,omitempty"`
+	RunOn string `protobuf:"bytes,26,opt,name=run_on,json=runOn,proto3" json:"run_on,omitempty"`
+	// min_new_rows > 0 makes a keep-learning pass wait until the source has
+	// at least that many rows more than trained_rows, the rows this pass
+	// started with. Until then it looks every repeat_seconds.
+	MinNewRows  int64 `protobuf:"varint,27,opt,name=min_new_rows,json=minNewRows,proto3" json:"min_new_rows,omitempty"`
+	TrainedRows int64 `protobuf:"varint,28,opt,name=trained_rows,json=trainedRows,proto3" json:"trained_rows,omitempty"`
+	// check_time and check_note say when it last looked at the source
+	// without starting a pass, and what it found.
+	CheckTime     *timestamppb.Timestamp `protobuf:"bytes,29,opt,name=check_time,json=checkTime,proto3" json:"check_time,omitempty"`
+	CheckNote     string                 `protobuf:"bytes,30,opt,name=check_note,json=checkNote,proto3" json:"check_note,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2111,6 +2129,34 @@ func (x *Job) GetRunOn() string {
 	return ""
 }
 
+func (x *Job) GetMinNewRows() int64 {
+	if x != nil {
+		return x.MinNewRows
+	}
+	return 0
+}
+
+func (x *Job) GetTrainedRows() int64 {
+	if x != nil {
+		return x.TrainedRows
+	}
+	return 0
+}
+
+func (x *Job) GetCheckTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CheckTime
+	}
+	return nil
+}
+
+func (x *Job) GetCheckNote() string {
+	if x != nil {
+		return x.CheckNote
+	}
+	return ""
+}
+
 type ListJobsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2292,7 +2338,10 @@ type CreateJobRequest struct {
 	// worker_id trains the run on that worker (from
 	// WorkerService.ListWorkerChoices); empty lets the console choose. The
 	// model it makes runs on the same worker.
-	WorkerId      string `protobuf:"bytes,7,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	WorkerId string `protobuf:"bytes,7,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	// min_new_rows makes each keep-learning pass wait for that many new rows
+	// in the source; 0 starts one every repeat_seconds.
+	MinNewRows    int64 `protobuf:"varint,8,opt,name=min_new_rows,json=minNewRows,proto3" json:"min_new_rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2374,6 +2423,13 @@ func (x *CreateJobRequest) GetWorkerId() string {
 		return x.WorkerId
 	}
 	return ""
+}
+
+func (x *CreateJobRequest) GetMinNewRows() int64 {
+	if x != nil {
+		return x.MinNewRows
+	}
+	return 0
 }
 
 type CreateJobResponse struct {
@@ -2694,10 +2750,12 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"n\n" +
 	"\x14CheckDatasetResponse\x12)\n" +
 	"\x05check\x18\x01 \x01(\v2\x13.mimir.v1.DataCheckR\x05check\x12+\n" +
-	"\adataset\x18\x02 \x01(\v2\x11.mimir.v1.DatasetR\adataset\"I\n" +
+	"\adataset\x18\x02 \x01(\v2\x11.mimir.v1.DatasetR\adataset\"k\n" +
 	"\x10SetRepeatRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12%\n" +
-	"\x0erepeat_seconds\x18\x02 \x01(\x03R\rrepeatSeconds\"4\n" +
+	"\x0erepeat_seconds\x18\x02 \x01(\x03R\rrepeatSeconds\x12 \n" +
+	"\fmin_new_rows\x18\x03 \x01(\x03R\n" +
+	"minNewRows\"4\n" +
 	"\x11SetRepeatResponse\x12\x1f\n" +
 	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xe6\x04\n" +
 	"\aDataset\x12\x0e\n" +
@@ -2815,7 +2873,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\baccuracy\x18\x03 \x01(\x01R\baccuracy\x12\x19\n" +
 	"\bval_loss\x18\x04 \x01(\x01R\avalLoss\x12'\n" +
 	"\x0fduration_millis\x18\x05 \x01(\x03R\x0edurationMillis\x12#\n" +
-	"\rtypical_error\x18\x06 \x01(\x01R\ftypicalError\"\x9f\a\n" +
+	"\rtypical_error\x18\x06 \x01(\x01R\ftypicalError\"\xbe\b\n" +
 	"\x03Job\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -2847,14 +2905,21 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\tparent_id\x18\x17 \x01(\tR\bparentId\x12\"\n" +
 	"\rbase_model_id\x18\x18 \x01(\tR\vbaseModelId\x12\x12\n" +
 	"\x04note\x18\x19 \x01(\tR\x04note\x12\x15\n" +
-	"\x06run_on\x18\x1a \x01(\tR\x05runOn\"\x11\n" +
+	"\x06run_on\x18\x1a \x01(\tR\x05runOn\x12 \n" +
+	"\fmin_new_rows\x18\x1b \x01(\x03R\n" +
+	"minNewRows\x12!\n" +
+	"\ftrained_rows\x18\x1c \x01(\x03R\vtrainedRows\x129\n" +
+	"\n" +
+	"check_time\x18\x1d \x01(\v2\x1a.google.protobuf.TimestampR\tcheckTime\x12\x1d\n" +
+	"\n" +
+	"check_note\x18\x1e \x01(\tR\tcheckNote\"\x11\n" +
 	"\x0fListJobsRequest\"5\n" +
 	"\x10ListJobsResponse\x12!\n" +
 	"\x04jobs\x18\x01 \x03(\v2\r.mimir.v1.JobR\x04jobs\"\x1f\n" +
 	"\rGetJobRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"1\n" +
 	"\x0eGetJobResponse\x12\x1f\n" +
-	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\x87\x02\n" +
+	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xa9\x02\n" +
 	"\x10CreateJobRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\"\n" +
@@ -2863,7 +2928,9 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"dataset_id\x18\x04 \x01(\tR\tdatasetId\x126\n" +
 	"\bsettings\x18\x05 \x01(\v2\x1a.mimir.v1.TrainingSettingsR\bsettings\x12%\n" +
 	"\x0erepeat_seconds\x18\x06 \x01(\x03R\rrepeatSeconds\x12\x1b\n" +
-	"\tworker_id\x18\a \x01(\tR\bworkerId\"4\n" +
+	"\tworker_id\x18\a \x01(\tR\bworkerId\x12 \n" +
+	"\fmin_new_rows\x18\b \x01(\x03R\n" +
+	"minNewRows\"4\n" +
 	"\x11CreateJobResponse\x12\x1f\n" +
 	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\"\n" +
 	"\x10CancelJobRequest\x12\x0e\n" +
@@ -3003,47 +3070,48 @@ var file_mimir_v1_training_proto_depIdxs = []int32{
 	43, // 28: mimir.v1.Job.start_time:type_name -> google.protobuf.Timestamp
 	43, // 29: mimir.v1.Job.end_time:type_name -> google.protobuf.Timestamp
 	43, // 30: mimir.v1.Job.next_run_time:type_name -> google.protobuf.Timestamp
-	28, // 31: mimir.v1.ListJobsResponse.jobs:type_name -> mimir.v1.Job
-	28, // 32: mimir.v1.GetJobResponse.job:type_name -> mimir.v1.Job
-	25, // 33: mimir.v1.CreateJobRequest.settings:type_name -> mimir.v1.TrainingSettings
-	28, // 34: mimir.v1.CreateJobResponse.job:type_name -> mimir.v1.Job
-	28, // 35: mimir.v1.CancelJobResponse.job:type_name -> mimir.v1.Job
-	28, // 36: mimir.v1.ResumeJobResponse.job:type_name -> mimir.v1.Job
-	8,  // 37: mimir.v1.DatasetService.ListDatasets:input_type -> mimir.v1.ListDatasetsRequest
-	10, // 38: mimir.v1.DatasetService.GetDataset:input_type -> mimir.v1.GetDatasetRequest
-	13, // 39: mimir.v1.DatasetService.CreateDataset:input_type -> mimir.v1.CreateDatasetRequest
-	23, // 40: mimir.v1.DatasetService.DeleteDataset:input_type -> mimir.v1.DeleteDatasetRequest
-	18, // 41: mimir.v1.DatasetService.TestQuery:input_type -> mimir.v1.TestQueryRequest
-	20, // 42: mimir.v1.DatasetService.RefreshDataset:input_type -> mimir.v1.RefreshDatasetRequest
-	15, // 43: mimir.v1.DatasetService.TestBucket:input_type -> mimir.v1.TestBucketRequest
-	2,  // 44: mimir.v1.DatasetService.CheckDataset:input_type -> mimir.v1.CheckDatasetRequest
-	29, // 45: mimir.v1.TrainingService.ListJobs:input_type -> mimir.v1.ListJobsRequest
-	31, // 46: mimir.v1.TrainingService.GetJob:input_type -> mimir.v1.GetJobRequest
-	33, // 47: mimir.v1.TrainingService.CreateJob:input_type -> mimir.v1.CreateJobRequest
-	35, // 48: mimir.v1.TrainingService.CancelJob:input_type -> mimir.v1.CancelJobRequest
-	37, // 49: mimir.v1.TrainingService.ResumeJob:input_type -> mimir.v1.ResumeJobRequest
-	39, // 50: mimir.v1.TrainingService.DeleteJob:input_type -> mimir.v1.DeleteJobRequest
-	4,  // 51: mimir.v1.TrainingService.SetRepeat:input_type -> mimir.v1.SetRepeatRequest
-	9,  // 52: mimir.v1.DatasetService.ListDatasets:output_type -> mimir.v1.ListDatasetsResponse
-	11, // 53: mimir.v1.DatasetService.GetDataset:output_type -> mimir.v1.GetDatasetResponse
-	22, // 54: mimir.v1.DatasetService.CreateDataset:output_type -> mimir.v1.CreateDatasetResponse
-	24, // 55: mimir.v1.DatasetService.DeleteDataset:output_type -> mimir.v1.DeleteDatasetResponse
-	19, // 56: mimir.v1.DatasetService.TestQuery:output_type -> mimir.v1.TestQueryResponse
-	21, // 57: mimir.v1.DatasetService.RefreshDataset:output_type -> mimir.v1.RefreshDatasetResponse
-	16, // 58: mimir.v1.DatasetService.TestBucket:output_type -> mimir.v1.TestBucketResponse
-	3,  // 59: mimir.v1.DatasetService.CheckDataset:output_type -> mimir.v1.CheckDatasetResponse
-	30, // 60: mimir.v1.TrainingService.ListJobs:output_type -> mimir.v1.ListJobsResponse
-	32, // 61: mimir.v1.TrainingService.GetJob:output_type -> mimir.v1.GetJobResponse
-	34, // 62: mimir.v1.TrainingService.CreateJob:output_type -> mimir.v1.CreateJobResponse
-	36, // 63: mimir.v1.TrainingService.CancelJob:output_type -> mimir.v1.CancelJobResponse
-	38, // 64: mimir.v1.TrainingService.ResumeJob:output_type -> mimir.v1.ResumeJobResponse
-	40, // 65: mimir.v1.TrainingService.DeleteJob:output_type -> mimir.v1.DeleteJobResponse
-	5,  // 66: mimir.v1.TrainingService.SetRepeat:output_type -> mimir.v1.SetRepeatResponse
-	52, // [52:67] is the sub-list for method output_type
-	37, // [37:52] is the sub-list for method input_type
-	37, // [37:37] is the sub-list for extension type_name
-	37, // [37:37] is the sub-list for extension extendee
-	0,  // [0:37] is the sub-list for field type_name
+	43, // 31: mimir.v1.Job.check_time:type_name -> google.protobuf.Timestamp
+	28, // 32: mimir.v1.ListJobsResponse.jobs:type_name -> mimir.v1.Job
+	28, // 33: mimir.v1.GetJobResponse.job:type_name -> mimir.v1.Job
+	25, // 34: mimir.v1.CreateJobRequest.settings:type_name -> mimir.v1.TrainingSettings
+	28, // 35: mimir.v1.CreateJobResponse.job:type_name -> mimir.v1.Job
+	28, // 36: mimir.v1.CancelJobResponse.job:type_name -> mimir.v1.Job
+	28, // 37: mimir.v1.ResumeJobResponse.job:type_name -> mimir.v1.Job
+	8,  // 38: mimir.v1.DatasetService.ListDatasets:input_type -> mimir.v1.ListDatasetsRequest
+	10, // 39: mimir.v1.DatasetService.GetDataset:input_type -> mimir.v1.GetDatasetRequest
+	13, // 40: mimir.v1.DatasetService.CreateDataset:input_type -> mimir.v1.CreateDatasetRequest
+	23, // 41: mimir.v1.DatasetService.DeleteDataset:input_type -> mimir.v1.DeleteDatasetRequest
+	18, // 42: mimir.v1.DatasetService.TestQuery:input_type -> mimir.v1.TestQueryRequest
+	20, // 43: mimir.v1.DatasetService.RefreshDataset:input_type -> mimir.v1.RefreshDatasetRequest
+	15, // 44: mimir.v1.DatasetService.TestBucket:input_type -> mimir.v1.TestBucketRequest
+	2,  // 45: mimir.v1.DatasetService.CheckDataset:input_type -> mimir.v1.CheckDatasetRequest
+	29, // 46: mimir.v1.TrainingService.ListJobs:input_type -> mimir.v1.ListJobsRequest
+	31, // 47: mimir.v1.TrainingService.GetJob:input_type -> mimir.v1.GetJobRequest
+	33, // 48: mimir.v1.TrainingService.CreateJob:input_type -> mimir.v1.CreateJobRequest
+	35, // 49: mimir.v1.TrainingService.CancelJob:input_type -> mimir.v1.CancelJobRequest
+	37, // 50: mimir.v1.TrainingService.ResumeJob:input_type -> mimir.v1.ResumeJobRequest
+	39, // 51: mimir.v1.TrainingService.DeleteJob:input_type -> mimir.v1.DeleteJobRequest
+	4,  // 52: mimir.v1.TrainingService.SetRepeat:input_type -> mimir.v1.SetRepeatRequest
+	9,  // 53: mimir.v1.DatasetService.ListDatasets:output_type -> mimir.v1.ListDatasetsResponse
+	11, // 54: mimir.v1.DatasetService.GetDataset:output_type -> mimir.v1.GetDatasetResponse
+	22, // 55: mimir.v1.DatasetService.CreateDataset:output_type -> mimir.v1.CreateDatasetResponse
+	24, // 56: mimir.v1.DatasetService.DeleteDataset:output_type -> mimir.v1.DeleteDatasetResponse
+	19, // 57: mimir.v1.DatasetService.TestQuery:output_type -> mimir.v1.TestQueryResponse
+	21, // 58: mimir.v1.DatasetService.RefreshDataset:output_type -> mimir.v1.RefreshDatasetResponse
+	16, // 59: mimir.v1.DatasetService.TestBucket:output_type -> mimir.v1.TestBucketResponse
+	3,  // 60: mimir.v1.DatasetService.CheckDataset:output_type -> mimir.v1.CheckDatasetResponse
+	30, // 61: mimir.v1.TrainingService.ListJobs:output_type -> mimir.v1.ListJobsResponse
+	32, // 62: mimir.v1.TrainingService.GetJob:output_type -> mimir.v1.GetJobResponse
+	34, // 63: mimir.v1.TrainingService.CreateJob:output_type -> mimir.v1.CreateJobResponse
+	36, // 64: mimir.v1.TrainingService.CancelJob:output_type -> mimir.v1.CancelJobResponse
+	38, // 65: mimir.v1.TrainingService.ResumeJob:output_type -> mimir.v1.ResumeJobResponse
+	40, // 66: mimir.v1.TrainingService.DeleteJob:output_type -> mimir.v1.DeleteJobResponse
+	5,  // 67: mimir.v1.TrainingService.SetRepeat:output_type -> mimir.v1.SetRepeatResponse
+	53, // [53:68] is the sub-list for method output_type
+	38, // [38:53] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_training_proto_init() }

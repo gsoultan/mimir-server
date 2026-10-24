@@ -442,3 +442,39 @@ func TestRefuseOwnDatabase(t *testing.T) {
 		}
 	}
 }
+
+// TestClaimDueJobs: a due keep-learning job is handed out once, then not
+// again until its lease runs out.
+func TestClaimDueJobs(t *testing.T) {
+	s := open(t)
+	ctx := context.Background()
+	d, err := s.CreateDataset(ctx, Dataset{Name: "d", Kind: DatasetTable, Rows: 3, Features: []string{"a"}}, []byte("a,b\n1,2\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	j, err := s.CreateJob(ctx, Job{Name: "a", Architecture: "table-mlp", DatasetID: d.ID, RepeatSeconds: 3600, MinNewRows: 5, TrainedRows: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetJobStatus(ctx, j.ID, JobSucceeded, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now().Add(2 * time.Hour)
+	if got, err := s.ClaimDueJobs(ctx, at, time.Hour, 10); err != nil || len(got) != 1 || got[0].MinNewRows != 5 || got[0].TrainedRows != 3 {
+		t.Fatalf("first claim = %v, %v", got, err)
+	}
+	if got, err := s.ClaimDueJobs(ctx, at, time.Hour, 10); err != nil || len(got) != 0 {
+		t.Fatalf("second claim = %v, %v", got, err)
+	}
+	if got, err := s.ClaimDueJobs(ctx, at.Add(61*time.Minute), time.Hour, 10); err != nil || len(got) != 1 {
+		t.Fatalf("claim after the lease = %v, %v", got, err)
+	}
+	next := time.Now().Add(5 * time.Hour)
+	if err := s.SetJobCheck(ctx, j.ID, "1 new row", next); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetJob(ctx, j.ID)
+	if err != nil || got.CheckNote != "1 new row" || got.CheckTime.IsZero() || !got.NextRun.Equal(next.Truncate(time.Microsecond)) {
+		t.Fatalf("after check = %+v, %v", got, err)
+	}
+}
