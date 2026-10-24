@@ -279,8 +279,15 @@ type Stats struct {
 	// uptime_seconds is how long the worker process has been running.
 	UptimeSeconds int64   `protobuf:"varint,6,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`
 	LoadAverage   float64 `protobuf:"fixed64,7,opt,name=load_average,json=loadAverage,proto3" json:"load_average,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// memory_pressure is how tight the worker's own memory is against its
+	// budget: 0 ok, 1 high (it takes no training runs), 2 critical (it is
+	// also loading no more models). A worker sends a heartbeat at once
+	// when it changes.
+	MemoryPressure int32 `protobuf:"varint,8,opt,name=memory_pressure,json=memoryPressure,proto3" json:"memory_pressure,omitempty"`
+	// memory_budget_bytes is the most memory the worker lets itself use.
+	MemoryBudgetBytes int64 `protobuf:"varint,9,opt,name=memory_budget_bytes,json=memoryBudgetBytes,proto3" json:"memory_budget_bytes,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Stats) Reset() {
@@ -358,6 +365,20 @@ func (x *Stats) GetUptimeSeconds() int64 {
 func (x *Stats) GetLoadAverage() float64 {
 	if x != nil {
 		return x.LoadAverage
+	}
+	return 0
+}
+
+func (x *Stats) GetMemoryPressure() int32 {
+	if x != nil {
+		return x.MemoryPressure
+	}
+	return 0
+}
+
+func (x *Stats) GetMemoryBudgetBytes() int64 {
+	if x != nil {
+		return x.MemoryBudgetBytes
 	}
 	return 0
 }
@@ -2724,7 +2745,11 @@ type TrainResult struct {
 	Error     string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
 	Cancelled bool                   `protobuf:"varint,6,opt,name=cancelled,proto3" json:"cancelled,omitempty"`
 	// fresh says the base weights didn't fit and it learned from scratch.
-	Fresh         bool `protobuf:"varint,7,opt,name=fresh,proto3" json:"fresh,omitempty"`
+	Fresh bool `protobuf:"varint,7,opt,name=fresh,proto3" json:"fresh,omitempty"`
+	// low_memory says the worker stopped, or wouldn't start, the run to
+	// stay within its memory. The run goes back in the queue and resumes
+	// from its checkpoint.
+	LowMemory     bool `protobuf:"varint,8,opt,name=low_memory,json=lowMemory,proto3" json:"low_memory,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2804,6 +2829,13 @@ func (x *TrainResult) GetCancelled() bool {
 func (x *TrainResult) GetFresh() bool {
 	if x != nil {
 		return x.Fresh
+	}
+	return false
+}
+
+func (x *TrainResult) GetLowMemory() bool {
+	if x != nil {
+		return x.LowMemory
 	}
 	return false
 }
@@ -3572,7 +3604,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x06models\x18\x15 \x01(\x05R\x06models\x12\x18\n" +
 	"\awaiting\x18\x16 \x01(\x05R\awaiting\x12#\n" +
 	"\rtraining_only\x18\x17 \x01(\bR\ftrainingOnly\x12\x14\n" +
-	"\x05tasks\x18\x18 \x01(\tR\x05tasks\"\x9e\x02\n" +
+	"\x05tasks\x18\x18 \x01(\tR\x05tasks\"\xf7\x02\n" +
 	"\x05Stats\x12\x1f\n" +
 	"\vcpu_percent\x18\x01 \x01(\x01R\n" +
 	"cpuPercent\x12*\n" +
@@ -3581,7 +3613,9 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x0fdisk_used_bytes\x18\x04 \x01(\x03R\rdiskUsedBytes\x12(\n" +
 	"\x10disk_total_bytes\x18\x05 \x01(\x03R\x0ediskTotalBytes\x12%\n" +
 	"\x0euptime_seconds\x18\x06 \x01(\x03R\ruptimeSeconds\x12!\n" +
-	"\fload_average\x18\a \x01(\x01R\vloadAverage\"\xbb\x02\n" +
+	"\fload_average\x18\a \x01(\x01R\vloadAverage\x12'\n" +
+	"\x0fmemory_pressure\x18\b \x01(\x05R\x0ememoryPressure\x12.\n" +
+	"\x13memory_budget_bytes\x18\t \x01(\x03R\x11memoryBudgetBytes\"\xbb\x02\n" +
 	"\fWorkerSample\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x1f\n" +
 	"\vcpu_percent\x18\x02 \x01(\x01R\n" +
@@ -3754,7 +3788,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x05epoch\x18\x02 \x01(\x05R\x05epoch\x12\x12\n" +
 	"\x04step\x18\x03 \x01(\x05R\x04step\x12&\n" +
 	"\x0fsteps_per_epoch\x18\x04 \x01(\x05R\rstepsPerEpoch\x12/\n" +
-	"\ahistory\x18\x05 \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\"\xe4\x01\n" +
+	"\ahistory\x18\x05 \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\"\x83\x02\n" +
 	"\vTrainResult\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
 	"\aweights\x18\x02 \x01(\fR\aweights\x12/\n" +
@@ -3762,7 +3796,9 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x04spec\x18\x04 \x01(\v2\x13.mimir.v1.ModelSpecR\x04spec\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x12\x1c\n" +
 	"\tcancelled\x18\x06 \x01(\bR\tcancelled\x12\x14\n" +
-	"\x05fresh\x18\a \x01(\bR\x05fresh\"%\n" +
+	"\x05fresh\x18\a \x01(\bR\x05fresh\x12\x1d\n" +
+	"\n" +
+	"low_memory\x18\b \x01(\bR\tlowMemory\"%\n" +
 	"\n" +
 	"CancelTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\x96\x04\n" +

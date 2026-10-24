@@ -105,3 +105,22 @@ func TestTrainGroup(t *testing.T) {
 		t.Fatalf("TrainGroup after beta left = %+v", r)
 	}
 }
+
+// A member that stops to keep its memory stops the rest, and the run goes
+// back in the queue as one stopped for memory.
+func TestTrainGroupLowMemory(t *testing.T) {
+	p := testPool()
+	task := training.Task{Arch: tableMLP(t), Settings: store.Settings{Epochs: 1, BatchSize: 8}}
+	sendA, gotA, _ := groupWorker(t, p, "alpha")
+	sendB, gotB, _ := groupWorker(t, p, "beta")
+	run := trainGroup(p, task, 2)
+	ta, tb := next(t, gotA).GetTrain(), next(t, gotB).GetTrain()
+	sendB(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_TrainResult{TrainResult: &mimirv1.TrainResult{TaskId: tb.TaskId, LowMemory: true}}})
+	if m := next(t, gotA); m.GetCancel().GetTaskId() != ta.TaskId {
+		t.Fatalf("alpha got %v, want its task cancelled", m)
+	}
+	sendA(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_TrainResult{TrainResult: &mimirv1.TrainResult{TaskId: ta.TaskId, Cancelled: true}}})
+	if r := <-run; !errors.Is(r.err, training.ErrLowMemory) {
+		t.Fatalf("TrainGroup after beta ran short = %+v", r)
+	}
+}

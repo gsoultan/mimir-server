@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"errors"
+	"github.com/gsoultan/mimir-server/internal/memguard"
 	"sync"
 	"testing"
 )
@@ -95,6 +97,62 @@ func TestCacheEvictsByBytes(t *testing.T) {
 	used(10, 1)
 }
 
+// While the gate says no, no model is loaded, the models loaded keep
+// answering, and the next request after it says yes loads.
+func TestCacheGate(t *testing.T) {
+	c := NewCache(0)
+	load := func() ([]byte, error) { return make([]byte, 10), nil }
+	build := func(*entry, []byte) {}
+	if _, err := c.get("loaded", "v1", load, build); err != nil {
+		t.Fatal(err)
+	}
+	low := errors.New("low on memory")
+	c.SetGate(func() error { return low })
+	if _, err := c.get("loaded", "v1", load, build); err != nil {
+		t.Fatalf("a loaded model behind a closed gate: %v", err)
+	}
+	if _, err := c.get("new", "v1", load, build); !errors.Is(err, low) {
+		t.Fatalf("a new model behind a closed gate: %v", err)
+	}
+	c.SetGate(func() error { return nil })
+	if _, err := c.get("new", "v1", load, build); err != nil {
+		t.Fatalf("a new model once the gate opens: %v", err)
+	}
+}
+
+// A load that panics fails its request and leaves the cache to try again.
+func TestCacheLoadPanics(t *testing.T) {
+	c := NewCache(0)
+	load := func() ([]byte, error) { return make([]byte, 10), nil }
+	if _, err := c.get("m", "v1", load, func(*entry, []byte) { panic("bad file") }); err == nil {
+		t.Fatal("a panicking load succeeded")
+	}
+	if _, err := c.get("m", "v1", load, func(*entry, []byte) {}); err != nil {
+		t.Fatalf("the next load: %v", err)
+	}
+}
+
+// Shed lets go of the least recently used models down to what it keeps,
+// but never the last one used.
+func TestCacheShed(t *testing.T) {
+	c := NewCache(0)
+	for _, id := range []string{"a", "b", "c", "d"} {
+		if _, err := c.get(id, "v1", func() ([]byte, error) { return make([]byte, 10), nil }, func(*entry, []byte) {}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if freed := c.Shed(20); freed != 20 {
+		t.Fatalf("Shed(20) freed %d, want 20", freed)
+	}
+	if b, n := c.Used(); b != 20 || n != 2 || c.loaded["d"] == nil || c.loaded["c"] == nil {
+		t.Fatalf("after Shed(20): %d bytes in %d models; want c and d", b, n)
+	}
+	c.Shed(0)
+	if b, n := c.Used(); b != 10 || n != 1 || c.loaded["d"] == nil {
+		t.Fatalf("after Shed(0): %d bytes in %d models; want d alone", b, n)
+	}
+}
+
 // While a new version of a model loads, the version already loaded keeps
 // answering; the switch happens once the new one is in.
 func TestCacheKeepsOldVersionWhileNewLoads(t *testing.T) {
@@ -135,5 +193,24 @@ func TestCacheKeepsOldVersionWhileNewLoads(t *testing.T) {
 	}
 	if c.loaded["m"] != v2 || c.pending["m"] != nil {
 		t.Fatal("v2 isn't the loaded entry, or something is still pending")
+	}
+}
+
+// Critical memory cuts the compute budget to a quarter, but never under
+// the floor nor over the normal budget; other levels leave it be.
+func TestComputeBudgetAt(t *testing.T) {
+	for _, c := range []struct {
+		l            memguard.Level
+		normal, want int64
+	}{
+		{memguard.OK, 1 << 30, 1 << 30},
+		{memguard.High, 1 << 30, 1 << 30},
+		{memguard.Critical, 1 << 30, 1 << 28},
+		{memguard.Critical, 128 << 20, 64 << 20},
+		{memguard.Critical, 32 << 20, 32 << 20},
+	} {
+		if got := ComputeBudgetAt(c.l, c.normal); got != c.want {
+			t.Errorf("ComputeBudgetAt(%v, %d) = %d, want %d", c.l, c.normal, got, c.want)
+		}
 	}
 }

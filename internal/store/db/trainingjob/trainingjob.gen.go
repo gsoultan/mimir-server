@@ -49,6 +49,10 @@ type Row struct {
 	Note          string
 	RunOn         string
 	Layers        string
+	MinNewRows    int64
+	TrainedRows   int64
+	CheckTime     runtime.Null[time.Time]
+	CheckNote     string
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -87,7 +91,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 29
+const nCols = 33
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -398,6 +402,34 @@ func (q *Query) cursor(col uint32, r Row) {
 		}
 		q.strs[q.ns] = r.Layers
 		q.ns++
+	case 29:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.MinNewRows)
+		q.nn++
+	case 30:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.TrainedRows)
+		q.nn++
+	case 31:
+		if int(q.ntm) >= len(q.tims) {
+			q.over = true
+			return
+		}
+		q.tims[q.ntm] = r.CheckTime.V
+		q.ntm++
+	case 32:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.CheckNote
+		q.ns++
 	}
 }
 
@@ -587,6 +619,10 @@ var (
 	Note          = TextCol{26}
 	RunOn         = TextCol{27}
 	Layers        = TextCol{28}
+	MinNewRows    = Int64Col{29}
+	TrainedRows   = Int64Col{30}
+	CheckTime     = NullTimeCol{31}
+	CheckNote     = TextCol{32}
 )
 
 // TextCol addresses a text column.
@@ -1077,6 +1113,27 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 29:
+			if int(q.nai64) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
+		case 30:
+			if int(q.nai64) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
+		case 32:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
 		}
 		q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 		return
@@ -1283,6 +1340,34 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 28:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 29:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
+	case 30:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
+	case 31:
+		if int(q.ntm) >= 4 {
+			q.over = true
+			return
+		}
+		q.tims[q.ntm] = p.tim
+		q.ntm++
+	case 32:
 		if int(q.ns) >= 6 {
 			q.over = true
 			return
@@ -1563,8 +1648,43 @@ func (q Query) LayersLike(v string) Query               { return q.Where(Layers.
 func (q Query) LayersILike(v string) Query              { return q.Where(Layers.ILike(v)) }
 func (q Query) LayersIn(v ...string) Query              { return q.Where(Layers.In(v...)) }
 func (q Query) LayersNotIn(v ...string) Query           { return q.Where(Layers.NotIn(v...)) }
+func (q Query) MinNewRowsEq(v int64) Query              { return q.Where(MinNewRows.Eq(v)) }
+func (q Query) MinNewRowsNotEq(v int64) Query           { return q.Where(MinNewRows.NotEq(v)) }
+func (q Query) MinNewRowsGt(v int64) Query              { return q.Where(MinNewRows.Gt(v)) }
+func (q Query) MinNewRowsGte(v int64) Query             { return q.Where(MinNewRows.Gte(v)) }
+func (q Query) MinNewRowsLt(v int64) Query              { return q.Where(MinNewRows.Lt(v)) }
+func (q Query) MinNewRowsLte(v int64) Query             { return q.Where(MinNewRows.Lte(v)) }
+func (q Query) MinNewRowsIn(v ...int64) Query           { return q.Where(MinNewRows.In(v...)) }
+func (q Query) MinNewRowsNotIn(v ...int64) Query        { return q.Where(MinNewRows.NotIn(v...)) }
+func (q Query) TrainedRowsEq(v int64) Query             { return q.Where(TrainedRows.Eq(v)) }
+func (q Query) TrainedRowsNotEq(v int64) Query          { return q.Where(TrainedRows.NotEq(v)) }
+func (q Query) TrainedRowsGt(v int64) Query             { return q.Where(TrainedRows.Gt(v)) }
+func (q Query) TrainedRowsGte(v int64) Query            { return q.Where(TrainedRows.Gte(v)) }
+func (q Query) TrainedRowsLt(v int64) Query             { return q.Where(TrainedRows.Lt(v)) }
+func (q Query) TrainedRowsLte(v int64) Query            { return q.Where(TrainedRows.Lte(v)) }
+func (q Query) TrainedRowsIn(v ...int64) Query          { return q.Where(TrainedRows.In(v...)) }
+func (q Query) TrainedRowsNotIn(v ...int64) Query       { return q.Where(TrainedRows.NotIn(v...)) }
+func (q Query) CheckTimeEq(v time.Time) Query           { return q.Where(CheckTime.Eq(v)) }
+func (q Query) CheckTimeNotEq(v time.Time) Query        { return q.Where(CheckTime.NotEq(v)) }
+func (q Query) CheckTimeGt(v time.Time) Query           { return q.Where(CheckTime.Gt(v)) }
+func (q Query) CheckTimeGte(v time.Time) Query          { return q.Where(CheckTime.Gte(v)) }
+func (q Query) CheckTimeLt(v time.Time) Query           { return q.Where(CheckTime.Lt(v)) }
+func (q Query) CheckTimeLte(v time.Time) Query          { return q.Where(CheckTime.Lte(v)) }
+func (q Query) CheckTimeIsNull() Query                  { return q.Where(CheckTime.IsNull()) }
+func (q Query) CheckTimeIsNotNull() Query               { return q.Where(CheckTime.IsNotNull()) }
+func (q Query) CheckNoteEq(v string) Query              { return q.Where(CheckNote.Eq(v)) }
+func (q Query) CheckNoteNotEq(v string) Query           { return q.Where(CheckNote.NotEq(v)) }
+func (q Query) CheckNoteGt(v string) Query              { return q.Where(CheckNote.Gt(v)) }
+func (q Query) CheckNoteGte(v string) Query             { return q.Where(CheckNote.Gte(v)) }
+func (q Query) CheckNoteLt(v string) Query              { return q.Where(CheckNote.Lt(v)) }
+func (q Query) CheckNoteLte(v string) Query             { return q.Where(CheckNote.Lte(v)) }
+func (q Query) CheckNoteEqLower(v string) Query         { return q.Where(CheckNote.EqLower(v)) }
+func (q Query) CheckNoteLike(v string) Query            { return q.Where(CheckNote.Like(v)) }
+func (q Query) CheckNoteILike(v string) Query           { return q.Where(CheckNote.ILike(v)) }
+func (q Query) CheckNoteIn(v ...string) Query           { return q.Where(CheckNote.In(v...)) }
+func (q Query) CheckNoteNotIn(v ...string) Query        { return q.Where(CheckNote.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers" FROM "training_jobs"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note" FROM "training_jobs"`
 const countPrefix = `SELECT count(*) FROM "training_jobs"`
 const existsPrefix = `SELECT 1 FROM "training_jobs"`
 const existsSuffix = ` LIMIT 1`
@@ -1775,6 +1895,30 @@ var orderTable = [nCols][4]string{
 		"\"layers\" ASC NULLS FIRST",
 		"\"layers\" DESC NULLS LAST",
 	},
+	{ // min_new_rows
+		"\"min_new_rows\"",
+		"\"min_new_rows\" DESC",
+		"\"min_new_rows\" ASC NULLS FIRST",
+		"\"min_new_rows\" DESC NULLS LAST",
+	},
+	{ // trained_rows
+		"\"trained_rows\"",
+		"\"trained_rows\" DESC",
+		"\"trained_rows\" ASC NULLS FIRST",
+		"\"trained_rows\" DESC NULLS LAST",
+	},
+	{ // check_time
+		"\"check_time\"",
+		"\"check_time\" DESC",
+		"\"check_time\" ASC NULLS FIRST",
+		"\"check_time\" DESC NULLS LAST",
+	},
+	{ // check_note
+		"\"check_note\"",
+		"\"check_note\" DESC",
+		"\"check_note\" ASC NULLS FIRST",
+		"\"check_note\" DESC NULLS LAST",
+	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
@@ -1809,6 +1953,10 @@ var identTable = [nCols]string{
 	"\"note\"",
 	"\"run_on\"",
 	"\"layers\"",
+	"\"min_new_rows\"",
+	"\"trained_rows\"",
+	"\"check_time\"",
+	"\"check_note\"",
 }
 
 var lowering = runtime.Lowering{
@@ -1841,7 +1989,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [29][28]runtime.Frag{
+var fragTable = [33][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -2712,6 +2860,126 @@ var fragTable = [29][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // min_new_rows
+		{}, // opNone
+		{A: "\"min_new_rows\" = $", B: ""},
+		{A: "\"min_new_rows\" <> $", B: ""},
+		{A: "\"min_new_rows\" > $", B: ""},
+		{A: "\"min_new_rows\" >= $", B: ""},
+		{A: "\"min_new_rows\" < $", B: ""},
+		{A: "\"min_new_rows\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"min_new_rows\" = ANY($", B: ")"},
+		{A: "\"min_new_rows\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // trained_rows
+		{}, // opNone
+		{A: "\"trained_rows\" = $", B: ""},
+		{A: "\"trained_rows\" <> $", B: ""},
+		{A: "\"trained_rows\" > $", B: ""},
+		{A: "\"trained_rows\" >= $", B: ""},
+		{A: "\"trained_rows\" < $", B: ""},
+		{A: "\"trained_rows\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"trained_rows\" = ANY($", B: ")"},
+		{A: "\"trained_rows\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // check_time
+		{}, // opNone
+		{A: "\"check_time\" = $", B: ""},
+		{A: "\"check_time\" <> $", B: ""},
+		{A: "\"check_time\" > $", B: ""},
+		{A: "\"check_time\" >= $", B: ""},
+		{A: "\"check_time\" < $", B: ""},
+		{A: "\"check_time\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"check_time\" IS NULL", B: ""},
+		{A: "\"check_time\" IS NOT NULL", B: ""},
+		{},
+		{},
+	},
+	{ // check_note
+		{}, // opNone
+		{A: "\"check_note\" = $", B: ""},
+		{A: "\"check_note\" <> $", B: ""},
+		{A: "\"check_note\" > $", B: ""},
+		{A: "\"check_note\" >= $", B: ""},
+		{A: "\"check_note\" < $", B: ""},
+		{A: "\"check_note\" <= $", B: ""},
+		{A: "lower(\"check_note\") = lower($", B: ")"},
+		{A: "\"check_note\" LIKE $", B: ""},
+		{A: "\"check_note\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"check_note\" = ANY($", B: ")"},
+		{A: "\"check_note\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 }
 
 func fragOf(op, col uint32) runtime.Frag {
@@ -2897,6 +3165,10 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.Note = sl.Str(rv[26])
 	r.RunOn = sl.Str(rv[27])
 	r.Layers = sl.Str(rv[28])
+	r.MinNewRows = runtime.Int8(rv[29])
+	r.TrainedRows = runtime.Int8(rv[30])
+	r.CheckTime = runtime.Nullable(rv[31], runtime.Timestamptz)
+	r.CheckNote = sl.Str(rv[32])
 	return nil
 }
 
@@ -3059,6 +3331,18 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 29:
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
+			case 30:
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
+			case 32:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
 			}
 			continue
 		}
@@ -3176,6 +3460,22 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 28:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 29:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
+		case 30:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
+		case 31:
+			b.tims[ntm] = q.tims[ntm]
+			v = append(v, &b.tims[ntm])
+			ntm++
+		case 32:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
@@ -3400,7 +3700,7 @@ var errPerRunOnOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "training_jobs" ("id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers"`
+const insertSQL = `INSERT INTO "training_jobs" ("id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note"`
 
 const updatePrefix = `UPDATE "training_jobs" SET `
 const deletePrefix = `DELETE FROM "training_jobs"`
@@ -3428,9 +3728,13 @@ const (
 	dNextRun       uint64 = 1 << 17
 	dNote          uint64 = 1 << 18
 	dRunOn         uint64 = 1 << 19
+	dMinNewRows    uint64 = 1 << 20
+	dTrainedRows   uint64 = 1 << 21
+	dCheckTime     uint64 = 1 << 22
+	dCheckNote     uint64 = 1 << 23
 )
 
-const nUpdatable = 20
+const nUpdatable = 24
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
@@ -3454,6 +3758,10 @@ var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"next_run\" = $", B: ""},        // next_run
 	{A: "\"note\" = $", B: ""},            // note
 	{A: "\"run_on\" = $", B: ""},          // run_on
+	{A: "\"min_new_rows\" = $", B: ""},    // min_new_rows
+	{A: "\"trained_rows\" = $", B: ""},    // trained_rows
+	{A: "\"check_time\" = $", B: ""},      // check_time
+	{A: "\"check_note\" = $", B: ""},      // check_note
 }
 
 // exprFrags is the SERVER-side assignment each column may take instead
@@ -3480,6 +3788,10 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{A: "\"next_run\" = now()", B: ""},                        // next_run = the database's clock
 	{},                                                        // note has no server-side form
 	{},                                                        // run_on has no server-side form
+	{A: "\"min_new_rows\" = \"min_new_rows\" + 1", B: ""}, // min_new_rows = its own value plus one
+	{A: "\"trained_rows\" = \"trained_rows\" + 1", B: ""}, // trained_rows = its own value plus one
+	{A: "\"check_time\" = now()", B: ""},                  // check_time = the database's clock
+	{},                                                    // check_note has no server-side form
 }
 
 // pkFrags addresses one row.
@@ -3520,9 +3832,13 @@ const (
 	iNote          uint64 = 1 << 26
 	iRunOn         uint64 = 1 << 27
 	iLayers        uint64 = 1 << 28
+	iMinNewRows    uint64 = 1 << 29
+	iTrainedRows   uint64 = 1 << 30
+	iCheckTime     uint64 = 1 << 31
+	iCheckNote     uint64 = 1 << 32
 )
 
-const nInsertable = 29
+const nInsertable = 33
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -3555,6 +3871,10 @@ var insCols = [nInsertable]string{
 	"\"note\"",
 	"\"run_on\"",
 	"\"layers\"",
+	"\"min_new_rows\"",
+	"\"trained_rows\"",
+	"\"check_time\"",
+	"\"check_note\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -3563,7 +3883,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"training_jobs\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -3582,7 +3902,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -3875,6 +4195,69 @@ func (m *Mut) SetRunOn(v string) {
 	m.row.RunOn = v
 	m.dirty |= dRunOn
 	m.expr &^= dRunOn
+}
+
+func (m *Mut) SetMinNewRows(v int64) {
+	m.row.MinNewRows = v
+	m.dirty |= dMinNewRows
+	m.expr &^= dMinNewRows
+}
+
+// IncMinNewRows adds one to the column's OWN value, in the database.
+//
+// Computing it in Go makes it a read-modify-write: two callers
+// who both read N both write N+1, and one increment is lost
+// with nothing to show that it happened.
+func (m *Mut) IncMinNewRows() {
+	m.expr |= dMinNewRows
+	m.dirty &^= dMinNewRows
+}
+
+func (m *Mut) SetTrainedRows(v int64) {
+	m.row.TrainedRows = v
+	m.dirty |= dTrainedRows
+	m.expr &^= dTrainedRows
+}
+
+// IncTrainedRows adds one to the column's OWN value, in the database.
+//
+// Computing it in Go makes it a read-modify-write: two callers
+// who both read N both write N+1, and one increment is lost
+// with nothing to show that it happened.
+func (m *Mut) IncTrainedRows() {
+	m.expr |= dTrainedRows
+	m.dirty &^= dTrainedRows
+}
+
+func (m *Mut) SetCheckTime(v time.Time) {
+	m.row.CheckTime = runtime.Null[time.Time]{V: v, Valid: true}
+	m.dirty |= dCheckTime
+	m.expr &^= dCheckTime
+}
+
+// SetCheckTimeNow assigns the database's clock, not this process's.
+//
+// Binding time.Now() instead would record when THIS server
+// thought it was. Servers skew, so rows written seconds apart
+// can land out of order, and an event stamped by a fast clock
+// reads as preceding the thing that caused it.
+func (m *Mut) SetCheckTimeNow() {
+	m.expr |= dCheckTime
+	m.dirty &^= dCheckTime
+}
+
+// SetCheckTimeNull writes SQL NULL. It is a separate method because a
+// zero value and an absent value are different facts.
+func (m *Mut) SetCheckTimeNull() {
+	m.row.CheckTime = runtime.Null[time.Time]{}
+	m.dirty |= dCheckTime
+	m.expr &^= dCheckTime
+}
+
+func (m *Mut) SetCheckNote(v string) {
+	m.row.CheckNote = v
+	m.dirty |= dCheckNote
+	m.expr &^= dCheckNote
 }
 
 // Ins stages a new row. Unlike Mut it has a setter for every insertable
@@ -4223,6 +4606,65 @@ func (n *Ins) SetLayers(v string) {
 	n.set |= iLayers
 }
 
+func (n *Ins) SetMinNewRows(v int64) {
+	n.row.MinNewRows = v
+	n.set |= iMinNewRows
+	n.add &^= iMinNewRows
+}
+
+// AddMinNewRowsOnConflict inserts v, or — when the insert conflicts and an
+// OnConflict… target updates the row already there — ADDS v to it:
+//
+//	"min_new_rows" = "training_jobs"."min_new_rows" + EXCLUDED."min_new_rows"
+//
+// The sum is the database's, in the same statement, so two writers
+// counting into one row both land. Reading the row, adding in Go and
+// upserting the total loses one of them, with nothing to show it.
+// Without an OnConflict target, or with DoNothing, it is SetMinNewRows.
+func (n *Ins) AddMinNewRowsOnConflict(v int64) {
+	n.row.MinNewRows = v
+	n.set |= iMinNewRows
+	n.add |= iMinNewRows
+}
+
+func (n *Ins) SetTrainedRows(v int64) {
+	n.row.TrainedRows = v
+	n.set |= iTrainedRows
+	n.add &^= iTrainedRows
+}
+
+// AddTrainedRowsOnConflict inserts v, or — when the insert conflicts and an
+// OnConflict… target updates the row already there — ADDS v to it:
+//
+//	"trained_rows" = "training_jobs"."trained_rows" + EXCLUDED."trained_rows"
+//
+// The sum is the database's, in the same statement, so two writers
+// counting into one row both land. Reading the row, adding in Go and
+// upserting the total loses one of them, with nothing to show it.
+// Without an OnConflict target, or with DoNothing, it is SetTrainedRows.
+func (n *Ins) AddTrainedRowsOnConflict(v int64) {
+	n.row.TrainedRows = v
+	n.set |= iTrainedRows
+	n.add |= iTrainedRows
+}
+
+func (n *Ins) SetCheckTime(v time.Time) {
+	n.row.CheckTime = runtime.Null[time.Time]{V: v, Valid: true}
+	n.set |= iCheckTime
+}
+
+// SetCheckTimeNull writes SQL NULL explicitly, which is not the same as
+// leaving the column unset and taking its default.
+func (n *Ins) SetCheckTimeNull() {
+	n.row.CheckTime = runtime.Null[time.Time]{}
+	n.set |= iCheckTime
+}
+
+func (n *Ins) SetCheckNote(v string) {
+	n.row.CheckNote = v
+	n.set |= iCheckNote
+}
+
 // The conflict encoding. One byte holds both which unique index an
 // upsert names and what it does on collision, so the insert statement
 // cache stays keyed by one mask and one byte:
@@ -4272,7 +4714,7 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 20)
+	set := make([]string, 0, 24)
 	switch i {
 	case 0:
 		if mask&(1<<2) != 0 {
@@ -4334,6 +4776,18 @@ func assignable(i uint8, mask uint64) []string {
 		}
 		if mask&(1<<27) != 0 {
 			set = append(set, "run_on")
+		}
+		if mask&(1<<29) != 0 {
+			set = append(set, "min_new_rows")
+		}
+		if mask&(1<<30) != 0 {
+			set = append(set, "trained_rows")
+		}
+		if mask&(1<<31) != 0 {
+			set = append(set, "check_time")
+		}
+		if mask&(1<<32) != 0 {
+			set = append(set, "check_note")
 		}
 	}
 	return set
@@ -4410,6 +4864,10 @@ func assignAdded(c string, add uint64) (string, bool) {
 		return "\"steps_per_epoch\" = \"training_jobs\".\"steps_per_epoch\" + EXCLUDED.\"steps_per_epoch\"", add&iStepsPerEpoch != 0
 	case "repeat_seconds":
 		return "\"repeat_seconds\" = \"training_jobs\".\"repeat_seconds\" + EXCLUDED.\"repeat_seconds\"", add&iRepeatSeconds != 0
+	case "min_new_rows":
+		return "\"min_new_rows\" = \"training_jobs\".\"min_new_rows\" + EXCLUDED.\"min_new_rows\"", add&iMinNewRows != 0
+	case "trained_rows":
+		return "\"trained_rows\" = \"training_jobs\".\"trained_rows\" + EXCLUDED.\"trained_rows\"", add&iTrainedRows != 0
 	}
 	return "", false
 }
@@ -4435,6 +4893,10 @@ var assignFor = map[string]string{
 	"next_run":        "\"next_run\" = EXCLUDED.\"next_run\"",
 	"note":            "\"note\" = EXCLUDED.\"note\"",
 	"run_on":          "\"run_on\" = EXCLUDED.\"run_on\"",
+	"min_new_rows":    "\"min_new_rows\" = EXCLUDED.\"min_new_rows\"",
+	"trained_rows":    "\"trained_rows\" = EXCLUDED.\"trained_rows\"",
+	"check_time":      "\"check_time\" = EXCLUDED.\"check_time\"",
+	"check_note":      "\"check_note\" = EXCLUDED.\"check_note\"",
 }
 
 func assignExcluded(c string) string { return assignFor[c] }
@@ -4543,6 +5005,14 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 			args = append(args, n.row.RunOn)
 		case 28:
 			args = append(args, n.row.Layers)
+		case 29:
+			args = append(args, n.row.MinNewRows)
+		case 30:
+			args = append(args, n.row.TrainedRows)
+		case 31:
+			args = append(args, n.row.CheckTime.Arg())
+		case 32:
+			args = append(args, n.row.CheckNote)
 		}
 	}
 	var out Row
@@ -4580,7 +5050,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 29)
+	args := make([]any, 0, 33)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -4610,6 +5080,10 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.Note)
 	args = append(args, r.RunOn)
 	args = append(args, r.Layers)
+	args = append(args, r.MinNewRows)
+	args = append(args, r.TrainedRows)
+	args = append(args, r.CheckTime.Arg())
+	args = append(args, r.CheckNote)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -4665,13 +5139,17 @@ var copyCols = []string{
 	"note",
 	"run_on",
 	"layers",
+	"min_new_rows",
+	"trained_rows",
+	"check_time",
+	"check_note",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [29]any
+	buf  [33]any
 }
 
 func (s *rowSource) Next() bool {
@@ -4718,6 +5196,10 @@ func (s *rowSource) Values() []any {
 	s.buf[26] = &r.Note
 	s.buf[27] = &r.RunOn
 	s.buf[28] = &r.Layers
+	s.buf[29] = &r.MinNewRows
+	s.buf[30] = &r.TrainedRows
+	s.buf[31] = r.CheckTime.Ptr()
+	s.buf[32] = &r.CheckNote
 	return s.buf[:]
 }
 
@@ -4777,8 +5259,12 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 26
 	mask |= 1 << 27
 	mask |= 1 << 28
+	mask |= 1 << 29
+	mask |= 1 << 30
+	mask |= 1 << 31
+	mask |= 1 << 32
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 29)
+	args := make([]any, 0, 33)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -4808,6 +5294,10 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.Note)
 	args = append(args, r.RunOn)
 	args = append(args, r.Layers)
+	args = append(args, r.MinNewRows)
+	args = append(args, r.TrainedRows)
+	args = append(args, r.CheckTime.Arg())
+	args = append(args, r.CheckNote)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -4899,6 +5389,14 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 			args = append(args, n.row.RunOn)
 		case 28:
 			args = append(args, n.row.Layers)
+		case 29:
+			args = append(args, n.row.MinNewRows)
+		case 30:
+			args = append(args, n.row.TrainedRows)
+		case 31:
+			args = append(args, n.row.CheckTime.Arg())
+		case 32:
+			args = append(args, n.row.CheckNote)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
@@ -4994,6 +5492,14 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 			args = append(args, m.row.Note)
 		case 19:
 			args = append(args, m.row.RunOn)
+		case 20:
+			args = append(args, m.row.MinNewRows)
+		case 21:
+			args = append(args, m.row.TrainedRows)
+		case 22:
+			args = append(args, m.row.CheckTime.Arg())
+		case 23:
+			args = append(args, m.row.CheckNote)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -5116,6 +5622,14 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 			args = append(args, m.row.Note)
 		case 19:
 			args = append(args, m.row.RunOn)
+		case 20:
+			args = append(args, m.row.MinNewRows)
+		case 21:
+			args = append(args, m.row.TrainedRows)
+		case 22:
+			args = append(args, m.row.CheckTime.Arg())
+		case 23:
+			args = append(args, m.row.CheckNote)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -5304,6 +5818,14 @@ func (q Query) UpdateAll(ctx context.Context, ex runtime.Executor, m Mut) (int64
 			args = append(args, m.row.Note)
 		case 19:
 			args = append(args, m.row.RunOn)
+		case 20:
+			args = append(args, m.row.MinNewRows)
+		case 21:
+			args = append(args, m.row.TrainedRows)
+		case 22:
+			args = append(args, m.row.CheckTime.Arg())
+		case 23:
+			args = append(args, m.row.CheckNote)
 		}
 	}
 	args = append(args, q.bindPreds(b)...)
