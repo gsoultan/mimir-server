@@ -148,6 +148,10 @@ type TrainTask struct {
 	BaseWeights  []byte
 	BaseLabels   []string
 	BaseFeatures []string
+	// Group, when set, is the run's other workers: this one trains its
+	// share of the batches and averages weights with them (see
+	// GroupTrainer). Only member 0's progress and weights are kept.
+	Group *Group
 }
 
 // Progress is where a training task is.
@@ -456,6 +460,9 @@ type worker struct {
 	// tasks is what this link takes: the console's choice from the
 	// welcome, else cfg.Tasks. Set before any task arrives.
 	tasks Tasks
+	// groups are the training tasks trained together with other
+	// workers, by task id, for the console's means.
+	groups map[string]*Group
 }
 
 func (w *worker) serve(ctx context.Context) error {
@@ -487,6 +494,9 @@ func (w *worker) serve(ctx context.Context) error {
 	slices.Sort(archs)
 	hello := &mimirv1.Hello{Device: w.cfg.Device, Cpus: int32(runtime.NumCPU()), MemoryBytes: memory(), Architectures: archs, Trains: trains, TrainingOnly: w.cfg.Tasks == TasksTrain, Capacity: int32(w.cfg.Capacity), Version: w.cfg.Version,
 		PublicKey: w.key.Public().(ed25519.PublicKey), Stats: w.stats.read()}
+	if trains {
+		hello.GroupArchitectures = groupArchitectures(w.handlers)
+	}
 	if err := w.send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Hello{Hello: hello}}); err != nil {
 		return err
 	}
@@ -552,6 +562,8 @@ func (w *worker) serve(ctx context.Context) error {
 			// Loading takes no slot: predictions keep flowing, answered
 			// by the version already here until this one is in.
 			tasks.Go(func() { w.load(ctx, b.Load) })
+		case *mimirv1.LinkResponse_GroupMean:
+			w.deliverMean(b.GroupMean)
 		case *mimirv1.LinkResponse_Cancel:
 			w.mu.Lock()
 			if t, ok := w.running[b.Cancel.TaskId]; ok {
@@ -800,6 +812,15 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		History:     epochsFromProto(t.History),
 		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
 	}
+	if t.GroupSize > 1 {
+		if _, ok := tr.(GroupTrainer); !ok {
+			reply(&mimirv1.TrainResult{Error: "this worker doesn't train " + t.Architecture + " together with others"})
+			return
+		}
+		g, done := w.groupFor(t)
+		defer done()
+		task.Group = g
+	}
 	var last time.Time
 	res, err := tr.Train(ctx, task, func(p Progress) {
 		if p.Step != 0 && time.Since(last) < time.Second {
@@ -817,6 +838,8 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		reply(&mimirv1.TrainResult{Cancelled: true})
 	case err != nil:
 		reply(&mimirv1.TrainResult{Error: err.Error()})
+	case t.GroupSize > 1 && t.GroupRank != 0:
+		reply(&mimirv1.TrainResult{}) // member 0 sends the weights
 	default:
 		reply(&mimirv1.TrainResult{
 			Weights: res.Weights, History: epochsToProto(res.History), Fresh: res.Fresh,

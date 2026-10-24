@@ -22,14 +22,16 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
-// linkService serves the pool's Link and nothing else.
+// linkService serves the pool's Link and nothing else, joining every
+// link as worker.
 type linkService struct {
 	mimirv1connect.UnimplementedWorkerServiceHandler
-	pool *Pool
+	pool   *Pool
+	worker store.Worker
 }
 
 func (s linkService) Link(ctx context.Context, stream *connect.BidiStream[mimirv1.LinkRequest, mimirv1.LinkResponse]) error {
-	return s.pool.Serve(ctx, stream, Join{Worker: store.Worker{ID: "w1", Name: "silent"}, Addr: "test"})
+	return s.pool.Serve(ctx, stream, Join{Worker: s.worker, Addr: "test"})
 }
 
 // silentWorker joins p over a real gRPC stream, then says nothing more, as
@@ -37,8 +39,16 @@ func (s linkService) Link(ctx context.Context, stream *connect.BidiStream[mimirv
 // the client stream and the messages the pool sent after the welcome.
 func silentWorker(t *testing.T, p *Pool) (*connect.BidiStreamForClient[mimirv1.LinkRequest, mimirv1.LinkResponse], <-chan *mimirv1.LinkResponse) {
 	t.Helper()
+	return scriptedWorker(t, p, store.Worker{ID: "w1", Name: "silent"}, &mimirv1.Hello{Architectures: []string{"table-mlp"}, Capacity: 1})
+}
+
+// scriptedWorker joins p as w with hello over a real gRPC stream, for a
+// test to speak for the worker. It returns the client stream and the
+// messages the pool sent after the welcome.
+func scriptedWorker(t *testing.T, p *Pool, w store.Worker, hello *mimirv1.Hello) (*connect.BidiStreamForClient[mimirv1.LinkRequest, mimirv1.LinkResponse], <-chan *mimirv1.LinkResponse) {
+	t.Helper()
 	mux := http.NewServeMux()
-	mux.Handle(mimirv1connect.NewWorkerServiceHandler(linkService{pool: p}))
+	mux.Handle(mimirv1connect.NewWorkerServiceHandler(linkService{pool: p, worker: w}))
 	srv := httptest.NewUnstartedServer(mux)
 	srv.EnableHTTP2 = true
 	srv.Config.Protocols = new(http.Protocols)
@@ -57,7 +67,8 @@ func silentWorker(t *testing.T, p *Pool) (*connect.BidiStreamForClient[mimirv1.L
 		stream.CloseResponse()
 	})
 	pub, key, _ := ed25519.GenerateKey(rand.Reader)
-	if err := stream.Send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Hello{Hello: &mimirv1.Hello{Architectures: []string{"table-mlp"}, Capacity: 1, PublicKey: pub}}}); err != nil {
+	hello.PublicKey = pub
+	if err := stream.Send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_Hello{Hello: hello}}); err != nil {
 		t.Fatal(err)
 	}
 	ch, err := stream.Receive()

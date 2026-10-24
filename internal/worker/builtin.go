@@ -38,7 +38,13 @@ type handler struct {
 	cache *runtime.Cache
 }
 
-var _ worker.Loader = (*handler)(nil)
+var (
+	_ worker.Loader       = (*handler)(nil)
+	_ worker.GroupTrainer = (*handler)(nil)
+)
+
+// TrainsInGroups says a run can be split between several workers.
+func (h *handler) TrainsInGroups() {}
 
 func (h *handler) spec(m *worker.Model) arch.Spec {
 	return arch.Resolve(h.a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
@@ -90,6 +96,9 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 		CheckpointDir: filepath.Join(h.data, "training", t.JobID),
 		BaseWeights:   t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
 	}
+	if t.Group != nil {
+		task.Group = group{t.Group}
+	}
 	res, err := training.Fit(ctx, task, func(epoch, step, steps int, history []store.Epoch) {
 		progress(worker.Progress{Epoch: epoch, Step: step, Steps: steps, History: toSDK(history)})
 	})
@@ -101,6 +110,15 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 		out.Columns = append(out.Columns, worker.Column{Name: c.Name, Kind: string(c.Kind), Values: c.Values, Fill: c.Fill})
 	}
 	return out, nil
+}
+
+// group is the SDK's Group as training wants it.
+type group struct{ g *worker.Group }
+
+func (g group) Rank() int { return g.g.Rank }
+func (g group) Size() int { return g.g.Size }
+func (g group) Mean(ctx context.Context, values []float32, weight float64) ([]float32, error) {
+	return g.g.Mean(ctx, values, weight)
 }
 
 func toSDK(h []store.Epoch) []worker.Epoch {

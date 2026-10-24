@@ -90,6 +90,10 @@ type Runner struct {
 	Remote Remote
 	// Now tells the time, for keep-learning schedules; tests move it.
 	Now func() time.Time
+	// GroupWorkers, when set, is asked before each run that may go to any
+	// worker: above 1, the run trains on up to that many workers together
+	// when a GroupRemote has at least two free.
+	GroupWorkers func() int
 	// Admit, when set, is asked before a keep-learning pass fetches its
 	// rows again, with a guess at the bytes the fetch takes; false puts
 	// the pass off for a few minutes. Nil leaves it to the memory budget
@@ -159,6 +163,13 @@ const DefaultJobs = 2
 // connected workers take at once, to size the runner when Jobs is zero.
 type TrainSlots interface {
 	TrainSlots() int
+}
+
+// GroupRemote is what a Remote can also do: train one run on up to most
+// workers together (see Group). ran is false when fewer than two are free,
+// and the job is untouched; workers names those it ran on.
+type GroupRemote interface {
+	TrainGroup(ctx context.Context, jobID string, most int, t Task, progress Progress) (res Result, workers string, ran bool, err error)
 }
 
 // TrainingOnly is what a Remote can also say: whether a worker takes no
@@ -500,7 +511,14 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	ran := false
 	if r.Remote != nil {
 		var name string
-		res, name, ran, err = r.Remote.Train(ctx, j.ID, j.RunOn, task, progress)
+		if g, ok := r.Remote.(GroupRemote); ok && j.RunOn == "" && r.GroupWorkers != nil {
+			if n := r.GroupWorkers(); n > 1 {
+				res, name, ran, err = g.TrainGroup(ctx, j.ID, n, task, progress)
+			}
+		}
+		if !ran {
+			res, name, ran, err = r.Remote.Train(ctx, j.ID, j.RunOn, task, progress)
+		}
 		if ran {
 			r.st.SetJobWorker(ctx, j.ID, name)
 		}
