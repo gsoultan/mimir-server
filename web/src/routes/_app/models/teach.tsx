@@ -21,7 +21,7 @@ import { useWorkerChoices, WorkerSelect } from "../../../components/Placement";
 import { bytes } from "../../../lib/format";
 import { dataTypeOf, dataTypeOfKind, dataTypes, datasetKindOf, kindLabel, type DataType } from "../../../lib/templates";
 import { layersOf, type Size, type Step } from "../../../lib/shape";
-import { repeatChoices } from "../../../lib/training";
+import { repeatChoices, repeatChoicesFor } from "../../../lib/training";
 import { pathOf, zip } from "../../../lib/zip";
 
 export const Route = createFileRoute("/_app/models/teach")({
@@ -179,6 +179,8 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const [bucket, setBucket] = useState<Bucket>(noBucket);
   const [bucketPath, setBucketPath] = useState("");
   const [repeat, setRepeat] = useState("0");
+  const [minRows, setMinRows] = useState<number | string>(0);
+  const waitRows = Math.max(0, Math.floor(Number(minRows) || 0));
   const [runOn, setRunOn] = useState("");
   const folder = useRef<HTMLInputElement>(null);
   const workers = useWorkerChoices(me.permissions.includes("models.write"));
@@ -327,7 +329,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
     : { what: dataset?.labels.length === 2 ? dataset.labels.join(" or ") : `one of ${dataset?.labels.length ?? 0} answers`, count: dataset?.labels.length ?? 2 };
   const chosenEpochs = expert ? Number(epochs) : presets.find((p) => p.value === preset)!.epochs;
   const start = () => dataset && createJob.mutate({
-    name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n, workerId: runOn,
+    name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n, minNewRows: fromQuery && repeat !== "0" ? BigInt(waitRows) : 0n, workerId: runOn,
     // Outside the expert settings, zero lets the server pick what suits the examples.
     settings: {
       epochs: chosenEpochs, batchSize: expert ? Number(batch) : 0, learningRate: expert ? Number(rate) : 0, holdOut: expert ? Number(holdOut) / 100 : 0.2,
@@ -581,11 +583,28 @@ function Wizard({ data: dataType }: { data: DataType }) {
               <Stack gap={4} mt="lg">
                 <Text fw={500} size="sm">Keep learning</Text>
                 <Text size="xs" c="dimmed">{dataset?.storage ? "Read the files again on a schedule" : "Run the query again on a schedule"} and continue teaching the same model with the new rows. The model is only replaced when the new pass scores at least as well.</Text>
-                <SegmentedControl value={repeat} onChange={setRepeat} data={repeatChoices} className="self-start" />
+                <SegmentedControl value={repeat} onChange={setRepeat} data={repeatChoicesFor(waitRows)} className="self-start" />
+                {repeat !== "0" && (
+                  <NumberInput
+                    mt="xs"
+                    maw={320}
+                    label="Wait for new rows"
+                    description={waitRows > 0 ? `It looks ${repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase()} and only learns again once there are ${waitRows.toLocaleString()} more rows than last time.` : "0 learns on every schedule. Set a number to learn only once that many new rows have arrived."}
+                    min={0}
+                    max={1_000_000_000}
+                    step={100}
+                    thousandSeparator=","
+                    value={minRows}
+                    onChange={(v) => {
+                      setMinRows(v);
+                      if (!(Number(v) > 0) && repeat === "900") setRepeat("3600");
+                    }}
+                  />
+                )}
               </Stack>
             )}
             <Text size="sm" c="dimmed" mt="md">
-              {name || "The model"} will learn from {dataset?.rows.toLocaleString()} examples over {chosenEpochs} passes{fromQuery && repeat !== "0" && `, then keep learning ${repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase()}`}. When it&apos;s done you can try it with one {archive ? "photo" : "row"}, or send it new ones from your apps. You can stop it any time and pick up later.
+              {name || "The model"} will learn from {dataset?.rows.toLocaleString()} examples over {chosenEpochs} passes{fromQuery && repeat !== "0" && `, then keep learning ${repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase()}${waitRows > 0 ? ` once ${waitRows.toLocaleString()} new rows are in` : ""}`}. When it&apos;s done you can try it with one {archive ? "photo" : "row"}, or send it new ones from your apps. You can stop it any time and pick up later.
             </Text>
             {createJob.error && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{message(createJob.error)}</Alert>}
           </Stepper.Step>

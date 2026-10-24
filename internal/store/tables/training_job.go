@@ -39,6 +39,14 @@ type TrainingJob struct {
 	// Layers is the design of a table model someone shaped themselves, as
 	// arch.FormatLayers writes it; "" is the usual shape.
 	Layers string
+	// MinNewRows > 0 makes a keep-learning pass wait until its source has
+	// that many more rows than TrainedRows, the rows the last pass had.
+	MinNewRows  int64
+	TrainedRows int64
+	// CheckTime and CheckNote say when the source was last looked at for
+	// new rows without starting a pass, and what was found.
+	CheckTime *time.Time
+	CheckNote string
 }
 
 // Aggregates: how many runs wait for each worker.
@@ -66,6 +74,9 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Col(&j.Note).Default("''")
 	t.Col(&j.RunOn).Default("''")
 	t.Col(&j.Layers).Default("''").Immutable()
+	t.Col(&j.MinNewRows).Default("0")
+	t.Col(&j.TrainedRows).Default("0")
+	t.Col(&j.CheckNote).Default("''")
 	// A team's runs, newest first; also the team key's index.
 	t.Col(&j.Team).NoIndex()
 	t.Index(&j.Team, storm.Desc(&j.CreateTime), storm.Desc(&j.ID))
@@ -80,4 +91,5 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Index(&j.Worker)
 	t.Check(storm.RawSQL(between("status", JobQueued, JobCancelled)))
 	t.Check(storm.RawSQL(`length(layers) <= 200`))
+	t.Check(storm.RawSQL(`min_new_rows >= 0`))
 }

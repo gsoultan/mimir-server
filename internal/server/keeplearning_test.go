@@ -194,3 +194,93 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 		t.Fatalf("refresh an upload: %v", err)
 	}
 }
+
+func TestKeepLearningWaitsForNewRows(t *testing.T) {
+	srv := newServer(t)
+	ctx := context.Background()
+	own := owner(t, srv)
+	path := fruitDB(t, 200)
+	conn := &mimirv1.Connection{Driver: "sqlite", Dsn: path}
+	ds, err := own.datasets.CreateDataset(ctx, connect.NewRequest(&mimirv1.CreateDatasetRequest{Name: "Shop fruit", Kind: mimirv1.DatasetKind_DATASET_KIND_TABLE, Connection: conn, Query: "SELECT width, height, kind FROM fruit", Target: "kind"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := ds.Msg.GetDataset()
+
+	// Looking every 15 minutes is only for runs that wait for new rows.
+	if _, err := own.training.CreateJob(ctx, connect.NewRequest(&mimirv1.CreateJobRequest{Name: "Sorter", Architecture: "table-mlp", DatasetId: d.GetId(), RepeatSeconds: 900})); code(err) != connect.CodeInvalidArgument {
+		t.Fatalf("15 minutes without new rows: %v", err)
+	}
+	if _, err := own.training.CreateJob(ctx, connect.NewRequest(&mimirv1.CreateJobRequest{Name: "Sorter", Architecture: "table-mlp", DatasetId: d.GetId(), RepeatSeconds: 3600, MinNewRows: -1})); code(err) != connect.CodeInvalidArgument {
+		t.Fatalf("negative new rows: %v", err)
+	}
+	job, err := own.training.CreateJob(ctx, connect.NewRequest(&mimirv1.CreateJobRequest{Name: "Sorter", Architecture: "table-mlp", DatasetId: d.GetId(), RepeatSeconds: 900, MinNewRows: 50, Settings: &mimirv1.TrainingSettings{Epochs: 4, LearningRate: 0.01}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := job.Msg.GetJob()
+	if first.GetMinNewRows() != 50 || first.GetTrainedRows() != 200 {
+		t.Fatalf("first run %v", first)
+	}
+	runner.Tick(ctx)
+	defer func() { runner.Now = time.Now }()
+	jobs := func() []*mimirv1.Job {
+		t.Helper()
+		ls, err := own.training.ListJobs(ctx, connect.NewRequest(&mimirv1.ListJobsRequest{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ls.Msg.GetJobs()
+	}
+	at := func(minutes int) {
+		runner.Now = func() time.Time { return time.Now().Add(time.Duration(minutes) * time.Minute) }
+		runner.Tick(ctx)
+	}
+
+	// No new rows: it looks, says so, and starts nothing.
+	at(20)
+	js := jobs()
+	if len(js) != 1 || js[0].GetCheckTime() == nil || js[0].GetCheckNote() != "0 new rows since the last pass; it waits for 50." {
+		t.Fatalf("after 20 minutes: %d jobs, %v", len(js), js[0])
+	}
+	// Looking again at once does nothing: it next looks in 15 minutes.
+	at(20)
+	if js := jobs(); len(js) != 1 {
+		t.Fatalf("looked twice: %d jobs", len(js))
+	}
+
+	// Some rows, not enough.
+	addFruit(t, path, 30)
+	at(40)
+	if js := jobs(); len(js) != 1 || js[0].GetCheckNote() != "30 new rows since the last pass; it waits for 50." {
+		t.Fatalf("after 30 rows: %v", js)
+	}
+
+	// Enough: the next pass learns from all 260 rows and waits for 50 more.
+	addFruit(t, path, 30)
+	at(60)
+	js = jobs()
+	if len(js) != 2 {
+		t.Fatalf("after 60 rows: %d jobs", len(js))
+	}
+	second := js[0]
+	if second.GetParentId() != first.GetId() || second.GetTrainedRows() != 260 || second.GetMinNewRows() != 50 || second.GetRepeatSeconds() != 900 || second.GetStatus() != mimirv1.JobStatus_JOB_STATUS_SUCCEEDED {
+		t.Fatalf("second pass %v", second)
+	}
+	if js[1].GetRepeatSeconds() != 0 {
+		t.Fatalf("first run still repeats: %v", js[1])
+	}
+
+	// Stopping the wait goes back to a pass on every interval, which must
+	// then be an hour or more.
+	if _, err := own.training.SetRepeat(ctx, connect.NewRequest(&mimirv1.SetRepeatRequest{Id: second.GetId(), RepeatSeconds: 900})); code(err) != connect.CodeInvalidArgument {
+		t.Fatalf("15 minutes without new rows: %v", err)
+	}
+	r, err := own.training.SetRepeat(ctx, connect.NewRequest(&mimirv1.SetRepeatRequest{Id: second.GetId(), RepeatSeconds: 3600, MinNewRows: 10}))
+	if err != nil || r.Msg.GetJob().GetMinNewRows() != 10 {
+		t.Fatalf("SetRepeat = %v, %v", r, err)
+	}
+	if r, err := own.training.SetRepeat(ctx, connect.NewRequest(&mimirv1.SetRepeatRequest{Id: second.GetId(), MinNewRows: 10})); err != nil || r.Msg.GetJob().GetMinNewRows() != 0 || r.Msg.GetJob().GetRepeatSeconds() != 0 {
+		t.Fatalf("SetRepeat off = %v, %v", r, err)
+	}
+}

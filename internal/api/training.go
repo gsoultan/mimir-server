@@ -467,9 +467,12 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 		}
 		return nil, s.internal(ctx, err)
 	}
-	repeat := req.Msg.GetRepeatSeconds()
-	if err := checkRepeat(repeat); err != nil {
+	repeat, minRows := req.Msg.GetRepeatSeconds(), req.Msg.GetMinNewRows()
+	if err := checkRepeat(repeat, minRows); err != nil {
 		return nil, err
+	}
+	if repeat == 0 {
+		minRows = 0
 	}
 	runOn := req.Msg.GetWorkerId()
 	if runOn != "" {
@@ -477,7 +480,7 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 			return nil, err
 		}
 	}
-	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat, TeamID: p.Team(), RunOn: runOn})
+	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat, TeamID: p.Team(), RunOn: runOn, MinNewRows: minRows, TrainedRows: d.Rows})
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -489,11 +492,22 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 	return connect.NewResponse(&mimirv1.CreateJobResponse{Job: jobProto(j, d.Name)}), nil
 }
 
+// MaxMinNewRows bounds how many new rows a keep-learning pass may wait for.
+const MaxMinNewRows = 1_000_000_000
+
 // checkRepeat bounds a keep-learning interval: off, or between an hour
-// and 90 days.
-func checkRepeat(seconds int64) error {
-	if seconds != 0 && (seconds < 3600 || seconds > 90*24*3600) {
-		return invalid("Keep learning every hour at most often, and at least every 90 days.")
+// and 90 days. A job that waits for new rows may look every 15 minutes,
+// since most looks only count rows and start nothing.
+func checkRepeat(seconds, minNewRows int64) error {
+	if minNewRows < 0 || minNewRows > MaxMinNewRows {
+		return invalid("New rows to wait for must be between 0 and %d.", MaxMinNewRows)
+	}
+	least, word := int64(3600), "every hour"
+	if minNewRows > 0 {
+		least, word = 900, "every 15 minutes"
+	}
+	if seconds != 0 && (seconds < least || seconds > 90*24*3600) {
+		return invalid("Keep learning %s at most often, and at least every 90 days.", word)
 	}
 	return nil
 }
@@ -504,16 +518,31 @@ func (s *Service) SetRepeat(ctx context.Context, req *connect.Request[mimirv1.Se
 	if err != nil {
 		return nil, err
 	}
-	seconds := req.Msg.GetRepeatSeconds()
-	if err := checkRepeat(seconds); err != nil {
+	seconds, minRows := req.Msg.GetRepeatSeconds(), req.Msg.GetMinNewRows()
+	if err := checkRepeat(seconds, minRows); err != nil {
 		return nil, err
 	}
-	if err := s.store.SetRepeat(ctx, j.ID, seconds); err != nil {
+	if seconds == 0 {
+		minRows = 0
+	}
+	if minRows > 0 && j.TrainedRows == 0 {
+		// A run from before rows were counted: count from what its
+		// examples hold now, rather than starting a pass at once.
+		if d, err := s.store.GetDataset(ctx, j.DatasetID); err == nil {
+			if err := s.store.SetTrainedRows(ctx, j.ID, d.Rows); err != nil {
+				return nil, s.internal(ctx, err)
+			}
+		}
+	}
+	if err := s.store.SetRepeat(ctx, j.ID, seconds, minRows); err != nil {
 		return nil, s.internal(ctx, err)
 	}
 	detail := "stopped"
 	if seconds > 0 {
 		detail = fmt.Sprintf("every %s", time.Duration(seconds)*time.Second)
+		if minRows > 0 {
+			detail += fmt.Sprintf(" once %d new rows are in", minRows)
+		}
 	}
 	s.audit(ctx, p.Actor(), "training.repeat", j.Name, detail)
 	if j, err = s.store.GetJob(ctx, j.ID); err != nil {
@@ -707,6 +736,7 @@ func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut, Layers: cluster.LayersToProto(j.Settings.Layers)},
 		Status:   mimirv1.JobStatus(j.Status), Error: j.Error, Epoch: int32(j.Epoch), ModelId: j.ModelID, Worker: j.Worker, CreatedBy: j.CreatedBy,
 		RepeatSeconds: j.RepeatSeconds, ParentId: j.ParentID, BaseModelId: j.BaseModelID, Note: j.Note, RunOn: j.RunOn,
+		MinNewRows: j.MinNewRows, TrainedRows: j.TrainedRows, CheckNote: j.CheckNote,
 		CreateTime: timestamppb.New(j.Created), Accuracy: accuracy(j), StepsPerEpoch: int32(j.StepsPerEpoch), Step: int32(j.Step),
 	}
 	if !j.Started.IsZero() {
@@ -717,6 +747,9 @@ func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 	}
 	if !j.NextRun.IsZero() && j.RepeatSeconds > 0 {
 		out.NextRunTime = timestamppb.New(j.NextRun)
+	}
+	if !j.CheckTime.IsZero() {
+		out.CheckTime = timestamppb.New(j.CheckTime)
 	}
 	for _, e := range j.History {
 		out.History = append(out.History, &mimirv1.EpochResult{Epoch: int32(e.Epoch), Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, DurationMillis: e.Millis, TypicalError: e.MAE})
