@@ -136,7 +136,10 @@ export function Meter({ label, pct, detail }: { label: string; pct: number; deta
 function WorkerCard({ w, rented, gpuProvider = "" }: { w: Worker; rented: boolean; gpuProvider?: string }) {
   const s = w.stats;
   const full = w.online && w.busy >= w.capacity;
-  const hot = s && Math.max(s.cpuPercent, share(s.memoryUsedBytes, s.memoryTotalBytes), share(s.diskUsedBytes, s.diskTotalBytes)) >= 90;
+  // The worker's own memory guard: 1 when it takes no training, 2 when it
+  // also loads no more models.
+  const short = w.online && (s?.memoryPressure ?? 0) > 0;
+  const hot = short || (s && Math.max(s.cpuPercent, share(s.memoryUsedBytes, s.memoryTotalBytes), share(s.diskUsedBytes, s.diskTotalBytes)) >= 90);
   return (
     <Link to="/workers/$id" params={{ id: w.id }} className="block text-inherit no-underline" aria-label={`${w.name}, ${w.online ? "online" : "offline"}`}>
     <Card
@@ -166,6 +169,7 @@ function WorkerCard({ w, rented, gpuProvider = "" }: { w: Worker; rented: boolea
       <Group gap="md" mt="sm">
         {w.online && <Text size="xs" c="dimmed">{w.busy} of {w.capacity} tasks</Text>}
         {w.online && w.trainingOnly && <Text size="xs" c="dimmed">teaches only</Text>}
+        {short && <Text size="xs" c="yellow.8">{s?.memoryPressure === 2 ? "memory critical: answering only" : "memory low: not teaching"}</Text>}
         {w.online && !w.trains && !w.trainingOnly && <Text size="xs" c="dimmed">answers only</Text>}
         {w.models > 0 && <Text size="xs" c="dimmed">{w.models} model{w.models === 1 ? "" : "s"} here</Text>}
         {w.waiting > 0 && <Text size="xs" c="dimmed">{w.waiting} waiting</Text>}

@@ -185,3 +185,45 @@ func waitFor(t *testing.T, cond func() bool) {
 		time.Sleep(time.Millisecond)
 	}
 }
+
+// A model that panics on one input fails that question alone: the batch
+// it was in runs again one question at a time, the others get their
+// answers, and the model goes on answering.
+func TestBatcherSurvivesAPanic(t *testing.T) {
+	gate := make(chan struct{})
+	ok := double(nil)
+	run := func(ctx context.Context, x []float32, n int) ([][]float32, error) {
+		<-gate
+		for _, v := range x {
+			if v == 13 {
+				panic("unlucky")
+			}
+		}
+		return ok(ctx, x, n)
+	}
+	b := newBatcher(run, "test", 0, fixed(Batching{Max: 8}), func() Observer { return nil })
+	b.runners = 1
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	errs := make([]error, 4)
+	for i, v := range []float32{1, 13, 2, 3} {
+		wg.Go(func() {
+			out, err := b.ask(ctx, []float32{v})
+			if err == nil && out[0] != 2*v {
+				t.Errorf("ask(%v) = %v", v, out)
+			}
+			errs[i] = err
+		})
+	}
+	time.Sleep(50 * time.Millisecond) // let them queue into one batch
+	close(gate)
+	wg.Wait()
+	for i, err := range errs {
+		if (i == 1) != (err != nil) {
+			t.Fatalf("question %d: %v; only the unlucky one should fail", i, err)
+		}
+	}
+	if out, err := b.ask(ctx, []float32{4}); err != nil || out[0] != 8 {
+		t.Fatalf("after the panic: %v, %v", out, err)
+	}
+}

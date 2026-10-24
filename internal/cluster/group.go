@@ -23,11 +23,11 @@ const groupGrace = 30 * time.Second
 // between them (see training.Group): each learns from its share of the
 // batches, and every few steps the pool averages their weights and sends
 // the mean back. It takes only workers that train t's architecture in
-// groups and have a slot free, and runs only when at least two do; ran is
-// false otherwise and nothing was sent. workers names them, member 0
+// groups, have a slot free and aren't short of memory, and runs only when
+// at least two do; ran is false otherwise and nothing was sent. workers names them, member 0
 // first. If any member fails or its link drops, the others are stopped
-// and the run fails with that error: ErrLinkLost puts it back in the
-// queue.
+// and the run fails with that error: ErrLinkLost, or a member stopping
+// for memory (training.ErrLowMemory), puts it back in the queue.
 func (p *Pool) TrainGroup(ctx context.Context, jobID string, most int, t training.Task, progress training.Progress) (res training.Result, workers string, ran bool, err error) {
 	members := p.reserveGroup(t.Arch.Name, most, Task{Kind: "train", JobID: jobID})
 	if len(members) < 2 {
@@ -139,6 +139,8 @@ func (p *Pool) TrainGroup(ctx context.Context, jobID string, most int, t trainin
 			left--
 			r := b.TrainResult
 			switch {
+			case r.LowMemory:
+				fail(fmt.Errorf("%w on %s", training.ErrLowMemory, m.l.worker.Name))
 			case r.Cancelled:
 				fail(cmpCause(ctx))
 			case r.Error != "":
@@ -178,9 +180,10 @@ func (p *Pool) reserveGroup(archName string, most int, t Task) []member {
 		}
 		l.mu.Lock()
 		busy, cap := l.busy, int(l.hello.Capacity)
+		pressure := l.stats.GetMemoryPressure()
 		l.mu.Unlock()
-		if busy >= cap {
-			continue
+		if busy >= cap || pressure >= pressureHigh {
+			continue // full, or short of memory: it takes no training runs
 		}
 		seen[l.worker.ID] = true
 		cs = append(cs, candidate{l, busy})

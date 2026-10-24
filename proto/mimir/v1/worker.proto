@@ -112,6 +112,13 @@ message Stats {
   // uptime_seconds is how long the worker process has been running.
   int64 uptime_seconds = 6;
   double load_average = 7;
+  // memory_pressure is how tight the worker's own memory is against its
+  // budget: 0 ok, 1 high (it takes no training runs), 2 critical (it is
+  // also loading no more models). A worker sends a heartbeat at once
+  // when it changes.
+  int32 memory_pressure = 8;
+  // memory_budget_bytes is the most memory the worker lets itself use.
+  int64 memory_budget_bytes = 9;
 }
 
 // WorkerSample is a worker's stats at one moment, for charts.
@@ -400,6 +407,10 @@ message TrainResult {
   bool cancelled = 6;
   // fresh says the base weights didn't fit and it learned from scratch.
   bool fresh = 7;
+  // low_memory says the worker stopped, or wouldn't start, the run to
+  // stay within its memory. The run goes back in the queue and resumes
+  // from its checkpoint.
+  bool low_memory = 8;
 }
 
 message CancelTask {
