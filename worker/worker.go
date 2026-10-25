@@ -564,6 +564,11 @@ func (w *worker) serve(ctx context.Context) error {
 			tasks.Go(func() { w.load(ctx, b.Load) })
 		case *mimirv1.LinkResponse_GroupMean:
 			w.deliverMean(b.GroupMean)
+		case *mimirv1.LinkResponse_Forget:
+			w.mu.Lock()
+			models := w.models
+			w.mu.Unlock()
+			models.forget(b.Forget.GetModelId())
 		case *mimirv1.LinkResponse_Cancel:
 			w.mu.Lock()
 			if t, ok := w.running[b.Cancel.TaskId]; ok {
