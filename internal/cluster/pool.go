@@ -609,7 +609,24 @@ func (p *Pool) Statuses() []Status {
 
 // Predict runs input through version ver of a model on a worker. ran is
 // false when no worker can run the architecture.
+//
+// A prediction whose worker drops off before answering is asked once more
+// of another, when the model may run on any: a prediction changes
+// nothing, so asking twice is safe, and the caller sees an answer rather
+// than an error for a worker that was restarted or lost.
 func (p *Pool) Predict(ctx context.Context, modelID, ver, workerID string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (res runtime.Result, worker string, ran bool, err error) {
+	res, worker, ran, err = p.predict(ctx, modelID, ver, workerID, a, spec, load, input)
+	if errors.Is(err, ErrLinkLost) && workerID == "" && ctx.Err() == nil {
+		p.log.WarnContext(ctx, "predict: worker dropped off, asking another", "worker", worker, "model_id", modelID)
+		// With no other worker to ask, the lost link is the answer.
+		if r2, w2, ran2, err2 := p.predict(ctx, modelID, ver, workerID, a, spec, load, input); ran2 {
+			return r2, w2, ran2, err2
+		}
+	}
+	return res, worker, ran, err
+}
+
+func (p *Pool) predict(ctx context.Context, modelID, ver, workerID string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (res runtime.Result, worker string, ran bool, err error) {
 	l, id, replies, err := p.reserveWait(ctx, a.Name, false, workerID, Task{Kind: "predict", ModelID: modelID})
 	if err != nil {
 		return res, "", true, err // a worker could have, but the wait ran out
@@ -665,6 +682,33 @@ func (p *Pool) Predict(ctx context.Context, modelID, ver, workerID string, a arc
 		return runtime.Result{Output: r.GetOutput().GetValues(), Probability: r.GetProbabilities().GetValues()}, l.worker.Name, true, nil
 	}
 	return res, l.worker.Name, true, fmt.Errorf("%w: it keeps asking for the weights", ErrWorkerFailed)
+}
+
+// Forget tells every connected worker that was sent a model to let go of
+// it, for a model deleted or moved to another worker, so its weights
+// don't sit in workers' memory until their caches fill. keep, when set,
+// is the worker the model runs on now, which is left alone.
+func (p *Pool) Forget(modelID, keep string) {
+	var links []*link
+	p.mu.Lock()
+	for _, l := range p.links {
+		if keep != "" && l.worker.ID == keep {
+			continue
+		}
+		l.mu.Lock()
+		_, sent := l.sent[modelID]
+		_, loading := l.loading[modelID]
+		delete(l.sent, modelID)
+		l.mu.Unlock()
+		if sent || loading {
+			links = append(links, l)
+		}
+	}
+	p.mu.Unlock()
+	for _, l := range links {
+		// A link that has gone takes its models with it.
+		l.send(&mimirv1.LinkResponse{Body: &mimirv1.LinkResponse_Forget{Forget: &mimirv1.ForgetModel{ModelId: modelID}}})
+	}
 }
 
 // Warm hands version ver of a model to every connected worker that can

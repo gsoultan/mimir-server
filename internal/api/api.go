@@ -517,6 +517,9 @@ func (s *Service) DeleteModel(ctx context.Context, req *connect.Request[mimirv1.
 		return nil, s.internal(ctx, err)
 	}
 	s.cache.Forget(id)
+	if s.Pool != nil {
+		s.Pool.Forget(id, "")
+	}
 	p, _ := auth.From(ctx)
 	s.audit(ctx, p.Actor(), "model.delete", m.Name, "")
 	s.emit(ctx, "model.deleted", modelEvent(m, p))

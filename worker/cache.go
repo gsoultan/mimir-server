@@ -85,6 +85,22 @@ func (c *modelCache) remove(m *Model) {
 	}
 }
 
+// forget drops the model with id, unloading it, when the console says
+// it is gone.
+func (c *modelCache) forget(id string) {
+	c.mu.Lock()
+	it := c.items[id]
+	if it != nil {
+		c.lru.Remove(it.elem)
+		delete(c.items, id)
+		c.used -= it.size
+	}
+	c.mu.Unlock()
+	if it != nil && it.unload != nil {
+		it.unload()
+	}
+}
+
 // shed drops the least recently used models, unloading them, until at
 // most keep bytes are held, keeping the one used last. It returns the
 // bytes that went.

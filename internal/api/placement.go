@@ -53,6 +53,10 @@ func (s *Service) SetModelWorker(ctx context.Context, req *connect.Request[mimir
 	}
 	m.WorkerID = wid
 	s.cache.Forget(m.ID)
+	if s.Pool != nil && wid != "" {
+		// Pinned to one worker, the others never answer it again.
+		s.Pool.Forget(m.ID, wid)
+	}
 	s.WarmModel(m.ID) // its new home gets the weights now, not on the first question
 	s.audit(ctx, p.Actor(), "model.worker", m.Name, "runs on "+where)
 	return connect.NewResponse(&mimirv1.SetModelWorkerResponse{Model: toProto(m)}), nil
