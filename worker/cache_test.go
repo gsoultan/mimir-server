@@ -54,3 +54,24 @@ func TestModelCacheEvictsByBytes(t *testing.T) {
 		t.Fatalf("usage %d bytes in %d models after removing all", b, n)
 	}
 }
+
+// A model the console says is gone is dropped and unloaded at once, and
+// its bytes no longer count; forgetting one never sent does nothing.
+func TestModelCacheForget(t *testing.T) {
+	c := newModelCache(0)
+	unloaded := map[string]int{}
+	for _, id := range []string{"a", "b"} {
+		c.put(&Model{ID: id}, 10, func() { unloaded[id]++ })
+	}
+	c.forget("a")
+	c.forget("nobody")
+	if c.get("a") != nil || unloaded["a"] != 1 {
+		t.Fatalf("a should be gone and unloaded once; unloaded %v", unloaded)
+	}
+	if c.get("b") == nil || unloaded["b"] != 0 {
+		t.Fatal("b should have stayed")
+	}
+	if b, n := c.usage(); b != 10 || n != 1 {
+		t.Fatalf("usage %d bytes in %d models, want 10 in 1", b, n)
+	}
+}

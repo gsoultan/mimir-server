@@ -1511,6 +1511,7 @@ type LinkResponse struct {
 	//	*LinkResponse_Challenge
 	//	*LinkResponse_Load
 	//	*LinkResponse_GroupMean
+	//	*LinkResponse_Forget
 	Body          isLinkResponse_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1616,6 +1617,15 @@ func (x *LinkResponse) GetGroupMean() *GroupMean {
 	return nil
 }
 
+func (x *LinkResponse) GetForget() *ForgetModel {
+	if x != nil {
+		if x, ok := x.Body.(*LinkResponse_Forget); ok {
+			return x.Forget
+		}
+	}
+	return nil
+}
+
 type isLinkResponse_Body interface {
 	isLinkResponse_Body()
 }
@@ -1648,6 +1658,10 @@ type LinkResponse_GroupMean struct {
 	GroupMean *GroupMean `protobuf:"bytes,7,opt,name=group_mean,json=groupMean,proto3,oneof"`
 }
 
+type LinkResponse_Forget struct {
+	Forget *ForgetModel `protobuf:"bytes,8,opt,name=forget,proto3,oneof"`
+}
+
 func (*LinkResponse_Welcome) isLinkResponse_Body() {}
 
 func (*LinkResponse_Predict) isLinkResponse_Body() {}
@@ -1661,6 +1675,8 @@ func (*LinkResponse_Challenge) isLinkResponse_Body() {}
 func (*LinkResponse_Load) isLinkResponse_Body() {}
 
 func (*LinkResponse_GroupMean) isLinkResponse_Body() {}
+
+func (*LinkResponse_Forget) isLinkResponse_Body() {}
 
 // LoadTask hands a worker a model's weights ahead of any prediction, so
 // the first one after a run finishes is as quick as the rest. The
@@ -1795,6 +1811,53 @@ func (x *LoadResult) GetError() string {
 	return ""
 }
 
+// ForgetModel tells a worker a model it was sent is gone (deleted, or
+// moved to another worker), so it lets go of the weights now rather than
+// keep them until its cache fills. It needs no reply.
+type ForgetModel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModelId       string                 `protobuf:"bytes,1,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ForgetModel) Reset() {
+	*x = ForgetModel{}
+	mi := &file_mimir_v1_worker_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ForgetModel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ForgetModel) ProtoMessage() {}
+
+func (x *ForgetModel) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_worker_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ForgetModel.ProtoReflect.Descriptor instead.
+func (*ForgetModel) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ForgetModel) GetModelId() string {
+	if x != nil {
+		return x.ModelId
+	}
+	return ""
+}
+
 // Challenge asks the worker to prove it holds its key.
 type Challenge struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1805,7 +1868,7 @@ type Challenge struct {
 
 func (x *Challenge) Reset() {
 	*x = Challenge{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[23]
+	mi := &file_mimir_v1_worker_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1817,7 +1880,7 @@ func (x *Challenge) String() string {
 func (*Challenge) ProtoMessage() {}
 
 func (x *Challenge) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[23]
+	mi := &file_mimir_v1_worker_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1830,7 +1893,7 @@ func (x *Challenge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Challenge.ProtoReflect.Descriptor instead.
 func (*Challenge) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{23}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Challenge) GetNonce() []byte {
@@ -1851,7 +1914,7 @@ type Proof struct {
 
 func (x *Proof) Reset() {
 	*x = Proof{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[24]
+	mi := &file_mimir_v1_worker_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1863,7 +1926,7 @@ func (x *Proof) String() string {
 func (*Proof) ProtoMessage() {}
 
 func (x *Proof) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[24]
+	mi := &file_mimir_v1_worker_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1876,7 +1939,7 @@ func (x *Proof) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Proof.ProtoReflect.Descriptor instead.
 func (*Proof) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{24}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *Proof) GetSignature() []byte {
@@ -1914,7 +1977,7 @@ type Hello struct {
 
 func (x *Hello) Reset() {
 	*x = Hello{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[25]
+	mi := &file_mimir_v1_worker_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1926,7 +1989,7 @@ func (x *Hello) String() string {
 func (*Hello) ProtoMessage() {}
 
 func (x *Hello) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[25]
+	mi := &file_mimir_v1_worker_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1939,7 +2002,7 @@ func (x *Hello) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Hello.ProtoReflect.Descriptor instead.
 func (*Hello) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{25}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *Hello) GetDevice() string {
@@ -2029,7 +2092,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[26]
+	mi := &file_mimir_v1_worker_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2041,7 +2104,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[26]
+	mi := &file_mimir_v1_worker_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2054,7 +2117,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{26}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *Heartbeat) GetStats() *Stats {
@@ -2077,7 +2140,7 @@ type Welcome struct {
 
 func (x *Welcome) Reset() {
 	*x = Welcome{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[27]
+	mi := &file_mimir_v1_worker_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2089,7 +2152,7 @@ func (x *Welcome) String() string {
 func (*Welcome) ProtoMessage() {}
 
 func (x *Welcome) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[27]
+	mi := &file_mimir_v1_worker_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2102,7 +2165,7 @@ func (x *Welcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Welcome.ProtoReflect.Descriptor instead.
 func (*Welcome) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{27}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *Welcome) GetWorkerId() string {
@@ -2139,7 +2202,7 @@ type ModelSpec struct {
 
 func (x *ModelSpec) Reset() {
 	*x = ModelSpec{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[28]
+	mi := &file_mimir_v1_worker_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2151,7 +2214,7 @@ func (x *ModelSpec) String() string {
 func (*ModelSpec) ProtoMessage() {}
 
 func (x *ModelSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[28]
+	mi := &file_mimir_v1_worker_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2164,7 +2227,7 @@ func (x *ModelSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelSpec.ProtoReflect.Descriptor instead.
 func (*ModelSpec) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{28}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ModelSpec) GetInputShape() []int64 {
@@ -2211,7 +2274,7 @@ type PredictTask struct {
 
 func (x *PredictTask) Reset() {
 	*x = PredictTask{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[29]
+	mi := &file_mimir_v1_worker_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2223,7 +2286,7 @@ func (x *PredictTask) String() string {
 func (*PredictTask) ProtoMessage() {}
 
 func (x *PredictTask) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[29]
+	mi := &file_mimir_v1_worker_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2236,7 +2299,7 @@ func (x *PredictTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PredictTask.ProtoReflect.Descriptor instead.
 func (*PredictTask) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{29}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *PredictTask) GetTaskId() string {
@@ -2295,7 +2358,7 @@ type PredictResult struct {
 
 func (x *PredictResult) Reset() {
 	*x = PredictResult{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[30]
+	mi := &file_mimir_v1_worker_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2307,7 +2370,7 @@ func (x *PredictResult) String() string {
 func (*PredictResult) ProtoMessage() {}
 
 func (x *PredictResult) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[30]
+	mi := &file_mimir_v1_worker_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2320,7 +2383,7 @@ func (x *PredictResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PredictResult.ProtoReflect.Descriptor instead.
 func (*PredictResult) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{30}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *PredictResult) GetTaskId() string {
@@ -2395,7 +2458,7 @@ type TrainTask struct {
 
 func (x *TrainTask) Reset() {
 	*x = TrainTask{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[31]
+	mi := &file_mimir_v1_worker_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2407,7 +2470,7 @@ func (x *TrainTask) String() string {
 func (*TrainTask) ProtoMessage() {}
 
 func (x *TrainTask) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[31]
+	mi := &file_mimir_v1_worker_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2420,7 +2483,7 @@ func (x *TrainTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrainTask.ProtoReflect.Descriptor instead.
 func (*TrainTask) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{31}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *TrainTask) GetTaskId() string {
@@ -2543,7 +2606,7 @@ type GroupShare struct {
 
 func (x *GroupShare) Reset() {
 	*x = GroupShare{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[32]
+	mi := &file_mimir_v1_worker_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2555,7 +2618,7 @@ func (x *GroupShare) String() string {
 func (*GroupShare) ProtoMessage() {}
 
 func (x *GroupShare) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[32]
+	mi := &file_mimir_v1_worker_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2568,7 +2631,7 @@ func (x *GroupShare) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupShare.ProtoReflect.Descriptor instead.
 func (*GroupShare) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{32}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GroupShare) GetTaskId() string {
@@ -2611,7 +2674,7 @@ type GroupMean struct {
 
 func (x *GroupMean) Reset() {
 	*x = GroupMean{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[33]
+	mi := &file_mimir_v1_worker_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2623,7 +2686,7 @@ func (x *GroupMean) String() string {
 func (*GroupMean) ProtoMessage() {}
 
 func (x *GroupMean) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[33]
+	mi := &file_mimir_v1_worker_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2636,7 +2699,7 @@ func (x *GroupMean) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupMean.ProtoReflect.Descriptor instead.
 func (*GroupMean) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{33}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GroupMean) GetTaskId() string {
@@ -2673,7 +2736,7 @@ type TrainProgress struct {
 
 func (x *TrainProgress) Reset() {
 	*x = TrainProgress{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[34]
+	mi := &file_mimir_v1_worker_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2685,7 +2748,7 @@ func (x *TrainProgress) String() string {
 func (*TrainProgress) ProtoMessage() {}
 
 func (x *TrainProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[34]
+	mi := &file_mimir_v1_worker_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2698,7 +2761,7 @@ func (x *TrainProgress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrainProgress.ProtoReflect.Descriptor instead.
 func (*TrainProgress) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{34}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *TrainProgress) GetTaskId() string {
@@ -2756,7 +2819,7 @@ type TrainResult struct {
 
 func (x *TrainResult) Reset() {
 	*x = TrainResult{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[35]
+	mi := &file_mimir_v1_worker_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2768,7 +2831,7 @@ func (x *TrainResult) String() string {
 func (*TrainResult) ProtoMessage() {}
 
 func (x *TrainResult) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[35]
+	mi := &file_mimir_v1_worker_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2781,7 +2844,7 @@ func (x *TrainResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrainResult.ProtoReflect.Descriptor instead.
 func (*TrainResult) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{35}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *TrainResult) GetTaskId() string {
@@ -2849,7 +2912,7 @@ type CancelTask struct {
 
 func (x *CancelTask) Reset() {
 	*x = CancelTask{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[36]
+	mi := &file_mimir_v1_worker_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2861,7 +2924,7 @@ func (x *CancelTask) String() string {
 func (*CancelTask) ProtoMessage() {}
 
 func (x *CancelTask) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[36]
+	mi := &file_mimir_v1_worker_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2874,7 +2937,7 @@ func (x *CancelTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelTask.ProtoReflect.Descriptor instead.
 func (*CancelTask) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{36}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CancelTask) GetTaskId() string {
@@ -2937,7 +3000,7 @@ type CloudGpu struct {
 
 func (x *CloudGpu) Reset() {
 	*x = CloudGpu{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[37]
+	mi := &file_mimir_v1_worker_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2949,7 +3012,7 @@ func (x *CloudGpu) String() string {
 func (*CloudGpu) ProtoMessage() {}
 
 func (x *CloudGpu) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[37]
+	mi := &file_mimir_v1_worker_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2962,7 +3025,7 @@ func (x *CloudGpu) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloudGpu.ProtoReflect.Descriptor instead.
 func (*CloudGpu) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{37}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *CloudGpu) GetEnabled() bool {
@@ -3092,7 +3155,7 @@ type GetCloudGpuRequest struct {
 
 func (x *GetCloudGpuRequest) Reset() {
 	*x = GetCloudGpuRequest{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[38]
+	mi := &file_mimir_v1_worker_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3104,7 +3167,7 @@ func (x *GetCloudGpuRequest) String() string {
 func (*GetCloudGpuRequest) ProtoMessage() {}
 
 func (x *GetCloudGpuRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[38]
+	mi := &file_mimir_v1_worker_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3117,7 +3180,7 @@ func (x *GetCloudGpuRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCloudGpuRequest.ProtoReflect.Descriptor instead.
 func (*GetCloudGpuRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{38}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{39}
 }
 
 type GetCloudGpuResponse struct {
@@ -3131,7 +3194,7 @@ type GetCloudGpuResponse struct {
 
 func (x *GetCloudGpuResponse) Reset() {
 	*x = GetCloudGpuResponse{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[39]
+	mi := &file_mimir_v1_worker_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3143,7 +3206,7 @@ func (x *GetCloudGpuResponse) String() string {
 func (*GetCloudGpuResponse) ProtoMessage() {}
 
 func (x *GetCloudGpuResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[39]
+	mi := &file_mimir_v1_worker_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3156,7 +3219,7 @@ func (x *GetCloudGpuResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCloudGpuResponse.ProtoReflect.Descriptor instead.
 func (*GetCloudGpuResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{39}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *GetCloudGpuResponse) GetCloudGpu() *CloudGpu {
@@ -3191,7 +3254,7 @@ type CloudGpuProvider struct {
 
 func (x *CloudGpuProvider) Reset() {
 	*x = CloudGpuProvider{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[40]
+	mi := &file_mimir_v1_worker_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3203,7 +3266,7 @@ func (x *CloudGpuProvider) String() string {
 func (*CloudGpuProvider) ProtoMessage() {}
 
 func (x *CloudGpuProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[40]
+	mi := &file_mimir_v1_worker_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3216,7 +3279,7 @@ func (x *CloudGpuProvider) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloudGpuProvider.ProtoReflect.Descriptor instead.
 func (*CloudGpuProvider) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{40}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *CloudGpuProvider) GetId() string {
@@ -3271,7 +3334,7 @@ type CloudGpuChoice struct {
 
 func (x *CloudGpuChoice) Reset() {
 	*x = CloudGpuChoice{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[41]
+	mi := &file_mimir_v1_worker_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3283,7 +3346,7 @@ func (x *CloudGpuChoice) String() string {
 func (*CloudGpuChoice) ProtoMessage() {}
 
 func (x *CloudGpuChoice) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[41]
+	mi := &file_mimir_v1_worker_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3296,7 +3359,7 @@ func (x *CloudGpuChoice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloudGpuChoice.ProtoReflect.Descriptor instead.
 func (*CloudGpuChoice) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{41}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *CloudGpuChoice) GetId() string {
@@ -3335,7 +3398,7 @@ type UpdateCloudGpuRequest struct {
 
 func (x *UpdateCloudGpuRequest) Reset() {
 	*x = UpdateCloudGpuRequest{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[42]
+	mi := &file_mimir_v1_worker_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3347,7 +3410,7 @@ func (x *UpdateCloudGpuRequest) String() string {
 func (*UpdateCloudGpuRequest) ProtoMessage() {}
 
 func (x *UpdateCloudGpuRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[42]
+	mi := &file_mimir_v1_worker_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3360,7 +3423,7 @@ func (x *UpdateCloudGpuRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCloudGpuRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCloudGpuRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{42}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *UpdateCloudGpuRequest) GetEnabled() bool {
@@ -3456,7 +3519,7 @@ type UpdateCloudGpuResponse struct {
 
 func (x *UpdateCloudGpuResponse) Reset() {
 	*x = UpdateCloudGpuResponse{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[43]
+	mi := &file_mimir_v1_worker_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3468,7 +3531,7 @@ func (x *UpdateCloudGpuResponse) String() string {
 func (*UpdateCloudGpuResponse) ProtoMessage() {}
 
 func (x *UpdateCloudGpuResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[43]
+	mi := &file_mimir_v1_worker_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3481,7 +3544,7 @@ func (x *UpdateCloudGpuResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCloudGpuResponse.ProtoReflect.Descriptor instead.
 func (*UpdateCloudGpuResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{43}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *UpdateCloudGpuResponse) GetCloudGpu() *CloudGpu {
@@ -3499,7 +3562,7 @@ type StopCloudGpuRequest struct {
 
 func (x *StopCloudGpuRequest) Reset() {
 	*x = StopCloudGpuRequest{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[44]
+	mi := &file_mimir_v1_worker_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3511,7 +3574,7 @@ func (x *StopCloudGpuRequest) String() string {
 func (*StopCloudGpuRequest) ProtoMessage() {}
 
 func (x *StopCloudGpuRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[44]
+	mi := &file_mimir_v1_worker_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3524,7 +3587,7 @@ func (x *StopCloudGpuRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopCloudGpuRequest.ProtoReflect.Descriptor instead.
 func (*StopCloudGpuRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{44}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{45}
 }
 
 type StopCloudGpuResponse struct {
@@ -3536,7 +3599,7 @@ type StopCloudGpuResponse struct {
 
 func (x *StopCloudGpuResponse) Reset() {
 	*x = StopCloudGpuResponse{}
-	mi := &file_mimir_v1_worker_proto_msgTypes[45]
+	mi := &file_mimir_v1_worker_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3548,7 +3611,7 @@ func (x *StopCloudGpuResponse) String() string {
 func (*StopCloudGpuResponse) ProtoMessage() {}
 
 func (x *StopCloudGpuResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_worker_proto_msgTypes[45]
+	mi := &file_mimir_v1_worker_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3561,7 +3624,7 @@ func (x *StopCloudGpuResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopCloudGpuResponse.ProtoReflect.Descriptor instead.
 func (*StopCloudGpuResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{45}
+	return file_mimir_v1_worker_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *StopCloudGpuResponse) GetCloudGpu() *CloudGpu {
@@ -3689,7 +3752,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"loadResult\x127\n" +
 	"\vgroup_share\x18\b \x01(\v2\x14.mimir.v1.GroupShareH\x00R\n" +
 	"groupShareB\x06\n" +
-	"\x04body\"\xea\x02\n" +
+	"\x04body\"\x9b\x03\n" +
 	"\fLinkResponse\x12-\n" +
 	"\awelcome\x18\x01 \x01(\v2\x11.mimir.v1.WelcomeH\x00R\awelcome\x121\n" +
 	"\apredict\x18\x02 \x01(\v2\x15.mimir.v1.PredictTaskH\x00R\apredict\x12+\n" +
@@ -3698,7 +3761,8 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\tchallenge\x18\x05 \x01(\v2\x13.mimir.v1.ChallengeH\x00R\tchallenge\x12(\n" +
 	"\x04load\x18\x06 \x01(\v2\x12.mimir.v1.LoadTaskH\x00R\x04load\x124\n" +
 	"\n" +
-	"group_mean\x18\a \x01(\v2\x13.mimir.v1.GroupMeanH\x00R\tgroupMeanB\x06\n" +
+	"group_mean\x18\a \x01(\v2\x13.mimir.v1.GroupMeanH\x00R\tgroupMean\x12/\n" +
+	"\x06forget\x18\b \x01(\v2\x15.mimir.v1.ForgetModelH\x00R\x06forgetB\x06\n" +
 	"\x04body\"\xa5\x01\n" +
 	"\bLoadTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x19\n" +
@@ -3709,7 +3773,9 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\n" +
 	"LoadResult\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"!\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"(\n" +
+	"\vForgetModel\x12\x19\n" +
+	"\bmodel_id\x18\x01 \x01(\tR\amodelId\"!\n" +
 	"\tChallenge\x12\x14\n" +
 	"\x05nonce\x18\x01 \x01(\fR\x05nonce\"%\n" +
 	"\x05Proof\x12\x1c\n" +
@@ -3885,7 +3951,7 @@ func file_mimir_v1_worker_proto_rawDescGZIP() []byte {
 	return file_mimir_v1_worker_proto_rawDescData
 }
 
-var file_mimir_v1_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 46)
+var file_mimir_v1_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_mimir_v1_worker_proto_goTypes = []any{
 	(*Worker)(nil),                     // 0: mimir.v1.Worker
 	(*Stats)(nil),                      // 1: mimir.v1.Stats
@@ -3910,44 +3976,45 @@ var file_mimir_v1_worker_proto_goTypes = []any{
 	(*LinkResponse)(nil),               // 20: mimir.v1.LinkResponse
 	(*LoadTask)(nil),                   // 21: mimir.v1.LoadTask
 	(*LoadResult)(nil),                 // 22: mimir.v1.LoadResult
-	(*Challenge)(nil),                  // 23: mimir.v1.Challenge
-	(*Proof)(nil),                      // 24: mimir.v1.Proof
-	(*Hello)(nil),                      // 25: mimir.v1.Hello
-	(*Heartbeat)(nil),                  // 26: mimir.v1.Heartbeat
-	(*Welcome)(nil),                    // 27: mimir.v1.Welcome
-	(*ModelSpec)(nil),                  // 28: mimir.v1.ModelSpec
-	(*PredictTask)(nil),                // 29: mimir.v1.PredictTask
-	(*PredictResult)(nil),              // 30: mimir.v1.PredictResult
-	(*TrainTask)(nil),                  // 31: mimir.v1.TrainTask
-	(*GroupShare)(nil),                 // 32: mimir.v1.GroupShare
-	(*GroupMean)(nil),                  // 33: mimir.v1.GroupMean
-	(*TrainProgress)(nil),              // 34: mimir.v1.TrainProgress
-	(*TrainResult)(nil),                // 35: mimir.v1.TrainResult
-	(*CancelTask)(nil),                 // 36: mimir.v1.CancelTask
-	(*CloudGpu)(nil),                   // 37: mimir.v1.CloudGpu
-	(*GetCloudGpuRequest)(nil),         // 38: mimir.v1.GetCloudGpuRequest
-	(*GetCloudGpuResponse)(nil),        // 39: mimir.v1.GetCloudGpuResponse
-	(*CloudGpuProvider)(nil),           // 40: mimir.v1.CloudGpuProvider
-	(*CloudGpuChoice)(nil),             // 41: mimir.v1.CloudGpuChoice
-	(*UpdateCloudGpuRequest)(nil),      // 42: mimir.v1.UpdateCloudGpuRequest
-	(*UpdateCloudGpuResponse)(nil),     // 43: mimir.v1.UpdateCloudGpuResponse
-	(*StopCloudGpuRequest)(nil),        // 44: mimir.v1.StopCloudGpuRequest
-	(*StopCloudGpuResponse)(nil),       // 45: mimir.v1.StopCloudGpuResponse
-	(*timestamppb.Timestamp)(nil),      // 46: google.protobuf.Timestamp
-	(*Column)(nil),                     // 47: mimir.v1.Column
-	(*Tensor)(nil),                     // 48: mimir.v1.Tensor
-	(*TrainingSettings)(nil),           // 49: mimir.v1.TrainingSettings
-	(DatasetKind)(0),                   // 50: mimir.v1.DatasetKind
-	(*EpochResult)(nil),                // 51: mimir.v1.EpochResult
+	(*ForgetModel)(nil),                // 23: mimir.v1.ForgetModel
+	(*Challenge)(nil),                  // 24: mimir.v1.Challenge
+	(*Proof)(nil),                      // 25: mimir.v1.Proof
+	(*Hello)(nil),                      // 26: mimir.v1.Hello
+	(*Heartbeat)(nil),                  // 27: mimir.v1.Heartbeat
+	(*Welcome)(nil),                    // 28: mimir.v1.Welcome
+	(*ModelSpec)(nil),                  // 29: mimir.v1.ModelSpec
+	(*PredictTask)(nil),                // 30: mimir.v1.PredictTask
+	(*PredictResult)(nil),              // 31: mimir.v1.PredictResult
+	(*TrainTask)(nil),                  // 32: mimir.v1.TrainTask
+	(*GroupShare)(nil),                 // 33: mimir.v1.GroupShare
+	(*GroupMean)(nil),                  // 34: mimir.v1.GroupMean
+	(*TrainProgress)(nil),              // 35: mimir.v1.TrainProgress
+	(*TrainResult)(nil),                // 36: mimir.v1.TrainResult
+	(*CancelTask)(nil),                 // 37: mimir.v1.CancelTask
+	(*CloudGpu)(nil),                   // 38: mimir.v1.CloudGpu
+	(*GetCloudGpuRequest)(nil),         // 39: mimir.v1.GetCloudGpuRequest
+	(*GetCloudGpuResponse)(nil),        // 40: mimir.v1.GetCloudGpuResponse
+	(*CloudGpuProvider)(nil),           // 41: mimir.v1.CloudGpuProvider
+	(*CloudGpuChoice)(nil),             // 42: mimir.v1.CloudGpuChoice
+	(*UpdateCloudGpuRequest)(nil),      // 43: mimir.v1.UpdateCloudGpuRequest
+	(*UpdateCloudGpuResponse)(nil),     // 44: mimir.v1.UpdateCloudGpuResponse
+	(*StopCloudGpuRequest)(nil),        // 45: mimir.v1.StopCloudGpuRequest
+	(*StopCloudGpuResponse)(nil),       // 46: mimir.v1.StopCloudGpuResponse
+	(*timestamppb.Timestamp)(nil),      // 47: google.protobuf.Timestamp
+	(*Column)(nil),                     // 48: mimir.v1.Column
+	(*Tensor)(nil),                     // 49: mimir.v1.Tensor
+	(*TrainingSettings)(nil),           // 50: mimir.v1.TrainingSettings
+	(DatasetKind)(0),                   // 51: mimir.v1.DatasetKind
+	(*EpochResult)(nil),                // 52: mimir.v1.EpochResult
 }
 var file_mimir_v1_worker_proto_depIdxs = []int32{
-	46, // 0: mimir.v1.Worker.last_seen:type_name -> google.protobuf.Timestamp
-	46, // 1: mimir.v1.Worker.create_time:type_name -> google.protobuf.Timestamp
+	47, // 0: mimir.v1.Worker.last_seen:type_name -> google.protobuf.Timestamp
+	47, // 1: mimir.v1.Worker.create_time:type_name -> google.protobuf.Timestamp
 	1,  // 2: mimir.v1.Worker.stats:type_name -> mimir.v1.Stats
-	46, // 3: mimir.v1.Worker.connect_time:type_name -> google.protobuf.Timestamp
-	46, // 4: mimir.v1.WorkerSample.time:type_name -> google.protobuf.Timestamp
-	46, // 5: mimir.v1.WorkerTask.start_time:type_name -> google.protobuf.Timestamp
-	46, // 6: mimir.v1.WorkerItem.time:type_name -> google.protobuf.Timestamp
+	47, // 3: mimir.v1.Worker.connect_time:type_name -> google.protobuf.Timestamp
+	47, // 4: mimir.v1.WorkerSample.time:type_name -> google.protobuf.Timestamp
+	47, // 5: mimir.v1.WorkerTask.start_time:type_name -> google.protobuf.Timestamp
+	47, // 6: mimir.v1.WorkerItem.time:type_name -> google.protobuf.Timestamp
 	0,  // 7: mimir.v1.GetWorkerResponse.worker:type_name -> mimir.v1.Worker
 	2,  // 8: mimir.v1.GetWorkerResponse.samples:type_name -> mimir.v1.WorkerSample
 	3,  // 9: mimir.v1.GetWorkerResponse.tasks:type_name -> mimir.v1.WorkerTask
@@ -3958,69 +4025,70 @@ var file_mimir_v1_worker_proto_depIdxs = []int32{
 	0,  // 14: mimir.v1.ListWorkerChoicesResponse.workers:type_name -> mimir.v1.Worker
 	0,  // 15: mimir.v1.ListWorkersResponse.workers:type_name -> mimir.v1.Worker
 	0,  // 16: mimir.v1.CreateWorkerResponse.worker:type_name -> mimir.v1.Worker
-	25, // 17: mimir.v1.LinkRequest.hello:type_name -> mimir.v1.Hello
-	30, // 18: mimir.v1.LinkRequest.predict_result:type_name -> mimir.v1.PredictResult
-	34, // 19: mimir.v1.LinkRequest.train_progress:type_name -> mimir.v1.TrainProgress
-	35, // 20: mimir.v1.LinkRequest.train_result:type_name -> mimir.v1.TrainResult
-	26, // 21: mimir.v1.LinkRequest.heartbeat:type_name -> mimir.v1.Heartbeat
-	24, // 22: mimir.v1.LinkRequest.proof:type_name -> mimir.v1.Proof
+	26, // 17: mimir.v1.LinkRequest.hello:type_name -> mimir.v1.Hello
+	31, // 18: mimir.v1.LinkRequest.predict_result:type_name -> mimir.v1.PredictResult
+	35, // 19: mimir.v1.LinkRequest.train_progress:type_name -> mimir.v1.TrainProgress
+	36, // 20: mimir.v1.LinkRequest.train_result:type_name -> mimir.v1.TrainResult
+	27, // 21: mimir.v1.LinkRequest.heartbeat:type_name -> mimir.v1.Heartbeat
+	25, // 22: mimir.v1.LinkRequest.proof:type_name -> mimir.v1.Proof
 	22, // 23: mimir.v1.LinkRequest.load_result:type_name -> mimir.v1.LoadResult
-	32, // 24: mimir.v1.LinkRequest.group_share:type_name -> mimir.v1.GroupShare
-	27, // 25: mimir.v1.LinkResponse.welcome:type_name -> mimir.v1.Welcome
-	29, // 26: mimir.v1.LinkResponse.predict:type_name -> mimir.v1.PredictTask
-	31, // 27: mimir.v1.LinkResponse.train:type_name -> mimir.v1.TrainTask
-	36, // 28: mimir.v1.LinkResponse.cancel:type_name -> mimir.v1.CancelTask
-	23, // 29: mimir.v1.LinkResponse.challenge:type_name -> mimir.v1.Challenge
+	33, // 24: mimir.v1.LinkRequest.group_share:type_name -> mimir.v1.GroupShare
+	28, // 25: mimir.v1.LinkResponse.welcome:type_name -> mimir.v1.Welcome
+	30, // 26: mimir.v1.LinkResponse.predict:type_name -> mimir.v1.PredictTask
+	32, // 27: mimir.v1.LinkResponse.train:type_name -> mimir.v1.TrainTask
+	37, // 28: mimir.v1.LinkResponse.cancel:type_name -> mimir.v1.CancelTask
+	24, // 29: mimir.v1.LinkResponse.challenge:type_name -> mimir.v1.Challenge
 	21, // 30: mimir.v1.LinkResponse.load:type_name -> mimir.v1.LoadTask
-	33, // 31: mimir.v1.LinkResponse.group_mean:type_name -> mimir.v1.GroupMean
-	28, // 32: mimir.v1.LoadTask.spec:type_name -> mimir.v1.ModelSpec
-	1,  // 33: mimir.v1.Hello.stats:type_name -> mimir.v1.Stats
-	1,  // 34: mimir.v1.Heartbeat.stats:type_name -> mimir.v1.Stats
-	47, // 35: mimir.v1.ModelSpec.columns:type_name -> mimir.v1.Column
-	28, // 36: mimir.v1.PredictTask.spec:type_name -> mimir.v1.ModelSpec
-	48, // 37: mimir.v1.PredictTask.input:type_name -> mimir.v1.Tensor
-	48, // 38: mimir.v1.PredictResult.output:type_name -> mimir.v1.Tensor
-	48, // 39: mimir.v1.PredictResult.probabilities:type_name -> mimir.v1.Tensor
-	49, // 40: mimir.v1.TrainTask.settings:type_name -> mimir.v1.TrainingSettings
-	50, // 41: mimir.v1.TrainTask.dataset_kind:type_name -> mimir.v1.DatasetKind
-	51, // 42: mimir.v1.TrainTask.history:type_name -> mimir.v1.EpochResult
-	47, // 43: mimir.v1.TrainTask.columns:type_name -> mimir.v1.Column
-	51, // 44: mimir.v1.TrainProgress.history:type_name -> mimir.v1.EpochResult
-	51, // 45: mimir.v1.TrainResult.history:type_name -> mimir.v1.EpochResult
-	28, // 46: mimir.v1.TrainResult.spec:type_name -> mimir.v1.ModelSpec
-	46, // 47: mimir.v1.CloudGpu.state_time:type_name -> google.protobuf.Timestamp
-	37, // 48: mimir.v1.GetCloudGpuResponse.cloud_gpu:type_name -> mimir.v1.CloudGpu
-	40, // 49: mimir.v1.GetCloudGpuResponse.providers:type_name -> mimir.v1.CloudGpuProvider
-	41, // 50: mimir.v1.CloudGpuProvider.gpus:type_name -> mimir.v1.CloudGpuChoice
-	37, // 51: mimir.v1.UpdateCloudGpuResponse.cloud_gpu:type_name -> mimir.v1.CloudGpu
-	37, // 52: mimir.v1.StopCloudGpuResponse.cloud_gpu:type_name -> mimir.v1.CloudGpu
-	13, // 53: mimir.v1.WorkerService.ListWorkers:input_type -> mimir.v1.ListWorkersRequest
-	15, // 54: mimir.v1.WorkerService.CreateWorker:input_type -> mimir.v1.CreateWorkerRequest
-	17, // 55: mimir.v1.WorkerService.DeleteWorker:input_type -> mimir.v1.DeleteWorkerRequest
-	5,  // 56: mimir.v1.WorkerService.GetWorker:input_type -> mimir.v1.GetWorkerRequest
-	7,  // 57: mimir.v1.WorkerService.ReplaceWorkerToken:input_type -> mimir.v1.ReplaceWorkerTokenRequest
-	9,  // 58: mimir.v1.WorkerService.SetWorkerTasks:input_type -> mimir.v1.SetWorkerTasksRequest
-	11, // 59: mimir.v1.WorkerService.ListWorkerChoices:input_type -> mimir.v1.ListWorkerChoicesRequest
-	19, // 60: mimir.v1.WorkerService.Link:input_type -> mimir.v1.LinkRequest
-	38, // 61: mimir.v1.WorkerService.GetCloudGpu:input_type -> mimir.v1.GetCloudGpuRequest
-	42, // 62: mimir.v1.WorkerService.UpdateCloudGpu:input_type -> mimir.v1.UpdateCloudGpuRequest
-	44, // 63: mimir.v1.WorkerService.StopCloudGpu:input_type -> mimir.v1.StopCloudGpuRequest
-	14, // 64: mimir.v1.WorkerService.ListWorkers:output_type -> mimir.v1.ListWorkersResponse
-	16, // 65: mimir.v1.WorkerService.CreateWorker:output_type -> mimir.v1.CreateWorkerResponse
-	18, // 66: mimir.v1.WorkerService.DeleteWorker:output_type -> mimir.v1.DeleteWorkerResponse
-	6,  // 67: mimir.v1.WorkerService.GetWorker:output_type -> mimir.v1.GetWorkerResponse
-	8,  // 68: mimir.v1.WorkerService.ReplaceWorkerToken:output_type -> mimir.v1.ReplaceWorkerTokenResponse
-	10, // 69: mimir.v1.WorkerService.SetWorkerTasks:output_type -> mimir.v1.SetWorkerTasksResponse
-	12, // 70: mimir.v1.WorkerService.ListWorkerChoices:output_type -> mimir.v1.ListWorkerChoicesResponse
-	20, // 71: mimir.v1.WorkerService.Link:output_type -> mimir.v1.LinkResponse
-	39, // 72: mimir.v1.WorkerService.GetCloudGpu:output_type -> mimir.v1.GetCloudGpuResponse
-	43, // 73: mimir.v1.WorkerService.UpdateCloudGpu:output_type -> mimir.v1.UpdateCloudGpuResponse
-	45, // 74: mimir.v1.WorkerService.StopCloudGpu:output_type -> mimir.v1.StopCloudGpuResponse
-	64, // [64:75] is the sub-list for method output_type
-	53, // [53:64] is the sub-list for method input_type
-	53, // [53:53] is the sub-list for extension type_name
-	53, // [53:53] is the sub-list for extension extendee
-	0,  // [0:53] is the sub-list for field type_name
+	34, // 31: mimir.v1.LinkResponse.group_mean:type_name -> mimir.v1.GroupMean
+	23, // 32: mimir.v1.LinkResponse.forget:type_name -> mimir.v1.ForgetModel
+	29, // 33: mimir.v1.LoadTask.spec:type_name -> mimir.v1.ModelSpec
+	1,  // 34: mimir.v1.Hello.stats:type_name -> mimir.v1.Stats
+	1,  // 35: mimir.v1.Heartbeat.stats:type_name -> mimir.v1.Stats
+	48, // 36: mimir.v1.ModelSpec.columns:type_name -> mimir.v1.Column
+	29, // 37: mimir.v1.PredictTask.spec:type_name -> mimir.v1.ModelSpec
+	49, // 38: mimir.v1.PredictTask.input:type_name -> mimir.v1.Tensor
+	49, // 39: mimir.v1.PredictResult.output:type_name -> mimir.v1.Tensor
+	49, // 40: mimir.v1.PredictResult.probabilities:type_name -> mimir.v1.Tensor
+	50, // 41: mimir.v1.TrainTask.settings:type_name -> mimir.v1.TrainingSettings
+	51, // 42: mimir.v1.TrainTask.dataset_kind:type_name -> mimir.v1.DatasetKind
+	52, // 43: mimir.v1.TrainTask.history:type_name -> mimir.v1.EpochResult
+	48, // 44: mimir.v1.TrainTask.columns:type_name -> mimir.v1.Column
+	52, // 45: mimir.v1.TrainProgress.history:type_name -> mimir.v1.EpochResult
+	52, // 46: mimir.v1.TrainResult.history:type_name -> mimir.v1.EpochResult
+	29, // 47: mimir.v1.TrainResult.spec:type_name -> mimir.v1.ModelSpec
+	47, // 48: mimir.v1.CloudGpu.state_time:type_name -> google.protobuf.Timestamp
+	38, // 49: mimir.v1.GetCloudGpuResponse.cloud_gpu:type_name -> mimir.v1.CloudGpu
+	41, // 50: mimir.v1.GetCloudGpuResponse.providers:type_name -> mimir.v1.CloudGpuProvider
+	42, // 51: mimir.v1.CloudGpuProvider.gpus:type_name -> mimir.v1.CloudGpuChoice
+	38, // 52: mimir.v1.UpdateCloudGpuResponse.cloud_gpu:type_name -> mimir.v1.CloudGpu
+	38, // 53: mimir.v1.StopCloudGpuResponse.cloud_gpu:type_name -> mimir.v1.CloudGpu
+	13, // 54: mimir.v1.WorkerService.ListWorkers:input_type -> mimir.v1.ListWorkersRequest
+	15, // 55: mimir.v1.WorkerService.CreateWorker:input_type -> mimir.v1.CreateWorkerRequest
+	17, // 56: mimir.v1.WorkerService.DeleteWorker:input_type -> mimir.v1.DeleteWorkerRequest
+	5,  // 57: mimir.v1.WorkerService.GetWorker:input_type -> mimir.v1.GetWorkerRequest
+	7,  // 58: mimir.v1.WorkerService.ReplaceWorkerToken:input_type -> mimir.v1.ReplaceWorkerTokenRequest
+	9,  // 59: mimir.v1.WorkerService.SetWorkerTasks:input_type -> mimir.v1.SetWorkerTasksRequest
+	11, // 60: mimir.v1.WorkerService.ListWorkerChoices:input_type -> mimir.v1.ListWorkerChoicesRequest
+	19, // 61: mimir.v1.WorkerService.Link:input_type -> mimir.v1.LinkRequest
+	39, // 62: mimir.v1.WorkerService.GetCloudGpu:input_type -> mimir.v1.GetCloudGpuRequest
+	43, // 63: mimir.v1.WorkerService.UpdateCloudGpu:input_type -> mimir.v1.UpdateCloudGpuRequest
+	45, // 64: mimir.v1.WorkerService.StopCloudGpu:input_type -> mimir.v1.StopCloudGpuRequest
+	14, // 65: mimir.v1.WorkerService.ListWorkers:output_type -> mimir.v1.ListWorkersResponse
+	16, // 66: mimir.v1.WorkerService.CreateWorker:output_type -> mimir.v1.CreateWorkerResponse
+	18, // 67: mimir.v1.WorkerService.DeleteWorker:output_type -> mimir.v1.DeleteWorkerResponse
+	6,  // 68: mimir.v1.WorkerService.GetWorker:output_type -> mimir.v1.GetWorkerResponse
+	8,  // 69: mimir.v1.WorkerService.ReplaceWorkerToken:output_type -> mimir.v1.ReplaceWorkerTokenResponse
+	10, // 70: mimir.v1.WorkerService.SetWorkerTasks:output_type -> mimir.v1.SetWorkerTasksResponse
+	12, // 71: mimir.v1.WorkerService.ListWorkerChoices:output_type -> mimir.v1.ListWorkerChoicesResponse
+	20, // 72: mimir.v1.WorkerService.Link:output_type -> mimir.v1.LinkResponse
+	40, // 73: mimir.v1.WorkerService.GetCloudGpu:output_type -> mimir.v1.GetCloudGpuResponse
+	44, // 74: mimir.v1.WorkerService.UpdateCloudGpu:output_type -> mimir.v1.UpdateCloudGpuResponse
+	46, // 75: mimir.v1.WorkerService.StopCloudGpu:output_type -> mimir.v1.StopCloudGpuResponse
+	65, // [65:76] is the sub-list for method output_type
+	54, // [54:65] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_worker_proto_init() }
@@ -4048,6 +4116,7 @@ func file_mimir_v1_worker_proto_init() {
 		(*LinkResponse_Challenge)(nil),
 		(*LinkResponse_Load)(nil),
 		(*LinkResponse_GroupMean)(nil),
+		(*LinkResponse_Forget)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -4055,7 +4124,7 @@ func file_mimir_v1_worker_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_worker_proto_rawDesc), len(file_mimir_v1_worker_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   46,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
