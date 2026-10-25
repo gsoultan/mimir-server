@@ -176,6 +176,11 @@ next try. Two things did show, both fixed since:
   to let go of a model when it is deleted, or when it is set to run on
   another worker.
 
+With both fixes, 30 minutes of the same load with a worker killed every
+3 minutes (10 kills, 6 of them serving workers): 1.5 million predictions
+and not one error, 112 runs and 4 keep-learning passes with none failed,
+and serving workers at 79–91 MB throughout instead of 130–245 MB.
+
 ## What limits a console, in order
 
 1. **Language models.** Generation speed in mimir's runtime (O(context)
