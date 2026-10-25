@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -142,6 +143,99 @@ func TestIdleLinkDropped(t *testing.T) {
 	}
 	if p.CanPredict("table-mlp", "") {
 		t.Fatal("pool still offers the silent worker")
+	}
+}
+
+// A prediction whose worker drops off before answering is asked of
+// another worker, so the caller gets an answer rather than an error.
+func TestPredictMovesOffALostWorker(t *testing.T) {
+	p := testPool()
+	p.IdleTimeout = time.Minute
+	hello := func() *mimirv1.Hello { return &mimirv1.Hello{Architectures: []string{"table-mlp"}, Capacity: 1} }
+	lost, lostGot := scriptedWorker(t, p, store.Worker{ID: "w1", Name: "lost"}, hello())
+	errc := make(chan error, 1)
+	var answer []float32
+	go func() {
+		res, worker, ran, err := p.Predict(context.Background(), "m1", "v1", "", tableMLP(t), arch.Spec{InputShape: []int{2}}, func() ([]byte, error) { return []byte("weights"), nil }, []float32{1, 2})
+		switch {
+		case !ran:
+			err = errors.New("no worker took the prediction")
+		case err == nil && worker != "spare":
+			err = fmt.Errorf("answered by %q, want spare", worker)
+		}
+		answer = res.Output
+		errc <- err
+	}()
+	// The prediction goes to w1, the only worker; then a second joins and
+	// w1 goes away without answering.
+	if msg := <-lostGot; msg.GetPredict() == nil {
+		t.Fatalf("w1 got %v, want a predict task", msg)
+	}
+	spare, spareGot := scriptedWorker(t, p, store.Worker{ID: "w2", Name: "spare"}, hello())
+	lost.CloseRequest()
+	lost.CloseResponse()
+	var task *mimirv1.PredictTask
+	select {
+	case msg := <-spareGot:
+		if task = msg.GetPredict(); task == nil {
+			t.Fatalf("w2 got %v, want the predict task", msg)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the prediction never moved to w2")
+	}
+	if len(task.GetWeights()) == 0 {
+		t.Fatal("w2 was asked without the weights it never had")
+	}
+	if err := spare.Send(&mimirv1.LinkRequest{Body: &mimirv1.LinkRequest_PredictResult{PredictResult: &mimirv1.PredictResult{TaskId: task.GetTaskId(), Output: &mimirv1.Tensor{Values: []float32{0.25, 0.75}}}}}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-errc:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Predict never returned")
+	}
+	if len(answer) != 2 || answer[1] != 0.75 {
+		t.Fatalf("answer = %v, want w2's", answer)
+	}
+}
+
+// A deleted model is forgotten by the workers that were sent it, and only
+// by them: the console tells each once and stops counting it as sent.
+func TestForgetTellsWorkersThatHaveIt(t *testing.T) {
+	p := testPool()
+	p.IdleTimeout = time.Minute
+	hello := func() *mimirv1.Hello { return &mimirv1.Hello{Architectures: []string{"table-mlp"}, Capacity: 1} }
+	_, gotA := scriptedWorker(t, p, store.Worker{ID: "wa", Name: "a"}, hello())
+	_, gotB := scriptedWorker(t, p, store.Worker{ID: "wb", Name: "b"}, hello())
+	p.mu.Lock()
+	for _, l := range p.links {
+		if l.worker.ID == "wa" {
+			l.mu.Lock()
+			l.sent["m1"] = "v1"
+			l.mu.Unlock()
+		}
+	}
+	p.mu.Unlock()
+
+	p.Forget("m1", "")
+	select {
+	case msg := <-gotA:
+		if msg.GetForget().GetModelId() != "m1" {
+			t.Fatalf("worker a got %v, want to forget m1", msg)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker a was never told to forget m1")
+	}
+	p.Forget("m1", "") // already forgotten: nothing more to say
+	select {
+	case msg := <-gotA:
+		t.Fatalf("worker a got %v after forgetting m1", msg)
+	case msg := <-gotB:
+		t.Fatalf("worker b, never sent m1, got %v", msg)
+	case <-time.After(200 * time.Millisecond):
 	}
 }
 
