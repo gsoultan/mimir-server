@@ -16,6 +16,14 @@
 //   - the console: -browse callers per team listing models and runs with
 //     a signed-in session, as people with the web app open do.
 //
+// For the whole stack, it also starts workers of its own (-train-workers
+// and -serve-workers, run from -worker-bin), splits runs across them
+// (-group), keeps -train runs going all the time (-churn) with
+// -predict-trained callers asking the models they make, follows
+// -keep-learning jobs on a database table, and kills a worker every
+// -kill-every. -report-every prints how each stretch went, so a long soak
+// shows whether memory, goroutines or latency creep up.
+//
 // Each part is off when its count is 0. Point it at a server started
 // against an empty database, or one it set up before (same -owner-email
 // and -password):
@@ -60,6 +68,15 @@ type config struct {
 	lm                                                     string
 	chatTokens, trainRows, trainEpochs                     int
 	duration                                               time.Duration
+
+	workerBin, workerLogs                string
+	trainWorkers, serveWorkers, group    int
+	trainHere                            string
+	churn                                bool
+	predictTrained, keepModels           int
+	keepLearning, keepNewRows            int
+	sourceDriver, sourceDSN, sourceQuery string
+	killEvery, reportEvery               time.Duration
 }
 
 func main() {
@@ -81,6 +98,22 @@ func main() {
 	flag.IntVar(&c.trainEpochs, "train-epochs", 40, "epochs each training job runs")
 	flag.IntVar(&c.browse, "browse", 1, "console callers per team (list models and runs, signed in)")
 	flag.DurationVar(&c.duration, "duration", time.Minute, "how long to run")
+	flag.StringVar(&c.workerBin, "worker-bin", "", "the mimir-server binary to start -train-workers and -serve-workers with")
+	flag.StringVar(&c.workerLogs, "worker-logs", "load-workers", "folder for the workers' data folders and logs")
+	flag.IntVar(&c.trainWorkers, "train-workers", 0, "workers to start with -tasks train")
+	flag.IntVar(&c.serveWorkers, "serve-workers", 0, "workers to start with -tasks serve")
+	flag.IntVar(&c.group, "group", 0, "set Settings → Workers → Train each run on up to this many workers; 0 leaves it")
+	flag.StringVar(&c.trainHere, "train-here", "", "set Training on this console: true or false; empty leaves it")
+	flag.BoolVar(&c.churn, "churn", false, "keep -train runs going for the whole run, starting the next as each ends, instead of starting -train once")
+	flag.IntVar(&c.predictTrained, "predict-trained", 0, "callers asking the models runs make during the load")
+	flag.IntVar(&c.keepModels, "keep-models", 10, "with -churn, models from finished runs to keep; older ones are deleted")
+	flag.IntVar(&c.keepLearning, "keep-learning", 0, "keep-learning jobs on the -source-query table, each pass waiting for -keep-new-rows new rows")
+	flag.IntVar(&c.keepNewRows, "keep-new-rows", 500, "new rows each keep-learning pass waits for")
+	flag.StringVar(&c.sourceDriver, "source-driver", "postgres", "the keep-learning source's driver")
+	flag.StringVar(&c.sourceDSN, "source-dsn", "", "the keep-learning source's connection string")
+	flag.StringVar(&c.sourceQuery, "source-query", "", "the query that reads the keep-learning table; something else must add rows to it")
+	flag.DurationVar(&c.killEvery, "kill-every", 0, "kill a random worker this often, and start it again 5 seconds later; 0 never")
+	flag.DurationVar(&c.reportEvery, "report-every", 0, "also print how each stretch of this long went; 0 only at the end")
 	flag.Parse()
 	c.models = strings.Split(models, ",")
 	if err := run(context.Background(), c); err != nil {
@@ -99,8 +132,11 @@ type clients struct {
 	teams    mimirv1connect.TeamServiceClient
 	datasets mimirv1connect.DatasetServiceClient
 	training mimirv1connect.TrainingServiceClient
-	http     *http.Client
-	base     string
+	// workersSvc and settings are for the owner setting up workers.
+	workersSvc mimirv1connect.WorkerServiceClient
+	settings   mimirv1connect.SettingsServiceClient
+	http       *http.Client
+	base       string
 }
 
 var transport = &http.Transport{
@@ -119,16 +155,18 @@ func newClients(base, key string) clients {
 		opts = append(opts, connect.WithInterceptors(bearer(key)))
 	}
 	return clients{
-		auth:     mimirv1connect.NewAuthServiceClient(hc, base, opts...),
-		models:   mimirv1connect.NewModelServiceClient(hc, base, opts...),
-		predict:  mimirv1connect.NewPredictServiceClient(hc, base, opts...),
-		users:    mimirv1connect.NewUserServiceClient(hc, base, opts...),
-		keys:     mimirv1connect.NewApiKeyServiceClient(hc, base, opts...),
-		teams:    mimirv1connect.NewTeamServiceClient(hc, base, opts...),
-		datasets: mimirv1connect.NewDatasetServiceClient(hc, base, opts...),
-		training: mimirv1connect.NewTrainingServiceClient(hc, base, opts...),
-		http:     hc,
-		base:     base,
+		auth:       mimirv1connect.NewAuthServiceClient(hc, base, opts...),
+		models:     mimirv1connect.NewModelServiceClient(hc, base, opts...),
+		predict:    mimirv1connect.NewPredictServiceClient(hc, base, opts...),
+		users:      mimirv1connect.NewUserServiceClient(hc, base, opts...),
+		keys:       mimirv1connect.NewApiKeyServiceClient(hc, base, opts...),
+		teams:      mimirv1connect.NewTeamServiceClient(hc, base, opts...),
+		datasets:   mimirv1connect.NewDatasetServiceClient(hc, base, opts...),
+		training:   mimirv1connect.NewTrainingServiceClient(hc, base, opts...),
+		workersSvc: mimirv1connect.NewWorkerServiceClient(hc, base, opts...),
+		settings:   mimirv1connect.NewSettingsServiceClient(hc, base, opts...),
+		http:       hc,
+		base:       base,
 	}
 }
 
@@ -194,6 +232,22 @@ func run(ctx context.Context, c config) error {
 	if err := signInOrSetUp(ctx, own, c); err != nil {
 		return err
 	}
+	// Workers first: a -role console answers nothing itself, so the
+	// teams' models need somewhere to run before they are warmed.
+	var workers *fleet
+	if c.trainWorkers+c.serveWorkers > 0 {
+		var err error
+		workers, err = startFleet(ctx, own, c)
+		if workers != nil {
+			defer workers.stop(context.Background(), own)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if err := setTraining(ctx, own, c); err != nil {
+		return err
+	}
 	log.Printf("preparing %d teams", c.teams)
 	teams := make([]*team, c.teams)
 	for i := range teams {
@@ -214,10 +268,17 @@ func run(ctx context.Context, c config) error {
 	}
 
 	var jobs []string
-	if c.train > 0 {
+	if c.train > 0 && !c.churn {
 		var err error
 		if jobs, err = startTraining(ctx, own, c); err != nil {
 			return fmt.Errorf("training: %w", err)
+		}
+	}
+	var keepers []string
+	if c.keepLearning > 0 {
+		var err error
+		if keepers, err = startKeepLearning(ctx, own, c); err != nil {
+			return fmt.Errorf("keep learning: %w", err)
 		}
 	}
 
@@ -263,14 +324,134 @@ func run(ctx context.Context, c config) error {
 			wg.Go(func() { chatLoop(runCtx, lmApp, lm, c.chatTokens, chats) })
 		}
 	}
-	samples := &metricSampler{url: c.server + "/metrics", token: c.metricsToken}
+	pool := &trainedPool{}
+	runs := &runStats{}
+	var misses atomic.Int64
+	if c.churn && c.train > 0 {
+		wg.Go(func() { churnTraining(runCtx, own, c, pool, runs) })
+	}
+	if len(keepers) > 0 {
+		wg.Go(func() { watchKeepLearning(runCtx, own, keepers, pool, runs) })
+	}
+	if c.predictTrained > 0 {
+		// The owner's key: the models runs make are the owner's.
+		key, err := own.keys.CreateApiKey(ctx, connect.NewRequest(&mimirv1.CreateApiKeyRequest{Name: fmt.Sprintf("load trained %d", time.Now().UnixNano()), Access: &mimirv1.Access{Role: mimirv1.Role_ROLE_VIEWER, AllModels: true}}))
+		if err != nil {
+			return err
+		}
+		app := newClients(c.server, key.Msg.GetSecret())
+		r := rec("predict trained")
+		for range c.predictTrained {
+			wg.Go(func() { predictTrainedLoop(runCtx, app, pool, r, &misses) })
+		}
+	}
+	if workers != nil {
+		wg.Go(func() { workers.churn(runCtx, c.killEvery) })
+	}
+	samples := &metricSampler{url: c.server + "/metrics", token: c.metricsToken, fleet: workers}
 	wg.Go(func() { samples.loop(runCtx) })
+	if c.reportEvery > 0 {
+		wg.Go(func() { interimLoop(runCtx, c.reportEvery, start, stats, samples, workers, runs) })
+	}
 	wg.Wait()
 	elapsed := time.Since(start)
 
 	trained := jobProgress(ctx, own, jobs)
 	report(os.Stdout, c, elapsed, stats, chats, samples, trained)
+	runs.report(os.Stdout)
+	if n := misses.Load(); n > 0 {
+		fmt.Printf("predictions to a model deleted as they were sent (not counted above): %d\n", n)
+	}
+	workers.report(os.Stdout)
 	return nil
+}
+
+// setTraining applies -train-here and -group to the console's settings.
+func setTraining(ctx context.Context, own clients, c config) error {
+	if c.trainHere == "" && c.group == 0 {
+		return nil
+	}
+	cur, err := own.settings.GetSettings(ctx, connect.NewRequest(&mimirv1.GetSettingsRequest{}))
+	if err != nil {
+		return err
+	}
+	req := &mimirv1.UpdateTrainingRequest{TrainHere: cur.Msg.GetTraining().GetTrainHere()}
+	if c.trainHere != "" {
+		v, err := strconv.ParseBool(c.trainHere)
+		if err != nil {
+			return fmt.Errorf("-train-here: %w", err)
+		}
+		req.TrainHere = v
+	}
+	if c.group > 0 {
+		req.GroupWorkers = new(int32(c.group))
+	}
+	_, err = own.settings.UpdateTraining(ctx, connect.NewRequest(req))
+	return err
+}
+
+// interimLoop prints, every period, how the stretch since the last print
+// went: requests, latency and errors per part, and memory now.
+func interimLoop(ctx context.Context, period time.Duration, start time.Time, stats map[string]*recorder, m *metricSampler, f *fleet, runs *runStats) {
+	marks := map[*recorder]int{}
+	errMarks := map[*recorder]int{}
+	t := time.NewTicker(period)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		var b strings.Builder
+		fmt.Fprintf(&b, "\n--- %v in\n", time.Since(start).Round(time.Second))
+		names := make([]string, 0, len(stats))
+		for n := range stats {
+			names = append(names, n)
+		}
+		slices.Sort(names)
+		for _, n := range names {
+			r := stats[n]
+			r.mu.Lock()
+			lat := slices.Clone(r.lat[marks[r]:])
+			ne := 0
+			for _, k := range r.errs {
+				ne += k
+			}
+			marks[r] = len(r.lat)
+			errs := ne - errMarks[r]
+			errMarks[r] = ne
+			r.mu.Unlock()
+			fmt.Fprintf(&b, "%-22s %9d %9.1f/s p50 %9s p99 %9s max %9s errors %d\n", n, len(lat), float64(len(lat))/period.Seconds(), pct(lat, 50), pct(lat, 99), pct(lat, 100), errs)
+		}
+		m.mu.Lock()
+		if k := len(m.rss); k > 0 {
+			fmt.Fprintf(&b, "console RSS %.0f MB, heap %.0f MB, goroutines %.0f, open files %.0f\n", m.rss[k-1]/(1<<20), last(m.heap)/(1<<20), last(m.goroutines), last(m.fds))
+		}
+		m.mu.Unlock()
+		if f != nil {
+			for _, p := range f.workers {
+				p.mu.Lock()
+				fmt.Fprintf(&b, "  %-26s RSS %4.0f MB, killed %d\n", p.name, p.lastRSS/(1<<20), p.restarts)
+				p.mu.Unlock()
+			}
+		}
+		runs.mu.Lock()
+		failed := 0
+		for _, k := range runs.failed {
+			failed += k
+		}
+		fmt.Fprintf(&b, "runs: %d started, %d succeeded, %d failed, %d keep-learning passes\n", runs.started, runs.succeeded, failed, runs.passes)
+		runs.mu.Unlock()
+		fmt.Print(b.String())
+	}
+}
+
+func last(v []float64) float64 {
+	if len(v) == 0 {
+		return 0
+	}
+	return v[len(v)-1]
 }
 
 func signInOrSetUp(ctx context.Context, own clients, c config) error {
@@ -614,8 +795,12 @@ func (r *chatRecorder) fail(err error, ctx context.Context) {
 // every second.
 type metricSampler struct {
 	url, token string
+	fleet      *fleet
+
+	mu         sync.Mutex
 	rss, heap  []float64
 	goroutines []float64
+	fds        []float64
 	failed     atomic.Int64
 }
 
@@ -644,6 +829,11 @@ func (m *metricSampler) sample(ctx context.Context) {
 	}
 	defer res.Body.Close()
 	b, _ := io.ReadAll(res.Body)
+	if m.fleet != nil {
+		m.fleet.sample()
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for line := range strings.SplitSeq(string(b), "\n") {
 		name, v, ok := strings.Cut(line, " ")
 		if !ok {
@@ -660,6 +850,8 @@ func (m *metricSampler) sample(ctx context.Context) {
 			m.heap = append(m.heap, f)
 		case "go_goroutines":
 			m.goroutines = append(m.goroutines, f)
+		case "process_open_fds":
+			m.fds = append(m.fds, f)
 		}
 	}
 }
@@ -696,12 +888,12 @@ func report(w io.Writer, c config, elapsed time.Duration, stats map[string]*reco
 			pct(chats.first, 50), pct(chats.first, 90), pct(chats.first, 99), pct(chats.first, 100))
 		fmt.Fprintf(w, "chat tokens written: %d (%.1f a second across all callers)\n", chats.tokens, float64(chats.tokens)/elapsed.Seconds())
 	}
-	if c.train > 0 {
+	if c.train > 0 && !c.churn {
 		fmt.Fprintf(w, "training: %d done, %d learning, %d waiting, %d failed; %d epochs in all\n", trained.done, trained.running, trained.queued, trained.failed, trained.epochs)
 	}
 	if len(m.rss) > 0 {
-		fmt.Fprintf(w, "server memory (RSS): max %.0f MB, last %.0f MB; Go heap in use max %.0f MB; goroutines max %.0f\n",
-			slices.Max(m.rss)/(1<<20), m.rss[len(m.rss)-1]/(1<<20), maxOf(m.heap)/(1<<20), maxOf(m.goroutines))
+		fmt.Fprintf(w, "server memory (RSS): max %.0f MB, last %.0f MB; Go heap in use max %.0f MB, last %.0f MB; goroutines max %.0f, last %.0f; open files max %.0f, last %.0f\n",
+			slices.Max(m.rss)/(1<<20), m.rss[len(m.rss)-1]/(1<<20), maxOf(m.heap)/(1<<20), last(m.heap)/(1<<20), maxOf(m.goroutines), last(m.goroutines), maxOf(m.fds), last(m.fds))
 	} else {
 		fmt.Fprintf(w, "server memory: /metrics unreadable (%d tries failed)\n", m.failed.Load())
 	}
