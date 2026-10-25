@@ -245,6 +245,7 @@ message LinkResponse {
     Challenge challenge = 5;
     LoadTask load = 6;
     GroupMean group_mean = 7;
+    ForgetModel forget = 8;
   }
 }
 
@@ -264,6 +265,13 @@ message LoadResult {
   string task_id = 1;
   // error says why the model couldn't be loaded; empty means it is.
   string error = 2;
+}
+
+// ForgetModel tells a worker a model it was sent is gone (deleted, or
+// moved to another worker), so it lets go of the weights now rather than
+// keep them until its cache fills. It needs no reply.
+message ForgetModel {
+  string model_id = 1;
 }
 
 // Challenge asks the worker to prove it holds its key.

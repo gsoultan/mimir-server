@@ -132,6 +132,55 @@ training goes back in the queue and resumes from its checkpoint.
 At every load above the main database had at most 11 connections open and
 the log database 2, within the default pool of 16. No run needed more.
 
+## The whole stack, for an hour and a half
+
+Measured on main after #44 (mimir v0.3.1) on the same kind of 4-core VM, with
+everything on one machine: a `-role console`, two workers with `-tasks
+train` and two with `-tasks serve`, PostgreSQL for the console and for a
+table the keep-learning runs read. **Train each run on** was set to up to 2
+workers. For 90 minutes, all at once:
+
+- 16 callers predicting with 8 image models (4 teams), 4 more asking the
+  table models the runs below made, and 4 people listing models and runs;
+- two training runs at all times (`table-mlp`, 20,000 rows, 5 epochs),
+  the next starting as each ended, and the oldest models deleted once more
+  than 10 were made;
+- two keep-learning runs on the database table, each waiting for 1,000 new
+  rows, with 200 rows added a minute;
+- every 5 minutes a random worker killed outright and started again 5
+  seconds later (18 kills).
+
+| | |
+| --- | --- |
+| training runs | 349, none failed; 337 trained on both training workers together, the rest on one while the other was restarting |
+| whole run | p50 30 s, p90 36 s, longest 60 s (after a kill sent it back to the queue) |
+| keep-learning passes | 12, every 15 minutes per run as the new rows arrived |
+| predictions | 4.6 million, 850 a second; p50 20 ms, p99 75 ms |
+| console | RSS 125–175 MB, 70–105 goroutines, 52–69 open files, the same at the end as after 10 minutes |
+| database connections | 15 main, 2 log |
+| training workers | RSS 100–150 MB |
+
+Nothing leaked on the console over the run, and no run was lost to a
+kill: a run whose worker died went back in the queue and finished on the
+next try. Two things did show, both fixed since:
+
+- **Predictions in flight on a serving worker that died failed** with
+  "the worker disconnected": 40 of 4.6 million, 1 to 3 a kill. The
+  console now asks another worker once when a worker drops off before
+  answering, unless the model is set to run on that one worker.
+- **Serving workers kept deleted models loaded.** Since #37 the console
+  hands every new model to every serving worker as soon as it is trained,
+  but deleting a model told no worker, so their memory rose by about
+  50 MB every 10 minutes at this rate of new models until a restart (it
+  would have kept rising to the 4 GiB model cache). Workers are now told
+  to let go of a model when it is deleted, or when it is set to run on
+  another worker.
+
+With both fixes, 30 minutes of the same load with a worker killed every
+3 minutes (10 kills, 6 of them serving workers): 1.5 million predictions
+and not one error, 112 runs and 4 keep-learning passes with none failed,
+and serving workers at 79–91 MB throughout instead of 130–245 MB.
+
 ## What limits a console, in order
 
 1. **Language models.** Generation speed in mimir's runtime (O(context)
@@ -154,3 +203,19 @@ go run ./cmd/mimir-load -setup-token loadtest-setup-token-123 \
 
 Later runs against the same server reuse its teams, models and language
 model. `-h` lists the knobs; set any count to 0 to leave that part out.
+
+The soak above starts its own workers from the same binary, and needs
+something to add rows to the keep-learning table while it runs (here a
+loop inserting 100 rows every 30 seconds):
+
+```sh
+./bin/mimir-server -role console -data /tmp/d -database-url 'postgres://...'
+go run ./cmd/mimir-load -setup-token loadtest-setup-token-123 -teams 4 -predict 2 \
+  -worker-bin ./bin/mimir-server -train-workers 2 -serve-workers 2 -group 2 \
+  -train 2 -churn -train-epochs 5 -predict-trained 4 \
+  -keep-learning 2 -keep-new-rows 1000 -source-dsn 'postgres://...' -source-query 'select * from rows' \
+  -kill-every 5m -report-every 10m -duration 90m
+```
+
+`-report-every` prints each stretch on its own, which is where creeping
+memory or latency shows.
