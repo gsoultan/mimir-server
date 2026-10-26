@@ -12,6 +12,7 @@ import { allModelQueries, allTrainingQueries, getJob, listArchitectures, listJob
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { useWorkerChoices } from "../../../components/Placement";
+import { RunReport } from "../../../components/RunReport";
 import { TrainingChart } from "../../../components/TrainingChart";
 import { maxCompare } from "../../../lib/compare";
 import { ago } from "../../../lib/format";
@@ -127,6 +128,13 @@ function Run() {
         )}
         <TrainingChart history={j.history} epochs={epochs} number={number} />
       </Card>
+
+      {j.report && (
+        <Card withBorder radius="lg" padding="lg">
+          <Title order={3} fz="lg" mb="sm">How it did</Title>
+          <RunReport report={j.report} />
+        </Card>
+      )}
 
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Card withBorder radius="lg" padding="lg">
