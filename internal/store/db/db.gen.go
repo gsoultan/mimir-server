@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gsoultan/mimir-server/internal/store/db/answer"
+	"github.com/gsoultan/mimir-server/internal/store/db/answerday"
 	"github.com/gsoultan/mimir-server/internal/store/db/apikey"
 	"github.com/gsoultan/mimir-server/internal/store/db/apikeymodel"
 	"github.com/gsoultan/mimir-server/internal/store/db/auditevent"
@@ -52,9 +54,11 @@ var FlushOrder = map[string]int{
 	"usage":            15,
 	"user_models":      16,
 	"worker_samples":   17,
-	"api_key_models":   18,
-	"benchmark_scores": 19,
-	"model_versions":   20,
+	"answer_days":      18,
+	"answers":          19,
+	"api_key_models":   20,
+	"benchmark_scores": 21,
+	"model_versions":   22,
 }
 
 // NewUnit stages writes across this context and flushes them in foreign-key
@@ -413,6 +417,236 @@ func (p APIKeyWithUserQuery) All(ctx context.Context, ex runtime.Executor) ([]AP
 			return nil, fmt.Errorf("storm: %s references a missing %s row", "api_keys", "users")
 		}
 		out[i].User = targets[j]
+	}
+	return out, nil
+}
+
+// AnswerDayWithModelRow is answer_days with its Model loaded.
+type AnswerDayWithModelRow struct {
+	answerday.Row
+	Model model.Row
+}
+
+type AnswerDayWithModelQuery struct {
+	q answerday.Query
+}
+
+// AnswerDayWithModel starts the plan.
+func AnswerDayWithModel() AnswerDayWithModelQuery { return AnswerDayWithModelQuery{q: answerday.New()} }
+
+func (p AnswerDayWithModelQuery) Where(ps ...answerday.Pred) AnswerDayWithModelQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p AnswerDayWithModelQuery) WhereIf(cond bool, pr answerday.Pred) AnswerDayWithModelQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p AnswerDayWithModelQuery) Any(ps ...answerday.Pred) AnswerDayWithModelQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p AnswerDayWithModelQuery) Not(pr answerday.Pred) AnswerDayWithModelQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p AnswerDayWithModelQuery) NotAny(ps ...answerday.Pred) AnswerDayWithModelQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p AnswerDayWithModelQuery) Order(ts ...answerday.Sort) AnswerDayWithModelQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p AnswerDayWithModelQuery) Limit(n int64) AnswerDayWithModelQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p AnswerDayWithModelQuery) Offset(n int64) AnswerDayWithModelQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p AnswerDayWithModelQuery) After(r AnswerDayWithModelRow) AnswerDayWithModelQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p AnswerDayWithModelQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p AnswerDayWithModelQuery) All(ctx context.Context, ex runtime.Executor) ([]AnswerDayWithModelRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]AnswerDayWithModelRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = AnswerDayWithModelRow{Row: r}
+		key := r.ModelID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := model.New().Unordered().
+		Where(model.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.ModelID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "answer_days", "models")
+		}
+		out[i].Model = targets[j]
+	}
+	return out, nil
+}
+
+// AnswerWithModelRow is answers with its Model loaded.
+type AnswerWithModelRow struct {
+	answer.Row
+	Model model.Row
+}
+
+type AnswerWithModelQuery struct {
+	q answer.Query
+}
+
+// AnswerWithModel starts the plan.
+func AnswerWithModel() AnswerWithModelQuery { return AnswerWithModelQuery{q: answer.New()} }
+
+func (p AnswerWithModelQuery) Where(ps ...answer.Pred) AnswerWithModelQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p AnswerWithModelQuery) WhereIf(cond bool, pr answer.Pred) AnswerWithModelQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p AnswerWithModelQuery) Any(ps ...answer.Pred) AnswerWithModelQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p AnswerWithModelQuery) Not(pr answer.Pred) AnswerWithModelQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p AnswerWithModelQuery) NotAny(ps ...answer.Pred) AnswerWithModelQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p AnswerWithModelQuery) Order(ts ...answer.Sort) AnswerWithModelQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p AnswerWithModelQuery) Limit(n int64) AnswerWithModelQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p AnswerWithModelQuery) Offset(n int64) AnswerWithModelQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p AnswerWithModelQuery) After(r AnswerWithModelRow) AnswerWithModelQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p AnswerWithModelQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p AnswerWithModelQuery) All(ctx context.Context, ex runtime.Executor) ([]AnswerWithModelRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]AnswerWithModelRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = AnswerWithModelRow{Row: r}
+		key := r.ModelID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := model.New().Unordered().
+		Where(model.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.ModelID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "answers", "models")
+		}
+		out[i].Model = targets[j]
 	}
 	return out, nil
 }

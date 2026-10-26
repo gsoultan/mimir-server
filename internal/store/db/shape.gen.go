@@ -34,6 +34,38 @@ func _assertAPIKeyModelShape(m m0.APIKeyModel) {
 	}
 }
 
+// _assertAnswerShape fails to compile if m0.Answer gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertAnswerShape(m m0.Answer) {
+	type shape m0.Answer
+	_ = shape{
+		m.Record,
+		m.Model,
+		m.VersionID,
+		m.Label,
+		m.Value,
+		m.Confidence,
+		m.Fields,
+		m.FeedbackTime,
+		m.TruthLabel,
+		m.TruthValue,
+		m.Correct,
+	}
+}
+
+// _assertAnswerDayShape fails to compile if m0.AnswerDay gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertAnswerDayShape(m m0.AnswerDay) {
+	type shape m0.AnswerDay
+	_ = shape{
+		m.Model,
+		m.Day,
+		m.Answers,
+		m.Feedback,
+		m.Correct,
+	}
+}
+
 // _assertArchitectureShape fails to compile if m0.Architecture gains, loses, renames or
 // reorders a field. Regenerate: `storm generate`.
 func _assertArchitectureShape(m m0.Architecture) {
