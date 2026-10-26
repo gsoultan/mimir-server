@@ -27,6 +27,7 @@ import { Route as AppTemplatesIndexRouteImport } from './routes/_app/templates/i
 import { Route as AppTemplatesIdRouteImport } from './routes/_app/templates/$id'
 import { Route as AppTrainingIndexRouteImport } from './routes/_app/training/index'
 import { Route as AppTrainingIdRouteImport } from './routes/_app/training/$id'
+import { Route as AppTrainingCompareRouteImport } from './routes/_app/training/compare'
 import { Route as AppWorkersIdRouteImport } from './routes/_app/workers/$id'
 import { Route as AppModelsBuildIndexRouteImport } from './routes/_app/models/build/index'
 import { Route as AppModelsBuildGoalRouteImport } from './routes/_app/models/build/$goal'
@@ -121,6 +122,11 @@ const AppTrainingIdRoute = AppTrainingIdRouteImport.update({
   path: '/training/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTrainingCompareRoute = AppTrainingCompareRouteImport.update({
+  id: '/training/compare',
+  path: '/training/compare',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppWorkersIdRoute = AppWorkersIdRouteImport.update({
   id: '/workers/$id',
   path: '/workers/$id',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/models/teach': typeof AppModelsTeachRoute
   '/templates/$id': typeof AppTemplatesIdRoute
   '/training/$id': typeof AppTrainingIdRoute
+  '/training/compare': typeof AppTrainingCompareRoute
   '/workers/$id': typeof AppWorkersIdRoute
   '/models/': typeof AppModelsIndexRoute
   '/templates/': typeof AppTemplatesIndexRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/models/teach': typeof AppModelsTeachRoute
   '/templates/$id': typeof AppTemplatesIdRoute
   '/training/$id': typeof AppTrainingIdRoute
+  '/training/compare': typeof AppTrainingCompareRoute
   '/workers/$id': typeof AppWorkersIdRoute
   '/models': typeof AppModelsIndexRoute
   '/templates': typeof AppTemplatesIndexRoute
@@ -205,6 +213,7 @@ export interface FileRoutesById {
   '/_app/models/teach': typeof AppModelsTeachRoute
   '/_app/templates/$id': typeof AppTemplatesIdRoute
   '/_app/training/$id': typeof AppTrainingIdRoute
+  '/_app/training/compare': typeof AppTrainingCompareRoute
   '/_app/workers/$id': typeof AppWorkersIdRoute
   '/_app/models/': typeof AppModelsIndexRoute
   '/_app/templates/': typeof AppTemplatesIndexRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/models/teach'
     | '/templates/$id'
     | '/training/$id'
+    | '/training/compare'
     | '/workers/$id'
     | '/models/'
     | '/templates/'
@@ -253,6 +263,7 @@ export interface FileRouteTypes {
     | '/models/teach'
     | '/templates/$id'
     | '/training/$id'
+    | '/training/compare'
     | '/workers/$id'
     | '/models'
     | '/templates'
@@ -277,6 +288,7 @@ export interface FileRouteTypes {
     | '/_app/models/teach'
     | '/_app/templates/$id'
     | '/_app/training/$id'
+    | '/_app/training/compare'
     | '/_app/workers/$id'
     | '/_app/models/'
     | '/_app/templates/'
@@ -421,6 +433,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTrainingIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/training/compare': {
+      id: '/_app/training/compare'
+      path: '/training/compare'
+      fullPath: '/training/compare'
+      preLoaderRoute: typeof AppTrainingCompareRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/workers/$id': {
       id: '/_app/workers/$id'
       path: '/workers/$id'
@@ -464,6 +483,7 @@ interface AppRouteChildren {
   AppModelsTeachRoute: typeof AppModelsTeachRoute
   AppTemplatesIdRoute: typeof AppTemplatesIdRoute
   AppTrainingIdRoute: typeof AppTrainingIdRoute
+  AppTrainingCompareRoute: typeof AppTrainingCompareRoute
   AppWorkersIdRoute: typeof AppWorkersIdRoute
   AppModelsIndexRoute: typeof AppModelsIndexRoute
   AppTemplatesIndexRoute: typeof AppTemplatesIndexRoute
@@ -485,6 +505,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppModelsTeachRoute: AppModelsTeachRoute,
   AppTemplatesIdRoute: AppTemplatesIdRoute,
   AppTrainingIdRoute: AppTrainingIdRoute,
+  AppTrainingCompareRoute: AppTrainingCompareRoute,
   AppWorkersIdRoute: AppWorkersIdRoute,
   AppModelsIndexRoute: AppModelsIndexRoute,
   AppTemplatesIndexRoute: AppTemplatesIndexRoute,

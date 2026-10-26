@@ -13,6 +13,7 @@ import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { useWorkerChoices } from "../../../components/Placement";
 import { TrainingChart } from "../../../components/TrainingChart";
+import { maxCompare } from "../../../lib/compare";
 import { ago } from "../../../lib/format";
 import { active, keepWord, progress, repeatChoicesFor, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
 
@@ -186,7 +187,12 @@ function Passes({ job, number }: { job: Job; number: boolean }) {
   if (passes.length < 2) return null;
   return (
     <Card withBorder radius="lg" padding="lg">
-      <Title order={3} fz="lg" mb="sm">Every pass</Title>
+      <Group justify="space-between" mb="sm">
+        <Title order={3} fz="lg">Every pass</Title>
+        <ButtonLink size="xs" variant="default" to="/training/compare" search={{ ids: passes.slice(0, maxCompare).map((p) => p.id).join(",") }}>
+          Compare the latest {Math.min(passes.length, maxCompare)}
+        </ButtonLink>
+      </Group>
       <Table.ScrollContainer minWidth={560}>
         <Table verticalSpacing="xs" fz="sm">
           <Table.Thead><Table.Tr><Table.Th>Started</Table.Th><Table.Th>Status</Table.Th><Table.Th>Rows</Table.Th><Table.Th>{number ? "Close answers" : "Right answers"}</Table.Th><Table.Th>What happened</Table.Th></Table.Tr></Table.Thead>
