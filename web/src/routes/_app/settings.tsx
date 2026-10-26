@@ -10,16 +10,17 @@ import { z } from "zod";
 
 import { message } from "../../api/client";
 import { SettingsService, TwoFactorPolicy } from "../../api/gen/mimir/v1/settings_pb";
-import { allSettingsQueries, auditLog, databaseInfo, listTeams, settings, whoAmI } from "../../api/queries";
+import { allSettingsQueries, auditLog, databaseInfo, listTeams, settings, signInProviders, whoAmI } from "../../api/queries";
 import { AnchorLink } from "../../components/links";
 import { Page } from "../../components/Page";
+import { SignInProviders } from "../../components/SignInProviders";
 import { Teams } from "../../components/Teams";
 import { Limits, Usage } from "../../components/Usage";
 import { Workers } from "../../components/Workers";
 import { ago, bytes } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/settings")({
-  validateSearch: z.object({ tab: z.enum(["audit", "teams", "database", "alerts", "retention", "security", "workers", "limits", "usage"]).optional() }),
+  validateSearch: z.object({ tab: z.enum(["audit", "teams", "database", "alerts", "retention", "security", "signin", "workers", "limits", "usage"]).optional() }),
   loader: async ({ context }) => {
     const me = await context.queryClient.ensureQueryData(whoAmI);
     // Admins run their team; the server-wide tabs are the owners'.
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/_app/settings")({
       owner ? context.queryClient.ensureQueryData(settings) : null,
       owner ? context.queryClient.ensureQueryData(databaseInfo) : null,
       owner ? context.queryClient.ensureQueryData(listTeams) : null,
+      owner ? context.queryClient.ensureQueryData(signInProviders) : null,
     ]);
   },
   component: Settings,
@@ -51,6 +53,7 @@ function Settings() {
             <Tabs.Tab value="alerts">Alerts</Tabs.Tab>
             <Tabs.Tab value="retention">Log retention</Tabs.Tab>
             <Tabs.Tab value="security">Security</Tabs.Tab>
+            <Tabs.Tab value="signin">Sign-in</Tabs.Tab>
             <Tabs.Tab value="workers">Workers</Tabs.Tab>
             <Tabs.Tab value="limits">Limits</Tabs.Tab>
           </>}
@@ -63,6 +66,7 @@ function Settings() {
           <Tabs.Panel value="alerts" pt="md"><Alerts /></Tabs.Panel>
           <Tabs.Panel value="retention" pt="md"><Retention /></Tabs.Panel>
           <Tabs.Panel value="security" pt="md"><SecurityPolicy /></Tabs.Panel>
+          <Tabs.Panel value="signin" pt="md"><SignInProviders /></Tabs.Panel>
           <Tabs.Panel value="workers" pt="md"><Workers /></Tabs.Panel>
           <Tabs.Panel value="limits" pt="md"><Limits /></Tabs.Panel>
         </>}
@@ -223,6 +227,10 @@ const actions: Record<string, string> = {
   "server.setup": "set up the server",
   "user.signin": "signed in",
   "user.signin_failed": "failed to sign in",
+  "user.signin_linked": "tied their account to",
+  "settings.signin_add": "added the way to sign in",
+  "settings.signin_change": "changed the way to sign in",
+  "settings.signin_remove": "removed the way to sign in",
   "user.password_changed": "changed their password",
   "user.password_reset": "reset the password of",
   "user.create": "added",

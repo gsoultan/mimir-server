@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+import "mimir/v1/access.proto";
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// SignInService sets up signing in with an outside account: Google,
+// GitHub, or a company's own identity provider through OpenID Connect.
+// The browser leaves for the provider at /auth/sso/{id}/start and comes
+// back to /auth/sso/{id}/callback, which signs the person in with the same
+// session cookie a password gives, two-step verification included.
+service SignInService {
+  // ListSignInOptions is what the sign-in page offers next to the
+  // password. Anyone may call it.
+  rpc ListSignInOptions(ListSignInOptionsRequest) returns (ListSignInOptionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // ListSignInProviders returns every provider with its settings, client
+  // secrets left out. Only owners may call it.
+  rpc ListSignInProviders(ListSignInProvidersRequest) returns (ListSignInProvidersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // SaveSignInProvider adds a provider, or changes the one with its id.
+  rpc SaveSignInProvider(SaveSignInProviderRequest) returns (SaveSignInProviderResponse);
+  rpc DeleteSignInProvider(DeleteSignInProviderRequest) returns (DeleteSignInProviderResponse);
+}
+
+enum SignInKind {
+  SIGN_IN_KIND_UNSPECIFIED = 0;
+  // GOOGLE is OpenID Connect at accounts.google.com.
+  SIGN_IN_KIND_GOOGLE = 1;
+  // GITHUB is GitHub's OAuth apps. Groups are the person's organizations.
+  SIGN_IN_KIND_GITHUB = 2;
+  // OIDC is any OpenID Connect provider: Microsoft Entra ID, Okta,
+  // Keycloak, Authentik and the like.
+  SIGN_IN_KIND_OIDC = 3;
+}
+
+// SignInOption is one button on the sign-in page.
+message SignInOption {
+  string id = 1;
+  string name = 2;
+  SignInKind kind = 3;
+}
+
+message SignInProvider {
+  // Id names the provider in its addresses, such as
+  // /auth/sso/google/callback: lowercase letters, digits and dashes.
+  string id = 1;
+  SignInKind kind = 2;
+  // Name is the button's label: "Google", "Acme staff".
+  string name = 3;
+  bool enabled = 4;
+  // Issuer is the provider's address, for OIDC only, such as
+  // https://login.microsoftonline.com/{tenant}/v2.0.
+  string issuer = 5;
+  string client_id = 6;
+  // ClientSecret is only ever sent to the server. Empty keeps the saved
+  // one.
+  string client_secret = 7;
+  bool client_secret_set = 8;
+  // GroupsClaim is the ID token claim with the person's groups, for OIDC
+  // only. Empty means "groups".
+  string groups_claim = 9;
+  // TrustEmails takes the provider's email addresses as checked even when
+  // its token doesn't say email_verified, for OIDC only. Turn it on for a
+  // company provider that only has its own people's addresses.
+  bool trust_emails = 10;
+  // Rules decide where someone new lands, first match wins. Nobody new
+  // gets an account unless a rule matches; people who already have one
+  // sign in with an address the provider checked.
+  repeated SignInRule rules = 11;
+}
+
+// SignInRule gives someone new an account in a team, by their email's
+// domain or one of their groups. Set one of domain and group.
+message SignInRule {
+  // Domain is the part after @, such as example.com.
+  string domain = 1;
+  // Group is a group from the provider, or a GitHub organization's login.
+  string group = 2;
+  string team_id = 3;
+  // Role is viewer, editor or admin.
+  Role role = 4;
+  string team_name = 5;
+}
+
+message ListSignInOptionsRequest {}
+
+message ListSignInOptionsResponse {
+  repeated SignInOption options = 1;
+}
+
+message ListSignInProvidersRequest {}
+
+message ListSignInProvidersResponse {
+  repeated SignInProvider providers = 1;
+}
+
+message SaveSignInProviderRequest {
+  SignInProvider provider = 1;
+}
+
+message SaveSignInProviderResponse {
+  SignInProvider provider = 1;
+}
+
+message DeleteSignInProviderRequest {
+  string id = 1;
+}
+
+message DeleteSignInProviderResponse {}

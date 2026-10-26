@@ -77,8 +77,9 @@ the main database. **Download a backup** covers the main database only;
 `mimir-server backup` (below) takes both.
 
 Secrets the server keeps in the database (webhook signing secrets, dataset
-connection strings, alert passwords and bot tokens, and each person's
-two-step verification key) are encrypted with
+connection strings, alert passwords and bot tokens, sign-in providers'
+client secrets, and each person's two-step verification key) are
+encrypted with
 AES-256-GCM, so a copy or backup of the database does not reveal them. The
 key is 32 random bytes as base64 or hex (`openssl rand -base64 32`), taken
 from `MIMIR_SECRET_KEY`, else from the file `-secret-key-file` (or
@@ -257,6 +258,22 @@ server-wide settings are theirs alone.
   authenticator, takes the password and a current code (or a recovery
   code), so a stolen cookie and password aren't enough. An admin can reset
   it for someone who lost their phone.
+- **Sign in with Google, GitHub or a company account.** Under
+  **Settings → Sign-in** an owner adds Google, GitHub, or any OpenID
+  Connect provider (Microsoft Entra ID, Okta, Keycloak, Authentik and the
+  like): the page shows the redirect address to register there, and takes
+  the client id and secret it gives back. The sign-in page then has a
+  "Continue with" button for each. Someone who already has an account
+  signs in with the email address the provider checked, and is tied to
+  that provider's id for them from then on, so a later change of address
+  at the provider keeps the same account. Someone new gets an account only
+  when one of the provider's rules matches their email domain or a group
+  (a GitHub organization, or the groups claim of an OpenID Connect token),
+  as a viewer, editor or admin in the rule's team; everyone else is turned
+  away. Two-step verification still asks for its code after the provider,
+  and the policy under **Settings → Security** still applies. The sign-in
+  uses PKCE and a nonce, and is checked against a short-lived cookie set
+  when it started, so a link can't sign you in to someone else's account.
 - **Sessions.** Each browser gets its own session, listed under
   **Security** with a sign-out button and a "sign out everywhere else"
   button. A session ends after 30 days, or 7 days without use, and is tied
