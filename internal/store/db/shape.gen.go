@@ -133,6 +133,28 @@ func _assertModelShape(m m0.Model) {
 		m.Temperature,
 		m.MaxTokens,
 		m.OnDevice,
+		m.VersionID,
+	}
+}
+
+// _assertModelVersionShape fails to compile if m0.ModelVersion gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertModelVersionShape(m m0.ModelVersion) {
+	type shape m0.ModelVersion
+	_ = shape{
+		m.Record,
+		m.Model,
+		m.Number,
+		m.Source,
+		m.SizeBytes,
+		m.SHA256,
+		m.InputShape,
+		m.Labels,
+		m.Features,
+		m.Columns,
+		m.JobID,
+		m.Accuracy,
+		m.Note,
 	}
 }
 
