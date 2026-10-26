@@ -530,6 +530,12 @@ func (s *Service) ListAuditEvents(ctx context.Context, req *connect.Request[mimi
 // signIn starts a session for u and sets its cookie. A pending session is
 // the short-lived half of a sign-in that still needs its second factor.
 func (s *Service) signIn(ctx context.Context, req connect.AnyRequest, resHeader http.Header, u store.User, pending bool) (store.Session, error) {
+	return s.startSession(ctx, req.Header(), req.Peer().Addr, s.https(ctx, req), resHeader, u, pending)
+}
+
+// startSession is signIn for a request that isn't an RPC, such as coming
+// back from an outside sign-in provider.
+func (s *Service) startSession(ctx context.Context, h http.Header, peer string, https bool, resHeader http.Header, u store.User, pending bool) (store.Session, error) {
 	token, hash, err := auth.NewToken("")
 	if err != nil {
 		return store.Session{}, err
@@ -538,9 +544,8 @@ func (s *Service) signIn(ctx context.Context, req connect.AnyRequest, resHeader 
 	if pending {
 		ttl = auth.PendingTTL
 	}
-	h := req.Header()
 	se, err := s.store.CreateSession(ctx, hash, store.Session{
-		UserID: u.ID, Device: auth.Device(h.Get("User-Agent")), IP: s.Proxies.ClientIP(h, req.Peer().Addr),
+		UserID: u.ID, Device: auth.Device(h.Get("User-Agent")), IP: s.Proxies.ClientIP(h, peer),
 		Pending: pending, Expires: time.Now().Add(ttl),
 	})
 	if err != nil {
@@ -548,7 +553,7 @@ func (s *Service) signIn(ctx context.Context, req connect.AnyRequest, resHeader 
 	}
 	// Mark the cookie Secure when the browser reached us over HTTPS: TLS
 	// served here, or a trusted proxy that says so.
-	auth.SetSessionCookie(resHeader, token, s.https(ctx, req), ttl)
+	auth.SetSessionCookie(resHeader, token, https, ttl)
 	return se, nil
 }
 

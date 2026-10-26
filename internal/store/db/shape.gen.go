@@ -173,6 +173,20 @@ func _assertSettingShape(m m0.Setting) {
 	}
 }
 
+// _assertSignInIdentityShape fails to compile if m0.SignInIdentity gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertSignInIdentityShape(m m0.SignInIdentity) {
+	type shape m0.SignInIdentity
+	_ = shape{
+		m.Record,
+		m.User,
+		m.Issuer,
+		m.Subject,
+		m.Email,
+		m.LastSignIn,
+	}
+}
+
 // _assertTeamShape fails to compile if m0.Team gains, loses, renames or
 // reorders a field. Regenerate: `storm generate`.
 func _assertTeamShape(m m0.Team) {

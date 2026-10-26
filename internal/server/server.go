@@ -87,10 +87,12 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	mux.Handle(mimirv1connect.NewTemplateServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes), connect.WithSendMaxBytes(maxModelBytes)))
 	mux.Handle(mimirv1connect.NewTrainingServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewTeamServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewSignInServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	// Workers authenticate inside Link with their token; the interceptor
 	// guards the unary calls as usual.
 	mux.Handle(mimirv1connect.NewWorkerServiceHandler(svc, guard, connect.WithReadMaxBytes(modelBytes), connect.WithSendMaxBytes(modelBytes)))
 	mux.Handle("GET /api/backup", backupHandler(st, log))
+	mux.Handle("GET "+api.SSOPath, svc.SSOHandler())
 	mux.Handle("POST /api/uploads", svc.UploadHandler(int64(uploadBytes)))
 	mux.Handle("GET "+gpucloud.ProgramPath, svc.ProgramHandler())
 	mux.Handle("/v1/", openai.Handler(svc, st, log))
@@ -154,6 +156,8 @@ func route(r *http.Request) string {
 		return "rpc"
 	case strings.HasPrefix(p, "/v1/"):
 		return "openai"
+	case strings.HasPrefix(p, api.SSOPath):
+		return "sso"
 	}
 	return "ui"
 }
@@ -176,12 +180,20 @@ func harden(next http.Handler, proxies func() auth.Proxies) http.Handler {
 		if proxies().HTTPS(r) {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
-		if auth.SessionToken(r.Header) != "" && !auth.SameOrigin(r.Header, r.Host) {
+		// Coming back from a sign-in provider is a cross-site navigation by
+		// design; the callback checks its own state cookie instead.
+		if auth.SessionToken(r.Header) != "" && !auth.SameOrigin(r.Header, r.Host) && !ssoCallback(r) {
 			http.Error(w, "Cross-site requests can't use your sign-in.", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// ssoCallback reports whether r is a sign-in provider sending the browser
+// back.
+func ssoCallback(r *http.Request) bool {
+	return r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, api.SSOPath) && strings.HasSuffix(r.URL.Path, "/callback")
 }
 
 // backupHandler sends an admin a pg_dump of the server's database, in
