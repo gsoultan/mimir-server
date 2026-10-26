@@ -21,6 +21,7 @@ import { Route as AppTryRouteImport } from './routes/_app/try'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppModelsIndexRouteImport } from './routes/_app/models/index'
 import { Route as AppModelsIdRouteImport } from './routes/_app/models/$id'
+import { Route as AppModelsFinetuneRouteImport } from './routes/_app/models/finetune'
 import { Route as AppModelsNewRouteImport } from './routes/_app/models/new'
 import { Route as AppModelsTeachRouteImport } from './routes/_app/models/teach'
 import { Route as AppTemplatesIndexRouteImport } from './routes/_app/templates/index'
@@ -91,6 +92,11 @@ const AppModelsIdRoute = AppModelsIdRouteImport.update({
   path: '/models/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppModelsFinetuneRoute = AppModelsFinetuneRouteImport.update({
+  id: '/models/finetune',
+  path: '/models/finetune',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppModelsNewRoute = AppModelsNewRouteImport.update({
   id: '/models/new',
   path: '/models/new',
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/try': typeof AppTryRoute
   '/users': typeof AppUsersRoute
   '/models/$id': typeof AppModelsIdRoute
+  '/models/finetune': typeof AppModelsFinetuneRoute
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
   '/templates/$id': typeof AppTemplatesIdRoute
@@ -176,6 +183,7 @@ export interface FileRoutesByTo {
   '/users': typeof AppUsersRoute
   '/': typeof AppIndexRoute
   '/models/$id': typeof AppModelsIdRoute
+  '/models/finetune': typeof AppModelsFinetuneRoute
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
   '/templates/$id': typeof AppTemplatesIdRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/_app/users': typeof AppUsersRoute
   '/_app/': typeof AppIndexRoute
   '/_app/models/$id': typeof AppModelsIdRoute
+  '/_app/models/finetune': typeof AppModelsFinetuneRoute
   '/_app/models/new': typeof AppModelsNewRoute
   '/_app/models/teach': typeof AppModelsTeachRoute
   '/_app/templates/$id': typeof AppTemplatesIdRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/users'
     | '/models/$id'
+    | '/models/finetune'
     | '/models/new'
     | '/models/teach'
     | '/templates/$id'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/'
     | '/models/$id'
+    | '/models/finetune'
     | '/models/new'
     | '/models/teach'
     | '/templates/$id'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/_app/users'
     | '/_app/'
     | '/_app/models/$id'
+    | '/_app/models/finetune'
     | '/_app/models/new'
     | '/_app/models/teach'
     | '/_app/templates/$id'
@@ -379,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppModelsIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/models/finetune': {
+      id: '/_app/models/finetune'
+      path: '/models/finetune'
+      fullPath: '/models/finetune'
+      preLoaderRoute: typeof AppModelsFinetuneRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/models/new': {
       id: '/_app/models/new'
       path: '/models/new'
@@ -460,6 +479,7 @@ interface AppRouteChildren {
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
   AppModelsIdRoute: typeof AppModelsIdRoute
+  AppModelsFinetuneRoute: typeof AppModelsFinetuneRoute
   AppModelsNewRoute: typeof AppModelsNewRoute
   AppModelsTeachRoute: typeof AppModelsTeachRoute
   AppTemplatesIdRoute: typeof AppTemplatesIdRoute
@@ -481,6 +501,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
   AppModelsIdRoute: AppModelsIdRoute,
+  AppModelsFinetuneRoute: AppModelsFinetuneRoute,
   AppModelsNewRoute: AppModelsNewRoute,
   AppModelsTeachRoute: AppModelsTeachRoute,
   AppTemplatesIdRoute: AppTemplatesIdRoute,

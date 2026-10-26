@@ -113,15 +113,18 @@ type Epoch struct {
 }
 
 // Dataset is the examples a training task learns from: a CSV table with a
-// header row and a target column, a ZIP of photos, or the built-in
-// handwritten digits.
+// header row and a target column, a ZIP of photos, the built-in
+// handwritten digits, or writing a language model is fine-tuned on.
 type Dataset struct {
-	Kind   string // "table", "photos", "photo_table" or "mnist"
+	Kind   string // "table", "photos", "photo_table", "mnist" or "text"
 	CSV    []byte
 	Target string
 	// Archive is the ZIP for "photos" (a folder per answer) and
 	// "photo_table" (a data.csv and the photos it names).
 	Archive []byte
+	// Text is the file of "text": plain text, or JSON Lines of chats,
+	// prompts and completions, or passages.
+	Text []byte
 	// Columns are the table's columns as first read; keep their kinds.
 	Columns []Column
 }
@@ -148,6 +151,10 @@ type TrainTask struct {
 	BaseWeights  []byte
 	BaseLabels   []string
 	BaseFeatures []string
+	// BaseAdapter, for a fine-tune of a language model, is the LoRA
+	// adapter of the fine-tune it continues; BaseWeights are then the
+	// language model's file.
+	BaseAdapter []byte
 	// Group, when set, is the run's other workers: this one trains its
 	// share of the batches and averages weights with them (see
 	// GroupTrainer). Only member 0's progress and weights are kept.
@@ -806,6 +813,7 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		mimirv1.DatasetKind_DATASET_KIND_MNIST:       "mnist",
 		mimirv1.DatasetKind_DATASET_KIND_PHOTOS:      "photos",
 		mimirv1.DatasetKind_DATASET_KIND_PHOTO_TABLE: "photo_table",
+		mimirv1.DatasetKind_DATASET_KIND_TEXT:        "text",
 	}[t.DatasetKind]
 	if kind == "" {
 		kind = "table"
@@ -813,9 +821,9 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 	task := TrainTask{
 		JobID: t.JobId, Architecture: t.Architecture,
 		Settings:    Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut(), Layers: layersFromProto(t.GetSettings().GetLayers())},
-		Dataset:     Dataset{Kind: kind, CSV: t.Csv, Target: t.Target, Archive: t.Archive, Columns: columnsFromProto(t.Columns)},
+		Dataset:     Dataset{Kind: kind, CSV: t.Csv, Target: t.Target, Archive: t.Archive, Text: t.Text, Columns: columnsFromProto(t.Columns)},
 		History:     epochsFromProto(t.History),
-		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
+		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures, BaseAdapter: t.BaseAdapter,
 	}
 	if t.GroupSize > 1 {
 		if _, ok := tr.(GroupTrainer); !ok {

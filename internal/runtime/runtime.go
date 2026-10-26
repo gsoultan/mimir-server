@@ -521,30 +521,73 @@ func (c *Cache) Load(id, ver string, a arch.Architecture, spec arch.Spec, load f
 	return err
 }
 
+// LanguageFiles reads the files of a language model, for the cache to
+// load it on first use.
+type LanguageFiles struct {
+	// Model reads the model's file; a fine-tune's is its base model's.
+	Model func() ([]byte, error)
+	// Adapter, for a fine-tune, reads its LoRA adapter file; nil for a
+	// model of its own.
+	Adapter func() ([]byte, error)
+	// BaseSHA256 is the hex SHA-256 of a fine-tune's base model file.
+	BaseSHA256 string
+}
+
 // Generate continues prompt with version ver of the language model with
-// id, loading it with load on first use.
-func (c *Cache) Generate(ctx context.Context, id, ver string, a arch.Architecture, load func() ([]byte, error), prompt string, s Sampling) (Generation, error) {
-	e, err := c.ready(id, ver, a, arch.Spec{}, load)
+// id, loading it from files on first use.
+func (c *Cache) Generate(ctx context.Context, id, ver string, files LanguageFiles, prompt string, s Sampling) (Generation, error) {
+	lm, err := c.language(id, ver, files)
 	if err != nil {
 		return Generation{}, err
 	}
-	if e.lm == nil {
-		return Generation{}, fmt.Errorf("%w: only a language model writes text", ErrBadInput)
-	}
-	return e.lm.Generate(ctx, prompt, s)
+	return lm.Generate(ctx, prompt, s)
 }
 
 // Chat writes the next turn of a chat with version ver of the language
-// model with id, loading it with load on first use.
-func (c *Cache) Chat(ctx context.Context, id, ver string, a arch.Architecture, load func() ([]byte, error), msgs []Message, s Sampling) (Generation, error) {
-	e, err := c.ready(id, ver, a, arch.Spec{}, load)
+// model with id, loading it from files on first use.
+func (c *Cache) Chat(ctx context.Context, id, ver string, files LanguageFiles, msgs []Message, s Sampling) (Generation, error) {
+	lm, err := c.language(id, ver, files)
 	if err != nil {
 		return Generation{}, err
 	}
-	if e.lm == nil {
-		return Generation{}, fmt.Errorf("%w: only a language model chats", ErrBadInput)
+	return lm.Chat(ctx, msgs, s)
+}
+
+// Embed returns embeddings of texts from version ver of the language model
+// with id, loading it from files on first use (see LanguageModel.Embed).
+func (c *Cache) Embed(ctx context.Context, id, ver string, files LanguageFiles, texts []string) ([][]float32, int, error) {
+	lm, err := c.language(id, ver, files)
+	if err != nil {
+		return nil, 0, err
 	}
-	return e.lm.Chat(ctx, msgs, s)
+	return lm.Embed(ctx, texts)
+}
+
+// language returns version ver of the language model with id, loading it
+// from files on first use.
+func (c *Cache) language(id, ver string, files LanguageFiles) (*LanguageModel, error) {
+	e, err := c.get(id, ver, files.Model, func(e *entry, w []byte) {
+		start := time.Now()
+		e.kind = "language"
+		if files.Adapter == nil {
+			e.lm, e.err = OpenLanguageModel(w)
+		} else {
+			var a []byte
+			if a, e.err = files.Adapter(); e.err == nil {
+				e.lm, e.err = OpenFineTune(w, a, files.BaseSHA256)
+			}
+		}
+		if o := c.observerNow(); o != nil {
+			o.ObserveLoad(e.kind, time.Since(start), e.err != nil)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	if e.lm == nil {
+		return nil, fmt.Errorf("%w: only a language model writes text", ErrBadInput)
+	}
+	return e.lm, nil
 }
 
 // ready returns the entry of version ver of the model with id, loading it

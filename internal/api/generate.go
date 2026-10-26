@@ -155,16 +155,17 @@ func (s *Service) Write(ctx context.Context, m store.Model, w Writing) (Written,
 			return Written{}, err
 		}
 	}
-	a, _ := arch.Lookup(m.Architecture)
 	sampling := runtime.Sampling{MaxTokens: w.MaxTokens, Temperature: w.Temperature, Seed: w.Seed, Stop: w.Stop, OnText: w.OnText}
 	start := time.Now()
-	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
+	files, ver, err := s.languageFiles(ctx, m)
+	if err != nil {
+		return Written{}, err
+	}
 	var g runtime.Generation
-	var err error
 	if w.Messages == nil {
-		g, err = s.cache.Generate(ctx, m.ID, m.WeightsVersion(), a, load, w.Prompt, sampling)
+		g, err = s.cache.Generate(ctx, m.ID, ver, files, w.Prompt, sampling)
 	} else {
-		g, err = s.cache.Chat(ctx, m.ID, m.WeightsVersion(), a, load, w.Messages, sampling)
+		g, err = s.cache.Chat(ctx, m.ID, ver, files, w.Messages, sampling)
 	}
 	var sent *sendError
 	var long *runtime.TooLongError
@@ -185,6 +186,85 @@ func (s *Service) Write(ctx context.Context, m store.Model, w Writing) (Written,
 		return Written{}, s.internal(ctx, err)
 	}
 	return Written{Generation: g, Duration: time.Since(start)}, nil
+}
+
+// MaxEmbedInputs bounds how many texts one embeddings request sends.
+const MaxEmbedInputs = 256
+
+// Embedded is what a language model made of texts: an embedding of each,
+// and how many tokens it read.
+type Embedded struct {
+	Vectors [][]float32
+	Tokens  int
+}
+
+// Embed has language model m make an embedding of each text: a list of
+// numbers whose dot product with another text's says how alike the two
+// are, for search and grouping. Each text counts up to
+// runtime.MaxEmbedTokens tokens; the rest is left out.
+func (s *Service) Embed(ctx context.Context, m store.Model, texts []string) (Embedded, error) {
+	switch {
+	case len(texts) == 0:
+		return Embedded{}, invalid("Send at least one text to embed.")
+	case len(texts) > MaxEmbedInputs:
+		return Embedded{}, invalid("Send at most %d texts at once.", MaxEmbedInputs)
+	}
+	n := 0
+	for _, t := range texts {
+		switch {
+		case strings.TrimSpace(t) == "":
+			return Embedded{}, invalid("A text to embed can't be empty.")
+		case !utf8.ValidString(t):
+			return Embedded{}, invalid("Texts must be valid text.")
+		}
+		n += len(t)
+	}
+	if n > maxPrompt*4 {
+		return Embedded{}, invalid("The texts can be at most %d KB together.", maxPrompt*4>>10)
+	}
+	if p, ok := auth.From(ctx); ok {
+		if err := s.admit(ctx, p); err != nil {
+			return Embedded{}, err
+		}
+	}
+	files, ver, err := s.languageFiles(ctx, m)
+	if err != nil {
+		return Embedded{}, err
+	}
+	vecs, tokens, err := s.cache.Embed(ctx, m.ID, ver, files, texts)
+	switch {
+	case errors.Is(err, runtime.ErrBadInput):
+		return Embedded{}, invalid("%s.", strings.TrimPrefix(err.Error(), runtime.ErrBadInput.Error()+": "))
+	case tooBig(err):
+		return Embedded{}, tooBigError(err)
+	case errors.Is(err, memguard.ErrLowMemory):
+		return Embedded{}, lowMemory()
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return Embedded{}, connect.NewError(connect.CodeCanceled, errors.New("The request ended before the model finished."))
+	case err != nil:
+		return Embedded{}, s.internal(ctx, err)
+	}
+	return Embedded{Vectors: vecs, Tokens: tokens}, nil
+}
+
+// languageFiles returns how the cache reads language model m's files,
+// and the version of them it loads: for a fine-tune, its adapter on its
+// base model, both of which its version follows.
+func (s *Service) languageFiles(ctx context.Context, m store.Model) (runtime.LanguageFiles, string, error) {
+	if !m.FineTune() {
+		return runtime.LanguageFiles{Model: func() ([]byte, error) { return s.store.Weights(m.ID) }}, m.WeightsVersion(), nil
+	}
+	base, err := s.store.Get(ctx, m.BaseModelID)
+	if errors.Is(err, store.ErrNotFound) {
+		return runtime.LanguageFiles{}, "", connect.NewError(connect.CodeFailedPrecondition, errors.New("The model "+m.Name+" was fine-tuned from is gone."))
+	} else if err != nil {
+		return runtime.LanguageFiles{}, "", s.internal(ctx, err)
+	}
+	return runtime.LanguageFiles{
+		Model:      func() ([]byte, error) { return s.store.Weights(base.ID) },
+		Adapter:    func() ([]byte, error) { return s.store.Weights(m.ID) },
+		BaseSHA256: base.SHA256,
+	}, m.WeightsVersion() + "+" + base.WeightsVersion(), nil
 }
 
 // sendError is an error from passing on the text, such as a caller who

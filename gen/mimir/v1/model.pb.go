@@ -640,7 +640,12 @@ type Model struct {
 	OnDevice bool `protobuf:"varint,18,opt,name=on_device,json=onDevice,proto3" json:"on_device,omitempty"`
 	// version identifies the weights: the SHA-256 of the stored file. It
 	// changes when the model is retrained in place.
-	Version       string `protobuf:"bytes,19,opt,name=version,proto3" json:"version,omitempty"`
+	Version string `protobuf:"bytes,19,opt,name=version,proto3" json:"version,omitempty"`
+	// base_model_id is set on a fine-tune of a language model: the model it
+	// adapts, whose file it runs on top of. base_model_name is that model's
+	// name.
+	BaseModelId   string `protobuf:"bytes,20,opt,name=base_model_id,json=baseModelId,proto3" json:"base_model_id,omitempty"`
+	BaseModelName string `protobuf:"bytes,21,opt,name=base_model_name,json=baseModelName,proto3" json:"base_model_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -804,6 +809,20 @@ func (x *Model) GetOnDevice() bool {
 func (x *Model) GetVersion() string {
 	if x != nil {
 		return x.Version
+	}
+	return ""
+}
+
+func (x *Model) GetBaseModelId() string {
+	if x != nil {
+		return x.BaseModelId
+	}
+	return ""
+}
+
+func (x *Model) GetBaseModelName() string {
+	if x != nil {
+		return x.BaseModelName
 	}
 	return ""
 }
@@ -2483,7 +2502,7 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
 	"\x06values\x18\x03 \x03(\tR\x06values\x12\x12\n" +
-	"\x04fill\x18\x04 \x01(\x01R\x04fill\"\x9e\x05\n" +
+	"\x04fill\x18\x04 \x01(\x01R\x04fill\"\xea\x05\n" +
 	"\x05Model\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -2508,7 +2527,9 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\acolumns\x18\x10 \x03(\v2\x10.mimir.v1.ColumnR\acolumns\x126\n" +
 	"\blanguage\x18\x11 \x01(\v2\x1a.mimir.v1.LanguageSettingsR\blanguage\x12\x1b\n" +
 	"\ton_device\x18\x12 \x01(\bR\bonDevice\x12\x18\n" +
-	"\aversion\x18\x13 \x01(\tR\aversion\"\x92\x01\n" +
+	"\aversion\x18\x13 \x01(\tR\aversion\x12\"\n" +
+	"\rbase_model_id\x18\x14 \x01(\tR\vbaseModelId\x12&\n" +
+	"\x0fbase_model_name\x18\x15 \x01(\tR\rbaseModelName\"\x92\x01\n" +
 	"\x10LanguageSettings\x12\"\n" +
 	"\finstructions\x18\x01 \x01(\tR\finstructions\x12 \n" +
 	"\vtemperature\x18\x02 \x01(\x02R\vtemperature\x12\x1d\n" +

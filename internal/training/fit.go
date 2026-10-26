@@ -41,6 +41,10 @@ type Task struct {
 	// never silently changes meaning.
 	BaseLabels   []string
 	BaseFeatures []string
+	// BaseAdapter, for a fine-tune of a language model, is the LoRA
+	// adapter of the fine-tune it continues; BaseWeights are then the
+	// language model's file.
+	BaseAdapter []byte
 	// Group, when it has more than one member, trains the task together
 	// with other workers (see Group). Its members keep no checkpoints:
 	// a run that loses one starts again.
@@ -66,6 +70,9 @@ type Result struct {
 func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	if progress == nil {
 		progress = func(int, int, int, []store.Epoch) {}
+	}
+	if t.Arch.Answers() == arch.Written {
+		return fitLoRA(ctx, t, progress)
 	}
 	s := t.Settings
 	l, err := Load(ctx, t.Source, t.Arch, s, 42)
