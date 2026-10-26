@@ -533,6 +533,11 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if res.Report != nil {
+		if err := r.st.SetJobReport(ctx, j.ID, res.Report); err != nil {
+			r.log.Warn("training: couldn't store the run's report", "job_id", j.ID, "err", err)
+		}
+	}
 	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID, TeamID: j.TeamID, WorkerID: j.RunOn}
 	// A model trained on a worker stays there, unless that worker only
 	// trains: then it runs wherever there is room.

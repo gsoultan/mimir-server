@@ -220,6 +220,7 @@ func _assertTrainingJobShape(m m0.TrainingJob) {
 		m.TrainedRows,
 		m.CheckTime,
 		m.CheckNote,
+		m.Report,
 	}
 }
 

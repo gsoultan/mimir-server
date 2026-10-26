@@ -403,7 +403,9 @@ func (s *Service) GetJob(ctx context.Context, req *connect.Request[mimirv1.GetJo
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&mimirv1.GetJobResponse{Job: s.jobWithDataset(ctx, j)}), nil
+	jp := s.jobWithDataset(ctx, j)
+	jp.Report = reportProto(j.Report)
+	return connect.NewResponse(&mimirv1.GetJobResponse{Job: jp}), nil
 }
 
 func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.CreateJobRequest]) (*connect.Response[mimirv1.CreateJobResponse], error) {

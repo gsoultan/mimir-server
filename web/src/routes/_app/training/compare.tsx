@@ -15,6 +15,8 @@ import { CompareChart } from "../../../components/CompareChart";
 import { Page } from "../../../components/Page";
 import { ago } from "../../../lib/format";
 import { againName, bestPass, parseIds, runColor, shapeWord, took, trainingSeconds } from "../../../lib/compare";
+import { bytes } from "../../../lib/format";
+import { number as num } from "../../../lib/report";
 import { active, score, statusColor, statusWord } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/training/compare")({
@@ -68,6 +70,18 @@ function Runs({ ids }: { ids: string[] }) {
     { label: "Score", cell: (j) => (j.status === JobStatus.SUCCEEDED ? score(j.accuracy, isNumber(j)) : <Badge color={statusColor[j.status]} variant="light">{statusWord[j.status]}</Badge>) },
     { label: "Best pass", cell: (j) => { const b = bestPass(j); return b ? `${(b.accuracy * 100).toFixed(1)}% at pass ${b.epoch}` : "–"; } },
     ...(anyNumber ? [{ label: "Usually off by", cell: (j: Job) => { const e = j.history.at(-1)?.typicalError ?? 0; return isNumber(j) && e > 0 ? round(e) : "–"; } }] : []),
+    ...(jobs.some((j) => j.report && j.report.kind !== "number") ? [
+      { label: "Balanced score (macro F1)", cell: (j: Job) => (j.report && j.report.kind !== "number" ? num(j.report.macroF1, 3) : "–") },
+    ] : []),
+    ...(jobs.some((j) => j.report?.kind === "ranked") ? [
+      { label: "Right one in its top picks", cell: (j: Job) => (j.report?.kind === "ranked" ? `${Math.round((j.report.hitAt.at(-1) ?? 0) * 100)}% in top ${j.report.k}` : "–") },
+    ] : []),
+    ...(jobs.some((j) => j.report?.kind === "number") ? [
+      { label: "Big misses count more (RMSE)", cell: (j: Job) => (j.report?.kind === "number" ? num(j.report.rmse) : "–") },
+      { label: "Explains the answers (R²)", cell: (j: Job) => (j.report?.kind === "number" ? num(j.report.r2, 3) : "–") },
+    ] : []),
+    { label: "Answer time", cell: (j) => (j.report ? `${num(j.report.millisPerExample, 2)} ms` : "–") },
+    { label: "Model size", cell: (j) => (j.report ? bytes(j.report.sizeBytes) : "–") },
     { label: "Time learning", cell: (j) => (j.history.length > 0 ? took(trainingSeconds(j)) : "–") },
     { label: "Per pass, on average", cell: (j) => (j.history.length > 0 ? took(trainingSeconds(j) / j.history.length) : "–") },
     { label: "Model type", key: "architecture", cell: (j) => arch(j)?.title ?? j.architecture },

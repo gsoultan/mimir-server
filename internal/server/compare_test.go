@@ -2,7 +2,9 @@ package server_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -76,5 +78,60 @@ func TestCompareJobs(t *testing.T) {
 	own.users.CreateUser(ctx, connect.NewRequest(&mimirv1.CreateUserRequest{Email: "v@example.com", Name: "V", Password: password, Access: &mimirv1.Access{Role: mimirv1.Role_ROLE_VIEWER, AllModels: true}}))
 	if _, err := signIn(t, srv, "v@example.com").training.CompareJobs(ctx, connect.NewRequest(&mimirv1.CompareJobsRequest{Ids: []string{fast, slow}})); code(err) != connect.CodePermissionDenied {
 		t.Fatalf("viewer: %v", err)
+	}
+}
+
+func TestRunReports(t *testing.T) {
+	ctx := context.Background()
+	srv := newServer(t)
+	own := owner(t, srv)
+
+	teach := func(name, arch, csv string) *mimirv1.Job {
+		t.Helper()
+		ds, err := own.datasets.CreateDataset(ctx, connect.NewRequest(&mimirv1.CreateDatasetRequest{Name: name, Kind: mimirv1.DatasetKind_DATASET_KIND_TABLE, Csv: []byte(csv)}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		j, err := own.training.CreateJob(ctx, connect.NewRequest(&mimirv1.CreateJobRequest{Name: name, Architecture: arch, DatasetId: ds.Msg.GetDataset().GetId(), Settings: &mimirv1.TrainingSettings{Epochs: 6, LearningRate: 0.01}}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		runner.Tick(ctx)
+		got, err := own.training.GetJob(ctx, connect.NewRequest(&mimirv1.GetJobRequest{Id: j.Msg.GetJob().GetId()}))
+		if err != nil || got.Msg.GetJob().GetStatus() != mimirv1.JobStatus_JOB_STATUS_SUCCEEDED {
+			t.Fatalf("%s: %v, %v", name, got, err)
+		}
+		return got.Msg.GetJob()
+	}
+
+	// A label model: per-label scores and a confusion table, on the 20%
+	// kept aside.
+	r := teach("Fruit", "table-mlp", blobs(200)).GetReport()
+	if r.GetKind() != "class" || r.GetExamples() != 40 || r.GetOnTraining() || len(r.GetClasses()) != 2 || len(r.GetConfusion()) != 2 || r.GetSizeBytes() == 0 {
+		t.Fatalf("class report %v", r)
+	}
+	if r.GetAccuracy() < 0.9 || r.GetMacroF1() < 0.9 || r.GetClasses()[0].GetLabel() != "apple" {
+		t.Fatalf("class scores %v", r)
+	}
+
+	// A number model: errors in the answer's units and points for a chart.
+	var b strings.Builder
+	b.WriteString("x,y\n")
+	for i := range 200 {
+		fmt.Fprintf(&b, "%d,%d\n", i%50, 2*(i%50)+10)
+	}
+	r = teach("Line", "number-mlp", b.String()).GetReport()
+	if r.GetKind() != "number" || r.GetExamples() != 40 || len(r.GetPoints()) != 40 || r.GetRmse() < r.GetMae() || r.GetR2() > 1 {
+		t.Fatalf("number report %v", r)
+	}
+
+	// Lists leave reports out; comparing includes them.
+	ls, _ := own.training.ListJobs(ctx, connect.NewRequest(&mimirv1.ListJobsRequest{}))
+	if ls.Msg.GetJobs()[0].GetReport() != nil {
+		t.Fatal("ListJobs sent a report")
+	}
+	cmp, err := own.training.CompareJobs(ctx, connect.NewRequest(&mimirv1.CompareJobsRequest{Ids: []string{ls.Msg.GetJobs()[0].GetId(), ls.Msg.GetJobs()[1].GetId()}}))
+	if err != nil || cmp.Msg.GetJobs()[0].GetReport() == nil || cmp.Msg.GetJobs()[1].GetReport() == nil {
+		t.Fatalf("CompareJobs = %v, %v", cmp, err)
 	}
 }

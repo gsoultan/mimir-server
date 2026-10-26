@@ -134,6 +134,9 @@ type Job struct {
 	TrainedRows int64
 	CheckTime   time.Time
 	CheckNote   string
+	// Report is how the finished run's model did on the examples kept
+	// aside; nil until it has one.
+	Report *Report
 }
 
 // ErrDatasetInUse means a dataset still has training jobs.
@@ -391,6 +394,7 @@ func fromJob(r trainingjob.Row) Job {
 		TrainedRows:   r.TrainedRows,
 		CheckTime:     timeOf(r.CheckTime),
 		CheckNote:     r.CheckNote,
+		Report:        reportOf(r.Report),
 	}
 }
 

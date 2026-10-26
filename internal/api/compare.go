@@ -42,7 +42,9 @@ func (s *Service) CompareJobs(ctx context.Context, req *connect.Request[mimirv1.
 	}
 	res := &mimirv1.CompareJobsResponse{Differs: differs(js), BestId: best(js)}
 	for _, j := range js {
-		res.Jobs = append(res.Jobs, jobProto(j, names[j.DatasetID]))
+		jp := jobProto(j, names[j.DatasetID])
+		jp.Report = reportProto(j.Report)
+		res.Jobs = append(res.Jobs, jp)
 	}
 	return connect.NewResponse(res), nil
 }
@@ -84,4 +86,27 @@ func best(js []store.Job) string {
 		}
 	}
 	return id
+}
+
+// reportProto is a run's report for the API; nil when it has none.
+func reportProto(r *store.Report) *mimirv1.RunReport {
+	if r == nil {
+		return nil
+	}
+	out := &mimirv1.RunReport{
+		Kind: r.Kind, Examples: int64(r.Examples), OnTraining: r.OnTraining, MillisPerExample: r.MillisPerExample, SizeBytes: r.SizeBytes,
+		Accuracy: r.Accuracy, MacroF1: r.MacroF1, LogLoss: r.LogLoss,
+		Mae: r.MAE, Rmse: r.RMSE, R2: r.R2, Within10: r.Within10,
+		K: int32(r.K), HitAt: r.HitAt, Mrr: r.MRR, Ndcg: r.NDCG,
+	}
+	for _, c := range r.Classes {
+		out.Classes = append(out.Classes, &mimirv1.ClassScore{Label: c.Label, Precision: c.Precision, Recall: c.Recall, F1: c.F1, Support: c.Support})
+	}
+	for _, row := range r.Confusion {
+		out.Confusion = append(out.Confusion, &mimirv1.ConfusionRow{Counts: row})
+	}
+	for _, p := range r.Points {
+		out.Points = append(out.Points, &mimirv1.GuessPoint{Real: p.Real, Guess: p.Guess})
+	}
+	return out
 }
