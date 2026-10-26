@@ -142,6 +142,7 @@ type clients struct {
 	training mimirv1connect.TrainingServiceClient
 	workers  mimirv1connect.WorkerServiceClient
 	teams    mimirv1connect.TeamServiceClient
+	bench    mimirv1connect.BenchmarkServiceClient
 }
 
 func newClients(srv *httptest.Server, opts ...connect.ClientOption) clients {
@@ -161,6 +162,7 @@ func newClients(srv *httptest.Server, opts ...connect.ClientOption) clients {
 		training: mimirv1connect.NewTrainingServiceClient(srv.Client(), srv.URL, opts...),
 		workers:  mimirv1connect.NewWorkerServiceClient(srv.Client(), srv.URL, opts...),
 		teams:    mimirv1connect.NewTeamServiceClient(srv.Client(), srv.URL, opts...),
+		bench:    mimirv1connect.NewBenchmarkServiceClient(srv.Client(), srv.URL, opts...),
 	}
 }
 

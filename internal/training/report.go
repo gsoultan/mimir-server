@@ -33,6 +33,22 @@ const (
 // Score scores a trained model on a set of examples in detail, for its
 // kind of answer.
 func Score(ctx context.Context, model nn.Module, set data.Dataset, a arch.Architecture, labels []string) (*store.Report, error) {
+	sc, err := newScorer(a, labels)
+	if err != nil {
+		return nil, err
+	}
+	start := time.Now()
+	if _, err := train.Evaluate(ctx, model, set, nil, func() metrics.Metric { return sc }); err != nil {
+		return nil, err
+	}
+	r := sc.report()
+	if r.Examples > 0 {
+		r.MillisPerExample = float64(time.Since(start).Microseconds()) / 1000 / float64(r.Examples)
+	}
+	return r, nil
+}
+
+func newScorer(a arch.Architecture, labels []string) (*scorer, error) {
 	sc := &scorer{kind: string(a.Answers()), labels: labels}
 	switch a.Answers() {
 	case arch.Number:
@@ -53,15 +69,49 @@ func Score(ctx context.Context, model nn.Module, set data.Dataset, a arch.Archit
 	default:
 		return nil, fmt.Errorf("training: no report for %s models", a.Answers())
 	}
-	start := time.Now()
-	if _, err := train.Evaluate(ctx, model, set, nil, func() metrics.Metric { return sc }); err != nil {
+	return sc, nil
+}
+
+// Tally scores a model one answer at a time, as a benchmark asks it each
+// of its examples.
+type Tally struct {
+	s     *scorer
+	start time.Time
+}
+
+// NewTally starts scoring a model of architecture a that answers with
+// labels.
+func NewTally(a arch.Architecture, labels []string) (*Tally, error) {
+	s, err := newScorer(a, labels)
+	if err != nil {
 		return nil, err
 	}
-	r := sc.report()
-	if r.Examples > 0 {
-		r.MillisPerExample = float64(time.Since(start).Microseconds()) / 1000 / float64(r.Examples)
+	return &Tally{s: s, start: time.Now()}, nil
+}
+
+// Number adds a number model's guess at a real answer.
+func (t *Tally) Number(ctx context.Context, guess, real float64) error {
+	return t.s.Update(ctx, tensor.FromSlice([]float32{float32(guess)}, 1, 1), tensor.FromSlice([]float32{float32(real)}, 1, 1))
+}
+
+// Label adds a label model's scores, one per label, for an example whose
+// real answer is label. A label the model never learned counts as wrong.
+func (t *Tally) Label(ctx context.Context, scores []float32, label string) error {
+	i := slices.Index(t.s.labels, label)
+	if i < 0 {
+		t.s.missed++
+		return nil
 	}
-	return r, nil
+	return t.s.Update(ctx, tensor.FromSlice(slices.Clone(scores), 1, len(scores)), tensor.FromSlice([]int32{int32(i)}, 1))
+}
+
+// Report sums the answers up.
+func (t *Tally) Report() *store.Report {
+	r := t.s.report()
+	if r.Examples > 0 {
+		r.MillisPerExample = float64(time.Since(t.start).Microseconds()) / 1000 / float64(r.Examples)
+	}
+	return r
 }
 
 // scorer collects every prediction as train.Evaluate passes the batches
@@ -70,6 +120,9 @@ type scorer struct {
 	kind   string
 	labels []string
 	n      int64
+	// missed counts examples whose answer is a label the model doesn't
+	// know: wrong, whatever it says.
+	missed int64
 
 	// class and ranked
 	confusion [][]int64
@@ -155,11 +208,11 @@ func (s *scorer) Update(ctx context.Context, pred, target *tensor.Tensor) error 
 }
 
 func (s *scorer) report() *store.Report {
-	r := &store.Report{Kind: s.kind, Examples: int(s.n)}
-	if s.n == 0 {
+	r := &store.Report{Kind: s.kind, Examples: int(s.n + s.missed)}
+	if s.n+s.missed == 0 {
 		return r
 	}
-	n := float64(s.n)
+	n := float64(s.n + s.missed)
 	if s.kind == string(arch.Number) {
 		r.MAE, r.RMSE, r.Within10, r.Points = s.absSum/n, math.Sqrt(s.sqSum/n), s.within/n, s.points
 		// R² compares the errors with always answering the average.
@@ -196,7 +249,10 @@ func (s *scorer) report() *store.Report {
 			r.Classes = append(r.Classes, cs)
 		}
 	}
-	r.Accuracy, r.LogLoss = right/n, s.logLoss/n
+	r.Accuracy = right / n
+	if s.n > 0 {
+		r.LogLoss = s.logLoss / float64(s.n)
+	}
 	if labelled > 0 {
 		r.MacroF1 = f1Sum / float64(labelled)
 	}

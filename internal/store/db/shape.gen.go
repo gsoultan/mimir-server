@@ -65,6 +65,40 @@ func _assertAuditEventShape(m m0.AuditEvent) {
 	}
 }
 
+// _assertBenchmarkShape fails to compile if m0.Benchmark gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertBenchmarkShape(m m0.Benchmark) {
+	type shape m0.Benchmark
+	_ = shape{
+		m.Record,
+		m.Named,
+		m.TeamOwned,
+		m.Description,
+		m.DatasetID,
+		m.Target,
+		m.Kind,
+		m.Rows,
+		m.CreatedBy,
+	}
+}
+
+// _assertBenchmarkScoreShape fails to compile if m0.BenchmarkScore gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertBenchmarkScoreShape(m m0.BenchmarkScore) {
+	type shape m0.BenchmarkScore
+	_ = shape{
+		m.Record,
+		m.Benchmark,
+		m.Model,
+		m.WeightsSHA,
+		m.Status,
+		m.Error,
+		m.Report,
+		m.Headline,
+		m.ScoredAt,
+	}
+}
+
 // _assertDatasetShape fails to compile if m0.Dataset gains, loses, renames or
 // reorders a field. Regenerate: `storm generate`.
 func _assertDatasetShape(m m0.Dataset) {
