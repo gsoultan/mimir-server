@@ -384,7 +384,7 @@ a pass is due the server runs the query again, then teaches the same
 model further from where it left off. The model keeps its id, so apps
 keep working, and it is only replaced when the new pass scores at least as
 well on held-out rows; otherwise the run says it kept the previous
-version. If the columns or answers changed, the pass learns from scratch.
+version, and the pass is kept as a version you can still choose. If the columns or answers changed, the pass learns from scratch.
 The run page shows the schedule, the next pass and what each pass did,
 and the schedule can be changed or turned off there.
 
@@ -402,6 +402,24 @@ lists every pass of the model with its rows, score and outcome.
 Datasets and runs are also in the API (`DatasetService`, `TrainingService`
 in `proto/mimir/v1/training.proto`), and webhooks can listen for
 `training.queued`, `training.finished` and `training.failed`.
+
+### Versions
+
+Every model keeps the weights it has had as numbered versions: version 1
+is its upload or the run that taught it, and each keep-learning pass adds
+one, including a pass that scored worse and so wasn't put live. The
+model's page lists them, newest first, with where each came from, its
+score and the run that made it; **Use this one** puts an earlier (or a
+held-back) version live. The model keeps its id, so apps carry on, and the
+next question is answered with that version's weights, by the console and
+by workers alike. A model keeps its 20 newest versions, and always the
+live one. The files sit under `models/versions/` in the data folder,
+hard-linked to the live weights where the disk allows, so the live
+version takes no extra space.
+
+In the API, `ModelService.ListModelVersions` lists them and
+`ModelService.UseModelVersion` puts one live; the switch is in the audit
+log and sends a `model.updated` webhook with the version.
 
 ## Use it from your app
 

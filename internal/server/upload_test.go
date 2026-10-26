@@ -131,14 +131,29 @@ func TestUploads(t *testing.T) {
 		t.Fatalf("empty upload: %d %+v", status, out)
 	}
 
+	// Each model's weights, and beside them the folder of its versions'.
 	files, _ := os.ReadDir(filepath.Join(svc.DataDir(), "models"))
+	n := 0
 	for _, f := range files {
-		if !strings.HasSuffix(f.Name(), ".mim") {
+		switch {
+		case f.Name() == "versions" && f.IsDir():
+		case strings.HasSuffix(f.Name(), ".mim"):
+			n++
+		default:
 			t.Errorf("left beside the models: %s", f.Name())
 		}
 	}
-	if len(files) != 4 {
-		t.Errorf("%d model files, want 4", len(files))
+	if n != 4 {
+		t.Errorf("%d model files, want 4", n)
+	}
+	versions, _ := os.ReadDir(filepath.Join(svc.DataDir(), "models", "versions"))
+	for _, f := range versions {
+		if !strings.HasSuffix(f.Name(), ".mim") {
+			t.Errorf("left beside the versions: %s", f.Name())
+		}
+	}
+	if len(versions) != 4 {
+		t.Errorf("%d version files, want 4", len(versions))
 	}
 }
 

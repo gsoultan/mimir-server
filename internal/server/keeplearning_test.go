@@ -175,6 +175,34 @@ func TestTeachFromQueryAndKeepLearning(t *testing.T) {
 		t.Fatalf("Predict after second pass = %v, %v", p, err)
 	}
 
+	// Both passes are versions, the second live; going back to the first
+	// brings its weights back under the same id.
+	vs, err := own.models.ListModelVersions(ctx, connect.NewRequest(&mimirv1.ListModelVersionsRequest{ModelId: modelID}))
+	if err != nil || len(vs.Msg.GetVersions()) != 2 {
+		t.Fatalf("ListModelVersions = %v, %v", vs, err)
+	}
+	v2, v1 := vs.Msg.GetVersions()[0], vs.Msg.GetVersions()[1]
+	if v2.GetNumber() != 2 || !v2.GetLive() || v2.GetSource() != mimirv1.ModelVersionSource_MODEL_VERSION_SOURCE_KEEP_LEARNING || v2.GetJobId() != second.GetId() ||
+		v1.GetNumber() != 1 || v1.GetLive() || v1.GetSource() != mimirv1.ModelVersionSource_MODEL_VERSION_SOURCE_TRAINED || v1.GetSha256() != m1.Msg.GetModel().GetVersion() {
+		t.Fatalf("versions %v", vs.Msg.GetVersions())
+	}
+	if !strings.Contains(second.GetNote(), "version 2") {
+		t.Fatalf("second pass note %q", second.GetNote())
+	}
+	back, err := e.models.UseModelVersion(ctx, connect.NewRequest(&mimirv1.UseModelVersionRequest{ModelId: modelID, VersionId: v1.GetId()}))
+	if err != nil || back.Msg.GetModel().GetVersionId() != v1.GetId() || back.Msg.GetModel().GetVersion() != m1.Msg.GetModel().GetVersion() || back.Msg.GetModel().GetJobId() != first {
+		t.Fatalf("UseModelVersion = %v, %v", back, err)
+	}
+	if _, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: modelID, Input: &mimirv1.Tensor{Values: []float32{-1, -1}}})); err != nil {
+		t.Fatalf("Predict on version 1: %v", err)
+	}
+	if _, err := own.models.UseModelVersion(ctx, connect.NewRequest(&mimirv1.UseModelVersionRequest{ModelId: modelID, VersionId: modelID})); code(err) != connect.CodeNotFound {
+		t.Fatalf("UseModelVersion of no version: %v", err)
+	}
+	if _, err := own.models.UseModelVersion(ctx, connect.NewRequest(&mimirv1.UseModelVersionRequest{ModelId: modelID, VersionId: v2.GetId()})); err != nil {
+		t.Fatal(err)
+	}
+
 	// Turning it off stops further passes.
 	if _, err := own.training.SetRepeat(ctx, connect.NewRequest(&mimirv1.SetRepeatRequest{Id: second.GetId()})); err != nil {
 		t.Fatal(err)
