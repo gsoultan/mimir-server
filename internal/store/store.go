@@ -86,7 +86,14 @@ type Model struct {
 	Language Language
 	// OnDevice lets people download it and answer in their own browser.
 	OnDevice bool
+	// BaseModelID is the language model a fine-tune adapts; "" for any
+	// other model. A fine-tune's file is a LoRA adapter that runs on top
+	// of that model's file.
+	BaseModelID string
 }
+
+// FineTune reports whether the model is a fine-tune of another.
+func (m Model) FineTune() bool { return m.BaseModelID != "" }
 
 // Language is how a language model answers when a chat or an app doesn't
 // say: its instructions (the system message), how freely it picks words
@@ -384,6 +391,7 @@ func fromModel(r model.Row) Model {
 		Columns:      fromDoc[schema.Column](r.Columns),
 		Language:     Language{Instructions: r.Instructions, Temperature: r.Temperature, MaxTokens: int(r.MaxTokens)},
 		OnDevice:     r.OnDevice,
+		BaseModelID:  r.BaseModelID,
 	}
 }
 
@@ -396,6 +404,24 @@ func (s *Store) List(ctx context.Context, teamID string) ([]Model, error) {
 		All(ctx, s.ex, nil)
 	if err != nil {
 		return nil, fmt.Errorf("store: list: %w", err)
+	}
+	out := make([]Model, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, fromModel(r))
+	}
+	return out, nil
+}
+
+// FineTunes returns the fine-tunes of the model with id, by name.
+func (s *Store) FineTunes(ctx context.Context, id string) ([]Model, error) {
+	rows, err := model.New().
+		// The second condition matches the partial index's.
+		Where(model.BaseModelID.Eq(id), model.BaseModelID.NotEq("")).
+		Order(model.Name.Asc(), model.ID.Asc()).
+		Limit(1000).
+		All(ctx, s.ex, nil)
+	if err != nil {
+		return nil, fmt.Errorf("store: fine-tunes of %s: %w", id, err)
 	}
 	out := make([]Model, 0, len(rows))
 	for _, r := range rows {
@@ -529,6 +555,7 @@ func (s *Store) create(ctx context.Context, m Model, size int64, sum []byte, pla
 	n.SetInstructions(m.Language.Instructions)
 	n.SetTemperature(m.Language.Temperature)
 	n.SetMaxTokens(int32(m.Language.MaxTokens))
+	n.SetBaseModelID(m.BaseModelID)
 	if _, err := n.Insert(ctx, s.ex); err != nil {
 		os.Remove(path)
 		return Model{}, fmt.Errorf("store: insert model: %w", err)

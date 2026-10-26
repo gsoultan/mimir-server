@@ -184,6 +184,11 @@ message Model {
   // version identifies the weights: the SHA-256 of the stored file. It
   // changes when the model is retrained in place.
   string version = 19;
+  // base_model_id is set on a fine-tune of a language model: the model it
+  // adapts, whose file it runs on top of. base_model_name is that model's
+  // name.
+  string base_model_id = 20;
+  string base_model_name = 21;
 }
 
 // LanguageSettings are how a language model answers when a chat or an app

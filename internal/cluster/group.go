@@ -29,6 +29,9 @@ const groupGrace = 30 * time.Second
 // and the run fails with that error: ErrLinkLost, or a member stopping
 // for memory (training.ErrLowMemory), puts it back in the queue.
 func (p *Pool) TrainGroup(ctx context.Context, jobID string, most int, t training.Task, progress training.Progress) (res training.Result, workers string, ran bool, err error) {
+	if tooBigToSend(t) {
+		return res, "", false, nil
+	}
 	members := p.reserveGroup(t.Arch.Name, most, Task{Kind: "train", JobID: jobID})
 	if len(members) < 2 {
 		for _, m := range members {

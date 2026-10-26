@@ -38,12 +38,15 @@ const (
 	DatasetPhotos
 	// DatasetPhotoTable is a ZIP of a data.csv and the photos it names.
 	DatasetPhotoTable
+	// DatasetText is writing a language model learns from: plain text, or
+	// chats and prompts with their answers as JSON lines.
+	DatasetText
 )
 
-var datasetKindNames = [...]string{"", "table", "mnist", "photos", "photo_table"}
+var datasetKindNames = [...]string{"", "table", "mnist", "photos", "photo_table", "text"}
 
 // Valid reports whether k is one of the kinds.
-func (k DatasetKind) Valid() bool { return k >= DatasetTable && k <= DatasetPhotoTable }
+func (k DatasetKind) Valid() bool { return k >= DatasetTable && k <= DatasetText }
 
 // Archive reports whether the dataset's file is a ZIP.
 func (k DatasetKind) Archive() bool { return k == DatasetPhotos || k == DatasetPhotoTable }

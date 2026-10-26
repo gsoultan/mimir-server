@@ -35,6 +35,10 @@ const (
 	DatasetKind_DATASET_KIND_PHOTOS DatasetKind = 3
 	// PHOTO_TABLE is a ZIP of a data.csv and the photos its rows name.
 	DatasetKind_DATASET_KIND_PHOTO_TABLE DatasetKind = 4
+	// TEXT is writing a language model learns from (see
+	// CreateDatasetRequest.text): plain text, or chats and prompts with
+	// their answers as JSON lines.
+	DatasetKind_DATASET_KIND_TEXT DatasetKind = 5
 )
 
 // Enum value maps for DatasetKind.
@@ -45,6 +49,7 @@ var (
 		2: "DATASET_KIND_MNIST",
 		3: "DATASET_KIND_PHOTOS",
 		4: "DATASET_KIND_PHOTO_TABLE",
+		5: "DATASET_KIND_TEXT",
 	}
 	DatasetKind_value = map[string]int32{
 		"DATASET_KIND_UNSPECIFIED": 0,
@@ -52,6 +57,7 @@ var (
 		"DATASET_KIND_MNIST":       2,
 		"DATASET_KIND_PHOTOS":      3,
 		"DATASET_KIND_PHOTO_TABLE": 4,
+		"DATASET_KIND_TEXT":        5,
 	}
 )
 
@@ -877,8 +883,15 @@ type CreateDatasetRequest struct {
 	// bucket and path read the examples from S3-compatible storage instead:
 	// a .csv (or a folder of them) for a table, a .zip or a folder for
 	// photos.
-	Bucket        *Bucket `protobuf:"bytes,10,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	Path          string  `protobuf:"bytes,11,opt,name=path,proto3" json:"path,omitempty"`
+	Bucket *Bucket `protobuf:"bytes,10,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	Path   string  `protobuf:"bytes,11,opt,name=path,proto3" json:"path,omitempty"`
+	// text is the file of a TEXT dataset: plain text or Markdown, which a
+	// language model learns to write like, or JSON lines of examples, one
+	// per line, in OpenAI's fine-tuning formats: {"messages": [{"role":
+	// "system"|"user"|"assistant", "content": "..."}, ...]}, where it learns
+	// the assistant's answers, {"prompt": "...", "completion": "..."},
+	// where it learns the completions, or {"text": "..."}.
+	Text          []byte `protobuf:"bytes,12,opt,name=text,proto3" json:"text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -988,6 +1001,13 @@ func (x *CreateDatasetRequest) GetPath() string {
 		return x.Path
 	}
 	return ""
+}
+
+func (x *CreateDatasetRequest) GetText() []byte {
+	if x != nil {
+		return x.Text
+	}
+	return nil
 }
 
 // Bucket is how to reach S3-compatible storage.
@@ -2341,7 +2361,12 @@ type CreateJobRequest struct {
 	WorkerId string `protobuf:"bytes,7,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
 	// min_new_rows makes each keep-learning pass wait for that many new rows
 	// in the source; 0 starts one every repeat_seconds.
-	MinNewRows    int64 `protobuf:"varint,8,opt,name=min_new_rows,json=minNewRows,proto3" json:"min_new_rows,omitempty"`
+	MinNewRows int64 `protobuf:"varint,8,opt,name=min_new_rows,json=minNewRows,proto3" json:"min_new_rows,omitempty"`
+	// base_model_id is the language model to fine-tune, for the "language"
+	// architecture and a TEXT dataset. The run makes a new model that adapts
+	// it with LoRA: a small file that runs on top of the base model's. A
+	// fine-tune of a fine-tune continues from its adapter.
+	BaseModelId   string `protobuf:"bytes,9,opt,name=base_model_id,json=baseModelId,proto3" json:"base_model_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2430,6 +2455,13 @@ func (x *CreateJobRequest) GetMinNewRows() int64 {
 		return x.MinNewRows
 	}
 	return 0
+}
+
+func (x *CreateJobRequest) GetBaseModelId() string {
+	if x != nil {
+		return x.BaseModelId
+	}
+	return ""
 }
 
 type CreateJobResponse struct {
@@ -2795,7 +2827,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\adataset\x18\x01 \x01(\v2\x11.mimir.v1.DatasetR\adataset\x12%\n" +
 	"\x06sample\x18\x02 \x03(\v2\r.mimir.v1.RowR\x06sample\"\x1d\n" +
 	"\x03Row\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\xde\x02\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xf2\x02\n" +
 	"\x14CreateDatasetRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12)\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x15.mimir.v1.DatasetKindR\x04kind\x12\x10\n" +
@@ -2811,7 +2843,8 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\aexample\x18\t \x01(\bR\aexample\x12(\n" +
 	"\x06bucket\x18\n" +
 	" \x01(\v2\x10.mimir.v1.BucketR\x06bucket\x12\x12\n" +
-	"\x04path\x18\v \x01(\tR\x04path\"\xdf\x01\n" +
+	"\x04path\x18\v \x01(\tR\x04path\x12\x12\n" +
+	"\x04text\x18\f \x01(\fR\x04text\"\xdf\x01\n" +
 	"\x06Bucket\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x1a\n" +
 	"\bendpoint\x18\x02 \x01(\tR\bendpoint\x12\x16\n" +
@@ -2919,7 +2952,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\rGetJobRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"1\n" +
 	"\x0eGetJobResponse\x12\x1f\n" +
-	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xa9\x02\n" +
+	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xcd\x02\n" +
 	"\x10CreateJobRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\"\n" +
@@ -2930,7 +2963,8 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x0erepeat_seconds\x18\x06 \x01(\x03R\rrepeatSeconds\x12\x1b\n" +
 	"\tworker_id\x18\a \x01(\tR\bworkerId\x12 \n" +
 	"\fmin_new_rows\x18\b \x01(\x03R\n" +
-	"minNewRows\"4\n" +
+	"minNewRows\x12\"\n" +
+	"\rbase_model_id\x18\t \x01(\tR\vbaseModelId\"4\n" +
 	"\x11CreateJobResponse\x12\x1f\n" +
 	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\"\n" +
 	"\x10CancelJobRequest\x12\x0e\n" +
@@ -2943,13 +2977,14 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\"\n" +
 	"\x10DeleteJobRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x13\n" +
-	"\x11DeleteJobResponse*\x92\x01\n" +
+	"\x11DeleteJobResponse*\xa9\x01\n" +
 	"\vDatasetKind\x12\x1c\n" +
 	"\x18DATASET_KIND_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12DATASET_KIND_TABLE\x10\x01\x12\x16\n" +
 	"\x12DATASET_KIND_MNIST\x10\x02\x12\x17\n" +
 	"\x13DATASET_KIND_PHOTOS\x10\x03\x12\x1c\n" +
-	"\x18DATASET_KIND_PHOTO_TABLE\x10\x04*\xa1\x01\n" +
+	"\x18DATASET_KIND_PHOTO_TABLE\x10\x04\x12\x15\n" +
+	"\x11DATASET_KIND_TEXT\x10\x05*\xa1\x01\n" +
 	"\tJobStatus\x12\x1a\n" +
 	"\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11JOB_STATUS_QUEUED\x10\x01\x12\x16\n" +

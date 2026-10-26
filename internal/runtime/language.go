@@ -8,11 +8,13 @@ import (
 	"math/rand/v2"
 	"slices"
 	"strings"
+	"sync"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/gsoultan/mimir-model/tokenizer"
 	"github.com/gsoultan/mimir/io/mim"
+	"github.com/gsoultan/mimir/llm"
 	"github.com/gsoultan/mimir/tensor"
 )
 
@@ -59,6 +61,15 @@ type LanguageModel struct {
 	special map[string]int32
 	control map[int32]bool
 	turns   chan struct{} // a token per generation running; see maxGenerations
+
+	// adapter is a fine-tune's LoRA adapter, which the graph already
+	// applies and embed applies too; nil for a model of its own.
+	adapter *mim.Model
+	// embed computes embeddings, built on first use (see Embed); embedMu
+	// guards it and runs one embedding at a time.
+	embedMu  sync.Mutex
+	embed    *llm.Model
+	embedErr error
 }
 
 // OpenLanguageModel loads a Mimir Model file of a language model and its
@@ -74,6 +85,37 @@ func OpenLanguageModel(b []byte) (*LanguageModel, error) {
 		m.Close()
 		return nil, err
 	}
+	return lm, nil
+}
+
+// OpenFineTune loads a fine-tune: the language model of base with the
+// LoRA adapter of adapter, a Mimir Model adapter file, applied to it.
+// baseSHA256 is the lowercase hex SHA-256 of base, checked against the
+// base the adapter names. It fails with ErrBadWeights for files that
+// aren't these.
+func OpenFineTune(base, adapter []byte, baseSHA256 string) (*LanguageModel, error) {
+	m, err := mim.Parse(base)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+	}
+	a, err := mim.Parse(adapter)
+	if err == nil {
+		err = m.ApplyLoRA(a, baseSHA256)
+	}
+	if err != nil {
+		if a != nil {
+			a.Close()
+		}
+		m.Close()
+		return nil, fmt.Errorf("%w: the fine-tune: %v", ErrBadWeights, err)
+	}
+	lm, err := newLanguageModel(m)
+	if err != nil {
+		a.Close()
+		m.Close()
+		return nil, err
+	}
+	lm.adapter = a
 	return lm, nil
 }
 
@@ -153,13 +195,20 @@ func ints(v any) []int64 {
 	return nil
 }
 
-// encode tokenizes text. With special set, the text of control and
+// encode tokenizes text, after the beginning-of-text token if the
+// vocabulary has one. With special set, the text of control and
 // user-defined tokens becomes those tokens, as a chat's markers must.
 func (lm *LanguageModel) encode(text string, special bool) []int32 {
+	return lm.encodeFrom(text, special, true)
+}
+
+// encodeFrom is encode, with the beginning-of-text token only if bos is
+// set.
+func (lm *LanguageModel) encodeFrom(text string, special, bos bool) []int32 {
 	if !special || len(lm.special) == 0 {
-		return lm.tok.Encode(text, true)
+		return lm.tok.Encode(text, bos)
 	}
-	out := lm.tok.Encode("", true) // just the beginning-of-text token, if any
+	out := lm.tok.Encode("", bos) // just the beginning-of-text token, if any
 	for text != "" {
 		at, id, n := len(text), int32(0), 0
 		for s, i := range lm.special {
@@ -187,7 +236,72 @@ func (lm *LanguageModel) Count(text string) int { return len(lm.tok.Encode(text,
 func (lm *LanguageModel) Context() int { return lm.context }
 
 // Close releases the model.
-func (lm *LanguageModel) Close() error { return lm.m.Close() }
+func (lm *LanguageModel) Close() error {
+	lm.embedMu.Lock()
+	defer lm.embedMu.Unlock()
+	lm.embed, lm.embedErr = nil, errors.New("runtime: the model is closed")
+	if lm.adapter != nil {
+		lm.adapter.Close()
+	}
+	return lm.m.Close()
+}
+
+// MaxEmbedTokens is the most tokens of one text Embed reads; the rest is
+// left out, as OpenAI's API does past its own limit.
+const MaxEmbedTokens = 512
+
+// Embed returns an embedding of each text: the mean of the model's last
+// hidden states over the text's tokens, scaled to length 1, so the dot
+// product of two says how alike the texts are. A fine-tune embeds with
+// its adapter. tokens is how many tokens it read in all.
+func (lm *LanguageModel) Embed(ctx context.Context, texts []string) (vecs [][]float32, tokens int, err error) {
+	lm.embedMu.Lock()
+	defer lm.embedMu.Unlock()
+	if lm.embed == nil && lm.embedErr == nil {
+		lm.embed, lm.embedErr = lm.embedder()
+	}
+	if lm.embedErr != nil {
+		return nil, 0, lm.embedErr
+	}
+	for _, text := range texts {
+		if err := ctx.Err(); err != nil {
+			return nil, 0, err
+		}
+		if strings.TrimSpace(text) == "" {
+			return nil, 0, fmt.Errorf("%w: an empty text has no embedding", ErrBadInput)
+		}
+		ids := lm.encode(text, false)
+		if len(ids) > MaxEmbedTokens {
+			ids = ids[:MaxEmbedTokens]
+		}
+		v, err := lm.embed.Embedding(ctx, ids)
+		if err != nil {
+			return nil, 0, err
+		}
+		vecs = append(vecs, v)
+		tokens += len(ids)
+	}
+	return vecs, tokens, nil
+}
+
+// embedder builds the model Embed runs: the layers of the file, read
+// eagerly rather than through its graph, with the adapter's pairs.
+func (lm *LanguageModel) embedder() (*llm.Model, error) {
+	md, err := lm.m.Metadata()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+	}
+	e, err := llm.Load(lm.m, md, tensor.DefaultDevice())
+	if err != nil {
+		return nil, fmt.Errorf("%w: this model can't make embeddings: %v", ErrBadInput, err)
+	}
+	if lm.adapter != nil {
+		if err := e.ReadAdapter(lm.adapter); err != nil {
+			return nil, fmt.Errorf("%w: the fine-tune: %v", ErrBadWeights, err)
+		}
+	}
+	return e, nil
+}
 
 // Sampling says how a generation picks each next token.
 type Sampling struct {

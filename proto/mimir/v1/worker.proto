@@ -379,6 +379,11 @@ message TrainTask {
   // weights; the others send an empty result.
   int32 group_rank = 14;
   int32 group_size = 15;
+  // text holds the file of a DATASET_KIND_TEXT dataset. A fine-tune of a
+  // language model gets the base model's file in base_weights and, when
+  // it continues a fine-tune, that one's LoRA adapter in base_adapter.
+  bytes text = 16;
+  bytes base_adapter = 17;
 }
 
 // GroupShare is one member's weights for a group's next average. round

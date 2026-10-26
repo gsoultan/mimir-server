@@ -2450,8 +2450,13 @@ type TrainTask struct {
 	// its share of the batches, and they average their weights through the
 	// console with GroupShare. Member 0 reports progress and sends back the
 	// weights; the others send an empty result.
-	GroupRank     int32 `protobuf:"varint,14,opt,name=group_rank,json=groupRank,proto3" json:"group_rank,omitempty"`
-	GroupSize     int32 `protobuf:"varint,15,opt,name=group_size,json=groupSize,proto3" json:"group_size,omitempty"`
+	GroupRank int32 `protobuf:"varint,14,opt,name=group_rank,json=groupRank,proto3" json:"group_rank,omitempty"`
+	GroupSize int32 `protobuf:"varint,15,opt,name=group_size,json=groupSize,proto3" json:"group_size,omitempty"`
+	// text holds the file of a DATASET_KIND_TEXT dataset. A fine-tune of a
+	// language model gets the base model's file in base_weights and, when
+	// it continues a fine-tune, that one's LoRA adapter in base_adapter.
+	Text          []byte `protobuf:"bytes,16,opt,name=text,proto3" json:"text,omitempty"`
+	BaseAdapter   []byte `protobuf:"bytes,17,opt,name=base_adapter,json=baseAdapter,proto3" json:"base_adapter,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2589,6 +2594,20 @@ func (x *TrainTask) GetGroupSize() int32 {
 		return x.GroupSize
 	}
 	return 0
+}
+
+func (x *TrainTask) GetText() []byte {
+	if x != nil {
+		return x.Text
+	}
+	return nil
+}
+
+func (x *TrainTask) GetBaseAdapter() []byte {
+	if x != nil {
+		return x.BaseAdapter
+	}
+	return nil
 }
 
 // GroupShare is one member's weights for a group's next average. round
@@ -3818,7 +3837,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x06output\x18\x02 \x01(\v2\x10.mimir.v1.TensorR\x06output\x126\n" +
 	"\rprobabilities\x18\x03 \x01(\v2\x10.mimir.v1.TensorR\rprobabilities\x12\x14\n" +
 	"\x05error\x18\x04 \x01(\tR\x05error\x12!\n" +
-	"\fneed_weights\x18\x05 \x01(\bR\vneedWeights\"\x99\x04\n" +
+	"\fneed_weights\x18\x05 \x01(\bR\vneedWeights\"\xd0\x04\n" +
 	"\tTrainTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\"\n" +
@@ -3838,7 +3857,9 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\n" +
 	"group_rank\x18\x0e \x01(\x05R\tgroupRank\x12\x1d\n" +
 	"\n" +
-	"group_size\x18\x0f \x01(\x05R\tgroupSize\"k\n" +
+	"group_size\x18\x0f \x01(\x05R\tgroupSize\x12\x12\n" +
+	"\x04text\x18\x10 \x01(\fR\x04text\x12!\n" +
+	"\fbase_adapter\x18\x11 \x01(\fR\vbaseAdapter\"k\n" +
 	"\n" +
 	"GroupShare\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
