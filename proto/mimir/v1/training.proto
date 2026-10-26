@@ -71,6 +71,29 @@ service TrainingService {
   rpc DeleteJob(DeleteJobRequest) returns (DeleteJobResponse);
   // SetRepeat changes how often a job keeps learning; 0 stops it.
   rpc SetRepeat(SetRepeatRequest) returns (SetRepeatResponse);
+  // CompareJobs returns two to six runs side by side, with what sets
+  // them apart and which one scored best.
+  rpc CompareJobs(CompareJobsRequest) returns (CompareJobsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+message CompareJobsRequest {
+  // ids are the runs to compare, in the order to show them. Repeats are
+  // dropped.
+  repeated string ids = 1;
+}
+
+message CompareJobsResponse {
+  // jobs are the runs, in the order asked, each with every pass.
+  repeated Job jobs = 1;
+  // differs names what is not the same in every run, from
+  // "architecture", "dataset", "epochs", "batch_size", "learning_rate",
+  // "hold_out", "layers" and "worker".
+  repeated string differs = 2;
+  // best_id is the finished run with the highest accuracy, or empty when
+  // none has finished.
+  string best_id = 3;
 }
 
 message SetRepeatRequest {

@@ -1,14 +1,16 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Badge, Button, Card, Group, Progress, Stack, Text } from "@mantine/core";
+import { Badge, Button, Card, Checkbox, Group, Progress, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconSchool } from "@tabler/icons-react";
+import { IconArrowsDiff, IconSchool } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 
 import { TrainingService, JobStatus } from "../../../api/gen/mimir/v1/training_pb";
 import { allTrainingQueries, listArchitectures, listJobs } from "../../../api/queries";
 import { AnchorLink, ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
+import { maxCompare } from "../../../lib/compare";
 import { ago } from "../../../lib/format";
 import { active, progress, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
 
@@ -29,12 +31,25 @@ function Training() {
   const cancel = useMutation(TrainingService.method.cancelJob, { onSuccess: refresh });
   const resume = useMutation(TrainingService.method.resumeJob, { onSuccess: refresh });
   const remove = useMutation(TrainingService.method.deleteJob, { onSuccess: async () => { await refresh(); notifications.show({ message: "Run deleted." }); } });
+  // The runs ticked to compare, in the order they were ticked.
+  const [picked, setPicked] = useState<string[]>([]);
+  const shown = picked.filter((id) => data.jobs.some((j) => j.id === id));
+  const pick = (id: string, on: boolean) => setPicked((p) => (on ? [...p.filter((x) => x !== id), id] : p.filter((x) => x !== id)));
 
   return (
     <Page
       title="Training"
-      intro="Every model being taught here, newest first."
-      actions={<ButtonLink to="/models/teach" leftSection={<IconSchool size={18} />}>Teach a new model</ButtonLink>}
+      intro={data.jobs.length > 1 ? "Every model being taught here, newest first. Tick two or more to compare them." : "Every model being taught here, newest first."}
+      actions={
+        <Group gap="xs">
+          {data.jobs.length > 1 && (
+            shown.length < 2
+              ? <Button variant="default" disabled leftSection={<IconArrowsDiff size={18} />} title="Tick two or more runs to compare them">Compare</Button>
+              : <ButtonLink variant="default" to="/training/compare" search={{ ids: shown.join(",") }} leftSection={<IconArrowsDiff size={18} />}>Compare {shown.length} runs</ButtonLink>
+          )}
+          <ButtonLink to="/models/teach" leftSection={<IconSchool size={18} />}>Teach a new model</ButtonLink>
+        </Group>
+      }
     >
       {data.jobs.length === 0 ? (
         <Card withBorder radius="lg" padding="xl" className="text-center">
@@ -47,6 +62,10 @@ function Training() {
           {data.jobs.map((j) => (
             <Card key={j.id} withBorder radius="lg" padding="md">
               <Group justify="space-between" wrap="nowrap" align="flex-start">
+                {data.jobs.length > 1 && (
+                  <Checkbox mt={3} aria-label={`Compare ${j.name}`} checked={shown.includes(j.id)} disabled={!shown.includes(j.id) && shown.length >= maxCompare}
+                    onChange={(e) => pick(j.id, e.currentTarget.checked)} />
+                )}
                 <div className="min-w-0 flex-1">
                   <Group gap="xs" wrap="nowrap">
                     <AnchorLink fw={700} truncate to="/training/$id" params={{ id: j.id }} c="inherit">{j.name}</AnchorLink>

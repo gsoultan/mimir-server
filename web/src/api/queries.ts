@@ -39,6 +39,7 @@ export const listDatasets = createQueryOptions(DatasetService.method.listDataset
 export const getDataset = (id: string) => createQueryOptions(DatasetService.method.getDataset, { id }, { transport });
 export const listJobs = createQueryOptions(TrainingService.method.listJobs, {}, { transport });
 export const getJob = (id: string) => createQueryOptions(TrainingService.method.getJob, { id }, { transport });
+export const compareJobs = (ids: string[]) => createQueryOptions(TrainingService.method.compareJobs, { ids }, { transport });
 
 // Keys for refreshing after a change.
 export const allModelQueries = createConnectQueryKey({ schema: ModelService, cardinality: undefined });
