@@ -632,6 +632,7 @@ func (s *Service) TrainingDone(ctx context.Context, j store.Job) {
 			s.emitIn(ctx, j.TeamID, "model.created", modelEvent(m, auth.Principal{}))
 		}
 		s.WarmModel(j.ModelID) // so the first prediction is as quick as the rest
+		s.ScoreOnBenchmarks(ctx, j)
 		s.Notifier.Notify(ctx, "Training finished: "+j.Name, fmt.Sprintf("%s learned from %s and gets %.1f%% of held-out examples right. It's ready to try.", j.Name, name, accuracy(j)*100))
 	case store.JobFailed:
 		s.auditIn(ctx, j.TeamID, "server", "training.failed", j.Name, j.Error)
