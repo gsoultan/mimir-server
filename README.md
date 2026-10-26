@@ -421,6 +421,32 @@ In the API, `ModelService.ListModelVersions` lists them and
 `ModelService.UseModelVersion` puts one live; the switch is in the audit
 log and sends a `model.updated` webhook with the version.
 
+### How a model does in use
+
+A held-out score says how a model did on examples it was trained with;
+in use, the questions drift. Every prediction comes back with a
+`predictionId`, and the server keeps the answer (with the question's
+fields, not a photo) for 30 days. When your app learns what the right
+answer was, it sends it back:
+
+```sh
+curl https://mimir.example.com/mimir.v1.PredictService/SendFeedback \
+  -H 'Authorization: Bearer mimir_...' -H 'Content-Type: application/json' \
+  -d '{"predictionId": "01a1...", "label": "yes"}'   # or "value": 42.5
+```
+
+The answer counts as right when the label matches, or a number is within
+10% of the real one. Sending it again replaces it. The model's page shows
+the last 7 days' answers and how many of the checked ones were right
+against its score when trained, and a bar for each of the last 30 days.
+When, over at least 20 checked answers in 7 days, a model gets more than
+10 points fewer right than when trained, the server alerts owners by
+email or Telegram and sends a `model.accuracy_dropped` webhook, at most
+once a day per model; its versions and the keep-learning schedule are the
+places to act. `ModelService.GetModelQuality` returns the same counts.
+Answers are written in batches every few seconds; daily counts are kept
+for 400 days.
+
 ## Use it from your app
 
 Every method works over Connect (HTTP/JSON), gRPC and gRPC-Web. The API is

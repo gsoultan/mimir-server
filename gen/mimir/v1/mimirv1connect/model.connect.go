@@ -69,6 +69,9 @@ const (
 	// ModelServiceUseModelVersionProcedure is the fully-qualified name of the ModelService's
 	// UseModelVersion RPC.
 	ModelServiceUseModelVersionProcedure = "/mimir.v1.ModelService/UseModelVersion"
+	// ModelServiceGetModelQualityProcedure is the fully-qualified name of the ModelService's
+	// GetModelQuality RPC.
+	ModelServiceGetModelQualityProcedure = "/mimir.v1.ModelService/GetModelQuality"
 	// PredictServicePredictProcedure is the fully-qualified name of the PredictService's Predict RPC.
 	PredictServicePredictProcedure = "/mimir.v1.PredictService/Predict"
 	// PredictServiceGenerateProcedure is the fully-qualified name of the PredictService's Generate RPC.
@@ -78,6 +81,9 @@ const (
 	PredictServiceGenerateStreamProcedure = "/mimir.v1.PredictService/GenerateStream"
 	// PredictServiceChatProcedure is the fully-qualified name of the PredictService's Chat RPC.
 	PredictServiceChatProcedure = "/mimir.v1.PredictService/Chat"
+	// PredictServiceSendFeedbackProcedure is the fully-qualified name of the PredictService's
+	// SendFeedback RPC.
+	PredictServiceSendFeedbackProcedure = "/mimir.v1.PredictService/SendFeedback"
 )
 
 // ModelServiceClient is a client for the mimir.v1.ModelService service.
@@ -112,6 +118,10 @@ type ModelServiceClient interface {
 	// UseModelVersion makes one of a model's versions the one that answers,
 	// such as to go back to an earlier one. The model keeps its id.
 	UseModelVersion(context.Context, *connect.Request[v1.UseModelVersionRequest]) (*connect.Response[v1.UseModelVersionResponse], error)
+	// GetModelQuality says how a model does in use: its answers each day,
+	// the feedback apps sent on them (PredictService.SendFeedback) and how
+	// many of those it got right.
+	GetModelQuality(context.Context, *connect.Request[v1.GetModelQualityRequest]) (*connect.Response[v1.GetModelQualityResponse], error)
 }
 
 // NewModelServiceClient constructs a client for the mimir.v1.ModelService service. By default, it
@@ -202,6 +212,13 @@ func NewModelServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(modelServiceMethods.ByName("UseModelVersion")),
 			connect.WithClientOptions(opts...),
 		),
+		getModelQuality: connect.NewClient[v1.GetModelQualityRequest, v1.GetModelQualityResponse](
+			httpClient,
+			baseURL+ModelServiceGetModelQualityProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("GetModelQuality")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -219,6 +236,7 @@ type modelServiceClient struct {
 	deleteArchitecture *connect.Client[v1.DeleteArchitectureRequest, v1.DeleteArchitectureResponse]
 	listModelVersions  *connect.Client[v1.ListModelVersionsRequest, v1.ListModelVersionsResponse]
 	useModelVersion    *connect.Client[v1.UseModelVersionRequest, v1.UseModelVersionResponse]
+	getModelQuality    *connect.Client[v1.GetModelQualityRequest, v1.GetModelQualityResponse]
 }
 
 // ListArchitectures calls mimir.v1.ModelService.ListArchitectures.
@@ -281,6 +299,11 @@ func (c *modelServiceClient) UseModelVersion(ctx context.Context, req *connect.R
 	return c.useModelVersion.CallUnary(ctx, req)
 }
 
+// GetModelQuality calls mimir.v1.ModelService.GetModelQuality.
+func (c *modelServiceClient) GetModelQuality(ctx context.Context, req *connect.Request[v1.GetModelQualityRequest]) (*connect.Response[v1.GetModelQualityResponse], error) {
+	return c.getModelQuality.CallUnary(ctx, req)
+}
+
 // ModelServiceHandler is an implementation of the mimir.v1.ModelService service.
 type ModelServiceHandler interface {
 	// ListArchitectures returns the model architectures this server can build.
@@ -313,6 +336,10 @@ type ModelServiceHandler interface {
 	// UseModelVersion makes one of a model's versions the one that answers,
 	// such as to go back to an earlier one. The model keeps its id.
 	UseModelVersion(context.Context, *connect.Request[v1.UseModelVersionRequest]) (*connect.Response[v1.UseModelVersionResponse], error)
+	// GetModelQuality says how a model does in use: its answers each day,
+	// the feedback apps sent on them (PredictService.SendFeedback) and how
+	// many of those it got right.
+	GetModelQuality(context.Context, *connect.Request[v1.GetModelQualityRequest]) (*connect.Response[v1.GetModelQualityResponse], error)
 }
 
 // NewModelServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -399,6 +426,13 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(modelServiceMethods.ByName("UseModelVersion")),
 		connect.WithHandlerOptions(opts...),
 	)
+	modelServiceGetModelQualityHandler := connect.NewUnaryHandler(
+		ModelServiceGetModelQualityProcedure,
+		svc.GetModelQuality,
+		connect.WithSchema(modelServiceMethods.ByName("GetModelQuality")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.ModelService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ModelServiceListArchitecturesProcedure:
@@ -425,6 +459,8 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 			modelServiceListModelVersionsHandler.ServeHTTP(w, r)
 		case ModelServiceUseModelVersionProcedure:
 			modelServiceUseModelVersionHandler.ServeHTTP(w, r)
+		case ModelServiceGetModelQualityProcedure:
+			modelServiceGetModelQualityHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -482,6 +518,10 @@ func (UnimplementedModelServiceHandler) UseModelVersion(context.Context, *connec
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.UseModelVersion is not implemented"))
 }
 
+func (UnimplementedModelServiceHandler) GetModelQuality(context.Context, *connect.Request[v1.GetModelQualityRequest]) (*connect.Response[v1.GetModelQualityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.GetModelQuality is not implemented"))
+}
+
 // PredictServiceClient is a client for the mimir.v1.PredictService service.
 type PredictServiceClient interface {
 	// Predict runs one input through a model.
@@ -494,6 +534,10 @@ type PredictServiceClient interface {
 	// Chat writes a language model's next turn in a chat, sending the text
 	// as the model writes it.
 	Chat(context.Context, *connect.Request[v1.ChatRequest]) (*connect.ServerStreamForClient[v1.ChatResponse], error)
+	// SendFeedback says what a prediction's answer should have been, so the
+	// server can tell how well the model does in use. Send it again to
+	// correct it. Predictions are kept for feedback for 30 days.
+	SendFeedback(context.Context, *connect.Request[v1.SendFeedbackRequest]) (*connect.Response[v1.SendFeedbackResponse], error)
 }
 
 // NewPredictServiceClient constructs a client for the mimir.v1.PredictService service. By default,
@@ -531,6 +575,12 @@ func NewPredictServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(predictServiceMethods.ByName("Chat")),
 			connect.WithClientOptions(opts...),
 		),
+		sendFeedback: connect.NewClient[v1.SendFeedbackRequest, v1.SendFeedbackResponse](
+			httpClient,
+			baseURL+PredictServiceSendFeedbackProcedure,
+			connect.WithSchema(predictServiceMethods.ByName("SendFeedback")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -540,6 +590,7 @@ type predictServiceClient struct {
 	generate       *connect.Client[v1.GenerateRequest, v1.GenerateResponse]
 	generateStream *connect.Client[v1.GenerateStreamRequest, v1.GenerateStreamResponse]
 	chat           *connect.Client[v1.ChatRequest, v1.ChatResponse]
+	sendFeedback   *connect.Client[v1.SendFeedbackRequest, v1.SendFeedbackResponse]
 }
 
 // Predict calls mimir.v1.PredictService.Predict.
@@ -562,6 +613,11 @@ func (c *predictServiceClient) Chat(ctx context.Context, req *connect.Request[v1
 	return c.chat.CallServerStream(ctx, req)
 }
 
+// SendFeedback calls mimir.v1.PredictService.SendFeedback.
+func (c *predictServiceClient) SendFeedback(ctx context.Context, req *connect.Request[v1.SendFeedbackRequest]) (*connect.Response[v1.SendFeedbackResponse], error) {
+	return c.sendFeedback.CallUnary(ctx, req)
+}
+
 // PredictServiceHandler is an implementation of the mimir.v1.PredictService service.
 type PredictServiceHandler interface {
 	// Predict runs one input through a model.
@@ -574,6 +630,10 @@ type PredictServiceHandler interface {
 	// Chat writes a language model's next turn in a chat, sending the text
 	// as the model writes it.
 	Chat(context.Context, *connect.Request[v1.ChatRequest], *connect.ServerStream[v1.ChatResponse]) error
+	// SendFeedback says what a prediction's answer should have been, so the
+	// server can tell how well the model does in use. Send it again to
+	// correct it. Predictions are kept for feedback for 30 days.
+	SendFeedback(context.Context, *connect.Request[v1.SendFeedbackRequest]) (*connect.Response[v1.SendFeedbackResponse], error)
 }
 
 // NewPredictServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -607,6 +667,12 @@ func NewPredictServiceHandler(svc PredictServiceHandler, opts ...connect.Handler
 		connect.WithSchema(predictServiceMethods.ByName("Chat")),
 		connect.WithHandlerOptions(opts...),
 	)
+	predictServiceSendFeedbackHandler := connect.NewUnaryHandler(
+		PredictServiceSendFeedbackProcedure,
+		svc.SendFeedback,
+		connect.WithSchema(predictServiceMethods.ByName("SendFeedback")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.PredictService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PredictServicePredictProcedure:
@@ -617,6 +683,8 @@ func NewPredictServiceHandler(svc PredictServiceHandler, opts ...connect.Handler
 			predictServiceGenerateStreamHandler.ServeHTTP(w, r)
 		case PredictServiceChatProcedure:
 			predictServiceChatHandler.ServeHTTP(w, r)
+		case PredictServiceSendFeedbackProcedure:
+			predictServiceSendFeedbackHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -640,4 +708,8 @@ func (UnimplementedPredictServiceHandler) GenerateStream(context.Context, *conne
 
 func (UnimplementedPredictServiceHandler) Chat(context.Context, *connect.Request[v1.ChatRequest], *connect.ServerStream[v1.ChatResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.Chat is not implemented"))
+}
+
+func (UnimplementedPredictServiceHandler) SendFeedback(context.Context, *connect.Request[v1.SendFeedbackRequest]) (*connect.Response[v1.SendFeedbackResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.SendFeedback is not implemented"))
 }

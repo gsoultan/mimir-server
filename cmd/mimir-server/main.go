@@ -349,7 +349,25 @@ func run() error {
 	bg.Go(func() { memory.Run(bgCtx) })
 	bg.Go(func() { safe.Loop(bgCtx, log, "webhook dispatcher", func() { dispatcher.Run(bgCtx, 5*time.Second) }) })
 	bg.Go(func() { safe.Loop(bgCtx, log, "janitor", func() { janitor(bgCtx, st, log) }) })
-	// Prediction counts are written in batches, and once more on the way out.
+	// Models doing worse in use than when trained are flagged once an hour.
+	bg.Go(func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		safe.Loop(bgCtx, log, "quality check", func() {
+			for {
+				select {
+				case <-bgCtx.Done():
+					return
+				case <-t.C:
+					if err := svc.CheckQuality(bgCtx); err != nil {
+						log.Error("quality: check", "error", err)
+					}
+				}
+			}
+		})
+	})
+	// Prediction counts and answers are written in batches, and once more
+	// on the way out.
 	bg.Go(func() {
 		t := time.NewTicker(5 * time.Second)
 		defer t.Stop()
@@ -360,10 +378,16 @@ func run() error {
 					if err := svc.FlushUsage(context.Background()); err != nil {
 						log.Error("usage: flush", "error", err)
 					}
+					if err := svc.FlushAnswers(context.Background()); err != nil {
+						log.Error("answers: flush", "error", err)
+					}
 					return
 				case <-t.C:
 					if err := svc.FlushUsage(bgCtx); err != nil {
 						log.Error("usage: flush", "error", err)
+					}
+					if err := svc.FlushAnswers(bgCtx); err != nil {
+						log.Error("answers: flush", "error", err)
 					}
 				}
 			}
