@@ -299,9 +299,12 @@ known model types in `internal/arch`: handwritten-digit networks
 whole table at once with mimir's `tree` and `linear` packages: boosted
 trees (`table-boost`, `number-boost`), random forests (`table-forest`,
 `number-forest`) and logistic and linear regression (`table-linear`,
-`number-linear`). `table-auto` and `number-auto` try all three with a
-range of settings, score each on rows held out by cross-validation, and
-keep the best (mimir's `automl` package); they are the default for tables.
+`number-linear`), support vector machines (`table-svm`, `number-svm`, on
+up to 10,000 rows), nearest neighbours (`table-knn`, `number-knn`) and
+naive Bayes (`table-bayes`). `table-auto` and `number-auto` try them all
+with a range of settings, score each on rows held out by
+cross-validation, and keep the best (mimir's `automl` package); they are
+the default for tables.
 Photos can also be read by an 18-layer ResNet (`photo-resnet`) or a
 MobileNetV2 (`photo-mobilenet`) from mimir's `vision` package. Four more
 read a table's cells themselves and answer questions that aren't its rows:
