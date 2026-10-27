@@ -27,7 +27,7 @@ function Build() {
       const n = data.templates.filter((t) => t.kind === g.id).length;
       return n === 1 ? "1 template" : `${n} templates`;
     }
-    return g.ready === "file" ? "Bring a model file" : "Guide and starter code";
+    return g.learn ? "From a table, no code" : g.ready === "file" ? "Bring a model file" : "Guide and starter code";
   };
 
   return (

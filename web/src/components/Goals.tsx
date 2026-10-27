@@ -1,6 +1,6 @@
 import { Badge, Card, Group, Text, ThemeIcon } from "@mantine/core";
 import {
-  IconArrowRight, IconBooks, IconBrandGolang, IconCategory, IconChartLine, IconFileUpload, IconHeartHandshake, IconListNumbers,
+  IconArrowRight, IconBooks, IconBrandGolang, IconCategory, IconChartDots3, IconChartLine, IconFileUpload, IconHeartHandshake, IconListNumbers,
   IconMessageChatbot, IconScan, IconTable, IconToggleRight, IconZoomExclamation, type Icon,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
@@ -11,6 +11,7 @@ export const goalIcons: Record<GoalId, Icon> = {
   yes_no: IconToggleRight,
   group: IconCategory,
   number: IconListNumbers,
+  segments: IconChartDots3,
   write: IconMessageChatbot,
   recommend: IconHeartHandshake,
   forecast: IconChartLine,

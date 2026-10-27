@@ -205,6 +205,8 @@ type Architecture struct {
 	// Learner, when set, fits the model to the whole table at once in
 	// place of training New's network.
 	Learner *Learner
+	// Target is what the dataset's answer column is to the model.
+	Target Target
 	// File marks the architecture of Mimir Model (.mim) files, which hold
 	// their model's graph as well as its weights and so run as they are.
 	// Their shape and labels come from the file.

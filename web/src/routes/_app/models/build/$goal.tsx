@@ -38,7 +38,7 @@ function GoalGuide() {
   return (
     <Stack gap="xs">
       <Back />
-      {isTemplateKind(goal.id) ? <NoCode goal={goal} kind={goal.id} /> : goal.ready === "file" ? <Write goal={goal} /> : <Code goal={goal} />}
+      {isTemplateKind(goal.id) ? <NoCode goal={goal} kind={goal.id} /> : goal.learn ? <Learn goal={goal} /> : goal.ready === "file" ? <Write goal={goal} /> : <Code goal={goal} />}
     </Stack>
   );
 }
@@ -117,7 +117,7 @@ function NoCode({ goal, kind }: { goal: Goal; kind: "yes_no" | "group" | "number
         <Alert color="yellow" variant="light" title="It learns from past answers">
           <Text size="sm">
             A model can't learn {answers} it has never seen. Write down the answer for {kind === "group" ? "about 100 examples per group" : "a few hundred past examples"} first, in a column next to each one{shape === "photos" ? ", or sort the photos into one folder per group" : ""}.
-            {" "}To find unusual examples without answers, see <AnchorLink to="/models/build/$goal" params={{ goal: "odd_one" }} size="sm">Spot the odd one</AnchorLink>.
+            {" "}Without answers, a model can still <AnchorLink to="/models/build/$goal" params={{ goal: "segments" }} size="sm">find groups</AnchorLink> of similar examples or <AnchorLink to="/models/build/$goal" params={{ goal: "odd_one" }} size="sm">spot the odd one</AnchorLink>.
           </Text>
         </Alert>
       )}
@@ -127,6 +127,48 @@ function NoCode({ goal, kind }: { goal: Goal; kind: "yes_no" | "group" | "number
         title="Bring a trained model"
         hint="Trained it in PyTorch or elsewhere? Export it to ONNX and upload it."
         action={<ButtonLink variant="default" to="/models/new" search={{ kind: "mim" }}>Upload</ButtonLink>}
+      />
+    </Page>
+  );
+}
+
+// Learn is the guide for goals a built-in model type teaches from a
+// table: what the table holds, an example of one, and where to start.
+function Learn({ goal }: { goal: Goal }) {
+  const l = goal.learn!;
+  const sample = goal.sample!;
+  return (
+    <Page title={goal.title} intro={goal.intro}>
+      <PathOption
+        best
+        title="Start from your own table"
+        hint={l.data}
+        action={<ButtonLink to="/models/teach" search={{ data: "table", arch: goal.arch }}>Start</ButtonLink>}
+      >
+        <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm" spacing="xs">
+          <Stat k="You'll want" v={l.amount} />
+          <Stat k="Takes about" v={l.time} />
+          <Stat k="You'll get" v={l.answer} />
+        </SimpleGrid>
+      </PathOption>
+      <Card withBorder radius="lg" padding="lg">
+        <Text fw={700} mb={4}>A table shaped like this</Text>
+        <div className="overflow-x-auto">
+          <Table fz="xs" verticalSpacing={4}>
+            <Table.Thead><Table.Tr>{sample.columns.map((c) => <Table.Th key={c}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
+            <Table.Tbody>
+              {sample.rows.map((r, i) => <Table.Tr key={i}>{r.map((v, j) => <Table.Td key={j}>{v}</Table.Td>)}</Table.Tr>)}
+            </Table.Tbody>
+          </Table>
+        </div>
+        <Button variant="default" size="sm" mt="sm" className="self-start" leftSection={<IconDownload size={16} />} onClick={() => download(sample.name, "text/csv", csv(sample))}>
+          Download example CSV
+        </Button>
+      </Card>
+      <PathOption
+        title="Write your own model"
+        hint="Need something this doesn't do? A developer can write the model in Go and connect it as a worker."
+        action={<ButtonLink variant="default" to="/models/build/code" search={{ goal: goal.id }}>See how</ButtonLink>}
       />
     </Page>
   );
