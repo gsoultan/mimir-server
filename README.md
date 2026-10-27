@@ -353,18 +353,32 @@ known model types in `internal/arch`: handwritten-digit networks
 whole table at once with mimir's `tree` and `linear` packages: boosted
 trees (`table-boost`, `number-boost`), random forests (`table-forest`,
 `number-forest`) and logistic and linear regression (`table-linear`,
-`number-linear`). `table-auto` and `number-auto` try all three with a
-range of settings, score each on rows held out by cross-validation, and
-keep the best (mimir's `automl` package); they are the default for tables.
+`number-linear`), support vector machines (`table-svm`, `number-svm`, on
+up to 10,000 rows), nearest neighbours (`table-knn`, `number-knn`) and
+naive Bayes (`table-bayes`). `table-auto` and `number-auto` try them all
+with a range of settings, score each on rows held out by
+cross-validation, and keep the best (mimir's `automl` package); they are
+the default for tables.
 Photos can also be read by an 18-layer ResNet (`photo-resnet`) or a
-MobileNetV2 (`photo-mobilenet`) from mimir's `vision` package. Four more
+MobileNetV2 (`photo-mobilenet`) from mimir's `vision` package, and sounds
+by `sound`, a small convolutional network over each second's log mel
+spectrogram from mimir's `audio` package; a sound is asked about as a WAV
+file in Predict's `sound` field. `find-things` finds things in photos, as
+CenterNet does on a ResNet-18 of a quarter the usual width: each photo is
+read whole at 128 by 128, and Predict answers with `boxes`, each a label,
+a score and where it is as shares of the photo. It scores itself by its
+mean average precision at an overlap of 0.5 on the photos held out. Five more
 read a table's cells themselves and answer questions that aren't its rows:
 `find-groups` sorts rows into groups by k-means with no answer column,
 `odd-one` scores how unusual a row is with an isolation forest,
 `recommend` lists the items a person is likeliest to want from who picked
 what (the answer column is the item), and `forecast` says what comes next
 for each series of a dated table, any number of days, hours, weeks or
-months ahead (the answer column is the value). A fitted
+months ahead (the answer column is the value), and `best-action` learns
+from a log of what was tried and how it turned out which action is likely
+to turn out best in a new case, with the reward it expects of each (the
+answer column is the action, and a column such as reward, revenue or
+converted says how it turned out). A fitted
 model is saved as a Mimir Model file of buffers with its shape in the
 metadata, so it is served, kept on devices and moved between workers like
 a network. An upload names its type, and the server checks the weights
@@ -374,7 +388,7 @@ types).
 
 **Models → Build a model** is where a new model starts. It asks what the
 model should do (yes or no, pick a group, a number, find groups, write
-or chat, recommend, forecast, spot the odd one, find it in a photo), then
+or chat, recommend, forecast, spot the odd one, pick the best action, find it in a photo), then
 ranks the ways to get there: a template, your own data, a model file
 trained elsewhere, or your own code.
 
@@ -387,6 +401,13 @@ models first says what their data looks like, then trains in three steps:
 - **Text**: reviews, messages or notes, one per cell next to the answer.
 - **Photos in folders**: one folder per answer, as a ZIP or a dropped folder.
 - **Photos with details**: a ZIP with `data.csv` and the photos it names.
+- **Photos with boxes**: a ZIP of photos and a `boxes.csv` with one row per
+  thing in them: the photo, what it is, and its box in pixels (`left`,
+  `top`, `width`, `height`, or `right` and `bottom`). A row with `what`
+  empty is a photo with nothing in it.
+- **Sounds in folders**: WAV recordings, one folder per answer, as a ZIP or
+  a dropped folder. Each is heard as one second at 16 kHz, from its middle,
+  whatever its rate and channels.
 
 1. **The examples.** Upload a `.csv` with a header row and pick the column
    that holds the answer, upload photos, query a database, or use the
@@ -394,11 +415,13 @@ models first says what their data looks like, then trains in three steps:
    folder). Columns can hold numbers, categories (a word from a short
    list), yes/no, free text, or a photo's file name; the server tells
    them apart and turns each into numbers. CSVs go up to 64 MB, a million
-   rows and a thousand columns; ZIPs up to 200 MB and 30,000 photos.
+   rows and a thousand columns; ZIPs up to 200 MB and 30,000 photos or
+   20,000 sounds.
 2. **What kind.** The model types that fit the examples, plus a name:
    a table or text classifier, a **number predictor** when the answer is
-   a number, a **picture classifier** for photo folders, and a **photo
-   and table classifier** when each row has a photo too. A table model
+   a number, a **picture classifier** for photo folders, a **photo
+   and table classifier** when each row has a photo too, and a **sound
+   classifier** for sound folders, and a **finder** for photos with boxes. A table model
    can be Small, Medium (the usual) or Large, or **designed** step by
    step: up to 8 "learn patterns" (dense, 1 to 1024 units) and "forget a
    little" (dropout) steps, with how many numbers it learns and how many

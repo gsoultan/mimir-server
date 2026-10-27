@@ -1,6 +1,6 @@
 import { ConnectError } from "@connectrpc/connect";
 import { Alert, Autocomplete, Button, Card, FileInput, Group, NumberInput, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, Textarea, TextInput, Title } from "@mantine/core";
-import { IconAlertCircle, IconPhoto } from "@tabler/icons-react";
+import { IconAlertCircle, IconMusic, IconPhoto } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -9,10 +9,15 @@ import type { Architecture, Column, Model } from "../api/gen/mimir/v1/model_pb";
 import { percent } from "../lib/format";
 import { DrawPad, type DrawPadHandle } from "./DrawPad";
 
-// Question is one thing to ask a model: the numbers it reads, or fields by
-// column name and a photo.
-export type Question = { input?: { shape: bigint[]; values: number[] }; fields?: Record<string, string>; photo?: Uint8Array; topK: number };
-export type Answer = { number?: boolean; value?: number; guesses?: { label: string; probability: number }[]; ms: number };
+// Question is one thing to ask a model: the numbers it reads, fields by
+// column name and a photo, or a sound.
+export type Question = { input?: { shape: bigint[]; values: number[] }; fields?: Record<string, string>; photo?: Uint8Array; sound?: Uint8Array; topK: number };
+// values, for a decision model, is the reward it expects of each action,
+// in the order of the model's labels.
+// boxes, for a model that finds things, are what it found, where as shares
+// of the photo.
+export type Found = { label: string; score: number; left: number; top: number; width: number; height: number };
+export type Answer = { number?: boolean; value?: number; guesses?: { label: string; probability: number }[]; values?: number[]; boxes?: Found[]; ms: number };
 
 // How sure the model is, in words.
 function sureness(p: number) {
@@ -24,8 +29,8 @@ function sureness(p: number) {
 // intro says what Ask asks for, for the page's intro.
 export function askIntro(arch?: Architecture) {
   const draw = arch?.input === "image" && arch.inputShape.length > 0;
-  const wantsPhoto = (arch?.input === "image" && !draw) || arch?.input === "photo_table";
-  return draw ? "Draw a number and see what the model thinks it is." : `${wantsPhoto ? "Pick a photo" : "Fill in one example"} and see what the model answers.`;
+  const wantsPhoto = (arch?.input === "image" && !draw) || arch?.input === "photo_table" || arch?.input === "scene";
+  return draw ? "Draw a number and see what the model thinks it is." : `${wantsPhoto ? "Pick a photo" : arch?.input === "sound" ? "Pick a sound" : "Fill in one example"} and see what the model answers.`;
 }
 
 // Ask is the form for asking a model that isn't a language model, and its
@@ -34,6 +39,14 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
   const pad = useRef<DrawPadHandle>(null);
   const [values, setValues] = useState<Record<string, number | string>>({});
   const [photo, setPhoto] = useState<File | null>(null);
+  const [sound, setSound] = useState<File | null>(null);
+  const [hear, setHear] = useState<string>();
+  useEffect(() => {
+    if (!sound) return setHear(undefined);
+    const url = URL.createObjectURL(sound);
+    setHear(url);
+    return () => URL.revokeObjectURL(url);
+  }, [sound]);
   const [preview, setPreview] = useState<string>();
   useEffect(() => {
     if (!photo) return setPreview(undefined);
@@ -44,28 +57,34 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
   const predict = useMutation({ mutationFn: answer });
 
   const best = predict.data?.guesses?.[0];
+  // A decision model's answer is what each action is expected to bring.
+  const expected = (label: string) => predict.data?.values?.[model.labels.indexOf(label)];
+  const reward = (v?: number) => (v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
   // A digits model takes a drawing, a photo model a photo, and a table
   // model one value per column; photo-and-table models take both.
   const draw = arch?.input === "image" && (arch.inputShape.length > 0);
-  const wantsPhoto = (arch?.input === "image" && !draw) || arch?.input === "photo_table";
-  const columns: Column[] = draw || arch?.input === "image" ? [] : model.columns.length > 0
+  const finds = arch?.output === "boxes";
+  const wantsPhoto = (arch?.input === "image" && !draw) || arch?.input === "photo_table" || arch?.input === "scene";
+  const wantsSound = arch?.input === "sound";
+  const columns: Column[] = draw || arch?.input === "image" || arch?.input === "scene" || wantsSound ? [] : model.columns.length > 0
     ? model.columns.filter((c) => c.kind !== "photo")
     : model.features.map((name) => ({ name, kind: "number", values: [], fill: 0 }) as unknown as Column);
   const shape = model.inputShape.length > 0 ? model.inputShape : arch?.inputShape ?? [];
   // A model that reads plain numbers, with no columns to name them, takes
   // a list of them.
-  const raw = !draw && !wantsPhoto && columns.length === 0;
-  const table = columns.length > 0 || wantsPhoto || raw;
+  const raw = !draw && !wantsPhoto && !wantsSound && columns.length === 0;
+  const table = columns.length > 0 || wantsPhoto || wantsSound || raw;
   const want = shape.reduce((n, d) => n * Number(d), 1);
   const rawValues = String(values[""] ?? "").split(/[\s,]+/).filter(Boolean).map(Number);
   // A custom model's own code reads its columns as numbers, in order.
   const inOrder = !!arch?.custom && model.columns.length === 0;
   const ranked = arch?.output === "ranked";
   const topK = ranked ? Math.max(Math.min(arch.items, model.labels.length), 1) : 3;
-  const filled = raw
+  const filled = wantsSound ? !!sound : raw
     ? rawValues.length === want && rawValues.every(Number.isFinite)
     : (!wantsPhoto || !!photo) && columns.every((c) => c.kind !== "number" || (values[c.name] ?? "") !== "");
   const ask = async () => {
+    if (wantsSound) return predict.mutate({ sound: new Uint8Array(await sound!.arrayBuffer()), topK });
     if (draw) return predict.mutate({ input: { shape, values: Array.from(pad.current!.read()) }, topK: 3 });
     if (raw) return predict.mutate({ input: { shape, values: rawValues }, topK });
     if (inOrder) return predict.mutate({ input: { shape, values: columns.map((c) => Number(values[c.name] ?? 0)) }, topK });
@@ -82,6 +101,19 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
         <Stack>
           <Card withBorder radius="lg" padding="lg">
             <Stack gap="sm">
+              {wantsSound && (
+                <FileInput
+                  label="Sound"
+                  description="A WAV recording. The model listens to one second of it, from the middle."
+                  accept="audio/wav,audio/x-wav,.wav"
+                  leftSection={<IconMusic size={18} />}
+                  placeholder="Choose a sound"
+                  value={sound}
+                  onChange={(f) => { predict.reset(); setSound(f); }}
+                  clearable
+                />
+              )}
+              {hear && <audio controls src={hear} className="w-full" aria-label="The sound you picked" />}
               {wantsPhoto && (
                 <FileInput
                   label="Photo"
@@ -94,7 +126,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
                   clearable
                 />
               )}
-              {preview && <img src={preview} alt="The photo you picked" className="max-h-48 self-start rounded-lg object-contain" />}
+              {preview && !finds && <img src={preview} alt="The photo you picked" className="max-h-48 self-start rounded-lg object-contain" />}
               {columns.map((c) => <Field key={c.name} column={c} value={values[c.name] ?? ""} onChange={(v) => change(c.name, v)} />)}
               {raw && (
                 <Textarea
@@ -124,7 +156,31 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
       )}
       <Stack>
         {predict.error && <Alert color="red" icon={<IconAlertCircle />}>{predict.error instanceof ConnectError ? message(predict.error) : predict.error.message}</Alert>}
-        {predict.data?.number ? (
+        {finds && preview ? (
+          <Card withBorder radius="lg" padding="lg" aria-live="polite">
+            <Text c="dimmed" size="sm">{predict.data ? (predict.data.boxes?.length ? `Found ${predict.data.boxes.length}` : "Found nothing it knows") : "The photo"}</Text>
+            <div className="relative mt-2 inline-block">
+              <img src={preview} alt="The photo you picked" className="block max-h-96 max-w-full rounded-lg" />
+              {predict.data?.boxes?.map((b, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded border-2 border-[var(--mantine-color-teal-5)]"
+                  style={{ left: `${b.left * 100}%`, top: `${b.top * 100}%`, width: `${b.width * 100}%`, height: `${b.height * 100}%` }}
+                >
+                  <span className="absolute left-0 top-0 -translate-y-full rounded-sm bg-[var(--mantine-color-teal-7)] px-1 text-xs text-white">{b.label} {Math.round(b.score * 100)}</span>
+                </div>
+              ))}
+            </div>
+            {predict.data?.boxes && predict.data.boxes.length > 0 && (
+              <Stack gap={4} mt="md">
+                {predict.data.boxes.map((b, i) => (
+                  <Text key={i} size="sm"><b>{b.label}</b>, sure about {Math.round(b.score * 100)} of 100</Text>
+                ))}
+              </Stack>
+            )}
+            {took}
+          </Card>
+        ) : predict.data?.number ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
             <Text c="dimmed" size="sm">The model&apos;s answer</Text>
             <Title order={2} fz={40} className="font-[family-name:var(--font-display)]">{(predict.data.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Title>
@@ -141,7 +197,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
               </div>
               <div>
                 <Title order={2} fz={22}>{ranked ? `First pick: ${best.label}` : table ? best.label : `It's a ${best.label}`}</Title>
-                <Text c="dimmed">{sureness(best.probability)}: {Math.round(best.probability * 100)} out of 100.</Text>
+                <Text c="dimmed">{predict.data.values ? `Expected to bring about ${reward(expected(best.label))}, the most of any action.` : `${sureness(best.probability)}: ${Math.round(best.probability * 100)} out of 100.`}</Text>
               </div>
             </Group>
             <Stack gap="xs" mt="lg">
@@ -149,8 +205,14 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
               {predict.data.guesses!.map((g, i) => (
                 <Group key={g.label} wrap="nowrap" gap="sm">
                   <Text w={table ? 96 : 24} fw={600} truncate>{ranked ? `${i + 1}. ${g.label}` : g.label}</Text>
-                  <Progress value={g.probability * 100} className="flex-1" size="lg" radius="xl" aria-label={`${g.label}: ${percent(g.probability)}`} />
-                  <Text w={44} size="sm" ta="right">{percent(g.probability)}</Text>
+                  {predict.data!.values ? (
+                    <Text size="sm" c="dimmed" className="flex-1">about {reward(expected(g.label))} expected</Text>
+                  ) : (
+                    <>
+                      <Progress value={g.probability * 100} className="flex-1" size="lg" radius="xl" aria-label={`${g.label}: ${percent(g.probability)}`} />
+                      <Text w={44} size="sm" ta="right">{percent(g.probability)}</Text>
+                    </>
+                  )}
                 </Group>
               ))}
               {took}
@@ -158,7 +220,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
           </Card>
         ) : (
           <Card withBorder radius="lg" padding="lg" className="border-dashed">
-            <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : "Fill in the details"}, then press "What is it?". ${arch?.output === "number" ? "The answer will be a number." : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
+            <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : wantsSound ? "Pick a sound" : "Fill in the details"}, then press "What is it?". ${finds ? `The answer draws a box around each ${model.labels.slice(0, 12).join(", ")} it finds.` : arch?.output === "number" ? "The answer will be a number." : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
           </Card>
         )}
       </Stack>

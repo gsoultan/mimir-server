@@ -27,7 +27,8 @@ func main() {
 			}
 			return reply(map[string]bool{"ok": true})
 		}),
-		// predict(id, question JSON, photo Uint8Array or null)
+		// predict(id, question JSON, photo Uint8Array or null, sound
+		// Uint8Array or null)
 		"predict": js.FuncOf(func(_ js.Value, args []js.Value) any {
 			var q device.Question
 			if err := json.Unmarshal([]byte(args[1].String()), &q); err != nil {
@@ -35,6 +36,9 @@ func main() {
 			}
 			if len(args) > 2 && args[2].Truthy() {
 				q.Photo = bytes(args[2])
+			}
+			if len(args) > 3 && args[3].Truthy() {
+				q.Sound = bytes(args[3])
 			}
 			a, err := r.Predict(context.Background(), args[0].String(), q)
 			if err != nil {

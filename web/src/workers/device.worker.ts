@@ -8,7 +8,7 @@ import { modelsCache, runtimeCache, type Ask, type Reply, type Request } from ".
 declare const Go: new () => { importObject: WebAssembly.Imports; run(i: WebAssembly.Instance): Promise<void> };
 type Mimir = {
   load(model: string, weights: Uint8Array): string;
-  predict(id: string, question: string, photo: Uint8Array | null): string;
+  predict(id: string, question: string, photo: Uint8Array | null, sound: Uint8Array | null): string;
   unload(id: string): string;
 };
 
@@ -75,7 +75,7 @@ async function ask(q: Ask): Promise<Reply> {
   const mimir = await started;
   await load(mimir, q.id);
   const t = performance.now();
-  const answer = parse<Omit<Extract<Reply, { ms: number }>, "ms">>(mimir.predict(q.id, JSON.stringify({ fields: q.fields, input: q.input, topK: q.topK }), q.photo ?? null));
+  const answer = parse<Omit<Extract<Reply, { ms: number }>, "ms">>(mimir.predict(q.id, JSON.stringify({ fields: q.fields, input: q.input, topK: q.topK }), q.photo ?? null, q.sound ?? null));
   return { ...answer, ms: performance.now() - t };
 }
 

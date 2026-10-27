@@ -25,6 +25,12 @@ const (
 	// PhotoTable is a photo and a row of numbers side by side, flattened
 	// into one shape [schema.PhotoPixels + features].
 	PhotoTable Input = "photo_table"
+	// Scene is a whole photo to find things in, stretched to shape [3,
+	// schema.SceneSize, schema.SceneSize].
+	Scene Input = "scene"
+	// Sound is a second of sound, shape [schema.SoundSamples]: samples
+	// from -1 to 1 at schema.SoundRate a second.
+	Sound Input = "sound"
 	// Tensor is raw numbers in the shape a Mimir Model file declares.
 	Tensor Input = "tensor"
 	// Prompt is text for a language model to continue.
@@ -42,6 +48,9 @@ const (
 	// Ranked lists the labels that fit best, most likely first: the
 	// items a recommender suggests, say. It is answered like Class.
 	Ranked Output = "ranked"
+	// Boxes are the things found in a photo, each a label, a score and
+	// where it is (see FoundIn).
+	Boxes Output = "boxes"
 )
 
 // Spec is what a model reads and answers. Fixed architectures carry their
