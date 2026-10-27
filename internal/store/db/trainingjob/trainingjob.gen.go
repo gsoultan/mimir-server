@@ -53,6 +53,7 @@ type Row struct {
 	TrainedRows   int64
 	CheckTime     runtime.Null[time.Time]
 	CheckNote     string
+	Report        runtime.JSON
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -91,7 +92,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 33
+const nCols = 34
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -623,6 +624,7 @@ var (
 	TrainedRows   = Int64Col{30}
 	CheckTime     = NullTimeCol{31}
 	CheckNote     = TextCol{32}
+	Report        = JSONCol{33}
 )
 
 // TextCol addresses a text column.
@@ -1134,6 +1136,13 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 33:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
 		}
 		q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 		return
@@ -1374,6 +1383,13 @@ func (q *Query) leaf(p Pred) {
 		}
 		q.strs[q.ns] = p.str
 		q.ns++
+	case 33:
+		if int(q.njs) >= 2 {
+			q.over = true
+			return
+		}
+		q.jsns[q.njs] = p.jsn
+		q.njs++
 	}
 	q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 }
@@ -1683,8 +1699,12 @@ func (q Query) CheckNoteLike(v string) Query            { return q.Where(CheckNo
 func (q Query) CheckNoteILike(v string) Query           { return q.Where(CheckNote.ILike(v)) }
 func (q Query) CheckNoteIn(v ...string) Query           { return q.Where(CheckNote.In(v...)) }
 func (q Query) CheckNoteNotIn(v ...string) Query        { return q.Where(CheckNote.NotIn(v...)) }
+func (q Query) ReportContains(v runtime.JSON) Query     { return q.Where(Report.Contains(v)) }
+func (q Query) ReportContainedBy(v runtime.JSON) Query  { return q.Where(Report.ContainedBy(v)) }
+func (q Query) ReportHasAnyKey(v ...string) Query       { return q.Where(Report.HasAnyKey(v...)) }
+func (q Query) ReportHasAllKeys(v ...string) Query      { return q.Where(Report.HasAllKeys(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note" FROM "training_jobs"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note", "report" FROM "training_jobs"`
 const countPrefix = `SELECT count(*) FROM "training_jobs"`
 const existsPrefix = `SELECT 1 FROM "training_jobs"`
 const existsSuffix = ` LIMIT 1`
@@ -1919,6 +1939,12 @@ var orderTable = [nCols][4]string{
 		"\"check_note\" ASC NULLS FIRST",
 		"\"check_note\" DESC NULLS LAST",
 	},
+	{ // report
+		"\"report\"",
+		"\"report\" DESC",
+		"\"report\" ASC NULLS FIRST",
+		"\"report\" DESC NULLS LAST",
+	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
@@ -1957,6 +1983,7 @@ var identTable = [nCols]string{
 	"\"trained_rows\"",
 	"\"check_time\"",
 	"\"check_note\"",
+	"\"report\"",
 }
 
 var lowering = runtime.Lowering{
@@ -1989,7 +2016,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [33][28]runtime.Frag{
+var fragTable = [34][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -2980,6 +3007,36 @@ var fragTable = [33][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // report
+		{}, // opNone
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"report\" @> $", B: ""},
+		{A: "\"report\" <@ $", B: ""},
+		{A: "\"report\" ?| $", B: ""},
+		{A: "\"report\" ?& $", B: ""},
+		{},
+		{},
+		{},
+		{},
+	},
 }
 
 func fragOf(op, col uint32) runtime.Frag {
@@ -3169,6 +3226,7 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.TrainedRows = runtime.Int8(rv[30])
 	r.CheckTime = runtime.Nullable(rv[31], runtime.Timestamptz)
 	r.CheckNote = sl.Str(rv[32])
+	r.Report = runtime.JSON(runtime.JSONB(rv[33], sl))
 	return nil
 }
 
@@ -3343,6 +3401,10 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 33:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
 			}
 			continue
 		}
@@ -3479,6 +3541,10 @@ func (q Query) bindPreds(b *binder) []any {
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
+		case 33:
+			b.jsns[njs] = q.jsns[njs]
+			v = append(v, &b.jsns[njs])
+			njs++
 		}
 	}
 	b.vals = v
@@ -3700,7 +3766,7 @@ var errPerRunOnOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "training_jobs" ("id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note"`
+const insertSQL = `INSERT INTO "training_jobs" ("id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note", "report") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note", "report"`
 
 const updatePrefix = `UPDATE "training_jobs" SET `
 const deletePrefix = `DELETE FROM "training_jobs"`
@@ -3732,9 +3798,10 @@ const (
 	dTrainedRows   uint64 = 1 << 21
 	dCheckTime     uint64 = 1 << 22
 	dCheckNote     uint64 = 1 << 23
+	dReport        uint64 = 1 << 24
 )
 
-const nUpdatable = 24
+const nUpdatable = 25
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
@@ -3762,6 +3829,7 @@ var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"trained_rows\" = $", B: ""},    // trained_rows
 	{A: "\"check_time\" = $", B: ""},      // check_time
 	{A: "\"check_note\" = $", B: ""},      // check_note
+	{A: "\"report\" = $", B: ""},          // report
 }
 
 // exprFrags is the SERVER-side assignment each column may take instead
@@ -3792,6 +3860,7 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{A: "\"trained_rows\" = \"trained_rows\" + 1", B: ""}, // trained_rows = its own value plus one
 	{A: "\"check_time\" = now()", B: ""},                  // check_time = the database's clock
 	{},                                                    // check_note has no server-side form
+	{},                                                    // report has no server-side form
 }
 
 // pkFrags addresses one row.
@@ -3836,9 +3905,10 @@ const (
 	iTrainedRows   uint64 = 1 << 30
 	iCheckTime     uint64 = 1 << 31
 	iCheckNote     uint64 = 1 << 32
+	iReport        uint64 = 1 << 33
 )
 
-const nInsertable = 33
+const nInsertable = 34
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -3875,6 +3945,7 @@ var insCols = [nInsertable]string{
 	"\"trained_rows\"",
 	"\"check_time\"",
 	"\"check_note\"",
+	"\"report\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -3883,7 +3954,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"training_jobs\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\", \"report\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -3902,7 +3973,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"note\", \"run_on\", \"layers\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\", \"report\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -4258,6 +4329,12 @@ func (m *Mut) SetCheckNote(v string) {
 	m.row.CheckNote = v
 	m.dirty |= dCheckNote
 	m.expr &^= dCheckNote
+}
+
+func (m *Mut) SetReport(v runtime.JSON) {
+	m.row.Report = v
+	m.dirty |= dReport
+	m.expr &^= dReport
 }
 
 // Ins stages a new row. Unlike Mut it has a setter for every insertable
@@ -4665,6 +4742,11 @@ func (n *Ins) SetCheckNote(v string) {
 	n.set |= iCheckNote
 }
 
+func (n *Ins) SetReport(v runtime.JSON) {
+	n.row.Report = v
+	n.set |= iReport
+}
+
 // The conflict encoding. One byte holds both which unique index an
 // upsert names and what it does on collision, so the insert statement
 // cache stays keyed by one mask and one byte:
@@ -4714,7 +4796,7 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 24)
+	set := make([]string, 0, 25)
 	switch i {
 	case 0:
 		if mask&(1<<2) != 0 {
@@ -4788,6 +4870,9 @@ func assignable(i uint8, mask uint64) []string {
 		}
 		if mask&(1<<32) != 0 {
 			set = append(set, "check_note")
+		}
+		if mask&(1<<33) != 0 {
+			set = append(set, "report")
 		}
 	}
 	return set
@@ -4897,6 +4982,7 @@ var assignFor = map[string]string{
 	"trained_rows":    "\"trained_rows\" = EXCLUDED.\"trained_rows\"",
 	"check_time":      "\"check_time\" = EXCLUDED.\"check_time\"",
 	"check_note":      "\"check_note\" = EXCLUDED.\"check_note\"",
+	"report":          "\"report\" = EXCLUDED.\"report\"",
 }
 
 func assignExcluded(c string) string { return assignFor[c] }
@@ -5013,6 +5099,8 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 			args = append(args, n.row.CheckTime.Arg())
 		case 32:
 			args = append(args, n.row.CheckNote)
+		case 33:
+			args = append(args, n.row.Report)
 		}
 	}
 	var out Row
@@ -5050,7 +5138,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 33)
+	args := make([]any, 0, 34)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -5084,6 +5172,7 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.TrainedRows)
 	args = append(args, r.CheckTime.Arg())
 	args = append(args, r.CheckNote)
+	args = append(args, r.Report)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -5143,13 +5232,14 @@ var copyCols = []string{
 	"trained_rows",
 	"check_time",
 	"check_note",
+	"report",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [33]any
+	buf  [34]any
 }
 
 func (s *rowSource) Next() bool {
@@ -5200,6 +5290,7 @@ func (s *rowSource) Values() []any {
 	s.buf[30] = &r.TrainedRows
 	s.buf[31] = r.CheckTime.Ptr()
 	s.buf[32] = &r.CheckNote
+	s.buf[33] = &r.Report
 	return s.buf[:]
 }
 
@@ -5263,8 +5354,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 30
 	mask |= 1 << 31
 	mask |= 1 << 32
+	mask |= 1 << 33
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 33)
+	args := make([]any, 0, 34)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -5298,6 +5390,7 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.TrainedRows)
 	args = append(args, r.CheckTime.Arg())
 	args = append(args, r.CheckNote)
+	args = append(args, r.Report)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -5397,6 +5490,8 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 			args = append(args, n.row.CheckTime.Arg())
 		case 32:
 			args = append(args, n.row.CheckNote)
+		case 33:
+			args = append(args, n.row.Report)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
@@ -5500,6 +5595,8 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 			args = append(args, m.row.CheckTime.Arg())
 		case 23:
 			args = append(args, m.row.CheckNote)
+		case 24:
+			args = append(args, m.row.Report)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -5630,6 +5727,8 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 			args = append(args, m.row.CheckTime.Arg())
 		case 23:
 			args = append(args, m.row.CheckNote)
+		case 24:
+			args = append(args, m.row.Report)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -5826,6 +5925,8 @@ func (q Query) UpdateAll(ctx context.Context, ex runtime.Executor, m Mut) (int64
 			args = append(args, m.row.CheckTime.Arg())
 		case 23:
 			args = append(args, m.row.CheckNote)
+		case 24:
+			args = append(args, m.row.Report)
 		}
 	}
 	args = append(args, q.bindPreds(b)...)
