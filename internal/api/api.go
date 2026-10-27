@@ -229,9 +229,15 @@ func (s *Service) ListModels(ctx context.Context, _ *connect.Request[mimirv1.Lis
 		return nil, s.internal(ctx, err)
 	}
 	res := &mimirv1.ListModelsResponse{}
+	names := map[string]string{}
+	for _, m := range ms {
+		names[m.ID] = m.Name
+	}
 	for _, m := range ms {
 		if p.Access.Allows(m.ID) {
-			res.Models = append(res.Models, toProto(m))
+			out := toProto(m)
+			out.BaseModelName = names[m.BaseModelID]
+			res.Models = append(res.Models, out)
 		}
 	}
 	return connect.NewResponse(res), nil
@@ -242,7 +248,13 @@ func (s *Service) GetModel(ctx context.Context, req *connect.Request[mimirv1.Get
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&mimirv1.GetModelResponse{Model: toProto(m)}), nil
+	out := toProto(m)
+	if m.FineTune() {
+		if base, err := s.store.Get(ctx, m.BaseModelID); err == nil {
+			out.BaseModelName = base.Name
+		}
+	}
+	return connect.NewResponse(&mimirv1.GetModelResponse{Model: out}), nil
 }
 
 func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.CreateModelRequest]) (*connect.Response[mimirv1.CreateModelResponse], error) {
@@ -513,6 +525,15 @@ func (s *Service) DeleteModel(ctx context.Context, req *connect.Request[mimirv1.
 	if err != nil {
 		return nil, err
 	}
+	// A fine-tune runs on its base model, so the base stays while it has
+	// any.
+	tunes, err := s.store.FineTunes(ctx, id)
+	if err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	if len(tunes) > 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("%s has fine-tunes that run on it, such as %s. Delete them first.", m.Name, tunes[0].Name))
+	}
 	err = s.store.Delete(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, notFound(id)
@@ -756,6 +777,7 @@ func toProto(m store.Model) *mimirv1.Model {
 		OnDevice:     m.OnDevice,
 		Version:      m.WeightsVersion(),
 		VersionId:    m.VersionID,
+		BaseModelId:  m.BaseModelID,
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {

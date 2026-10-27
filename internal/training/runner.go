@@ -23,6 +23,9 @@ var (
 	// PhotoDefaults suit a few hundred photos per answer: smaller batches
 	// and a larger step than the digits need, so it settles in a few passes.
 	PhotoDefaults = store.Settings{Epochs: 10, BatchSize: 32, LearningRate: 3e-3, HoldOut: 0.2}
+	// TextDefaults suit fine-tuning a language model with LoRA: a few
+	// passes of small batches at PEFT's usual rate.
+	TextDefaults = store.Settings{Epochs: 3, BatchSize: 4, LearningRate: 2e-4, HoldOut: 0.1}
 )
 
 // DefaultsFor returns the defaults for a dataset of kind k.
@@ -32,6 +35,8 @@ func DefaultsFor(k store.DatasetKind) store.Settings {
 		return TableDefaults
 	case store.DatasetPhotos, store.DatasetPhotoTable:
 		return PhotoDefaults
+	case store.DatasetText:
+		return TextDefaults
 	}
 	return Defaults
 }
@@ -495,8 +500,15 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		}
 	}
 	task := Task{Arch: a, Source: src, Settings: j.Settings, History: j.History, CheckpointDir: r.st.JobDir(j.ID)}
-	var base store.Model
-	if j.BaseModelID != "" {
+	var base, tuned store.Model
+	if a.Answers() == arch.Written {
+		// A fine-tune starts from the language model it names: its file,
+		// or, for a fine-tune of a fine-tune, the first one's base model
+		// with that one's adapter.
+		if tuned, err = r.fineTuneBase(ctx, j, &task); err != nil {
+			return "", err
+		}
+	} else if j.BaseModelID != "" {
 		// A keep-learning pass continues from the model the chain made.
 		if base, err = r.st.Get(ctx, j.BaseModelID); err == nil {
 			if task.BaseWeights, err = r.st.Weights(base.ID); err != nil {
@@ -544,6 +556,15 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		}
 	}
 	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID, TeamID: j.TeamID, WorkerID: j.RunOn}
+	if tuned.ID != "" {
+		// The fine-tune runs on the console, as language models do, with
+		// the chat settings of the model it came from.
+		m.WorkerID, m.Language = "", tuned.Language
+		m.BaseModelID = tuned.ID
+		if tuned.FineTune() {
+			m.BaseModelID = tuned.BaseModelID
+		}
+	}
 	// A model trained on a worker stays there, unless that worker only
 	// trains: then it runs wherever there is room.
 	if t, ok := r.Remote.(TrainingOnly); ok && j.RunOn != "" && t.TrainingOnly(j.RunOn) {
@@ -588,6 +609,31 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		return "", fmt.Errorf("couldn't store the model: %w", err)
 	}
 	return created.ID, nil
+}
+
+// fineTuneBase fills in task's base model for job j, a fine-tune of a
+// language model, and returns the model the job named.
+func (r *Runner) fineTuneBase(ctx context.Context, j store.Job, task *Task) (store.Model, error) {
+	if j.BaseModelID == "" {
+		return store.Model{}, errors.New("a fine-tune needs the language model to start from")
+	}
+	from, err := r.st.Get(ctx, j.BaseModelID)
+	if err != nil {
+		return store.Model{}, fmt.Errorf("the language model to fine-tune is gone: %w", err)
+	}
+	root := from
+	if from.FineTune() {
+		if root, err = r.st.Get(ctx, from.BaseModelID); err != nil {
+			return store.Model{}, fmt.Errorf("the language model %s was fine-tuned from is gone: %w", from.Name, err)
+		}
+		if task.BaseAdapter, err = r.st.Weights(from.ID); err != nil {
+			return store.Model{}, fmt.Errorf("couldn't read the fine-tune to continue from: %w", err)
+		}
+	}
+	if task.BaseWeights, err = r.st.Weights(root.ID); err != nil {
+		return store.Model{}, fmt.Errorf("couldn't read the language model to fine-tune: %w", err)
+	}
+	return from, nil
 }
 
 // fitHere trains task in this process, when memory allows, as one of the

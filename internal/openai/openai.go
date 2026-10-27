@@ -1,6 +1,6 @@
 // Package openai serves the server's language models over the HTTP API
-// OpenAI's clients speak, under /v1: chat completions, completions and the
-// model list, with answers streamed as server-sent events on request. Apps
+// OpenAI's clients speak, under /v1: chat completions, completions,
+// embeddings and the model list, with answers streamed as server-sent events on request. Apps
 // and libraries made for OpenAI point their base URL here and send a mimir
 // API key; keys, per-model access and limits apply as for any other call.
 package openai
@@ -8,12 +8,15 @@ package openai
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -29,15 +32,17 @@ import (
 // maxBody is the largest request body read.
 const maxBody = 1 << 20
 
-// Handler serves /v1/models, /v1/chat/completions and /v1/completions.
+// Handler serves /v1/models, /v1/chat/completions, /v1/completions and
+// /v1/embeddings.
 func Handler(svc *api.Service, st *store.Store, log *slog.Logger) http.Handler {
 	h := &handler{svc: svc, st: st, log: log}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/models", h.signedIn(h.models))
 	mux.HandleFunc("POST /v1/chat/completions", h.signedIn(h.chat))
 	mux.HandleFunc("POST /v1/completions", h.signedIn(h.completions))
+	mux.HandleFunc("POST /v1/embeddings", h.signedIn(h.embeddings))
 	mux.HandleFunc("/v1/", func(w http.ResponseWriter, r *http.Request) {
-		fail(w, http.StatusNotFound, "not_found", "This server answers /v1/models, /v1/chat/completions and /v1/completions.")
+		fail(w, http.StatusNotFound, "not_found", "This server answers /v1/models, /v1/chat/completions, /v1/completions and /v1/embeddings.")
 	})
 	return mux
 }
@@ -266,6 +271,72 @@ func (h *handler) completions(w http.ResponseWriter, r *http.Request) {
 	}
 	wr.Prompt = prompt
 	h.answer(w, r, m, req.settings, wr, "text_completion")
+}
+
+type embeddingRequest struct {
+	Model          string          `json:"model"`
+	Input          json.RawMessage `json:"input"`
+	EncodingFormat string          `json:"encoding_format"`
+	Dimensions     *int            `json:"dimensions"`
+}
+
+// embeddings answers /v1/embeddings: an embedding of each input text, from
+// the mean of the model's last hidden states, of length 1.
+func (h *handler) embeddings(w http.ResponseWriter, r *http.Request) {
+	var req embeddingRequest
+	if !h.read(w, r, &req) {
+		return
+	}
+	var texts []string
+	var one string
+	if json.Unmarshal(req.Input, &one) == nil {
+		texts = []string{one}
+	} else if json.Unmarshal(req.Input, &texts) != nil {
+		fail(w, http.StatusBadRequest, "invalid_request_error", "input must be a string or a list of strings; lists of tokens aren't taken.")
+		return
+	}
+	switch req.EncodingFormat {
+	case "", "float", "base64":
+	default:
+		fail(w, http.StatusBadRequest, "invalid_request_error", fmt.Sprintf("encoding_format is float or base64, not %q.", req.EncodingFormat))
+		return
+	}
+	m, err := h.svc.LanguageModel(r.Context(), req.Model)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	res, err := h.svc.Embed(r.Context(), m, texts)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if d := req.Dimensions; d != nil && len(res.Vectors) > 0 && *d != len(res.Vectors[0]) {
+		fail(w, http.StatusBadRequest, "invalid_request_error", fmt.Sprintf("%s makes embeddings of %d dimensions; leave dimensions out or send %d.", m.Name, len(res.Vectors[0]), len(res.Vectors[0])))
+		return
+	}
+	data := make([]map[string]any, len(res.Vectors))
+	for i, v := range res.Vectors {
+		var e any = v
+		if req.EncodingFormat == "base64" {
+			e = encodeFloats(v)
+		}
+		data[i] = map[string]any{"object": "embedding", "index": i, "embedding": e}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"object": "list", "data": data, "model": api.APIName(m.Name),
+		"usage": map[string]int{"prompt_tokens": res.Tokens, "total_tokens": res.Tokens},
+	})
+}
+
+// encodeFloats writes v as OpenAI's base64 encoding does: little-endian
+// float32s, in standard base64.
+func encodeFloats(v []float32) string {
+	b := make([]byte, 4*len(v))
+	for i, x := range v {
+		binary.LittleEndian.PutUint32(b[4*i:], math.Float32bits(x))
+	}
+	return base64.StdEncoding.EncodeToString(b)
 }
 
 // answer has the model write and sends the answer whole, or as events

@@ -806,6 +806,9 @@ func (p *Pool) warm(ctx context.Context, l *link, modelID string, a arch.Archite
 // ran is false when no worker can train the architecture. When ctx ends
 // the worker is told to stop and the error is ctx's cause.
 func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Task, progress training.Progress) (res training.Result, worker string, ran bool, err error) {
+	if tooBigToSend(t) {
+		return res, "", false, nil
+	}
 	l, id, replies := p.reserve(t.Arch.Name, true, workerID, Task{Kind: "train", JobID: jobID})
 	if l == nil {
 		return res, "", false, nil
@@ -865,12 +868,25 @@ func trainTask(id, jobID string, t training.Task) *mimirv1.TrainTask {
 		History:     EpochsToProto(t.History),
 		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
 	}
-	if t.Source.Kind.Archive() {
+	switch {
+	case t.Source.Kind.Archive():
 		task.Archive = t.Source.CSV
-	} else {
+	case t.Source.Kind == store.DatasetText:
+		task.Text, task.BaseAdapter = t.Source.CSV, t.BaseAdapter
+	default:
 		task.Csv = t.Source.CSV
 	}
 	return task
+}
+
+// MaxTaskBytes bounds the files a training task sends a worker, under the
+// most a worker reads in one message. A larger task, such as a fine-tune
+// of a language model of several gigabytes, trains on the console.
+const MaxTaskBytes = 1<<30 - 16<<20
+
+// tooBigToSend reports whether t's files are more than a worker reads.
+func tooBigToSend(t training.Task) bool {
+	return int64(len(t.BaseWeights))+int64(len(t.BaseAdapter))+int64(len(t.Source.CSV)) > MaxTaskBytes
 }
 
 // resultOf is what a worker's successful TrainResult made.
