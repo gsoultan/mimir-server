@@ -120,7 +120,13 @@ function Run() {
         </Group>
         {active(j) && <Progress value={progress(j)} size="lg" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label="Progress" mb="md" />}
         {j.status === JobStatus.FAILED && <Alert color="red" icon={<IconAlertCircle />} mb="md">{j.error}</Alert>}
-        {j.status === JobStatus.SUCCEEDED && (
+        {j.status === JobStatus.SUCCEEDED && j.architecture === "language-model" && (
+          <Alert color="teal" mb="md">
+            The fine-tune is ready. It writes {Math.round(j.accuracy * 100)} of 100 word pieces of {j.settings && j.settings.holdOut > 0 ? "examples it never saw while learning" : "your examples"} the way they go on.{" "}
+            <Link to="/models/$id" params={{ id: j.modelId }}>See the model</Link>, or chat with it under Try.
+          </Alert>
+        )}
+        {j.status === JobStatus.SUCCEEDED && j.architecture !== "language-model" && (
           <Alert color="teal" mb="md">
             The model is ready. It {score(j.accuracy, number)} on {j.settings && j.settings.holdOut > 0 ? "examples it never saw while learning" : "the examples it learned from"}{number && last && last.typicalError > 0 ? `, and is usually off by about ${round(last.typicalError)}` : ""}.{number && " Close means within a tenth of the real answer."}{" "}
             <Link to="/models/$id" params={{ id: j.modelId }}>See the model</Link>.

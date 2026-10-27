@@ -36,6 +36,10 @@ type Model struct {
 	// VersionID is the ModelVersion answering now; "" for a model made
 	// before versions were kept, until its first version is recorded.
 	VersionID string
+	// BaseModelID is the language model a fine-tune adapts: its file is
+	// then a LoRA adapter, which runs on top of that model's file. "" for
+	// every other model.
+	BaseModelID string
 }
 
 // Aggregates: how many models each team has, and how many are placed on
@@ -64,11 +68,15 @@ func (m *Model) Schema(t *storm.Table) {
 	t.Col(&m.MaxTokens).Default("256")
 	t.Col(&m.OnDevice).Default("false")
 	t.Col(&m.VersionID).Default("''")
+	t.Col(&m.BaseModelID).Default("''")
 	// A team's models, newest first; also the team key's index.
 	t.Col(&m.Team).NoIndex()
 	t.Index(&m.Team, storm.Desc(&m.CreateTime), storm.Desc(&m.ID))
 	// The models placed on a worker, and unplacing them when it goes.
 	t.Index(&m.WorkerID)
+	// The fine-tunes of a model, which keep it from being deleted.
+	// Partial: most models adapt none.
+	t.Index(&m.BaseModelID, &m.ID).Where(storm.RawSQL(`base_model_id <> ''`))
 	t.Check(storm.RawSQL(`length(description) <= 500`))
 	t.Check(storm.RawSQL(`architecture <> ''`))
 	t.Check(storm.RawSQL(`size_bytes > 0`))
