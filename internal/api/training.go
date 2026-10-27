@@ -126,6 +126,8 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 		file = req.Msg.GetCsv()
 	case kind.Archive():
 		file = req.Msg.GetArchive()
+	case kind == store.DatasetText:
+		file = req.Msg.GetText()
 	}
 
 	var d store.Dataset
@@ -150,12 +152,14 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 		d, check, err = describePhotos(file, tpl)
 	case store.DatasetPhotoTable:
 		d, check, err = describePhotoTable(file, strings.TrimSpace(req.Msg.GetTarget()), tpl, nil)
+	case store.DatasetText:
+		d, err = describeText(file)
 	case store.DatasetMNIST:
 		file = nil
 		d = store.Dataset{Kind: store.DatasetMNIST, Rows: 60000, InputShape: []int{1, 28, 28},
 			Labels: []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}}
 	default:
-		return nil, invalid("Choose a table (CSV), photos (ZIP) or the built-in handwritten digits.")
+		return nil, invalid("Choose a table (CSV), photos (ZIP), writing for a language model (text or JSON Lines) or the built-in handwritten digits.")
 	}
 	if err != nil {
 		return nil, err
@@ -425,6 +429,10 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 	if !contains(training.Architectures(d), a.Name) {
 		return nil, invalid("%s can't learn from %s. Pick a model type that fits these examples.", a.Title, d.Name)
 	}
+	from, err := s.fineTuneFrom(ctx, a, req.Msg.GetBaseModelId())
+	if err != nil {
+		return nil, err
+	}
 	st := req.Msg.GetSettings()
 	set := store.Settings{Epochs: int(st.GetEpochs()), BatchSize: int(st.GetBatchSize()), LearningRate: st.GetLearningRate(), HoldOut: st.GetHoldOut()}
 	if ls := st.GetLayers(); len(ls) > 0 {
@@ -479,13 +487,16 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 	if repeat == 0 {
 		minRows = 0
 	}
+	if from != "" && repeat > 0 {
+		return nil, invalid("A fine-tune runs once; it doesn't keep learning on a schedule.")
+	}
 	runOn := req.Msg.GetWorkerId()
 	if runOn != "" {
 		if _, err := s.worker(ctx, runOn); err != nil {
 			return nil, err
 		}
 	}
-	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat, TeamID: p.Team(), RunOn: runOn, MinNewRows: minRows, TrainedRows: d.Rows})
+	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat, TeamID: p.Team(), RunOn: runOn, MinNewRows: minRows, TrainedRows: d.Rows, BaseModelID: from})
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -495,6 +506,44 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 		s.KickTraining()
 	}
 	return connect.NewResponse(&mimirv1.CreateJobResponse{Job: jobProto(j, d.Name)}), nil
+}
+
+// fineTuneFrom returns the id of the language model a run of architecture
+// a fine-tunes, checking the caller may use it: base, which a language
+// model's run needs and any other's must leave empty.
+func (s *Service) fineTuneFrom(ctx context.Context, a arch.Architecture, base string) (string, error) {
+	if a.Answers() != arch.Written {
+		if base != "" {
+			return "", invalid("Only a language model is fine-tuned from another model.")
+		}
+		return "", nil
+	}
+	if base == "" {
+		return "", invalid("Pick the language model to fine-tune.")
+	}
+	m, err := s.get(ctx, base)
+	if err != nil {
+		return "", err
+	}
+	if !isLanguage(m) {
+		return "", invalid("%s isn't a language model, so it can't be fine-tuned on writing.", m.Name)
+	}
+	return m.ID, nil
+}
+
+// describeText checks the writing a language model is fine-tuned on and
+// describes it.
+func describeText(b []byte) (store.Dataset, error) {
+	if len(b) == 0 {
+		return store.Dataset{}, invalid("The file is empty. Upload plain text, or JSON Lines of chats or prompts and completions.")
+	}
+	w, err := training.ParseText(b)
+	if err != nil {
+		return store.Dataset{}, badTable(err)
+	}
+	d := store.Dataset{Kind: store.DatasetText}
+	w.Describe(&d)
+	return d, nil
 }
 
 // MaxMinNewRows bounds how many new rows a keep-learning pass may wait for.

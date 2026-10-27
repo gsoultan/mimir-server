@@ -3,6 +3,7 @@ package server_test
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -208,6 +209,45 @@ func TestOpenAI(t *testing.T) {
 		t.Fatalf("completions: %d %v", res.StatusCode, body)
 	}
 
+	res = call("POST", "/v1/embeddings", key, `{"model":"tiny-llama","input":["Once upon a time","Once upon a time","A dragon"]}`)
+	body = decode(res)
+	data, _ = body["data"].([]any)
+	if res.StatusCode != 200 || body["object"] != "list" || len(data) != 3 {
+		t.Fatalf("embeddings: %d %v", res.StatusCode, body)
+	}
+	var vecs [][]float64
+	for i, d := range data {
+		e := d.(map[string]any)
+		if e["object"] != "embedding" || e["index"].(float64) != float64(i) {
+			t.Fatalf("embedding %d: %v", i, e)
+		}
+		var v []float64
+		for _, x := range e["embedding"].([]any) {
+			v = append(v, x.(float64))
+		}
+		vecs = append(vecs, v)
+	}
+	dot := func(a, b []float64) float64 {
+		var s float64
+		for i := range a {
+			s += a[i] * b[i]
+		}
+		return s
+	}
+	if len(vecs[0]) == 0 || dot(vecs[0], vecs[0]) < 0.999 || dot(vecs[0], vecs[0]) > 1.001 || dot(vecs[0], vecs[1]) < 0.999 || dot(vecs[0], vecs[2]) > 0.9999 {
+		t.Errorf("embeddings of %d numbers: |a|² %v, a·a' %v, a·b %v", len(vecs[0]), dot(vecs[0], vecs[0]), dot(vecs[0], vecs[1]), dot(vecs[0], vecs[2]))
+	}
+	if u, _ := body["usage"].(map[string]any); u["prompt_tokens"].(float64) < 3 {
+		t.Errorf("usage %v", body["usage"])
+	}
+	res = call("POST", "/v1/embeddings", key, `{"model":"tiny-llama","input":"A dragon","encoding_format":"base64"}`)
+	body = decode(res)
+	if data, _ := body["data"].([]any); res.StatusCode != 200 || len(data) != 1 {
+		t.Fatalf("base64 embeddings: %d %v", res.StatusCode, body)
+	} else if b64, _ := data[0].(map[string]any)["embedding"].(string); len(b64) != base64.StdEncoding.EncodedLen(4*len(vecs[2])) {
+		t.Errorf("base64 embedding of %d characters for %d numbers", len(b64), len(vecs[2]))
+	}
+
 	for _, tc := range []struct {
 		name, path, key, body string
 		status                int
@@ -220,7 +260,11 @@ func TestOpenAI(t *testing.T) {
 		{"no messages", "/v1/chat/completions", key, `{"model":"tiny-llama","messages":[]}`, 400},
 		{"two answers", "/v1/chat/completions", key, `{"model":"tiny-llama","n":2,"messages":[{"role":"user","content":"hi"}]}`, 400},
 		{"bad JSON", "/v1/completions", key, `{`, 400},
-		{"unknown path", "/v1/embeddings", key, `{}`, 404},
+		{"tokens to embed", "/v1/embeddings", key, `{"model":"tiny-llama","input":[[1,2,3]]}`, 400},
+		{"nothing to embed", "/v1/embeddings", key, `{"model":"tiny-llama","input":[]}`, 400},
+		{"empty text to embed", "/v1/embeddings", key, `{"model":"tiny-llama","input":" "}`, 400},
+		{"other dimensions", "/v1/embeddings", key, `{"model":"tiny-llama","input":"hi","dimensions":3}`, 400},
+		{"unknown path", "/v1/images/generations", key, `{}`, 404},
 	} {
 		method := "POST"
 		if tc.body == "" {

@@ -118,6 +118,10 @@ enum DatasetKind {
   DATASET_KIND_PHOTOS = 3;
   // PHOTO_TABLE is a ZIP of a data.csv and the photos its rows name.
   DATASET_KIND_PHOTO_TABLE = 4;
+  // TEXT is writing a language model learns from (see
+  // CreateDatasetRequest.text): plain text, or chats and prompts with
+  // their answers as JSON lines.
+  DATASET_KIND_TEXT = 5;
 }
 
 message Dataset {
@@ -206,6 +210,13 @@ message CreateDatasetRequest {
   // photos.
   Bucket bucket = 10;
   string path = 11;
+  // text is the file of a TEXT dataset: plain text or Markdown, which a
+  // language model learns to write like, or JSON lines of examples, one
+  // per line, in OpenAI's fine-tuning formats: {"messages": [{"role":
+  // "system"|"user"|"assistant", "content": "..."}, ...]}, where it learns
+  // the assistant's answers, {"prompt": "...", "completion": "..."},
+  // where it learns the completions, or {"text": "..."}.
+  bytes text = 12;
 }
 
 // Bucket is how to reach S3-compatible storage.
@@ -477,6 +488,11 @@ message CreateJobRequest {
   // min_new_rows makes each keep-learning pass wait for that many new rows
   // in the source; 0 starts one every repeat_seconds.
   int64 min_new_rows = 8;
+  // base_model_id is the language model to fine-tune, for the "language"
+  // architecture and a TEXT dataset. The run makes a new model that adapts
+  // it with LoRA: a small file that runs on top of the base model's. A
+  // fine-tune of a fine-tune continues from its adapter.
+  string base_model_id = 9;
 }
 
 message CreateJobResponse {
