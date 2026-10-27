@@ -77,6 +77,8 @@ func (s *Service) CheckDataset(ctx context.Context, req *connect.Request[mimirv1
 		nd, check, err = describePhotos(b, tpl)
 	case store.DatasetPhotoTable:
 		nd, check, err = describePhotoTable(b, target, tpl, match)
+	case store.DatasetSounds:
+		nd, check, err = describeSounds(b)
 	}
 	if err != nil {
 		return nil, err
@@ -232,6 +234,25 @@ func describePhotos(b []byte, tpl *templates.Template) (store.Dataset, *mimirv1.
 	check := templates.CheckPhotos(tpl, folders, loose)
 	return store.Dataset{Kind: store.DatasetPhotos, Rows: check.Rows, Labels: labels, Skipped: int64(loose),
 		InputShape: []int{3, schema.PhotoSize, schema.PhotoSize}}, check, nil
+}
+
+// describeSounds reads a ZIP of sound folders.
+func describeSounds(b []byte) (store.Dataset, *mimirv1.DataCheck, error) {
+	if len(b) == 0 {
+		return store.Dataset{}, nil, invalid("The file is empty. Upload a ZIP with one folder of WAV sounds per answer.")
+	}
+	arc, err := training.OpenArchive(b)
+	if err != nil {
+		return store.Dataset{}, nil, badTable(err)
+	}
+	folders, loose := arc.FoldersOf(schema.IsSoundName)
+	labels, err := training.SoundLabels(folders)
+	if err != nil {
+		return store.Dataset{}, nil, badTable(err)
+	}
+	check := templates.CheckSounds(folders, loose)
+	return store.Dataset{Kind: store.DatasetSounds, Rows: check.Rows, Labels: labels, Skipped: int64(loose),
+		InputShape: []int{schema.SoundSamples}}, check, nil
 }
 
 func templateProto(t templates.Template) *mimirv1.Template {

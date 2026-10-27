@@ -2441,7 +2441,7 @@ type TrainTask struct {
 	// reads; its weights carry over only while they still match.
 	BaseLabels   []string `protobuf:"bytes,10,rep,name=base_labels,json=baseLabels,proto3" json:"base_labels,omitempty"`
 	BaseFeatures []string `protobuf:"bytes,11,rep,name=base_features,json=baseFeatures,proto3" json:"base_features,omitempty"`
-	// archive holds the ZIP for DATASET_KIND_PHOTOS and PHOTO_TABLE.
+	// archive holds the ZIP for DATASET_KIND_PHOTOS, PHOTO_TABLE and SOUNDS.
 	Archive []byte `protobuf:"bytes,12,opt,name=archive,proto3" json:"archive,omitempty"`
 	// columns are the dataset's columns as first read; their kinds are kept.
 	Columns []*Column `protobuf:"bytes,13,rep,name=columns,proto3" json:"columns,omitempty"`

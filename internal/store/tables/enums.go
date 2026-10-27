@@ -38,15 +38,19 @@ const (
 	DatasetPhotos
 	// DatasetPhotoTable is a ZIP of a data.csv and the photos it names.
 	DatasetPhotoTable
+	// DatasetSounds is a ZIP of WAV sounds, one folder per answer.
+	DatasetSounds
 )
 
-var datasetKindNames = [...]string{"", "table", "mnist", "photos", "photo_table"}
+var datasetKindNames = [...]string{"", "table", "mnist", "photos", "photo_table", "sounds"}
 
 // Valid reports whether k is one of the kinds.
-func (k DatasetKind) Valid() bool { return k >= DatasetTable && k <= DatasetPhotoTable }
+func (k DatasetKind) Valid() bool { return k >= DatasetTable && k <= DatasetSounds }
 
 // Archive reports whether the dataset's file is a ZIP.
-func (k DatasetKind) Archive() bool { return k == DatasetPhotos || k == DatasetPhotoTable }
+func (k DatasetKind) Archive() bool {
+	return k == DatasetPhotos || k == DatasetPhotoTable || k == DatasetSounds
+}
 
 func (k DatasetKind) String() string { return name(datasetKindNames[:], int32(k)) }
 

@@ -26,11 +26,12 @@ type Model struct {
 	Columns      []schema.Column `json:"columns"`
 }
 
-// Question is one thing to ask: fields by column name, a photo, or the
-// numbers themselves.
+// Question is one thing to ask: fields by column name, a photo, a sound,
+// or the numbers themselves.
 type Question struct {
 	Fields map[string]string `json:"fields"`
 	Photo  []byte            `json:"-"`
+	Sound  []byte            `json:"-"`
 	Input  []float32         `json:"input"`
 	TopK   int               `json:"topK"`
 }
@@ -102,7 +103,7 @@ func (r *Runner) Predict(ctx context.Context, id string, q Question) (Answer, er
 	in := q.Input
 	if len(in) == 0 {
 		var err error
-		if in, err = ask.Encode(l.a, l.m.Columns, l.m.Features, q.Fields, q.Photo); err != nil {
+		if in, err = ask.Encode(l.a, l.m.Columns, l.m.Features, q.Fields, q.Photo, q.Sound); err != nil {
 			return Answer{}, errors.New(ask.Reason(err))
 		}
 	}

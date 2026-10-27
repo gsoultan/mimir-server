@@ -150,12 +150,14 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 		d, check, err = describePhotos(file, tpl)
 	case store.DatasetPhotoTable:
 		d, check, err = describePhotoTable(file, strings.TrimSpace(req.Msg.GetTarget()), tpl, nil)
+	case store.DatasetSounds:
+		d, check, err = describeSounds(file)
 	case store.DatasetMNIST:
 		file = nil
 		d = store.Dataset{Kind: store.DatasetMNIST, Rows: 60000, InputShape: []int{1, 28, 28},
 			Labels: []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}}
 	default:
-		return nil, invalid("Choose a table (CSV), photos (ZIP) or the built-in handwritten digits.")
+		return nil, invalid("Choose a table (CSV), photos or sounds (ZIP) or the built-in handwritten digits.")
 	}
 	if err != nil {
 		return nil, err
@@ -252,7 +254,7 @@ func (s *Service) readBucket(ctx context.Context, cl *s3source.Client, path stri
 	case kind.Archive():
 		b, err = cl.Archive(ctx, path, training.MaxArchiveBytes)
 	default:
-		return nil, invalid("Choose a table (CSV) or photos to read from storage.")
+		return nil, invalid("Choose a table (CSV), photos or sounds to read from storage.")
 	}
 	if err != nil {
 		return nil, s.mapBucket(ctx, err)

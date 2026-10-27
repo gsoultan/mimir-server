@@ -14,7 +14,7 @@ import { download, type DataType } from "../../../../lib/templates";
 
 export const Route = createFileRoute("/_app/models/build/$goal")({
   validateSearch: z.object({
-    shape: z.enum(["table", "text", "photos", "photo_table"]).optional(),
+    shape: z.enum(["table", "text", "photos", "photo_table", "sounds"]).optional(),
     labelled: z.boolean().optional(),
   }),
   loader: ({ context, params }) => {
@@ -86,7 +86,7 @@ function NoCode({ goal, kind }: { goal: Goal; kind: "yes_no" | "group" | "number
     <PathOption
       key="own"
       best={matching.length === 0}
-      title={`Start from your own ${shape === "photos" ? "photos" : shape === "text" ? "texts" : "data"}`}
+      title={`Start from your own ${shape === "photos" || shape === "sounds" ? shape : shape === "text" ? "texts" : "data"}`}
       hint={ownData[shape]}
       action={<ButtonLink variant={matching.length === 0 ? "filled" : "default"} to="/models/teach" search={{ data: shape }}>Start</ButtonLink>}
     >
@@ -105,7 +105,7 @@ function NoCode({ goal, kind }: { goal: Goal; kind: "yes_no" | "group" | "number
         <SimpleGrid cols={{ base: 1, md: 2 }}>
           <Stack gap={4}>
             <Text size="sm" fw={500}>What does one example look like?</Text>
-            <SegmentedControl data={shapes} value={shape} onChange={(v) => set({ shape: v as DataType })} orientation={phone ? "vertical" : "horizontal"} fullWidth={phone} />
+            <SegmentedControl data={kind === "number" ? shapes.filter((x) => x.value !== "sounds") : shapes} value={shape} onChange={(v) => set({ shape: v as DataType })} orientation={phone ? "vertical" : "horizontal"} fullWidth={phone} />
           </Stack>
           <Stack gap={4}>
             <Text size="sm" fw={500}>Do you already have answers for past examples?</Text>

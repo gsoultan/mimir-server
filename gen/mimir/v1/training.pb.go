@@ -35,6 +35,8 @@ const (
 	DatasetKind_DATASET_KIND_PHOTOS DatasetKind = 3
 	// PHOTO_TABLE is a ZIP of a data.csv and the photos its rows name.
 	DatasetKind_DATASET_KIND_PHOTO_TABLE DatasetKind = 4
+	// SOUNDS is a ZIP of WAV sounds with one folder per answer.
+	DatasetKind_DATASET_KIND_SOUNDS DatasetKind = 5
 )
 
 // Enum value maps for DatasetKind.
@@ -45,6 +47,7 @@ var (
 		2: "DATASET_KIND_MNIST",
 		3: "DATASET_KIND_PHOTOS",
 		4: "DATASET_KIND_PHOTO_TABLE",
+		5: "DATASET_KIND_SOUNDS",
 	}
 	DatasetKind_value = map[string]int32{
 		"DATASET_KIND_UNSPECIFIED": 0,
@@ -52,6 +55,7 @@ var (
 		"DATASET_KIND_MNIST":       2,
 		"DATASET_KIND_PHOTOS":      3,
 		"DATASET_KIND_PHOTO_TABLE": 4,
+		"DATASET_KIND_SOUNDS":      5,
 	}
 )
 
@@ -2965,13 +2969,14 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\"\n" +
 	"\x10DeleteJobRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x13\n" +
-	"\x11DeleteJobResponse*\x92\x01\n" +
+	"\x11DeleteJobResponse*\xab\x01\n" +
 	"\vDatasetKind\x12\x1c\n" +
 	"\x18DATASET_KIND_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12DATASET_KIND_TABLE\x10\x01\x12\x16\n" +
 	"\x12DATASET_KIND_MNIST\x10\x02\x12\x17\n" +
 	"\x13DATASET_KIND_PHOTOS\x10\x03\x12\x1c\n" +
-	"\x18DATASET_KIND_PHOTO_TABLE\x10\x04*\xa1\x01\n" +
+	"\x18DATASET_KIND_PHOTO_TABLE\x10\x04\x12\x17\n" +
+	"\x13DATASET_KIND_SOUNDS\x10\x05*\xa1\x01\n" +
 	"\tJobStatus\x12\x1a\n" +
 	"\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11JOB_STATUS_QUEUED\x10\x01\x12\x16\n" +

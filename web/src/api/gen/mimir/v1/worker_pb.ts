@@ -1256,7 +1256,7 @@ export type TrainTask = Message<"mimir.v1.TrainTask"> & {
   baseFeatures: string[];
 
   /**
-   * archive holds the ZIP for DATASET_KIND_PHOTOS and PHOTO_TABLE.
+   * archive holds the ZIP for DATASET_KIND_PHOTOS, PHOTO_TABLE and SOUNDS.
    *
    * @generated from field: bytes archive = 12;
    */

@@ -555,8 +555,8 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	spec := arch.Resolve(a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
 	start := time.Now()
 	input := msg.GetInput().GetValues()
-	if len(input) == 0 && (len(msg.GetFields()) > 0 || len(msg.GetPhoto()) > 0) {
-		if input, err = encode(m, a, msg.GetFields(), msg.GetPhoto()); err != nil {
+	if len(input) == 0 && (len(msg.GetFields()) > 0 || len(msg.GetPhoto()) > 0 || len(msg.GetSound()) > 0) {
+		if input, err = encode(m, a, msg.GetFields(), msg.GetPhoto(), msg.GetSound()); err != nil {
 			return nil, err
 		}
 	}
@@ -639,10 +639,10 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	return connect.NewResponse(res), nil
 }
 
-// encode turns a question asked by column name, and a photo, into the
-// numbers model m reads, the same way its examples were.
-func encode(m store.Model, a arch.Architecture, fields map[string]string, photo []byte) ([]float32, error) {
-	in, err := ask.Encode(a, m.Columns, m.Features, fields, photo)
+// encode turns a question asked by column name, and a photo or a sound,
+// into the numbers model m reads, the same way its examples were.
+func encode(m store.Model, a arch.Architecture, fields map[string]string, photo, sound []byte) ([]float32, error) {
+	in, err := ask.Encode(a, m.Columns, m.Features, fields, photo, sound)
 	if err != nil {
 		return nil, invalid("%s", ask.Reason(err))
 	}
