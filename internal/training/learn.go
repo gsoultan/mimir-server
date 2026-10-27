@@ -3,7 +3,11 @@ package training
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
+	"errors"
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"github.com/gsoultan/mimir/io/mim"
@@ -14,6 +18,7 @@ import (
 	"github.com/gsoultan/mimir/train"
 
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -101,4 +106,74 @@ func collect(ctx context.Context, s Set) (tabular.Data, error) {
 		d.Y = append(d.Y, y...)
 	}
 	return d, nil
+}
+
+// learnCells fits a Learner that reads a table's cells themselves.
+func learnCells(ctx context.Context, t Task, progress Progress) (Result, error) {
+	if t.Source.Kind != store.DatasetTable {
+		return Result{}, fmt.Errorf("%w: %s learns from a table; upload a CSV", ErrBadTable, t.Arch.Title)
+	}
+	c, err := readCells(t.Source)
+	if err != nil {
+		return Result{}, err
+	}
+	start, last := time.Now(), time.Time{}
+	progress(0, 0, 1, nil)
+	got, err := t.Arch.Learner.Cells(ctx, c, func(done, total int) {
+		if time.Since(last) > time.Second {
+			last = time.Now()
+			progress(0, done, total, nil)
+		}
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return Result{}, ctx.Err()
+		}
+		return Result{}, fmt.Errorf("%w: %v", ErrBadTable, err)
+	}
+	history := []store.Epoch{{Epoch: 1, Millis: time.Since(start).Milliseconds(), Accuracy: got.Accuracy, MAE: got.MAE}}
+	progress(1, 0, 1, history)
+	var buf bytes.Buffer
+	if err := mim.Save(ctx, &buf, got.Module, &mim.SaveOptions{Metadata: map[string]any{arch.ShapeKey: got.Shape}}); err != nil {
+		return Result{}, fmt.Errorf("couldn't save the model: %w", err)
+	}
+	features := schema.Features(got.Columns)
+	return Result{
+		Weights: buf.Bytes(), History: history, Features: features, Columns: got.Columns,
+		Spec: arch.Spec{InputShape: []int{len(features)}, Labels: got.Labels},
+	}, nil
+}
+
+// readCells reads a source's CSV as text.
+func readCells(src Source) (arch.Cells, error) {
+	cr := csv.NewReader(bytes.NewReader(src.CSV))
+	cr.TrimLeadingSpace = true
+	header, err := cr.Read()
+	if err != nil {
+		return arch.Cells{}, fmt.Errorf("%w: the first row must name the columns", ErrBadTable)
+	}
+	for i := range header {
+		header[i] = strings.TrimSpace(strings.TrimPrefix(header[i], "\ufeff"))
+	}
+	c := arch.Cells{Header: header, Target: src.Target, Kinds: src.Hints()}
+	if c.Target == "" {
+		c.Target = header[len(header)-1]
+	}
+	for line := 2; ; line++ {
+		rec, err := cr.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return arch.Cells{}, fmt.Errorf("%w: line %d: %v", ErrBadTable, line, err)
+		}
+		if len(c.Rows) == MaxRows {
+			return arch.Cells{}, fmt.Errorf("%w: at most %d rows", ErrBadTable, MaxRows)
+		}
+		c.Rows = append(c.Rows, rec)
+	}
+	if len(c.Rows) < MinRows {
+		return arch.Cells{}, fmt.Errorf("%w: at least %d rows are needed to learn anything", ErrBadTable, MinRows)
+	}
+	return c, nil
 }

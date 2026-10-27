@@ -146,6 +146,10 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const { data: templates } = useSuspenseQuery(listTemplates);
   const { data: me } = useSuspenseQuery(whoAmI);
   const tpl = templates.templates.find((t) => t.id === search.template);
+  // A model type asked for up front, such as Find groups, may read the
+  // answer column as something else, or need none.
+  const presetArch = archs.architectures.find((a) => a.name === search.arch);
+  const role = (presetArch?.target ?? "") as Role;
   const photos = dataType === "photos";
   const archive = dataType === "photos" || dataType === "photo_table";
   const canStore = me.permissions.includes("databases.query");
@@ -185,10 +189,10 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const folder = useRef<HTMLInputElement>(null);
   const workers = useWorkerChoices(me.permissions.includes("models.write"));
   const tested = useMutation(DatasetService.method.testQuery, {
-    onSuccess: (res) => setTarget(res.columns[res.columns.length - 1] ?? ""),
+    onSuccess: (res) => setTarget(guessTarget(res.columns, role)),
   });
   const looked = useMutation(DatasetService.method.testBucket, {
-    onSuccess: (res) => setTarget(res.columns[res.columns.length - 1] ?? ""),
+    onSuccess: (res) => setTarget(guessTarget(res.columns, role)),
   });
   const kindToMake = tpl ? datasetKindOf(tpl) : dataType === "photos" ? DatasetKind.PHOTOS : dataType === "photo_table" ? DatasetKind.PHOTO_TABLE : DatasetKind.TABLE;
   const editBucket = (b: Partial<Bucket>) => { setBucket((cur) => ({ ...cur, ...b })); looked.reset(); reset(); };
@@ -218,7 +222,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   function chose(d: Dataset, c?: Check) {
     setDataset(d);
     setCheck(c);
-    const allowed = archs.architectures.filter((a) => d.architectures.includes(a.name));
+    const allowed = archs.architectures.filter((a) => d.architectures.includes(a.name) && (role ? a.name === search.arch : !a.target));
     setArch((cur) => {
       if (tpl && d.architectures.includes(tpl.architecture)) return tpl.architecture;
       if (search.arch && d.architectures.includes(search.arch)) return search.arch;
@@ -259,7 +263,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
       const p = peek(new TextDecoder().decode(buf.subarray(0, 64 * 1024)));
       if (p.columns.length < 2) return setFileError("The first row should name at least two columns, separated by commas.");
       setUpload({ name: file.name, size: file.size, bytes: buf, columns: p.columns, rows: p.rows, summary: `${bytes(file.size)} · ${p.columns.length} columns`, zip: false });
-      setTarget(p.columns[p.columns.length - 1]!);
+      setTarget(guessTarget(p.columns, role));
       return;
     }
     // A ZIP as it is, or a dropped folder packed into one.
@@ -314,7 +318,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
     checkDataset.mutate({ datasetId: dataset.id, templateId: tpl?.id ?? "", match: m, apply: true });
   }
 
-  const allowed = archs.architectures.filter((a) => dataset?.architectures.includes(a.name));
+  // Models that read the answer column as something else are offered
+  // only when asked for.
+  const allowed = archs.architectures.filter((a) => dataset?.architectures.includes(a.name) && (role ? a.name === search.arch : !a.target));
   const chosenArch = archs.architectures.find((a) => a.name === arch);
   const picked = !!tpl && !!dataset && dataset.architectures.includes(tpl.architecture);
   const busy = createDataset.isPending || checkDataset.isPending;
@@ -398,7 +404,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                       {fileError && <Alert color="red" icon={<IconAlertCircle />}>{fileError}</Alert>}
                       {upload && !archive && (
                         <>
-                          {!tpl && <Select label="Which column is the answer?" description="The model learns to predict this from the other columns." data={upload.columns} value={target} onChange={(v) => { if (v) { setTarget(v); reset(); } }} allowDeselect={false} />}
+                          {!tpl && <AnswerPicker role={role} columns={upload.columns} value={target} onChange={(v) => { if (v) { setTarget(v); reset(); } }} />}
                           <Table.ScrollContainer minWidth={300}>
                             <Table fz="xs" withTableBorder>
                               <Table.Thead><Table.Tr>{upload.columns.map((c) => <Table.Th key={c} c={c === target && !tpl ? "teal" : undefined}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
@@ -424,7 +430,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                         {tested.data && (
                           <>
                             <Alert color="teal" icon={<IconCheck />}>{tested.data.rows.toLocaleString()} rows, {tested.data.columns.length} columns.</Alert>
-                            {!tpl && <Select label="Which column is the answer?" description="The model learns to predict this from the other columns." data={tested.data.columns} value={target} onChange={(v) => v && setTarget(v)} allowDeselect={false} />}
+                            {!tpl && <AnswerPicker role={role} columns={tested.data.columns} value={target} onChange={(v) => v && setTarget(v)} />}
                             <Table.ScrollContainer minWidth={300}>
                               <Table fz="xs" withTableBorder>
                                 <Table.Thead><Table.Tr>{tested.data.columns.map((c) => <Table.Th key={c} c={c === target && !tpl ? "teal" : undefined}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
@@ -472,7 +478,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                             </Alert>
                             {looked.data.columns.length > 0 && (
                               <>
-                                {!tpl && <Select label="Which column is the answer?" description="The model learns to predict this from the other columns." data={looked.data.columns} value={target} onChange={(v) => v && setTarget(v)} allowDeselect={false} />}
+                                {!tpl && <AnswerPicker role={role} columns={looked.data.columns} value={target} onChange={(v) => v && setTarget(v)} />}
                                 <Table.ScrollContainer minWidth={300}>
                                   <Table fz="xs" withTableBorder>
                                     <Table.Thead><Table.Tr>{looked.data.columns.map((c) => <Table.Th key={c} c={c === target && !tpl ? "teal" : undefined}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
@@ -507,7 +513,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
           <Stepper.Step label={steps[1]} description={tpl ? "And what it's for" : "Pick the model type"}>
             {dataset && (
               <Alert mt="md" color="teal" icon={<IconCheck />}>
-                {dataset.name}: {dataset.rows.toLocaleString()} examples{dataset.labels.length > 0 && !dataset.numberTarget ? `, ${dataset.labels.length} possible answers` : ""}.
+                {dataset.name}: {dataset.rows.toLocaleString()} {role ? "rows" : "examples"}{dataset.labels.length > 0 && !dataset.numberTarget && !role ? `, ${dataset.labels.length} possible answers` : ""}.
               </Alert>
             )}
             {picked ? (
@@ -547,7 +553,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
 
           <Stepper.Step label={steps[2]} description="Then start">
             {chosenArch?.learned ? (
-              <Text mt="md" size="sm">{chosenArch.title} learn from the whole table in one go, and stop on their own once more would not help, so there is nothing to choose here.</Text>
+              <Text mt="md" size="sm">{chosenArch.title} learns from the whole table in one go{chosenArch.target ? "" : ", and stops on its own once more would not help"}, so there is nothing to choose here.</Text>
             ) : (
             <Radio.Group value={preset} onChange={setPreset} label="How hard should it study?" mt="md">
               <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm">
@@ -638,6 +644,34 @@ function Wizard({ data: dataType }: { data: DataType }) {
       )}
     </Page>
   );
+}
+
+// Role is what the answer column is to the model type asked for (see
+// Architecture.target).
+type Role = "" | "none" | "item" | "value";
+
+const itemWords = /item|product|sku|title|movie|film|song|track|book|article|course|dish|recipe/i;
+
+// guessTarget picks the answer column to start with: for a recommender
+// the column that looks like the item, otherwise the last.
+function guessTarget(columns: string[], role: Role) {
+  if (role === "item") {
+    const c = columns.find((c) => itemWords.test(c));
+    if (c) return c;
+  }
+  return columns[columns.length - 1] ?? "";
+}
+
+// AnswerPicker asks which column is the answer, in the words of what it
+// is to the model; a model that needs none asks nothing.
+function AnswerPicker({ role, columns, value, onChange }: { role: Role; columns: string[]; value: string; onChange: (v: string | null) => void }) {
+  if (role === "none") return <Text size="sm" c="dimmed">No answer column is needed: the model reads every column.</Text>;
+  const words = {
+    "": { label: "Which column is the answer?", hint: "The model learns to predict this from the other columns." },
+    item: { label: "Which column is the item?", hint: "What each person picked, bought or rated. Another column, such as customer, says who." },
+    value: { label: "Which column holds the value to forecast?", hint: "A number in every row, like units sold. A date column says when, and a column like store says which series." },
+  }[role];
+  return <Select label={words.label} description={words.hint} data={columns} value={value} onChange={onChange} allowDeselect={false} />;
 }
 
 function archiveKind(k: DatasetKind) {
