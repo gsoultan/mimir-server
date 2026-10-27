@@ -281,6 +281,11 @@ func run() error {
 	// critical, rather than being stopped.
 	runtime.ThrottleCompute(memory, computeShare(memory.Limit()))
 	svc := api.New(st, log)
+	// Scores are worked out in memory; any a stopped server left
+	// unfinished are marked failed, so none waits forever.
+	if err := st.FailUnfinishedScores(ctx); err != nil {
+		log.Warn("couldn't close unfinished benchmark scores", "error", err)
+	}
 	if err := svc.LoadArchitectures(ctx); err != nil {
 		log.Error("couldn't read the described model types", "error", err)
 		os.Exit(1)
