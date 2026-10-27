@@ -519,6 +519,18 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		} else {
 			base = store.Model{} // deleted since; start fresh
 		}
+	} else if j.StartFrom != "" {
+		// A new model that starts from what another one learned; it
+		// replaces nothing, so base stays empty.
+		from, err := r.st.Get(ctx, j.StartFrom)
+		if err != nil {
+			return "", fmt.Errorf("the model to start from is gone: %w", err)
+		}
+		if task.BaseWeights, err = r.st.Weights(from.ID); err != nil {
+			return "", fmt.Errorf("couldn't read the model to start from: %w", err)
+		}
+		fs := arch.Resolve(a, arch.Spec{InputShape: from.InputShape, Labels: from.Labels})
+		task.BaseLabels, task.BaseFeatures = fs.Labels, from.Features
 	}
 	progress := func(epoch, step, steps int, history []store.Epoch) {
 		r.st.JobProgress(ctx, j.ID, epoch, step, steps, history)
@@ -604,6 +616,13 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 			return base.ID, nil
 		} else if !errors.Is(err, store.ErrNotFound) {
 			return "", fmt.Errorf("couldn't update the model: %w", err)
+		}
+	}
+	if j.StartFrom != "" && base.ID == "" {
+		if res.Fresh {
+			setNote("The model to start from reads other columns or can't take new answers, so this one learned from scratch.")
+		} else {
+			setNote("Started from what the chosen model had learned.")
 		}
 	}
 	created, err := r.st.Create(ctx, m, res.Weights)

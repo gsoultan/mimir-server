@@ -2047,9 +2047,11 @@ type Job struct {
 	CheckNote string                 `protobuf:"bytes,30,opt,name=check_note,json=checkNote,proto3" json:"check_note,omitempty"`
 	// report is how the finished model did on the examples kept aside, in
 	// detail. Set by GetJob and CompareJobs, not ListJobs.
-	Report        *RunReport `protobuf:"bytes,31,opt,name=report,proto3" json:"report,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Report *RunReport `protobuf:"bytes,31,opt,name=report,proto3" json:"report,omitempty"`
+	// start_from_model_id is the model the run started from, if any.
+	StartFromModelId string `protobuf:"bytes,32,opt,name=start_from_model_id,json=startFromModelId,proto3" json:"start_from_model_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Job) Reset() {
@@ -2297,6 +2299,13 @@ func (x *Job) GetReport() *RunReport {
 		return x.Report
 	}
 	return nil
+}
+
+func (x *Job) GetStartFromModelId() string {
+	if x != nil {
+		return x.StartFromModelId
+	}
+	return ""
 }
 
 // RunReport scores a finished run's model for its kind of answer. Which
@@ -2866,9 +2875,13 @@ type CreateJobRequest struct {
 	// architecture and a TEXT dataset. The run makes a new model that adapts
 	// it with LoRA: a small file that runs on top of the base model's. A
 	// fine-tune of a fine-tune continues from its adapter.
-	BaseModelId   string `protobuf:"bytes,9,opt,name=base_model_id,json=baseModelId,proto3" json:"base_model_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	BaseModelId string `protobuf:"bytes,9,opt,name=base_model_id,json=baseModelId,proto3" json:"base_model_id,omitempty"`
+	// start_from_model_id starts the run from what that model learned, a
+	// model of the same architecture: it keeps the layers that read the
+	// examples and learns this dataset's answers on top, as a new model.
+	StartFromModelId string `protobuf:"bytes,10,opt,name=start_from_model_id,json=startFromModelId,proto3" json:"start_from_model_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CreateJobRequest) Reset() {
@@ -2960,6 +2973,13 @@ func (x *CreateJobRequest) GetMinNewRows() int64 {
 func (x *CreateJobRequest) GetBaseModelId() string {
 	if x != nil {
 		return x.BaseModelId
+	}
+	return ""
+}
+
+func (x *CreateJobRequest) GetStartFromModelId() string {
+	if x != nil {
+		return x.StartFromModelId
 	}
 	return ""
 }
@@ -3412,7 +3432,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\baccuracy\x18\x03 \x01(\x01R\baccuracy\x12\x19\n" +
 	"\bval_loss\x18\x04 \x01(\x01R\avalLoss\x12'\n" +
 	"\x0fduration_millis\x18\x05 \x01(\x03R\x0edurationMillis\x12#\n" +
-	"\rtypical_error\x18\x06 \x01(\x01R\ftypicalError\"\xeb\b\n" +
+	"\rtypical_error\x18\x06 \x01(\x01R\ftypicalError\"\x9a\t\n" +
 	"\x03Job\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -3452,7 +3472,8 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"check_time\x18\x1d \x01(\v2\x1a.google.protobuf.TimestampR\tcheckTime\x12\x1d\n" +
 	"\n" +
 	"check_note\x18\x1e \x01(\tR\tcheckNote\x12+\n" +
-	"\x06report\x18\x1f \x01(\v2\x13.mimir.v1.RunReportR\x06report\"\xac\x04\n" +
+	"\x06report\x18\x1f \x01(\v2\x13.mimir.v1.RunReportR\x06report\x12-\n" +
+	"\x13start_from_model_id\x18  \x01(\tR\x10startFromModelId\"\xac\x04\n" +
 	"\tRunReport\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1a\n" +
 	"\bexamples\x18\x02 \x01(\x03R\bexamples\x12\x1f\n" +
@@ -3495,7 +3516,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\rGetJobRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"1\n" +
 	"\x0eGetJobResponse\x12\x1f\n" +
-	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xcd\x02\n" +
+	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xfc\x02\n" +
 	"\x10CreateJobRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\"\n" +
@@ -3507,7 +3528,9 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\tworker_id\x18\a \x01(\tR\bworkerId\x12 \n" +
 	"\fmin_new_rows\x18\b \x01(\x03R\n" +
 	"minNewRows\x12\"\n" +
-	"\rbase_model_id\x18\t \x01(\tR\vbaseModelId\"4\n" +
+	"\rbase_model_id\x18\t \x01(\tR\vbaseModelId\x12-\n" +
+	"\x13start_from_model_id\x18\n" +
+	" \x01(\tR\x10startFromModelId\"4\n" +
 	"\x11CreateJobResponse\x12\x1f\n" +
 	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\"\n" +
 	"\x10CancelJobRequest\x12\x0e\n" +
