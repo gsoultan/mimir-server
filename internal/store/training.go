@@ -28,6 +28,8 @@ const (
 	DatasetPhotos     = tables.DatasetPhotos     // a ZIP of photos, one folder per answer
 	DatasetPhotoTable = tables.DatasetPhotoTable // a ZIP of a data.csv and the photos it names
 	DatasetText       = tables.DatasetText       // writing a language model learns from
+	DatasetSounds     = tables.DatasetSounds     // a ZIP of WAV sounds, one folder per answer
+	DatasetBoxes      = tables.DatasetBoxes      // a ZIP of photos and the boxes around the things in them
 )
 
 // Dataset is a set of examples models learn from.

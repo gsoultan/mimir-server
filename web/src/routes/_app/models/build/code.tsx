@@ -50,7 +50,7 @@ function CodeGuide() {
   const starter = goal?.learn ? `my-${goal.arch}` : goal?.arch;
   const [name, setName] = useState(before?.name ?? starter ?? "my-model");
   const [input, setInput] = useState(before?.input ?? (goal?.id === "find_in_photo" ? "image" : goal?.id === "forecast" ? "tensor" : "table"));
-  const [output, setOutput] = useState(before?.output ?? (goal?.id === "recommend" ? "ranked" : goal?.id === "forecast" || goal?.id === "odd_one" ? "number" : "class"));
+  const [output, setOutput] = useState(before?.output ?? (goal?.id === "recommend" || goal?.id === "best_action" ? "ranked" : goal?.id === "forecast" || goal?.id === "odd_one" ? "number" : "class"));
   const [items, setItems] = useState<number | string>(before?.items || 10);
   const [token, setToken] = useState<string>();
   const arch = slug(name) || "my-model";

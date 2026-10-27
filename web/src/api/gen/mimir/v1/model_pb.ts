@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/model.proto.
  */
 export const file_mimir_v1_model: GenFile = /*@__PURE__*/
-  fileDesc("ChRtaW1pci92MS9tb2RlbC5wcm90bxIIbWltaXIudjEiOAoWR2V0TW9kZWxRdWFsaXR5UmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRIMCgRkYXlzGAIgASgFImkKClF1YWxpdHlEYXkSJwoDZGF5GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdhbnN3ZXJzGAIgASgDEhAKCGZlZWRiYWNrGAMgASgDEg8KB2NvcnJlY3QYBCABKAMikgEKF0dldE1vZGVsUXVhbGl0eVJlc3BvbnNlEiIKBGRheXMYASADKAsyFC5taW1pci52MS5RdWFsaXR5RGF5EhQKDHdlZWtfYW5zd2VycxgCIAEoAxIVCg13ZWVrX2ZlZWRiYWNrGAMgASgDEhUKDXdlZWtfYWNjdXJhY3kYBCABKAESDwoHZHJvcHBlZBgFIAEoCCLrAQoMTW9kZWxWZXJzaW9uEgoKAmlkGAEgASgJEg4KBm51bWJlchgCIAEoBRIsCgZzb3VyY2UYAyABKA4yHC5taW1pci52MS5Nb2RlbFZlcnNpb25Tb3VyY2USLwoLY3JlYXRlX3RpbWUYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCnNpemVfYnl0ZXMYBSABKAMSDgoGc2hhMjU2GAYgASgJEhAKCGFjY3VyYWN5GAcgASgBEg4KBmpvYl9pZBgIIAEoCRIMCgRub3RlGAkgASgJEgwKBGxpdmUYCiABKAgiLAoYTGlzdE1vZGVsVmVyc2lvbnNSZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJIkUKGUxpc3RNb2RlbFZlcnNpb25zUmVzcG9uc2USKAoIdmVyc2lvbnMYASADKAsyFi5taW1pci52MS5Nb2RlbFZlcnNpb24iPgoWVXNlTW9kZWxWZXJzaW9uUmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRISCgp2ZXJzaW9uX2lkGAIgASgJIjkKF1VzZU1vZGVsVmVyc2lvblJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwieQoXU2F2ZUFyY2hpdGVjdHVyZVJlcXVlc3QSDAoEbmFtZRgBIAEoCRINCgV0aXRsZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRINCgVpbnB1dBgEIAEoCRIOCgZvdXRwdXQYBSABKAkSDQoFaXRlbXMYBiABKAUiSAoYU2F2ZUFyY2hpdGVjdHVyZVJlc3BvbnNlEiwKDGFyY2hpdGVjdHVyZRgBIAEoCzIWLm1pbWlyLnYxLkFyY2hpdGVjdHVyZSIpChlEZWxldGVBcmNoaXRlY3R1cmVSZXF1ZXN0EgwKBG5hbWUYASABKAkiHAoaRGVsZXRlQXJjaGl0ZWN0dXJlUmVzcG9uc2UiNgoVU2V0TW9kZWxXb3JrZXJSZXF1ZXN0EgoKAmlkGAEgASgJEhEKCXdvcmtlcl9pZBgCIAEoCSI4ChZTZXRNb2RlbFdvcmtlclJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwiSgoTU2VuZEZlZWRiYWNrUmVxdWVzdBIVCg1wcmVkaWN0aW9uX2lkGAEgASgJEg0KBWxhYmVsGAIgASgJEg0KBXZhbHVlGAMgASgBIicKFFNlbmRGZWVkYmFja1Jlc3BvbnNlEg8KB2NvcnJlY3QYASABKAgi6wEKDEFyY2hpdGVjdHVyZRIMCgRuYW1lGAEgASgJEg0KBXRpdGxlGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhMKC2lucHV0X3NoYXBlGAQgAygDEg4KBmxhYmVscxgFIAMoCRIRCgl0cmFpbmFibGUYBiABKAgSDQoFaW5wdXQYByABKAkSDgoGb3V0cHV0GAggASgJEg4KBmN1c3RvbRgJIAEoCBINCgVpdGVtcxgKIAEoBRISCgpkZXNpZ25hYmxlGAsgASgIEg8KB2xlYXJuZWQYDCABKAgSDgoGdGFyZ2V0GA0gASgJIkIKBkNvbHVtbhIMCgRuYW1lGAEgASgJEgwKBGtpbmQYAiABKAkSDgoGdmFsdWVzGAMgAygJEgwKBGZpbGwYBCABKAEipQQKBU1vZGVsEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSFAoMYXJjaGl0ZWN0dXJlGAQgASgJEiUKBnN0YXR1cxgFIAEoDjIVLm1pbWlyLnYxLk1vZGVsU3RhdHVzEhUKDXN0YXR1c19kZXRhaWwYBiABKAkSEgoKc2l6ZV9ieXRlcxgHIAEoAxIvCgtjcmVhdGVfdGltZRgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLdXBkYXRlX3RpbWUYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2lucHV0X3NoYXBlGAogAygDEg4KBmxhYmVscxgLIAMoCRIQCghmZWF0dXJlcxgMIAMoCRIOCgZqb2JfaWQYDSABKAkSEAoIYWNjdXJhY3kYDiABKAESEQoJd29ya2VyX2lkGA8gASgJEiEKB2NvbHVtbnMYECADKAsyEC5taW1pci52MS5Db2x1bW4SLAoIbGFuZ3VhZ2UYESABKAsyGi5taW1pci52MS5MYW5ndWFnZVNldHRpbmdzEhEKCW9uX2RldmljZRgSIAEoCBIPCgd2ZXJzaW9uGBMgASgJEhIKCnZlcnNpb25faWQYFCABKAkSFQoNYmFzZV9tb2RlbF9pZBgVIAEoCRIXCg9iYXNlX21vZGVsX25hbWUYFiABKAkiYwoQTGFuZ3VhZ2VTZXR0aW5ncxIUCgxpbnN0cnVjdGlvbnMYASABKAkSEwoLdGVtcGVyYXR1cmUYAiABKAISEgoKbWF4X3Rva2VucxgDIAEoBRIQCghhcGlfbmFtZRgEIAEoCSInCgZUZW5zb3ISDQoFc2hhcGUYASADKAMSDgoGdmFsdWVzGAIgAygCIisKBUd1ZXNzEg0KBWxhYmVsGAEgASgJEhMKC3Byb2JhYmlsaXR5GAIgASgCIhoKGExpc3RBcmNoaXRlY3R1cmVzUmVxdWVzdCJKChlMaXN0QXJjaGl0ZWN0dXJlc1Jlc3BvbnNlEi0KDWFyY2hpdGVjdHVyZXMYASADKAsyFi5taW1pci52MS5BcmNoaXRlY3R1cmUiEwoRTGlzdE1vZGVsc1JlcXVlc3QiNQoSTGlzdE1vZGVsc1Jlc3BvbnNlEh8KBm1vZGVscxgBIAMoCzIPLm1pbWlyLnYxLk1vZGVsIh0KD0dldE1vZGVsUmVxdWVzdBIKCgJpZBgBIAEoCSIyChBHZXRNb2RlbFJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwikwEKEkNyZWF0ZU1vZGVsUmVxdWVzdBIMCgRuYW1lGAEgASgJEhMKC2Rlc2NyaXB0aW9uGAIgASgJEhQKDGFyY2hpdGVjdHVyZRgDIAEoCRIPCgd3ZWlnaHRzGAQgASgMEg4KBmxhYmVscxgFIAMoCRITCgtpbnB1dF9zaGFwZRgGIAMoAxIOCgZ1cGxvYWQYByABKAkiNQoTQ3JlYXRlTW9kZWxSZXNwb25zZRIeCgVtb2RlbBgBIAEoCzIPLm1pbWlyLnYxLk1vZGVsIpcBChJVcGRhdGVNb2RlbFJlcXVlc3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRIsCghsYW5ndWFnZRgEIAEoCzIaLm1pbWlyLnYxLkxhbmd1YWdlU2V0dGluZ3MSFgoJb25fZGV2aWNlGAUgASgISACIAQFCDAoKX29uX2RldmljZSI1ChNVcGRhdGVNb2RlbFJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwiIAoSRGVsZXRlTW9kZWxSZXF1ZXN0EgoKAmlkGAEgASgJIhUKE0RlbGV0ZU1vZGVsUmVzcG9uc2UixgEKDlByZWRpY3RSZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEh8KBWlucHV0GAIgASgLMhAubWltaXIudjEuVGVuc29yEg0KBXRvcF9rGAMgASgFEjQKBmZpZWxkcxgEIAMoCzIkLm1pbWlyLnYxLlByZWRpY3RSZXF1ZXN0LkZpZWxkc0VudHJ5Eg0KBXBob3RvGAUgASgMGi0KC0ZpZWxkc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEizQEKD1ByZWRpY3RSZXNwb25zZRIgCgZvdXRwdXQYASABKAsyEC5taW1pci52MS5UZW5zb3ISIAoHZ3Vlc3NlcxgCIAMoCzIPLm1pbWlyLnYxLkd1ZXNzEhcKD2R1cmF0aW9uX21pY3JvcxgDIAEoAxInCg1wcm9iYWJpbGl0aWVzGAQgASgLMhAubWltaXIudjEuVGVuc29yEg4KBm51bWJlchgFIAEoCBINCgV2YWx1ZRgGIAEoARIVCg1wcmVkaWN0aW9uX2lkGAcgASgJImoKD0dlbmVyYXRlUmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRIOCgZwcm9tcHQYAiABKAkSEgoKbWF4X3Rva2VucxgDIAEoBRITCgt0ZW1wZXJhdHVyZRgEIAEoAhIMCgRzZWVkGAUgASgEIiwKC0NoYXRNZXNzYWdlEgwKBHJvbGUYASABKAkSDwoHY29udGVudBgCIAEoCSLAAQoLQ2hhdFJlcXVlc3QSEAoIbW9kZWxfaWQYASABKAkSJwoIbWVzc2FnZXMYAiADKAsyFS5taW1pci52MS5DaGF0TWVzc2FnZRIZCgxpbnN0cnVjdGlvbnMYAyABKAlIAIgBARISCgptYXhfdG9rZW5zGAQgASgFEhgKC3RlbXBlcmF0dXJlGAUgASgCSAGIAQESDAoEc2VlZBgGIAEoBEIPCg1faW5zdHJ1Y3Rpb25zQg4KDF90ZW1wZXJhdHVyZSKeAQoMQ2hhdFJlc3BvbnNlEgwKBHRleHQYASABKAkSDAoEZG9uZRgCIAEoCBIVCg1wcm9tcHRfdG9rZW5zGAMgASgFEhgKEGdlbmVyYXRlZF90b2tlbnMYBCABKAUSEAoIZmluaXNoZWQYBSABKAgSFwoPZHVyYXRpb25fbWljcm9zGAYgASgDEhYKDmNvbnRleHRfdG9rZW5zGAcgASgFInAKFUdlbmVyYXRlU3RyZWFtUmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRIOCgZwcm9tcHQYAiABKAkSEgoKbWF4X3Rva2VucxgDIAEoBRITCgt0ZW1wZXJhdHVyZRgEIAEoAhIMCgRzZWVkGAUgASgEIqgBChZHZW5lcmF0ZVN0cmVhbVJlc3BvbnNlEgwKBHRleHQYASABKAkSDAoEZG9uZRgCIAEoCBIVCg1wcm9tcHRfdG9rZW5zGAMgASgFEhgKEGdlbmVyYXRlZF90b2tlbnMYBCABKAUSEAoIZmluaXNoZWQYBSABKAgSFwoPZHVyYXRpb25fbWljcm9zGAYgASgDEhYKDmNvbnRleHRfdG9rZW5zGAcgASgFInwKEEdlbmVyYXRlUmVzcG9uc2USDAoEdGV4dBgBIAEoCRIVCg1wcm9tcHRfdG9rZW5zGAIgASgFEhgKEGdlbmVyYXRlZF90b2tlbnMYAyABKAUSEAoIZmluaXNoZWQYBCABKAgSFwoPZHVyYXRpb25fbWljcm9zGAUgASgDIiMKFUdldERldmljZU1vZGVsUmVxdWVzdBIKCgJpZBgBIAEoCSJJChZHZXREZXZpY2VNb2RlbFJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwSDwoHd2VpZ2h0cxgCIAEoDCqnAQoSTW9kZWxWZXJzaW9uU291cmNlEiQKIE1PREVMX1ZFUlNJT05fU09VUkNFX1VOU1BFQ0lGSUVEEAASIQodTU9ERUxfVkVSU0lPTl9TT1VSQ0VfVVBMT0FERUQQARIgChxNT0RFTF9WRVJTSU9OX1NPVVJDRV9UUkFJTkVEEAISJgoiTU9ERUxfVkVSU0lPTl9TT1VSQ0VfS0VFUF9MRUFSTklORxADKlwKC01vZGVsU3RhdHVzEhwKGE1PREVMX1NUQVRVU19VTlNQRUNJRklFRBAAEhYKEk1PREVMX1NUQVRVU19SRUFEWRABEhcKE01PREVMX1NUQVRVU19GQUlMRUQQAjLuCAoMTW9kZWxTZXJ2aWNlEmEKEUxpc3RBcmNoaXRlY3R1cmVzEiIubWltaXIudjEuTGlzdEFyY2hpdGVjdHVyZXNSZXF1ZXN0GiMubWltaXIudjEuTGlzdEFyY2hpdGVjdHVyZXNSZXNwb25zZSIDkAIBEkwKCkxpc3RNb2RlbHMSGy5taW1pci52MS5MaXN0TW9kZWxzUmVxdWVzdBocLm1pbWlyLnYxLkxpc3RNb2RlbHNSZXNwb25zZSIDkAIBEkYKCEdldE1vZGVsEhkubWltaXIudjEuR2V0TW9kZWxSZXF1ZXN0GhoubWltaXIudjEuR2V0TW9kZWxSZXNwb25zZSIDkAIBEkoKC0NyZWF0ZU1vZGVsEhwubWltaXIudjEuQ3JlYXRlTW9kZWxSZXF1ZXN0Gh0ubWltaXIudjEuQ3JlYXRlTW9kZWxSZXNwb25zZRJKCgtVcGRhdGVNb2RlbBIcLm1pbWlyLnYxLlVwZGF0ZU1vZGVsUmVxdWVzdBodLm1pbWlyLnYxLlVwZGF0ZU1vZGVsUmVzcG9uc2USSgoLRGVsZXRlTW9kZWwSHC5taW1pci52MS5EZWxldGVNb2RlbFJlcXVlc3QaHS5taW1pci52MS5EZWxldGVNb2RlbFJlc3BvbnNlElMKDlNldE1vZGVsV29ya2VyEh8ubWltaXIudjEuU2V0TW9kZWxXb3JrZXJSZXF1ZXN0GiAubWltaXIudjEuU2V0TW9kZWxXb3JrZXJSZXNwb25zZRJZChBTYXZlQXJjaGl0ZWN0dXJlEiEubWltaXIudjEuU2F2ZUFyY2hpdGVjdHVyZVJlcXVlc3QaIi5taW1pci52MS5TYXZlQXJjaGl0ZWN0dXJlUmVzcG9uc2USWAoOR2V0RGV2aWNlTW9kZWwSHy5taW1pci52MS5HZXREZXZpY2VNb2RlbFJlcXVlc3QaIC5taW1pci52MS5HZXREZXZpY2VNb2RlbFJlc3BvbnNlIgOQAgESXwoSRGVsZXRlQXJjaGl0ZWN0dXJlEiMubWltaXIudjEuRGVsZXRlQXJjaGl0ZWN0dXJlUmVxdWVzdBokLm1pbWlyLnYxLkRlbGV0ZUFyY2hpdGVjdHVyZVJlc3BvbnNlEmEKEUxpc3RNb2RlbFZlcnNpb25zEiIubWltaXIudjEuTGlzdE1vZGVsVmVyc2lvbnNSZXF1ZXN0GiMubWltaXIudjEuTGlzdE1vZGVsVmVyc2lvbnNSZXNwb25zZSIDkAIBElYKD1VzZU1vZGVsVmVyc2lvbhIgLm1pbWlyLnYxLlVzZU1vZGVsVmVyc2lvblJlcXVlc3QaIS5taW1pci52MS5Vc2VNb2RlbFZlcnNpb25SZXNwb25zZRJbCg9HZXRNb2RlbFF1YWxpdHkSIC5taW1pci52MS5HZXRNb2RlbFF1YWxpdHlSZXF1ZXN0GiEubWltaXIudjEuR2V0TW9kZWxRdWFsaXR5UmVzcG9uc2UiA5ACATLyAgoOUHJlZGljdFNlcnZpY2USPgoHUHJlZGljdBIYLm1pbWlyLnYxLlByZWRpY3RSZXF1ZXN0GhkubWltaXIudjEuUHJlZGljdFJlc3BvbnNlEkEKCEdlbmVyYXRlEhkubWltaXIudjEuR2VuZXJhdGVSZXF1ZXN0GhoubWltaXIudjEuR2VuZXJhdGVSZXNwb25zZRJVCg5HZW5lcmF0ZVN0cmVhbRIfLm1pbWlyLnYxLkdlbmVyYXRlU3RyZWFtUmVxdWVzdBogLm1pbWlyLnYxLkdlbmVyYXRlU3RyZWFtUmVzcG9uc2UwARI3CgRDaGF0EhUubWltaXIudjEuQ2hhdFJlcXVlc3QaFi5taW1pci52MS5DaGF0UmVzcG9uc2UwARJNCgxTZW5kRmVlZGJhY2sSHS5taW1pci52MS5TZW5kRmVlZGJhY2tSZXF1ZXN0Gh4ubWltaXIudjEuU2VuZEZlZWRiYWNrUmVzcG9uc2VCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChRtaW1pci92MS9tb2RlbC5wcm90bxIIbWltaXIudjEiOAoWR2V0TW9kZWxRdWFsaXR5UmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRIMCgRkYXlzGAIgASgFImkKClF1YWxpdHlEYXkSJwoDZGF5GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdhbnN3ZXJzGAIgASgDEhAKCGZlZWRiYWNrGAMgASgDEg8KB2NvcnJlY3QYBCABKAMikgEKF0dldE1vZGVsUXVhbGl0eVJlc3BvbnNlEiIKBGRheXMYASADKAsyFC5taW1pci52MS5RdWFsaXR5RGF5EhQKDHdlZWtfYW5zd2VycxgCIAEoAxIVCg13ZWVrX2ZlZWRiYWNrGAMgASgDEhUKDXdlZWtfYWNjdXJhY3kYBCABKAESDwoHZHJvcHBlZBgFIAEoCCLrAQoMTW9kZWxWZXJzaW9uEgoKAmlkGAEgASgJEg4KBm51bWJlchgCIAEoBRIsCgZzb3VyY2UYAyABKA4yHC5taW1pci52MS5Nb2RlbFZlcnNpb25Tb3VyY2USLwoLY3JlYXRlX3RpbWUYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCnNpemVfYnl0ZXMYBSABKAMSDgoGc2hhMjU2GAYgASgJEhAKCGFjY3VyYWN5GAcgASgBEg4KBmpvYl9pZBgIIAEoCRIMCgRub3RlGAkgASgJEgwKBGxpdmUYCiABKAgiLAoYTGlzdE1vZGVsVmVyc2lvbnNSZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJIkUKGUxpc3RNb2RlbFZlcnNpb25zUmVzcG9uc2USKAoIdmVyc2lvbnMYASADKAsyFi5taW1pci52MS5Nb2RlbFZlcnNpb24iPgoWVXNlTW9kZWxWZXJzaW9uUmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRISCgp2ZXJzaW9uX2lkGAIgASgJIjkKF1VzZU1vZGVsVmVyc2lvblJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwieQoXU2F2ZUFyY2hpdGVjdHVyZVJlcXVlc3QSDAoEbmFtZRgBIAEoCRINCgV0aXRsZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRINCgVpbnB1dBgEIAEoCRIOCgZvdXRwdXQYBSABKAkSDQoFaXRlbXMYBiABKAUiSAoYU2F2ZUFyY2hpdGVjdHVyZVJlc3BvbnNlEiwKDGFyY2hpdGVjdHVyZRgBIAEoCzIWLm1pbWlyLnYxLkFyY2hpdGVjdHVyZSIpChlEZWxldGVBcmNoaXRlY3R1cmVSZXF1ZXN0EgwKBG5hbWUYASABKAkiHAoaRGVsZXRlQXJjaGl0ZWN0dXJlUmVzcG9uc2UiNgoVU2V0TW9kZWxXb3JrZXJSZXF1ZXN0EgoKAmlkGAEgASgJEhEKCXdvcmtlcl9pZBgCIAEoCSI4ChZTZXRNb2RlbFdvcmtlclJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwiSgoTU2VuZEZlZWRiYWNrUmVxdWVzdBIVCg1wcmVkaWN0aW9uX2lkGAEgASgJEg0KBWxhYmVsGAIgASgJEg0KBXZhbHVlGAMgASgBIicKFFNlbmRGZWVkYmFja1Jlc3BvbnNlEg8KB2NvcnJlY3QYASABKAgi6wEKDEFyY2hpdGVjdHVyZRIMCgRuYW1lGAEgASgJEg0KBXRpdGxlGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhMKC2lucHV0X3NoYXBlGAQgAygDEg4KBmxhYmVscxgFIAMoCRIRCgl0cmFpbmFibGUYBiABKAgSDQoFaW5wdXQYByABKAkSDgoGb3V0cHV0GAggASgJEg4KBmN1c3RvbRgJIAEoCBINCgVpdGVtcxgKIAEoBRISCgpkZXNpZ25hYmxlGAsgASgIEg8KB2xlYXJuZWQYDCABKAgSDgoGdGFyZ2V0GA0gASgJIkIKBkNvbHVtbhIMCgRuYW1lGAEgASgJEgwKBGtpbmQYAiABKAkSDgoGdmFsdWVzGAMgAygJEgwKBGZpbGwYBCABKAEipQQKBU1vZGVsEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSFAoMYXJjaGl0ZWN0dXJlGAQgASgJEiUKBnN0YXR1cxgFIAEoDjIVLm1pbWlyLnYxLk1vZGVsU3RhdHVzEhUKDXN0YXR1c19kZXRhaWwYBiABKAkSEgoKc2l6ZV9ieXRlcxgHIAEoAxIvCgtjcmVhdGVfdGltZRgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLdXBkYXRlX3RpbWUYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2lucHV0X3NoYXBlGAogAygDEg4KBmxhYmVscxgLIAMoCRIQCghmZWF0dXJlcxgMIAMoCRIOCgZqb2JfaWQYDSABKAkSEAoIYWNjdXJhY3kYDiABKAESEQoJd29ya2VyX2lkGA8gASgJEiEKB2NvbHVtbnMYECADKAsyEC5taW1pci52MS5Db2x1bW4SLAoIbGFuZ3VhZ2UYESABKAsyGi5taW1pci52MS5MYW5ndWFnZVNldHRpbmdzEhEKCW9uX2RldmljZRgSIAEoCBIPCgd2ZXJzaW9uGBMgASgJEhIKCnZlcnNpb25faWQYFCABKAkSFQoNYmFzZV9tb2RlbF9pZBgVIAEoCRIXCg9iYXNlX21vZGVsX25hbWUYFiABKAkiYwoQTGFuZ3VhZ2VTZXR0aW5ncxIUCgxpbnN0cnVjdGlvbnMYASABKAkSEwoLdGVtcGVyYXR1cmUYAiABKAISEgoKbWF4X3Rva2VucxgDIAEoBRIQCghhcGlfbmFtZRgEIAEoCSInCgZUZW5zb3ISDQoFc2hhcGUYASADKAMSDgoGdmFsdWVzGAIgAygCIisKBUd1ZXNzEg0KBWxhYmVsGAEgASgJEhMKC3Byb2JhYmlsaXR5GAIgASgCIl0KA0JveBINCgVsYWJlbBgBIAEoCRINCgVzY29yZRgCIAEoAhIMCgRsZWZ0GAMgASgCEgsKA3RvcBgEIAEoAhINCgV3aWR0aBgFIAEoAhIOCgZoZWlnaHQYBiABKAIiGgoYTGlzdEFyY2hpdGVjdHVyZXNSZXF1ZXN0IkoKGUxpc3RBcmNoaXRlY3R1cmVzUmVzcG9uc2USLQoNYXJjaGl0ZWN0dXJlcxgBIAMoCzIWLm1pbWlyLnYxLkFyY2hpdGVjdHVyZSITChFMaXN0TW9kZWxzUmVxdWVzdCI1ChJMaXN0TW9kZWxzUmVzcG9uc2USHwoGbW9kZWxzGAEgAygLMg8ubWltaXIudjEuTW9kZWwiHQoPR2V0TW9kZWxSZXF1ZXN0EgoKAmlkGAEgASgJIjIKEEdldE1vZGVsUmVzcG9uc2USHgoFbW9kZWwYASABKAsyDy5taW1pci52MS5Nb2RlbCKTAQoSQ3JlYXRlTW9kZWxSZXF1ZXN0EgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSFAoMYXJjaGl0ZWN0dXJlGAMgASgJEg8KB3dlaWdodHMYBCABKAwSDgoGbGFiZWxzGAUgAygJEhMKC2lucHV0X3NoYXBlGAYgAygDEg4KBnVwbG9hZBgHIAEoCSI1ChNDcmVhdGVNb2RlbFJlc3BvbnNlEh4KBW1vZGVsGAEgASgLMg8ubWltaXIudjEuTW9kZWwilwEKElVwZGF0ZU1vZGVsUmVxdWVzdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEiwKCGxhbmd1YWdlGAQgASgLMhoubWltaXIudjEuTGFuZ3VhZ2VTZXR0aW5ncxIWCglvbl9kZXZpY2UYBSABKAhIAIgBAUIMCgpfb25fZGV2aWNlIjUKE1VwZGF0ZU1vZGVsUmVzcG9uc2USHgoFbW9kZWwYASABKAsyDy5taW1pci52MS5Nb2RlbCIgChJEZWxldGVNb2RlbFJlcXVlc3QSCgoCaWQYASABKAkiFQoTRGVsZXRlTW9kZWxSZXNwb25zZSLVAQoOUHJlZGljdFJlcXVlc3QSEAoIbW9kZWxfaWQYASABKAkSHwoFaW5wdXQYAiABKAsyEC5taW1pci52MS5UZW5zb3ISDQoFdG9wX2sYAyABKAUSNAoGZmllbGRzGAQgAygLMiQubWltaXIudjEuUHJlZGljdFJlcXVlc3QuRmllbGRzRW50cnkSDQoFcGhvdG8YBSABKAwSDQoFc291bmQYBiABKAwaLQoLRmllbGRzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASLrAQoPUHJlZGljdFJlc3BvbnNlEiAKBm91dHB1dBgBIAEoCzIQLm1pbWlyLnYxLlRlbnNvchIgCgdndWVzc2VzGAIgAygLMg8ubWltaXIudjEuR3Vlc3MSFwoPZHVyYXRpb25fbWljcm9zGAMgASgDEicKDXByb2JhYmlsaXRpZXMYBCABKAsyEC5taW1pci52MS5UZW5zb3ISDgoGbnVtYmVyGAUgASgIEg0KBXZhbHVlGAYgASgBEhUKDXByZWRpY3Rpb25faWQYByABKAkSHAoFYm94ZXMYCCADKAsyDS5taW1pci52MS5Cb3giagoPR2VuZXJhdGVSZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEg4KBnByb21wdBgCIAEoCRISCgptYXhfdG9rZW5zGAMgASgFEhMKC3RlbXBlcmF0dXJlGAQgASgCEgwKBHNlZWQYBSABKAQiLAoLQ2hhdE1lc3NhZ2USDAoEcm9sZRgBIAEoCRIPCgdjb250ZW50GAIgASgJIsABCgtDaGF0UmVxdWVzdBIQCghtb2RlbF9pZBgBIAEoCRInCghtZXNzYWdlcxgCIAMoCzIVLm1pbWlyLnYxLkNoYXRNZXNzYWdlEhkKDGluc3RydWN0aW9ucxgDIAEoCUgAiAEBEhIKCm1heF90b2tlbnMYBCABKAUSGAoLdGVtcGVyYXR1cmUYBSABKAJIAYgBARIMCgRzZWVkGAYgASgEQg8KDV9pbnN0cnVjdGlvbnNCDgoMX3RlbXBlcmF0dXJlIp4BCgxDaGF0UmVzcG9uc2USDAoEdGV4dBgBIAEoCRIMCgRkb25lGAIgASgIEhUKDXByb21wdF90b2tlbnMYAyABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgEIAEoBRIQCghmaW5pc2hlZBgFIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBiABKAMSFgoOY29udGV4dF90b2tlbnMYByABKAUicAoVR2VuZXJhdGVTdHJlYW1SZXF1ZXN0EhAKCG1vZGVsX2lkGAEgASgJEg4KBnByb21wdBgCIAEoCRISCgptYXhfdG9rZW5zGAMgASgFEhMKC3RlbXBlcmF0dXJlGAQgASgCEgwKBHNlZWQYBSABKAQiqAEKFkdlbmVyYXRlU3RyZWFtUmVzcG9uc2USDAoEdGV4dBgBIAEoCRIMCgRkb25lGAIgASgIEhUKDXByb21wdF90b2tlbnMYAyABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgEIAEoBRIQCghmaW5pc2hlZBgFIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBiABKAMSFgoOY29udGV4dF90b2tlbnMYByABKAUifAoQR2VuZXJhdGVSZXNwb25zZRIMCgR0ZXh0GAEgASgJEhUKDXByb21wdF90b2tlbnMYAiABKAUSGAoQZ2VuZXJhdGVkX3Rva2VucxgDIAEoBRIQCghmaW5pc2hlZBgEIAEoCBIXCg9kdXJhdGlvbl9taWNyb3MYBSABKAMiIwoVR2V0RGV2aWNlTW9kZWxSZXF1ZXN0EgoKAmlkGAEgASgJIkkKFkdldERldmljZU1vZGVsUmVzcG9uc2USHgoFbW9kZWwYASABKAsyDy5taW1pci52MS5Nb2RlbBIPCgd3ZWlnaHRzGAIgASgMKqcBChJNb2RlbFZlcnNpb25Tb3VyY2USJAogTU9ERUxfVkVSU0lPTl9TT1VSQ0VfVU5TUEVDSUZJRUQQABIhCh1NT0RFTF9WRVJTSU9OX1NPVVJDRV9VUExPQURFRBABEiAKHE1PREVMX1ZFUlNJT05fU09VUkNFX1RSQUlORUQQAhImCiJNT0RFTF9WRVJTSU9OX1NPVVJDRV9LRUVQX0xFQVJOSU5HEAMqXAoLTW9kZWxTdGF0dXMSHAoYTU9ERUxfU1RBVFVTX1VOU1BFQ0lGSUVEEAASFgoSTU9ERUxfU1RBVFVTX1JFQURZEAESFwoTTU9ERUxfU1RBVFVTX0ZBSUxFRBACMu4ICgxNb2RlbFNlcnZpY2USYQoRTGlzdEFyY2hpdGVjdHVyZXMSIi5taW1pci52MS5MaXN0QXJjaGl0ZWN0dXJlc1JlcXVlc3QaIy5taW1pci52MS5MaXN0QXJjaGl0ZWN0dXJlc1Jlc3BvbnNlIgOQAgESTAoKTGlzdE1vZGVscxIbLm1pbWlyLnYxLkxpc3RNb2RlbHNSZXF1ZXN0GhwubWltaXIudjEuTGlzdE1vZGVsc1Jlc3BvbnNlIgOQAgESRgoIR2V0TW9kZWwSGS5taW1pci52MS5HZXRNb2RlbFJlcXVlc3QaGi5taW1pci52MS5HZXRNb2RlbFJlc3BvbnNlIgOQAgESSgoLQ3JlYXRlTW9kZWwSHC5taW1pci52MS5DcmVhdGVNb2RlbFJlcXVlc3QaHS5taW1pci52MS5DcmVhdGVNb2RlbFJlc3BvbnNlEkoKC1VwZGF0ZU1vZGVsEhwubWltaXIudjEuVXBkYXRlTW9kZWxSZXF1ZXN0Gh0ubWltaXIudjEuVXBkYXRlTW9kZWxSZXNwb25zZRJKCgtEZWxldGVNb2RlbBIcLm1pbWlyLnYxLkRlbGV0ZU1vZGVsUmVxdWVzdBodLm1pbWlyLnYxLkRlbGV0ZU1vZGVsUmVzcG9uc2USUwoOU2V0TW9kZWxXb3JrZXISHy5taW1pci52MS5TZXRNb2RlbFdvcmtlclJlcXVlc3QaIC5taW1pci52MS5TZXRNb2RlbFdvcmtlclJlc3BvbnNlElkKEFNhdmVBcmNoaXRlY3R1cmUSIS5taW1pci52MS5TYXZlQXJjaGl0ZWN0dXJlUmVxdWVzdBoiLm1pbWlyLnYxLlNhdmVBcmNoaXRlY3R1cmVSZXNwb25zZRJYCg5HZXREZXZpY2VNb2RlbBIfLm1pbWlyLnYxLkdldERldmljZU1vZGVsUmVxdWVzdBogLm1pbWlyLnYxLkdldERldmljZU1vZGVsUmVzcG9uc2UiA5ACARJfChJEZWxldGVBcmNoaXRlY3R1cmUSIy5taW1pci52MS5EZWxldGVBcmNoaXRlY3R1cmVSZXF1ZXN0GiQubWltaXIudjEuRGVsZXRlQXJjaGl0ZWN0dXJlUmVzcG9uc2USYQoRTGlzdE1vZGVsVmVyc2lvbnMSIi5taW1pci52MS5MaXN0TW9kZWxWZXJzaW9uc1JlcXVlc3QaIy5taW1pci52MS5MaXN0TW9kZWxWZXJzaW9uc1Jlc3BvbnNlIgOQAgESVgoPVXNlTW9kZWxWZXJzaW9uEiAubWltaXIudjEuVXNlTW9kZWxWZXJzaW9uUmVxdWVzdBohLm1pbWlyLnYxLlVzZU1vZGVsVmVyc2lvblJlc3BvbnNlElsKD0dldE1vZGVsUXVhbGl0eRIgLm1pbWlyLnYxLkdldE1vZGVsUXVhbGl0eVJlcXVlc3QaIS5taW1pci52MS5HZXRNb2RlbFF1YWxpdHlSZXNwb25zZSIDkAIBMvICCg5QcmVkaWN0U2VydmljZRI+CgdQcmVkaWN0EhgubWltaXIudjEuUHJlZGljdFJlcXVlc3QaGS5taW1pci52MS5QcmVkaWN0UmVzcG9uc2USQQoIR2VuZXJhdGUSGS5taW1pci52MS5HZW5lcmF0ZVJlcXVlc3QaGi5taW1pci52MS5HZW5lcmF0ZVJlc3BvbnNlElUKDkdlbmVyYXRlU3RyZWFtEh8ubWltaXIudjEuR2VuZXJhdGVTdHJlYW1SZXF1ZXN0GiAubWltaXIudjEuR2VuZXJhdGVTdHJlYW1SZXNwb25zZTABEjcKBENoYXQSFS5taW1pci52MS5DaGF0UmVxdWVzdBoWLm1pbWlyLnYxLkNoYXRSZXNwb25zZTABEk0KDFNlbmRGZWVkYmFjaxIdLm1pbWlyLnYxLlNlbmRGZWVkYmFja1JlcXVlc3QaHi5taW1pci52MS5TZW5kRmVlZGJhY2tSZXNwb25zZUI3WjVnaXRodWIuY29tL2dzb3VsdGFuL21pbWlyLXNlcnZlci9nZW4vbWltaXIvdjE7bWltaXJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * @generated from message mimir.v1.GetModelQualityRequest
@@ -877,6 +877,51 @@ export const GuessSchema: GenMessage<Guess> = /*@__PURE__*/
   messageDesc(file_mimir_v1_model, 21);
 
 /**
+ * Box is a thing found in a photo: what it is, how sure the model is, and
+ * where, as shares of the photo's width and height from its top left.
+ *
+ * @generated from message mimir.v1.Box
+ */
+export type Box = Message<"mimir.v1.Box"> & {
+  /**
+   * @generated from field: string label = 1;
+   */
+  label: string;
+
+  /**
+   * @generated from field: float score = 2;
+   */
+  score: number;
+
+  /**
+   * @generated from field: float left = 3;
+   */
+  left: number;
+
+  /**
+   * @generated from field: float top = 4;
+   */
+  top: number;
+
+  /**
+   * @generated from field: float width = 5;
+   */
+  width: number;
+
+  /**
+   * @generated from field: float height = 6;
+   */
+  height: number;
+};
+
+/**
+ * Describes the message mimir.v1.Box.
+ * Use `create(BoxSchema)` to create a new message.
+ */
+export const BoxSchema: GenMessage<Box> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_model, 22);
+
+/**
  * @generated from message mimir.v1.ListArchitecturesRequest
  */
 export type ListArchitecturesRequest = Message<"mimir.v1.ListArchitecturesRequest"> & {
@@ -887,7 +932,7 @@ export type ListArchitecturesRequest = Message<"mimir.v1.ListArchitecturesReques
  * Use `create(ListArchitecturesRequestSchema)` to create a new message.
  */
 export const ListArchitecturesRequestSchema: GenMessage<ListArchitecturesRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 22);
+  messageDesc(file_mimir_v1_model, 23);
 
 /**
  * @generated from message mimir.v1.ListArchitecturesResponse
@@ -904,7 +949,7 @@ export type ListArchitecturesResponse = Message<"mimir.v1.ListArchitecturesRespo
  * Use `create(ListArchitecturesResponseSchema)` to create a new message.
  */
 export const ListArchitecturesResponseSchema: GenMessage<ListArchitecturesResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 23);
+  messageDesc(file_mimir_v1_model, 24);
 
 /**
  * @generated from message mimir.v1.ListModelsRequest
@@ -917,7 +962,7 @@ export type ListModelsRequest = Message<"mimir.v1.ListModelsRequest"> & {
  * Use `create(ListModelsRequestSchema)` to create a new message.
  */
 export const ListModelsRequestSchema: GenMessage<ListModelsRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 24);
+  messageDesc(file_mimir_v1_model, 25);
 
 /**
  * @generated from message mimir.v1.ListModelsResponse
@@ -934,7 +979,7 @@ export type ListModelsResponse = Message<"mimir.v1.ListModelsResponse"> & {
  * Use `create(ListModelsResponseSchema)` to create a new message.
  */
 export const ListModelsResponseSchema: GenMessage<ListModelsResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 25);
+  messageDesc(file_mimir_v1_model, 26);
 
 /**
  * @generated from message mimir.v1.GetModelRequest
@@ -951,7 +996,7 @@ export type GetModelRequest = Message<"mimir.v1.GetModelRequest"> & {
  * Use `create(GetModelRequestSchema)` to create a new message.
  */
 export const GetModelRequestSchema: GenMessage<GetModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 26);
+  messageDesc(file_mimir_v1_model, 27);
 
 /**
  * @generated from message mimir.v1.GetModelResponse
@@ -968,7 +1013,7 @@ export type GetModelResponse = Message<"mimir.v1.GetModelResponse"> & {
  * Use `create(GetModelResponseSchema)` to create a new message.
  */
 export const GetModelResponseSchema: GenMessage<GetModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 27);
+  messageDesc(file_mimir_v1_model, 28);
 
 /**
  * @generated from message mimir.v1.CreateModelRequest
@@ -1032,7 +1077,7 @@ export type CreateModelRequest = Message<"mimir.v1.CreateModelRequest"> & {
  * Use `create(CreateModelRequestSchema)` to create a new message.
  */
 export const CreateModelRequestSchema: GenMessage<CreateModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 28);
+  messageDesc(file_mimir_v1_model, 29);
 
 /**
  * @generated from message mimir.v1.CreateModelResponse
@@ -1049,7 +1094,7 @@ export type CreateModelResponse = Message<"mimir.v1.CreateModelResponse"> & {
  * Use `create(CreateModelResponseSchema)` to create a new message.
  */
 export const CreateModelResponseSchema: GenMessage<CreateModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 29);
+  messageDesc(file_mimir_v1_model, 30);
 
 /**
  * @generated from message mimir.v1.UpdateModelRequest
@@ -1092,7 +1137,7 @@ export type UpdateModelRequest = Message<"mimir.v1.UpdateModelRequest"> & {
  * Use `create(UpdateModelRequestSchema)` to create a new message.
  */
 export const UpdateModelRequestSchema: GenMessage<UpdateModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 30);
+  messageDesc(file_mimir_v1_model, 31);
 
 /**
  * @generated from message mimir.v1.UpdateModelResponse
@@ -1109,7 +1154,7 @@ export type UpdateModelResponse = Message<"mimir.v1.UpdateModelResponse"> & {
  * Use `create(UpdateModelResponseSchema)` to create a new message.
  */
 export const UpdateModelResponseSchema: GenMessage<UpdateModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 31);
+  messageDesc(file_mimir_v1_model, 32);
 
 /**
  * @generated from message mimir.v1.DeleteModelRequest
@@ -1126,7 +1171,7 @@ export type DeleteModelRequest = Message<"mimir.v1.DeleteModelRequest"> & {
  * Use `create(DeleteModelRequestSchema)` to create a new message.
  */
 export const DeleteModelRequestSchema: GenMessage<DeleteModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 32);
+  messageDesc(file_mimir_v1_model, 33);
 
 /**
  * @generated from message mimir.v1.DeleteModelResponse
@@ -1139,7 +1184,7 @@ export type DeleteModelResponse = Message<"mimir.v1.DeleteModelResponse"> & {
  * Use `create(DeleteModelResponseSchema)` to create a new message.
  */
 export const DeleteModelResponseSchema: GenMessage<DeleteModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 33);
+  messageDesc(file_mimir_v1_model, 34);
 
 /**
  * @generated from message mimir.v1.PredictRequest
@@ -1179,6 +1224,13 @@ export type PredictRequest = Message<"mimir.v1.PredictRequest"> & {
    * @generated from field: bytes photo = 5;
    */
   photo: Uint8Array;
+
+  /**
+   * sound is a WAV file, for a model that listens to sounds.
+   *
+   * @generated from field: bytes sound = 6;
+   */
+  sound: Uint8Array;
 };
 
 /**
@@ -1186,7 +1238,7 @@ export type PredictRequest = Message<"mimir.v1.PredictRequest"> & {
  * Use `create(PredictRequestSchema)` to create a new message.
  */
 export const PredictRequestSchema: GenMessage<PredictRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 34);
+  messageDesc(file_mimir_v1_model, 35);
 
 /**
  * @generated from message mimir.v1.PredictResponse
@@ -1238,6 +1290,13 @@ export type PredictResponse = Message<"mimir.v1.PredictResponse"> & {
    * @generated from field: string prediction_id = 7;
    */
   predictionId: string;
+
+  /**
+   * boxes are the things a model that finds things found, surest first.
+   *
+   * @generated from field: repeated mimir.v1.Box boxes = 8;
+   */
+  boxes: Box[];
 };
 
 /**
@@ -1245,7 +1304,7 @@ export type PredictResponse = Message<"mimir.v1.PredictResponse"> & {
  * Use `create(PredictResponseSchema)` to create a new message.
  */
 export const PredictResponseSchema: GenMessage<PredictResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 35);
+  messageDesc(file_mimir_v1_model, 36);
 
 /**
  * @generated from message mimir.v1.GenerateRequest
@@ -1292,7 +1351,7 @@ export type GenerateRequest = Message<"mimir.v1.GenerateRequest"> & {
  * Use `create(GenerateRequestSchema)` to create a new message.
  */
 export const GenerateRequestSchema: GenMessage<GenerateRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 36);
+  messageDesc(file_mimir_v1_model, 37);
 
 /**
  * ChatMessage is one turn of a chat.
@@ -1318,7 +1377,7 @@ export type ChatMessage = Message<"mimir.v1.ChatMessage"> & {
  * Use `create(ChatMessageSchema)` to create a new message.
  */
 export const ChatMessageSchema: GenMessage<ChatMessage> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 37);
+  messageDesc(file_mimir_v1_model, 38);
 
 /**
  * @generated from message mimir.v1.ChatRequest
@@ -1371,7 +1430,7 @@ export type ChatRequest = Message<"mimir.v1.ChatRequest"> & {
  * Use `create(ChatRequestSchema)` to create a new message.
  */
 export const ChatRequestSchema: GenMessage<ChatRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 38);
+  messageDesc(file_mimir_v1_model, 39);
 
 /**
  * ChatResponse is a piece of the answer as it is written. The last one has
@@ -1428,7 +1487,7 @@ export type ChatResponse = Message<"mimir.v1.ChatResponse"> & {
  * Use `create(ChatResponseSchema)` to create a new message.
  */
 export const ChatResponseSchema: GenMessage<ChatResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 39);
+  messageDesc(file_mimir_v1_model, 40);
 
 /**
  * GenerateStreamRequest is a GenerateRequest whose text comes back piece by
@@ -1468,7 +1527,7 @@ export type GenerateStreamRequest = Message<"mimir.v1.GenerateStreamRequest"> & 
  * Use `create(GenerateStreamRequestSchema)` to create a new message.
  */
 export const GenerateStreamRequestSchema: GenMessage<GenerateStreamRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 40);
+  messageDesc(file_mimir_v1_model, 41);
 
 /**
  * GenerateStreamResponse is a piece of the text as it is written. The last
@@ -1525,7 +1584,7 @@ export type GenerateStreamResponse = Message<"mimir.v1.GenerateStreamResponse"> 
  * Use `create(GenerateStreamResponseSchema)` to create a new message.
  */
 export const GenerateStreamResponseSchema: GenMessage<GenerateStreamResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 41);
+  messageDesc(file_mimir_v1_model, 42);
 
 /**
  * @generated from message mimir.v1.GenerateResponse
@@ -1569,7 +1628,7 @@ export type GenerateResponse = Message<"mimir.v1.GenerateResponse"> & {
  * Use `create(GenerateResponseSchema)` to create a new message.
  */
 export const GenerateResponseSchema: GenMessage<GenerateResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 42);
+  messageDesc(file_mimir_v1_model, 43);
 
 /**
  * @generated from message mimir.v1.GetDeviceModelRequest
@@ -1586,7 +1645,7 @@ export type GetDeviceModelRequest = Message<"mimir.v1.GetDeviceModelRequest"> & 
  * Use `create(GetDeviceModelRequestSchema)` to create a new message.
  */
 export const GetDeviceModelRequestSchema: GenMessage<GetDeviceModelRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 43);
+  messageDesc(file_mimir_v1_model, 44);
 
 /**
  * @generated from message mimir.v1.GetDeviceModelResponse
@@ -1611,7 +1670,7 @@ export type GetDeviceModelResponse = Message<"mimir.v1.GetDeviceModelResponse"> 
  * Use `create(GetDeviceModelResponseSchema)` to create a new message.
  */
 export const GetDeviceModelResponseSchema: GenMessage<GetDeviceModelResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_model, 44);
+  messageDesc(file_mimir_v1_model, 45);
 
 /**
  * ModelVersionSource says where a version's weights came from.

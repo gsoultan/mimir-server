@@ -97,9 +97,15 @@ func hidden(name string) bool {
 // Folders returns the photos in each top folder, by folder name, and how
 // many photos sit outside any folder.
 func (a *Archive) Folders() (folders map[string][]string, loose int) {
+	return a.FoldersOf(schema.IsPhotoName)
+}
+
+// FoldersOf returns the files is picks in each top folder, by folder
+// name, and how many it picks outside any folder.
+func (a *Archive) FoldersOf(is func(name string) bool) (folders map[string][]string, loose int) {
 	folders = map[string][]string{}
 	for name := range a.files {
-		if !schema.IsPhotoName(name) {
+		if !is(name) {
 			continue
 		}
 		dir, _, ok := strings.Cut(name, "/")
@@ -169,6 +175,15 @@ func (a *Archive) Photo(name string) ([]uint8, error) {
 		return nil, err
 	}
 	return schema.DecodePhoto(b)
+}
+
+// Sound returns a sound's samples (see schema.DecodeSound).
+func (a *Archive) Sound(name string) ([]int16, error) {
+	b, err := a.read(name, schema.MaxSoundBytes)
+	if err != nil {
+		return nil, err
+	}
+	return schema.DecodeSound(b)
 }
 
 // read returns a file's bytes, refusing more than limit.

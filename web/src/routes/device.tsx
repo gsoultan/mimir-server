@@ -69,7 +69,7 @@ function OnThisDevice() {
               key={asking.model.id + asking.model.version}
               model={asking.model}
               arch={asking.arch}
-              answer={(q) => device.answer({ id: asking.model.id, fields: q.fields, photo: q.photo, input: q.input?.values, topK: q.topK })}
+              answer={(q) => device.answer({ id: asking.model.id, fields: q.fields, photo: q.photo, sound: q.sound, input: q.input?.values, topK: q.topK })}
               where="on this device"
             />
           </Card>
