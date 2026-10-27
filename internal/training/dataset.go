@@ -249,9 +249,9 @@ func ParseTable(r io.Reader, target string, hints map[string]schema.Kind) (*Tabl
 			t.Y[i] = rank[c]
 		}
 	}
-	if !t.Numeric && t.Classes == nil {
-		return nil, fmt.Errorf("%w: the %q column has more than %d different values; for a category answer, at most %d", ErrBadTable, t.Target, MaxClasses, MaxClasses)
-	}
+	// More than MaxClasses answers that aren't all numbers can't be
+	// picked from, but can still be recommended: Architectures offers
+	// only the models that fit.
 
 	// Second pass: the numbers of every row, and how full each column is.
 	t.Profile = make([]Profile, len(t.Columns))
@@ -727,6 +727,12 @@ func Architectures(d store.Dataset) []string {
 				continue
 			}
 			switch {
+			case a.Target == arch.NoTarget || a.Target == arch.ItemTarget:
+				out = append(out, a.Name)
+			case a.Target == arch.ValueTarget:
+				if d.NumberTarget {
+					out = append(out, a.Name)
+				}
 			case a.Answers() == arch.Number:
 				if d.NumberTarget {
 					out = append(out, a.Name)
