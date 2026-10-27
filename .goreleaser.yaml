@@ -33,16 +33,24 @@ archives:
         formats: [zip]
     name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
     wrap_in_directory: true
+    # What the deploy guide installs from: the systemd units, proxy configs
+    # and the guides themselves.
     files:
       - README.md
+      - CHANGELOG.md
+      - docs/*.md
+      - deploy/**/*
 
 checksum:
   name_template: SHA256SUMS
   algorithm: sha256
 
 changelog:
-  # Release notes from the merged pull requests.
+  # Release notes from the merged pull requests; CHANGELOG.md has the
+  # summary by feature.
   use: github-native
 
 release:
   prerelease: auto
+  header: |
+    What changed, by feature: [CHANGELOG.md](https://github.com/gsoultan/mimir-server/blob/{{ .Tag }}/CHANGELOG.md).
