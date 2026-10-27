@@ -47,10 +47,11 @@ func WithLogDatabase(databaseURL string) Option {
 }
 
 // secretSetting reports whether a setting holds credentials: the alert
-// channels' settings carry a mail password and a bot token, and the
-// cloud settings an API token and a worker's token and key.
+// channels' settings carry a mail password and a bot token, the cloud
+// settings an API token and a worker's token and key, and the sign-in
+// settings each provider's client secret.
 func secretSetting(key string) bool {
-	return strings.HasPrefix(key, "alerts.") || strings.HasPrefix(key, "cloud.")
+	return strings.HasPrefix(key, "alerts.") || strings.HasPrefix(key, "cloud.") || strings.HasPrefix(key, "signin.")
 }
 
 func webhookContext(id string) string  { return "webhooks.secret:" + id }

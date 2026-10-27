@@ -3,6 +3,7 @@ import { createConnectQueryKey, createInfiniteQueryOptions, createQueryOptions }
 import { ApiKeyService, AuditService, AuthService, UserService } from "./gen/mimir/v1/access_pb";
 import { ModelService } from "./gen/mimir/v1/model_pb";
 import { SettingsService } from "./gen/mimir/v1/settings_pb";
+import { SignInService } from "./gen/mimir/v1/signin_pb";
 import { BenchmarkService } from "./gen/mimir/v1/benchmark_pb";
 import { DatasetService, TrainingService } from "./gen/mimir/v1/training_pb";
 import { WebhookService } from "./gen/mimir/v1/webhook_pb";
@@ -66,3 +67,6 @@ export const allWorkerQueries = createConnectQueryKey({ schema: WorkerService, c
 export const allTrainingQueries = createConnectQueryKey({ schema: TrainingService, cardinality: undefined });
 // The catalog only changes with the server, so it is fetched once.
 export const listTemplates = { ...createQueryOptions(TemplateService.method.listTemplates, {}, { transport }), staleTime: Infinity };
+export const signInOptions = createQueryOptions(SignInService.method.listSignInOptions, {}, { transport });
+export const signInProviders = createQueryOptions(SignInService.method.listSignInProviders, {}, { transport });
+export const allSignInQueries = createConnectQueryKey({ schema: SignInService, cardinality: undefined });
