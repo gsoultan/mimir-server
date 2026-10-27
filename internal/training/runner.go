@@ -494,6 +494,11 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if src.Kind == store.DatasetTable {
+		if src.CSV, err = r.withoutBenchmarks(ctx, d.ID, src.CSV); err != nil {
+			return "", err
+		}
+	}
 	task := Task{Arch: a, Source: src, Settings: j.Settings, History: j.History, CheckpointDir: r.st.JobDir(j.ID)}
 	var base, tuned store.Model
 	if a.Answers() == arch.Written {
@@ -545,6 +550,11 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if res.Report != nil {
+		if err := r.st.SetJobReport(ctx, j.ID, res.Report); err != nil {
+			r.log.Warn("training: couldn't store the run's report", "job_id", j.ID, "err", err)
+		}
+	}
 	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID, TeamID: j.TeamID, WorkerID: j.RunOn}
 	if tuned.ID != "" {
 		// The fine-tune runs on the console, as language models do, with
@@ -575,22 +585,23 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	if base.ID != "" {
 		// Replace the model in place only when the pass did at least as
 		// well, so apps never get a worse answer without someone choosing it.
-		switch {
-		case m.Accuracy+1e-9 < base.Accuracy:
-			setNote(fmt.Sprintf("Kept the previous version: it got %.0f%% right, this pass %.0f%%.", base.Accuracy*100, m.Accuracy*100))
+		// A worse pass is still kept as a version, for someone to choose.
+		live, note, kept := true, "Updated the model with what it learned from the latest examples.", ""
+		if res.Fresh {
+			note = "The columns or answers changed, so it learned from scratch and replaced the model."
+			kept = "Learned from scratch: the columns or answers changed."
+		}
+		if m.Accuracy+1e-9 < base.Accuracy {
+			live = false
+			note = fmt.Sprintf("Kept the previous version: it got %.0f%% right, this pass %.0f%%.", base.Accuracy*100, m.Accuracy*100)
+			kept = "Not put live: it did worse than the version answering then."
+		}
+		v, err := r.st.AddVersion(ctx, base.ID, m, res.Weights, live, kept)
+		if err == nil {
+			setNote(fmt.Sprintf("%s This pass is version %d.", note, v.Number))
 			return base.ID, nil
-		default:
-			m.Name, m.Description = base.Name, base.Description
-			if err := r.st.Replace(ctx, base.ID, m, res.Weights); err == nil {
-				note := "Updated the model with what it learned from the latest examples."
-				if res.Fresh {
-					note = "The columns or answers changed, so it learned from scratch and replaced the model."
-				}
-				setNote(note)
-				return base.ID, nil
-			} else if !errors.Is(err, store.ErrNotFound) {
-				return "", fmt.Errorf("couldn't update the model: %w", err)
-			}
+		} else if !errors.Is(err, store.ErrNotFound) {
+			return "", fmt.Errorf("couldn't update the model: %w", err)
 		}
 	}
 	created, err := r.st.Create(ctx, m, res.Weights)
@@ -667,4 +678,26 @@ func friendly(err error) string {
 		return "Training stopped with an internal error. It has been logged; try again, and report it if it keeps happening."
 	}
 	return "Training stopped with an error: " + err.Error()
+}
+
+// withoutBenchmarks leaves out of a dataset's rows those its benchmarks
+// test on, so no model learns the answers to its own test.
+func (r *Runner) withoutBenchmarks(ctx context.Context, datasetID string, table []byte) ([]byte, error) {
+	bs, err := r.st.DatasetBenchmarks(ctx, datasetID)
+	if err != nil || len(bs) == 0 {
+		return table, err
+	}
+	var frozen [][]byte
+	for _, b := range bs {
+		rows, err := r.st.ReadBenchmark(b.ID)
+		if errors.Is(err, store.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("couldn't read the benchmark %q: %w", b.Name, err)
+		}
+		frozen = append(frozen, rows)
+	}
+	out, _, err := Without(table, frozen...)
+	return out, err
 }

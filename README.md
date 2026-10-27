@@ -77,8 +77,9 @@ the main database. **Download a backup** covers the main database only;
 `mimir-server backup` (below) takes both.
 
 Secrets the server keeps in the database (webhook signing secrets, dataset
-connection strings, alert passwords and bot tokens, and each person's
-two-step verification key) are encrypted with
+connection strings, alert passwords and bot tokens, sign-in providers'
+client secrets, and each person's two-step verification key) are
+encrypted with
 AES-256-GCM, so a copy or backup of the database does not reveal them. The
 key is 32 random bytes as base64 or hex (`openssl rand -base64 32`), taken
 from `MIMIR_SECRET_KEY`, else from the file `-secret-key-file` (or
@@ -294,6 +295,22 @@ server-wide settings are theirs alone.
   authenticator, takes the password and a current code (or a recovery
   code), so a stolen cookie and password aren't enough. An admin can reset
   it for someone who lost their phone.
+- **Sign in with Google, GitHub or a company account.** Under
+  **Settings → Sign-in** an owner adds Google, GitHub, or any OpenID
+  Connect provider (Microsoft Entra ID, Okta, Keycloak, Authentik and the
+  like): the page shows the redirect address to register there, and takes
+  the client id and secret it gives back. The sign-in page then has a
+  "Continue with" button for each. Someone who already has an account
+  signs in with the email address the provider checked, and is tied to
+  that provider's id for them from then on, so a later change of address
+  at the provider keeps the same account. Someone new gets an account only
+  when one of the provider's rules matches their email domain or a group
+  (a GitHub organization, or the groups claim of an OpenID Connect token),
+  as a viewer, editor or admin in the rule's team; everyone else is turned
+  away. Two-step verification still asks for its code after the provider,
+  and the policy under **Settings → Security** still applies. The sign-in
+  uses PKCE and a nonce, and is checked against a short-lived cookie set
+  when it started, so a link can't sign you in to someone else's account.
 - **Sessions.** Each browser gets its own session, listed under
   **Security** with a sign-out button and a "sign out everywhere else"
   button. A session ends after 30 days, or 7 days without use, and is tied
@@ -421,7 +438,7 @@ a pass is due the server runs the query again, then teaches the same
 model further from where it left off. The model keeps its id, so apps
 keep working, and it is only replaced when the new pass scores at least as
 well on held-out rows; otherwise the run says it kept the previous
-version. If the columns or answers changed, the pass learns from scratch.
+version, and the pass is kept as a version you can still choose. If the columns or answers changed, the pass learns from scratch.
 The run page shows the schedule, the next pass and what each pass did,
 and the schedule can be changed or turned off there.
 
@@ -440,10 +457,33 @@ Datasets and runs are also in the API (`DatasetService`, `TrainingService`
 in `proto/mimir/v1/training.proto`), and webhooks can listen for
 `training.queued`, `training.finished` and `training.failed`.
 
+### Versions
+
+Every model keeps the weights it has had as numbered versions: version 1
+is its upload or the run that taught it, and each keep-learning pass adds
+one, including a pass that scored worse and so wasn't put live. The
+model's page lists them, newest first, with where each came from, its
+score and the run that made it; **Use this one** puts an earlier (or a
+held-back) version live. The model keeps its id, so apps carry on, and the
+next question is answered with that version's weights, by the console and
+by workers alike. A model keeps its 20 newest versions, and always the
+live one. The files sit under `models/versions/` in the data folder,
+hard-linked to the live weights where the disk allows, so the live
+version takes no extra space.
+
+In the API, `ModelService.ListModelVersions` lists them and
+`ModelService.UseModelVersion` puts one live; the switch is in the audit
+log and sends a `model.updated` webhook with the version.
+
 ## Use it from your app
 
 Every method works over Connect (HTTP/JSON), gRPC and gRPC-Web. The API is
 in `proto/mimir/v1/model.proto`.
+
+From Go, [mimir-server-sdk](https://github.com/gsoultan/mimir-server-sdk)
+wraps it: models, predictions, streamed chats, training runs, webhooks,
+people and workers, with retries and paged lists
+(`go get github.com/gsoultan/mimir-server-sdk`).
 
 ```sh
 curl localhost:8080/mimir.v1.PredictService/Predict \

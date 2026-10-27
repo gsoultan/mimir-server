@@ -179,6 +179,10 @@ type Trained struct {
 	Columns    []Column
 	// Fresh says BaseWeights didn't fit and it learned from scratch.
 	Fresh bool
+	// Report, when set, is how the model did on the examples kept aside,
+	// as JSON the console shows on the run. Built-in models fill it; a
+	// custom Trainer may leave it empty.
+	Report []byte
 }
 
 // Trainer is a Handler that can also train its architecture.
@@ -855,7 +859,7 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		reply(&mimirv1.TrainResult{}) // member 0 sends the weights
 	default:
 		reply(&mimirv1.TrainResult{
-			Weights: res.Weights, History: epochsToProto(res.History), Fresh: res.Fresh,
+			Weights: res.Weights, History: epochsToProto(res.History), Fresh: res.Fresh, Report: res.Report,
 			Spec: &mimirv1.ModelSpec{InputShape: int64s(res.InputShape), Labels: res.Labels, Features: res.Features, Columns: columnsToProto(res.Columns)},
 		})
 	}
