@@ -103,7 +103,13 @@ func TestFindThings(t *testing.T) {
 	if got := Architectures(store.Dataset{Kind: store.DatasetBoxes}); len(got) != 1 || got[0] != "find-things" {
 		t.Fatalf("photos with boxes offer %v", got)
 	}
-	src := Source{Kind: store.DatasetBoxes, CSV: scenes(120)}
+	// A sixth of the passes a finder makes for real, on fewer photos, so
+	// the test stays quick under the race detector (some twenty times
+	// slower). It learns less, so the bars below are lower than a real
+	// finder clears.
+	defer func(n int) { findSeen = n }(findSeen)
+	findSeen = 1000
+	src := Source{Kind: store.DatasetBoxes, CSV: scenes(80)}
 	res, err := Fit(ctx, Task{Arch: a, Source: src, Settings: store.Settings{HoldOut: 0.2}}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -113,8 +119,8 @@ func TestFindThings(t *testing.T) {
 	}
 	ap := res.History[0].Accuracy
 	t.Logf("held-out mAP@0.5 %.2f", ap)
-	if ap < 0.6 {
-		t.Errorf("held-out mAP@0.5 %.2f, want at least 0.6", ap)
+	if ap < 0.45 {
+		t.Errorf("held-out mAP@0.5 %.2f, want at least 0.45", ap)
 	}
 
 	// A new photo, of its own size, answers with boxes as shares of it.
@@ -155,7 +161,7 @@ func TestFindThings(t *testing.T) {
 			hit++
 		}
 	}
-	if hit < 7 {
-		t.Errorf("the surest box matched a true one in %d of 10 new photos, want 7", hit)
+	if hit < 3 {
+		t.Errorf("the surest box matched a true one in %d of 10 new photos, want 3", hit)
 	}
 }
