@@ -23,6 +23,10 @@ type Learner struct {
 	// for a number). It returns the model as a module and its shape for
 	// Build. progress, when not nil, is told how far it is.
 	Fit func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(done, total int)) (nn.Module, string, error)
+	// Cells, set in place of Fit, learns from a table's cells themselves,
+	// for a model whose questions aren't the table's rows, or that has no
+	// answer column: it says what its questions name and its answers are.
+	Cells func(ctx context.Context, c Cells, progress func(done, total int)) (Learned, error)
 	// Build returns an empty module of the shape Fit returned, for its
 	// saved weights to load into.
 	Build func(shape string) (nn.Module, error)
@@ -166,5 +170,29 @@ var learned = []Architecture{
 		Title:       "Linear regression",
 		Description: "Weighs each column up or down and adds them up into a number. The simplest model, taught in a moment, and each column's weight says how much it matters.",
 		Input:       Table, AnyText: true, Output: Number, Learner: straight,
+	},
+	{
+		Name:        "find-groups",
+		Title:       "Find groups",
+		Description: "Sorts the rows into a few groups of similar ones, like kinds of customers, with no answers to learn from. It picks how many groups fit best, from 2 to 8, and names each after what sets it apart.",
+		Input:       Table, AnyText: true, Target: NoTarget, Learner: groups,
+	},
+	{
+		Name:        "odd-one",
+		Title:       "Spot the odd one",
+		Description: "Learns what usual rows look like, with no answers to learn from, then scores how unusual a new one is from 0 to 1: about 0.5 or less is usual, and near 1 is unlike anything it has seen.",
+		Input:       Table, AnyText: true, Output: Number, Target: NoTarget, Learner: oddOne,
+	},
+	{
+		Name:        "recommend",
+		Title:       "Recommend",
+		Description: "Learns from who picked which item, such as purchases, clicks or ratings, and lists the items each person is likeliest to want. Someone it hasn't seen gets the items most people like.",
+		Input:       Table, AnyText: true, Output: Ranked, Items: recommendTop, Target: ItemTarget, Learner: recommender,
+	},
+	{
+		Name:        "forecast",
+		Title:       "Forecast over time",
+		Description: "Learns from a value's history, one row per day, hour, week or month, and says what comes next, up to a month of days ahead. With a column like store, it forecasts each one, and their total.",
+		Input:       Table, AnyText: true, Output: Number, Target: ValueTarget, Learner: forecaster,
 	},
 }

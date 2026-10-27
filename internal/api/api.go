@@ -222,6 +222,7 @@ func archProto(a arch.Architecture) *mimirv1.Architecture {
 		Items:       int32(a.Items),
 		Designable:  a.Designable,
 		Learned:     a.Learner != nil,
+		Target:      string(a.Target),
 	}
 }
 

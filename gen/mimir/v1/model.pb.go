@@ -1099,7 +1099,13 @@ type Architecture struct {
 	// learned says models of this shape, such as boosted trees and linear
 	// models, are fit to the whole table at once: the epochs, batch size
 	// and learning rate of TrainingSettings don't apply.
-	Learned       bool `protobuf:"varint,12,opt,name=learned,proto3" json:"learned,omitempty"`
+	Learned bool `protobuf:"varint,12,opt,name=learned,proto3" json:"learned,omitempty"`
+	// target is what a dataset's answer column is to models of this shape:
+	// "" the answer they learn to give, "none" nothing (they read every
+	// column and need no answers), "item" the item someone picked (another
+	// column says who), or "value" a value over time to forecast (a date
+	// column says when).
+	Target        string `protobuf:"bytes,13,opt,name=target,proto3" json:"target,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1216,6 +1222,13 @@ func (x *Architecture) GetLearned() bool {
 		return x.Learned
 	}
 	return false
+}
+
+func (x *Architecture) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
 }
 
 // Column is one column a model reads and how it becomes numbers.
@@ -3234,7 +3247,7 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
 	"\x05value\x18\x03 \x01(\x01R\x05value\"0\n" +
 	"\x14SendFeedbackResponse\x12\x18\n" +
-	"\acorrect\x18\x01 \x01(\bR\acorrect\"\xc7\x02\n" +
+	"\acorrect\x18\x01 \x01(\bR\acorrect\"\xdf\x02\n" +
 	"\fArchitecture\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3251,7 +3264,8 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\n" +
 	"designable\x18\v \x01(\bR\n" +
 	"designable\x12\x18\n" +
-	"\alearned\x18\f \x01(\bR\alearned\"\\\n" +
+	"\alearned\x18\f \x01(\bR\alearned\x12\x16\n" +
+	"\x06target\x18\r \x01(\tR\x06target\"\\\n" +
 	"\x06Column\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
