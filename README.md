@@ -129,7 +129,7 @@ any other, so nothing downstream sees the original format.
   `PredictService.Chat`, `Generate` or `GenerateStream`, or the
   OpenAI-compatible API under `/v1` (see Use it from your app). Language
   models run on the console itself, one generation at a time per model,
-  not on workers.
+  not on workers; workers can fine-tune them (see below).
 
   A chat is written out in the format the model was trained on: ChatML
   (Qwen, SmolLM), Llama 3, Zephyr (TinyLlama Chat), `[INST]` (Llama 2,
@@ -143,6 +143,43 @@ any other, so nothing downstream sees the original format.
 
 The server goes by what the file holds: a GGUF file added as a Mimir Model
 file still becomes a language model.
+
+### Fine-tune a language model on your own writing
+
+**Fine-tune it** on a language model's page teaches it from your own
+examples with LoRA: small trainable pairs next to its attention
+projections learn, while the model's own weights stay as they are,
+quantized or not. Upload either:
+
+- plain text (`.txt`, `.md`), such as documents or notes, which it learns
+  whole, in passages of about 2,000 characters split at paragraphs; or
+- JSON Lines, one example a line, in the formats OpenAI's fine-tuning
+  takes: `{"messages": [...]}` chats, of which it learns the assistant's
+  answers, `{"prompt": ..., "completion": ...}`, of which it learns the
+  completion, or `{"text": ...}` passages.
+
+A file can be up to 64 MB and 100,000 examples; each example counts up to
+its first 512 tokens. A run defaults to 3 passes of 4 examples a step at
+a learning rate of 2e-4, rank 8 pairs scaled by 16/8, and keeps a tenth
+of the examples aside to score on: its score is how many tokens of those
+it writes as they go on. A run resumes from its last pass when it is
+stopped.
+
+The fine-tune is a model of its own, with the base model's chat settings,
+that answers in **Try a model**, `PredictService` and the OpenAI API like
+any language model. Its file is only the adapter, a few megabytes, stored
+next to the base model; it names the base by its SHA-256, so it is never
+applied to another, and the base can't be deleted while it has
+fine-tunes. Fine-tuning a fine-tune continues from its adapter.
+
+A run trains on a worker when one is connected, so a rented GPU box does
+the heavy part (see Console and workers), as long as the base model's
+file is under 1 GB, the most a worker takes in one message; a larger
+model trains on the console. The fine-tune then runs on the console, as
+language models do. In the API, a fine-tune is a `TrainingService.CreateJob`
+of architecture `language-model` on a dataset of kind
+`DATASET_KIND_TEXT`, with `base_model_id` naming the model to start from.
+The adapter format is mimir-model's `spec/adapters.md`.
 
 Anything else, such as an ONNX model with an operator outside that list,
 a recurrent or quantized ONNX model, a GGUF file of another architecture
@@ -526,13 +563,29 @@ client = OpenAI(base_url="http://localhost:8080/v1", api_key="mimir_...")
 print(client.chat.completions.create(model="tiny-llama", messages=[{"role": "user", "content": "Hello!"}]).choices[0].message.content)
 ```
 
-It serves `GET /v1/models`, `POST /v1/chat/completions` and
-`POST /v1/completions`, with `stream` (server-sent events, ending in
-`data: [DONE]`, and `stream_options.include_usage`), `max_tokens` or
+It serves `GET /v1/models`, `POST /v1/chat/completions`,
+`POST /v1/completions` and `POST /v1/embeddings`. Completions take
+`stream` (server-sent events, ending in `data: [DONE]`, and
+`stream_options.include_usage`), `max_tokens` or
 `max_completion_tokens`, `temperature`, `seed` and `stop` (up to four
 strings). System and developer messages become the instructions. Tools,
 images, `n` above 1 and log probabilities aren't supported and are refused
 with a 400.
+
+`/v1/embeddings` turns `input`, a string or a list of up to 256, into an
+embedding each, for search and grouping: the mean of the model's last
+hidden states over the text's first 512 tokens, scaled to length 1, so
+the dot product of two says how alike they are. A fine-tune embeds with
+its adapter. It takes `encoding_format` `float` or `base64`; `dimensions`
+must be left out or match the model's width, and lists of tokens aren't
+taken.
+
+```sh
+curl localhost:8080/v1/embeddings \
+  -H 'Authorization: Bearer mimir_...' \
+  -H 'Content-Type: application/json' \
+  -d '{"model": "tiny-llama", "input": ["Where is my order?", "Shipping times"]}'
+```
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public.

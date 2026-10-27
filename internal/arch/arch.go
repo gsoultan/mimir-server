@@ -227,8 +227,9 @@ func (a Architecture) Answers() Output {
 // Fixed reports whether the architecture's shape and labels are built in.
 func (a Architecture) Fixed() bool { return len(a.Spec.InputShape) > 0 }
 
-// Trainable reports whether the server can teach models of this shape.
-func (a Architecture) Trainable() bool { return !a.File }
+// Trainable reports whether the server can teach models of this shape: a
+// language model learns by fine-tuning, the other files not at all.
+func (a Architecture) Trainable() bool { return !a.File || a.Answers() == Written }
 
 // LanguageModel is the name of the architecture of language models, which
 // come as whole Mimir Model files.
@@ -335,7 +336,7 @@ var builtin = []Architecture{
 	{
 		Name:        LanguageModel,
 		Title:       "Language model",
-		Description: "Give it the start of a text and it carries on writing. Upload a GGUF file of a Llama, TinyLlama, Mistral, SmolLM or Qwen 2 model; it becomes a .mim file when you upload it.",
+		Description: "Give it the start of a text and it carries on writing. Upload a GGUF file of a Llama, TinyLlama, Mistral, SmolLM or Qwen 2 model; it becomes a .mim file when you upload it. Fine-tune one on your own writing or chats to make it answer your way.",
 		Input:       Prompt,
 		Output:      Written,
 		File:        true,

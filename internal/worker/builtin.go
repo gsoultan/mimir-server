@@ -5,6 +5,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 
 	"github.com/gsoultan/mimir-server/internal/arch"
@@ -26,11 +27,27 @@ func Builtin(data string) map[string]worker.Handler {
 	out := map[string]worker.Handler{}
 	for _, a := range arch.All() {
 		if a.Answers() == arch.Written {
-			continue // language models run on the console
+			out[a.Name] = fineTuner{&handler{a: a, data: data}}
+			continue
 		}
 		out[a.Name] = &handler{a: a, data: data, cache: cache}
 	}
 	return out
+}
+
+// fineTuner fine-tunes language models. They run on the console, so it
+// takes no predictions, and a fine-tune trains on one worker: it is not a
+// GroupTrainer.
+type fineTuner struct{ h *handler }
+
+var _ worker.Trainer = fineTuner{}
+
+func (f fineTuner) Predict(context.Context, *worker.Model, []float32) (worker.Prediction, error) {
+	return worker.Prediction{}, errors.New("language models run on the console, not on workers")
+}
+
+func (f fineTuner) Train(ctx context.Context, t worker.TrainTask, progress func(worker.Progress)) (worker.Trained, error) {
+	return f.h.Train(ctx, t, progress)
 }
 
 type handler struct {
@@ -85,6 +102,8 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 		src = training.Source{Kind: store.DatasetPhotos, CSV: t.Dataset.Archive}
 	case "photo_table":
 		src = training.Source{Kind: store.DatasetPhotoTable, CSV: t.Dataset.Archive, Target: t.Dataset.Target}
+	case "text":
+		src = training.Source{Kind: store.DatasetText, CSV: t.Dataset.Text}
 	}
 	for _, c := range t.Dataset.Columns {
 		src.Columns = append(src.Columns, schema.Column{Name: c.Name, Kind: schema.Kind(c.Kind), Values: c.Values, Fill: c.Fill})
@@ -96,6 +115,7 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 		History:       fromSDK(t.History),
 		CheckpointDir: filepath.Join(h.data, "training", t.JobID),
 		BaseWeights:   t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
+		BaseAdapter: t.BaseAdapter,
 	}
 	if t.Group != nil {
 		task.Group = group{t.Group}

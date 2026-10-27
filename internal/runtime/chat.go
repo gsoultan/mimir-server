@@ -165,3 +165,65 @@ func (lm *LanguageModel) Chat(ctx context.Context, msgs []Message, s Sampling) (
 	s.special = true
 	return lm.Generate(ctx, lm.chat.render(msgs), s)
 }
+
+// ChatTokens returns the tokens of a chat as the model reads it, written
+// in its chat format, and which of them are the assistant's answers: the
+// tokens a fine-tune learns to write, each answer up to and including the
+// marker that ends its turn. Unlike Chat, it takes any order of user and
+// assistant messages.
+func (lm *LanguageModel) ChatTokens(msgs []Message) (ids []int32, learn []bool) {
+	f := lm.chat
+	add := func(text string, learned bool) {
+		t := lm.encodeFrom(text, true, false)
+		ids = append(ids, t...)
+		for range t {
+			learn = append(learn, learned)
+		}
+	}
+	ids = lm.encodeFrom("", true, true)
+	learn = make([]bool, len(ids))
+	var pending string // instructions for a format without a system turn
+	for _, m := range msgs {
+		c := m.Content
+		switch {
+		case m.Role == RoleSystem && !f.system:
+			pending = c
+			continue
+		case m.Role == RoleUser && pending != "":
+			c, pending = pending+"\n\n"+c, ""
+		}
+		turn := f.turn(m.Role, c)
+		if answer, ok := strings.CutPrefix(turn, f.reply); ok && m.Role == RoleAssistant {
+			add(f.reply, false)
+			add(answer, true)
+			continue
+		}
+		add(turn, false)
+	}
+	return ids, learn
+}
+
+// CompletionTokens returns the tokens of a prompt followed by its
+// completion and the end-of-text token, and which of them are the
+// completion's, the tokens a fine-tune learns to write. Without a
+// completion, every token of the prompt is learned: it is a passage of
+// text to write like.
+func (lm *LanguageModel) CompletionTokens(prompt, completion string) (ids []int32, learn []bool) {
+	ids = lm.encode(prompt, false)
+	learn = make([]bool, len(ids))
+	if completion == "" {
+		for i := range learn {
+			learn[i] = true
+		}
+	} else {
+		c := lm.encodeFrom(completion, false, false)
+		ids = append(ids, c...)
+		for range c {
+			learn = append(learn, true)
+		}
+	}
+	if eos := lm.tok.EOS(); eos >= 0 && int(eos) < lm.tok.VocabSize() {
+		ids, learn = append(ids, eos), append(learn, true)
+	}
+	return ids, learn
+}

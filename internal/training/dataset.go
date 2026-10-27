@@ -491,7 +491,8 @@ func (t *Table) Split(holdOut float64, seed uint64, batch int) (train, test Set,
 // photos held in memory, or the built-in handwritten digits in a folder.
 type Source struct {
 	Kind store.DatasetKind
-	// CSV is the table for DatasetTable, or the ZIP for the photo kinds.
+	// CSV is the table for DatasetTable, the ZIP for the photo kinds, or
+	// the writing for DatasetText (see ParseText).
 	CSV    []byte
 	Target string // the answer column, or "" for the last
 	// Columns are the dataset's columns as first found; their kinds are
@@ -521,6 +522,12 @@ func SourceOf(st *store.Store, d store.Dataset) (Source, error) {
 			return Source{}, err
 		}
 		return Source{Kind: d.Kind, CSV: b, Target: d.Target, Columns: d.Columns}, nil
+	case store.DatasetText:
+		b, err := st.ReadDataset(d.ID)
+		if err != nil {
+			return Source{}, err
+		}
+		return Source{Kind: d.Kind, CSV: b}, nil
 	case store.DatasetMNIST:
 		return Source{Kind: d.Kind, MNISTDir: filepath.Join(st.DatasetDir(), "mnist")}, nil
 	}
@@ -737,6 +744,10 @@ func Architectures(d store.Dataset) []string {
 			}
 		case store.DatasetMNIST:
 			if a.Input == arch.Image && slices.Equal(a.Spec.InputShape, d.InputShape) {
+				out = append(out, a.Name)
+			}
+		case store.DatasetText:
+			if a.Answers() == arch.Written && !a.Custom {
 				out = append(out, a.Name)
 			}
 		}

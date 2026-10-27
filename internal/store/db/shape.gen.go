@@ -168,6 +168,7 @@ func _assertModelShape(m m0.Model) {
 		m.MaxTokens,
 		m.OnDevice,
 		m.VersionID,
+		m.BaseModelID,
 	}
 }
 
