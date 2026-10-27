@@ -1,7 +1,7 @@
 import { Badge, Card, Group, Text, ThemeIcon } from "@mantine/core";
 import {
   IconArrowRight, IconBooks, IconBrandGolang, IconCategory, IconChartDots3, IconChartLine, IconFileUpload, IconHeartHandshake, IconListNumbers,
-  IconMessageChatbot, IconScan, IconTable, IconToggleRight, IconZoomExclamation, type Icon,
+  IconMessageChatbot, IconScan, IconTable, IconToggleRight, IconTargetArrow, IconZoomExclamation, type Icon,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
@@ -16,6 +16,7 @@ export const goalIcons: Record<GoalId, Icon> = {
   recommend: IconHeartHandshake,
   forecast: IconChartLine,
   odd_one: IconZoomExclamation,
+  best_action: IconTargetArrow,
   find_in_photo: IconScan,
 };
 

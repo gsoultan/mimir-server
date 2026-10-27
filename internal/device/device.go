@@ -46,6 +46,9 @@ type Answer struct {
 	Number  bool    `json:"number,omitempty"`
 	Value   float64 `json:"value,omitempty"`
 	Guesses []Guess `json:"guesses,omitempty"`
+	// Values is a decision model's expected reward of each action, in the
+	// order of its labels.
+	Values []float32 `json:"values,omitempty"`
 }
 
 // ErrNotLoaded is what Predict returns for a model not loaded yet.
@@ -133,6 +136,9 @@ func (r *Runner) Predict(ctx context.Context, id string, q Question) (Answer, er
 	var out Answer
 	for _, g := range res.Top(l.spec.Labels, k) {
 		out.Guesses = append(out.Guesses, Guess{Label: g.Label, Probability: g.Probability})
+	}
+	if l.a.Target == arch.ActionTarget {
+		out.Values = res.Output
 	}
 	return out, nil
 }

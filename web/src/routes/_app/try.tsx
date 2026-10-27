@@ -79,7 +79,7 @@ function Try() {
       return device.answer({ id: model.id, fields: q.fields, photo: q.photo, input: q.input?.values, topK: q.topK });
     }
     const r = await predict.mutateAsync({ modelId: model.id, ...q, photo: q.photo ?? new Uint8Array() });
-    return { number: r.number, value: r.value, guesses: r.guesses, ms: Number(r.durationMicros) / 1000 };
+    return { number: r.number, value: r.value, guesses: r.guesses, values: arch?.target === "action" ? r.output?.values : undefined, ms: Number(r.durationMicros) / 1000 };
   };
   return (
     <Page title="Try a model" intro={askIntro(arch)}>

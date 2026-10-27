@@ -403,6 +403,12 @@ var learned = []Architecture{
 		Input:       Table, AnyText: true, Output: Ranked, Items: recommendTop, Target: ItemTarget, Learner: recommender,
 	},
 	{
+		Name:        "best-action",
+		Title:       "Pick the best action",
+		Description: "Learns from a log of what was done in each situation and how it turned out, such as which offer each customer saw and whether they bought, and says which action should turn out best in a new situation, with the result each would likely bring.",
+		Input:       Table, AnyText: true, Output: Ranked, Items: decideTop, Target: ActionTarget, Learner: decider,
+	},
+	{
 		Name:        "forecast",
 		Title:       "Forecast over time",
 		Description: "Learns from a value's history, one row per day, hour, week or month, and says what comes next, up to a month of days ahead. With a column like store, it forecasts each one, and their total.",

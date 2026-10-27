@@ -665,15 +665,17 @@ function Wizard({ data: dataType }: { data: DataType }) {
 
 // Role is what the answer column is to the model type asked for (see
 // Architecture.target).
-type Role = "" | "none" | "item" | "value";
+type Role = "" | "none" | "item" | "value" | "action";
 
 const itemWords = /item|product|sku|title|movie|film|song|track|book|article|course|dish|recipe/i;
+const actionWords = /offer|action|treatment|variant|choice|campaign|\barm\b|promo/i;
 
 // guessTarget picks the answer column to start with: for a recommender
-// the column that looks like the item, otherwise the last.
+// the column that looks like the item, for a decision model the one that
+// looks like the action, otherwise the last.
 function guessTarget(columns: string[], role: Role) {
-  if (role === "item") {
-    const c = columns.find((c) => itemWords.test(c));
+  if (role === "item" || role === "action") {
+    const c = columns.find((c) => (role === "item" ? itemWords : actionWords).test(c));
     if (c) return c;
   }
   return columns[columns.length - 1] ?? "";
@@ -687,6 +689,7 @@ function AnswerPicker({ role, columns, value, onChange }: { role: Role; columns:
     "": { label: "Which column is the answer?", hint: "The model learns to predict this from the other columns." },
     item: { label: "Which column is the item?", hint: "What each person picked, bought or rated. Another column, such as customer, says who." },
     value: { label: "Which column holds the value to forecast?", hint: "A number in every row, like units sold. A date column says when, and a column like store says which series." },
+    action: { label: "Which column is the action taken?", hint: "What was tried each time, like the offer shown. A column like reward, revenue or converted says how it turned out." },
   }[role];
   return <Select label={words.label} description={words.hint} data={columns} value={value} onChange={onChange} allowDeselect={false} />;
 }
