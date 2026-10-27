@@ -452,9 +452,12 @@ func TestClaimDueJobs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	j, err := s.CreateJob(ctx, Job{Name: "a", Architecture: "table-mlp", DatasetID: d.ID, RepeatSeconds: 3600, MinNewRows: 5, TrainedRows: 3})
+	j, err := s.CreateJob(ctx, Job{Name: "a", Architecture: "table-mlp", DatasetID: d.ID, RepeatSeconds: 3600, MinNewRows: 5, TrainedRows: 3, StartFrom: "m1"})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if got, err := s.GetJob(ctx, j.ID); err != nil || got.StartFrom != "m1" {
+		t.Fatalf("start from = %q, %v", got.StartFrom, err)
 	}
 	if err := s.SetJobStatus(ctx, j.ID, JobSucceeded, "", ""); err != nil {
 		t.Fatal(err)

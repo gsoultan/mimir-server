@@ -16,7 +16,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
-	github.com/gsoultan/mimir v0.3.3-0.20261027075946-f1f9564f33bf
+	github.com/gsoultan/mimir v0.3.3-0.20261027094659-e7bc55bed6e6
 	github.com/gsoultan/mimir-model v0.3.0
 	github.com/gsoultan/storm v1.4.0
 	github.com/jackc/pgx/v5 v5.11.0
