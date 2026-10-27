@@ -496,7 +496,17 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 			return nil, err
 		}
 	}
-	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat, TeamID: p.Team(), RunOn: runOn, MinNewRows: minRows, TrainedRows: d.Rows, BaseModelID: from})
+	start := req.Msg.GetStartFromModelId()
+	if start != "" {
+		m, err := s.get(ctx, start)
+		if err != nil {
+			return nil, err
+		}
+		if m.Architecture != a.Name {
+			return nil, invalid("%s can only start from another %s model.", a.Title, a.Title)
+		}
+	}
+	j, err := s.store.CreateJob(ctx, store.Job{Name: name, Description: desc, Architecture: a.Name, DatasetID: d.ID, Settings: set, CreatedBy: p.Actor(), RepeatSeconds: repeat, TeamID: p.Team(), RunOn: runOn, MinNewRows: minRows, TrainedRows: d.Rows, BaseModelID: from, StartFrom: start})
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
@@ -791,7 +801,7 @@ func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut, Layers: cluster.LayersToProto(j.Settings.Layers)},
 		Status:   mimirv1.JobStatus(j.Status), Error: j.Error, Epoch: int32(j.Epoch), ModelId: j.ModelID, Worker: j.Worker, CreatedBy: j.CreatedBy,
 		RepeatSeconds: j.RepeatSeconds, ParentId: j.ParentID, BaseModelId: j.BaseModelID, Note: j.Note, RunOn: j.RunOn,
-		MinNewRows: j.MinNewRows, TrainedRows: j.TrainedRows, CheckNote: j.CheckNote,
+		MinNewRows: j.MinNewRows, TrainedRows: j.TrainedRows, CheckNote: j.CheckNote, StartFromModelId: j.StartFrom,
 		CreateTime: timestamppb.New(j.Created), Accuracy: accuracy(j), StepsPerEpoch: int32(j.StepsPerEpoch), Step: int32(j.Step),
 	}
 	if !j.Started.IsZero() {

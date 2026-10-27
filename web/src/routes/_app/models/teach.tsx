@@ -12,7 +12,7 @@ import { z } from "zod";
 import { message } from "../../../api/client";
 import type { DataCheck as Check } from "../../../api/gen/mimir/v1/template_pb";
 import { DatasetKind, DatasetService, TrainingService, type Dataset } from "../../../api/gen/mimir/v1/training_pb";
-import { allDatasetQueries, allTrainingQueries, listArchitectures, listDatasets, listTemplates, whoAmI } from "../../../api/queries";
+import { allDatasetQueries, allTrainingQueries, listArchitectures, listDatasets, listModels, listTemplates, whoAmI } from "../../../api/queries";
 import { DataCheck } from "../../../components/DataCheck";
 import { ModelShape } from "../../../components/ModelShape";
 import { ButtonLink } from "../../../components/links";
@@ -37,6 +37,7 @@ export const Route = createFileRoute("/_app/models/teach")({
     context.queryClient.ensureQueryData(listDatasets),
     context.queryClient.ensureQueryData(listArchitectures),
     context.queryClient.ensureQueryData(listTemplates),
+    context.queryClient.ensureQueryData(listModels),
   ]),
   component: Teach,
 });
@@ -145,6 +146,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const { data: archs } = useSuspenseQuery(listArchitectures);
   const { data: templates } = useSuspenseQuery(listTemplates);
   const { data: me } = useSuspenseQuery(whoAmI);
+  const { data: models } = useSuspenseQuery(listModels);
   const tpl = templates.templates.find((t) => t.id === search.template);
   // A model type asked for up front, such as Find groups, may read the
   // answer column as something else, or need none.
@@ -166,6 +168,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const [dataset, setDataset] = useState<Dataset>();
   const [check, setCheck] = useState<Check>();
   const [arch, setArch] = useState("");
+  const [startFrom, setStartFrom] = useState("");
   const [size, setSize] = useState<Size>("medium");
   const [shapeSteps, setShapeSteps] = useState<Step[]>([]);
   const [name, setName] = useState(tpl?.name ?? "");
@@ -226,7 +229,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
     setArch((cur) => {
       if (tpl && d.architectures.includes(tpl.architecture)) return tpl.architecture;
       if (search.arch && d.architectures.includes(search.arch)) return search.arch;
-      return allowed.some((a) => a.name === cur) ? cur : allowed[0]?.name ?? "";
+      if (allowed.some((a) => a.name === cur)) return cur;
+      // Trying several and keeping the best is the safest first choice.
+      return (allowed.find((a) => a.name.endsWith("-auto")) ?? allowed[0])?.name ?? "";
     });
     if (!name) setName(d.kind === DatasetKind.MNIST ? "My digits model" : `${d.name.replace(/\.(csv|zip)$/i, "")} model`);
     if (d.kind === DatasetKind.MNIST) { setBatch(64); setRate(0.001); }
@@ -322,6 +327,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   // only when asked for.
   const allowed = archs.architectures.filter((a) => dataset?.architectures.includes(a.name) && (role ? a.name === search.arch : !a.target));
   const chosenArch = archs.architectures.find((a) => a.name === arch);
+  const earlier = models.models.filter((m) => m.architecture === arch);
   const picked = !!tpl && !!dataset && dataset.architectures.includes(tpl.architecture);
   const busy = createDataset.isPending || checkDataset.isPending;
   const ready0 = !!dataset
@@ -335,7 +341,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
     : { what: dataset?.labels.length === 2 ? dataset.labels.join(" or ") : `one of ${dataset?.labels.length ?? 0} answers`, count: dataset?.labels.length ?? 2 };
   const chosenEpochs = expert ? Number(epochs) : presets.find((p) => p.value === preset)!.epochs;
   const start = () => dataset && createJob.mutate({
-    name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n, minNewRows: fromQuery && repeat !== "0" ? BigInt(waitRows) : 0n, workerId: runOn,
+    name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n, minNewRows: fromQuery && repeat !== "0" ? BigInt(waitRows) : 0n, workerId: runOn, startFromModelId: earlier.some((m) => m.id === startFrom) ? startFrom : "",
     // Outside the expert settings, zero lets the server pick what suits the examples.
     settings: {
       epochs: chosenEpochs, batchSize: expert ? Number(batch) : 0, learningRate: expert ? Number(rate) : 0, holdOut: expert ? Number(holdOut) / 100 : 0.2,
@@ -533,6 +539,17 @@ function Wizard({ data: dataType }: { data: DataType }) {
                   ))}
                 </Stack>
               </Radio.Group>
+            )}
+            {chosenArch && !chosenArch.learned && earlier.length > 0 && (
+              <Select
+                mt="md"
+                label="Start from an earlier model"
+                description="It keeps what that model learned to see and learns these answers on top, so it needs fewer examples and less time."
+                data={[{ value: "", label: "No, start fresh" }, ...earlier.map((m) => ({ value: m.id, label: m.name }))]}
+                value={startFrom}
+                onChange={(v) => setStartFrom(v ?? "")}
+                allowDeselect={false}
+              />
             )}
             {chosenArch?.designable && dataset && (
               <ModelShape

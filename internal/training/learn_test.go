@@ -53,6 +53,8 @@ func TestLearnersFitAndServe(t *testing.T) {
 		{"number-boost", "amount", 8},
 		{"number-forest", "amount", 8},
 		{"number-linear", "amount", 40},
+		{"table-auto", "label", 0.9},
+		{"number-auto", "amount", 8},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, ok := arch.Lookup(tc.name)

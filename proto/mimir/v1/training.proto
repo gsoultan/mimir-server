@@ -396,6 +396,8 @@ message Job {
   // report is how the finished model did on the examples kept aside, in
   // detail. Set by GetJob and CompareJobs, not ListJobs.
   RunReport report = 31;
+  // start_from_model_id is the model the run started from, if any.
+  string start_from_model_id = 32;
 }
 
 // RunReport scores a finished run's model for its kind of answer. Which
@@ -493,6 +495,10 @@ message CreateJobRequest {
   // it with LoRA: a small file that runs on top of the base model's. A
   // fine-tune of a fine-tune continues from its adapter.
   string base_model_id = 9;
+  // start_from_model_id starts the run from what that model learned, a
+  // model of the same architecture: it keeps the layers that read the
+  // examples and learns this dataset's answers on top, as a new model.
+  string start_from_model_id = 10;
 }
 
 message CreateJobResponse {

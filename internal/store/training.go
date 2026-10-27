@@ -120,13 +120,16 @@ type Job struct {
 	NextRun       time.Time
 	ParentID      string // the first job of the chain, for later passes
 	BaseModelID   string // the model a pass continued from
-	Note          string // what a pass did with its result
-	CreatedBy     string
-	Created       time.Time
-	Started       time.Time // zero until it runs
-	Ended         time.Time // zero until it's done
-	TeamID        string
-	RunOn         string // the worker asked to train it; "" for any
+	// StartFrom is a model a new job starts from: it keeps what that model
+	// learned and learns its own answers on top, as a new model.
+	StartFrom string
+	Note      string // what a pass did with its result
+	CreatedBy string
+	Created   time.Time
+	Started   time.Time // zero until it runs
+	Ended     time.Time // zero until it's done
+	TeamID    string
+	RunOn     string // the worker asked to train it; "" for any
 	// MinNewRows > 0 makes a keep-learning pass wait until the source has
 	// at least that many rows more than TrainedRows, the rows this pass
 	// started with. CheckTime and CheckNote say when it last looked
@@ -384,6 +387,7 @@ func fromJob(r trainingjob.Row) Job {
 		NextRun:       timeOf(r.NextRun),
 		ParentID:      r.ParentID,
 		BaseModelID:   r.BaseModelID,
+		StartFrom:     r.StartFrom,
 		Note:          r.Note,
 		CreatedBy:     r.CreatedBy,
 		Created:       r.CreateTime.UTC(),
@@ -430,6 +434,7 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 	n.SetRepeatSeconds(j.RepeatSeconds)
 	n.SetParentID(j.ParentID)
 	n.SetBaseModelID(j.BaseModelID)
+	n.SetStartFrom(j.StartFrom)
 	n.SetTeamID(j.TeamID)
 	n.SetRunOn(j.RunOn)
 	n.SetMinNewRows(j.MinNewRows)
