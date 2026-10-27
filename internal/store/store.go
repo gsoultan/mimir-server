@@ -86,6 +86,8 @@ type Model struct {
 	Language Language
 	// OnDevice lets people download it and answer in their own browser.
 	OnDevice bool
+	// VersionID is the version answering now (see ListVersions).
+	VersionID string
 }
 
 // Language is how a language model answers when a chat or an app doesn't
@@ -169,7 +171,11 @@ func Open(ctx context.Context, databaseURL, dir string, opts ...Option) (*Store,
 	if err := os.MkdirAll(weights, 0o750); err != nil {
 		return nil, fmt.Errorf("store: create %s: %w", weights, err)
 	}
+	if err := os.MkdirAll(filepath.Join(weights, "versions"), 0o750); err != nil {
+		return nil, fmt.Errorf("store: create %s: %w", weights, err)
+	}
 	removeStale(weights, staleTemp)
+	removeStale(filepath.Join(weights, "versions"), staleTemp)
 	pool, err := connect(ctx, databaseURL)
 	if err != nil {
 		return nil, err
@@ -384,6 +390,7 @@ func fromModel(r model.Row) Model {
 		Columns:      fromDoc[schema.Column](r.Columns),
 		Language:     Language{Instructions: r.Instructions, Temperature: r.Temperature, MaxTokens: int(r.MaxTokens)},
 		OnDevice:     r.OnDevice,
+		VersionID:    r.VersionID,
 	}
 }
 
@@ -509,6 +516,17 @@ func (s *Store) create(ctx context.Context, m Model, size int64, sum []byte, pla
 	if err := place(path); err != nil {
 		return Model{}, fmt.Errorf("store: write weights: %w", err)
 	}
+	// Its first version shares the file's bytes on disk.
+	if m.VersionID, err = newID(); err != nil {
+		os.Remove(path)
+		return Model{}, err
+	}
+	if err := linkOrCopy(path, s.versionPath(m.VersionID)); err != nil {
+		os.Remove(path)
+		return Model{}, fmt.Errorf("store: keep version: %w", err)
+	}
+	v := versionOf(m)
+	v.ID, v.Number, v.Created = m.VersionID, 1, t
 	n := model.Create()
 	n.SetID(m.ID)
 	n.SetName(m.Name)
@@ -529,38 +547,19 @@ func (s *Store) create(ctx context.Context, m Model, size int64, sum []byte, pla
 	n.SetInstructions(m.Language.Instructions)
 	n.SetTemperature(m.Language.Temperature)
 	n.SetMaxTokens(int32(m.Language.MaxTokens))
-	if _, err := n.Insert(ctx, s.ex); err != nil {
+	n.SetVersionID(m.VersionID)
+	err = storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
+		if _, err := n.Insert(ctx, ex); err != nil {
+			return fmt.Errorf("store: insert model: %w", err)
+		}
+		return insertVersion(ctx, ex, v)
+	})
+	if err != nil {
 		os.Remove(path)
-		return Model{}, fmt.Errorf("store: insert model: %w", err)
+		os.Remove(s.versionPath(m.VersionID))
+		return Model{}, err
 	}
 	return m, nil
-}
-
-// Replace swaps a model's weights, shape, labels, columns and score for
-// those of a newer pass, keeping its id so apps keep working.
-func (s *Store) Replace(ctx context.Context, id string, m Model, weights []byte) error {
-	sum := sha256.Sum256(weights)
-	path := s.path(id)
-	if err := writeFileAtomic(path, weights); err != nil {
-		return fmt.Errorf("store: write weights: %w", err)
-	}
-	u := model.MutateKey(id)
-	u.SetSizeBytes(int64(len(weights)))
-	u.SetSha256(hex.EncodeToString(sum[:]))
-	u.SetUpdateTime(now())
-	u.SetInputShape(int64s(m.InputShape))
-	u.SetLabels(strs(m.Labels))
-	u.SetFeatures(strs(m.Features))
-	u.SetJobID(m.JobID)
-	u.SetAccuracy(m.Accuracy)
-	u.SetColumns(doc(m.Columns))
-	if err := u.Update(ctx, s.ex); err != nil {
-		if errors.Is(err, runtime.ErrNoRow) {
-			return ErrNotFound
-		}
-		return fmt.Errorf("store: replace model: %w", err)
-	}
-	return nil
 }
 
 // Update changes a model's name and description and returns the result.
@@ -619,14 +618,19 @@ func (s *Store) SetModelWorker(ctx context.Context, id, workerID string) error {
 	return nil
 }
 
-// Delete removes a model's row and then its weights.
+// Delete removes a model's row and then its weights, every version's.
 func (s *Store) Delete(ctx context.Context, id string) error {
+	versions, err := s.versionIDs(ctx, id)
+	if err != nil {
+		return err
+	}
 	if err := model.Delete(ctx, s.ex, id); err != nil {
 		if errors.Is(err, runtime.ErrNoRow) {
 			return ErrNotFound
 		}
 		return fmt.Errorf("store: delete %s: %w", id, err)
 	}
+	s.removeVersions(versions)
 	if err := os.Remove(s.path(id)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("store: delete weights %s: %w", id, err)
 	}

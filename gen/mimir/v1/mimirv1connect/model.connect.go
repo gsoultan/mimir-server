@@ -63,6 +63,12 @@ const (
 	// ModelServiceDeleteArchitectureProcedure is the fully-qualified name of the ModelService's
 	// DeleteArchitecture RPC.
 	ModelServiceDeleteArchitectureProcedure = "/mimir.v1.ModelService/DeleteArchitecture"
+	// ModelServiceListModelVersionsProcedure is the fully-qualified name of the ModelService's
+	// ListModelVersions RPC.
+	ModelServiceListModelVersionsProcedure = "/mimir.v1.ModelService/ListModelVersions"
+	// ModelServiceUseModelVersionProcedure is the fully-qualified name of the ModelService's
+	// UseModelVersion RPC.
+	ModelServiceUseModelVersionProcedure = "/mimir.v1.ModelService/UseModelVersion"
 	// PredictServicePredictProcedure is the fully-qualified name of the PredictService's Predict RPC.
 	PredictServicePredictProcedure = "/mimir.v1.PredictService/Predict"
 	// PredictServiceGenerateProcedure is the fully-qualified name of the PredictService's Generate RPC.
@@ -100,6 +106,12 @@ type ModelServiceClient interface {
 	GetDeviceModel(context.Context, *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error)
 	// DeleteArchitecture removes a described model type no model uses.
 	DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error)
+	// ListModelVersions returns the weights a model has had, newest first:
+	// its first upload or training run, and each keep-learning pass since.
+	ListModelVersions(context.Context, *connect.Request[v1.ListModelVersionsRequest]) (*connect.Response[v1.ListModelVersionsResponse], error)
+	// UseModelVersion makes one of a model's versions the one that answers,
+	// such as to go back to an earlier one. The model keeps its id.
+	UseModelVersion(context.Context, *connect.Request[v1.UseModelVersionRequest]) (*connect.Response[v1.UseModelVersionResponse], error)
 }
 
 // NewModelServiceClient constructs a client for the mimir.v1.ModelService service. By default, it
@@ -177,6 +189,19 @@ func NewModelServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(modelServiceMethods.ByName("DeleteArchitecture")),
 			connect.WithClientOptions(opts...),
 		),
+		listModelVersions: connect.NewClient[v1.ListModelVersionsRequest, v1.ListModelVersionsResponse](
+			httpClient,
+			baseURL+ModelServiceListModelVersionsProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("ListModelVersions")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		useModelVersion: connect.NewClient[v1.UseModelVersionRequest, v1.UseModelVersionResponse](
+			httpClient,
+			baseURL+ModelServiceUseModelVersionProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("UseModelVersion")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -192,6 +217,8 @@ type modelServiceClient struct {
 	saveArchitecture   *connect.Client[v1.SaveArchitectureRequest, v1.SaveArchitectureResponse]
 	getDeviceModel     *connect.Client[v1.GetDeviceModelRequest, v1.GetDeviceModelResponse]
 	deleteArchitecture *connect.Client[v1.DeleteArchitectureRequest, v1.DeleteArchitectureResponse]
+	listModelVersions  *connect.Client[v1.ListModelVersionsRequest, v1.ListModelVersionsResponse]
+	useModelVersion    *connect.Client[v1.UseModelVersionRequest, v1.UseModelVersionResponse]
 }
 
 // ListArchitectures calls mimir.v1.ModelService.ListArchitectures.
@@ -244,6 +271,16 @@ func (c *modelServiceClient) DeleteArchitecture(ctx context.Context, req *connec
 	return c.deleteArchitecture.CallUnary(ctx, req)
 }
 
+// ListModelVersions calls mimir.v1.ModelService.ListModelVersions.
+func (c *modelServiceClient) ListModelVersions(ctx context.Context, req *connect.Request[v1.ListModelVersionsRequest]) (*connect.Response[v1.ListModelVersionsResponse], error) {
+	return c.listModelVersions.CallUnary(ctx, req)
+}
+
+// UseModelVersion calls mimir.v1.ModelService.UseModelVersion.
+func (c *modelServiceClient) UseModelVersion(ctx context.Context, req *connect.Request[v1.UseModelVersionRequest]) (*connect.Response[v1.UseModelVersionResponse], error) {
+	return c.useModelVersion.CallUnary(ctx, req)
+}
+
 // ModelServiceHandler is an implementation of the mimir.v1.ModelService service.
 type ModelServiceHandler interface {
 	// ListArchitectures returns the model architectures this server can build.
@@ -270,6 +307,12 @@ type ModelServiceHandler interface {
 	GetDeviceModel(context.Context, *connect.Request[v1.GetDeviceModelRequest]) (*connect.Response[v1.GetDeviceModelResponse], error)
 	// DeleteArchitecture removes a described model type no model uses.
 	DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error)
+	// ListModelVersions returns the weights a model has had, newest first:
+	// its first upload or training run, and each keep-learning pass since.
+	ListModelVersions(context.Context, *connect.Request[v1.ListModelVersionsRequest]) (*connect.Response[v1.ListModelVersionsResponse], error)
+	// UseModelVersion makes one of a model's versions the one that answers,
+	// such as to go back to an earlier one. The model keeps its id.
+	UseModelVersion(context.Context, *connect.Request[v1.UseModelVersionRequest]) (*connect.Response[v1.UseModelVersionResponse], error)
 }
 
 // NewModelServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -343,6 +386,19 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(modelServiceMethods.ByName("DeleteArchitecture")),
 		connect.WithHandlerOptions(opts...),
 	)
+	modelServiceListModelVersionsHandler := connect.NewUnaryHandler(
+		ModelServiceListModelVersionsProcedure,
+		svc.ListModelVersions,
+		connect.WithSchema(modelServiceMethods.ByName("ListModelVersions")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	modelServiceUseModelVersionHandler := connect.NewUnaryHandler(
+		ModelServiceUseModelVersionProcedure,
+		svc.UseModelVersion,
+		connect.WithSchema(modelServiceMethods.ByName("UseModelVersion")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.ModelService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ModelServiceListArchitecturesProcedure:
@@ -365,6 +421,10 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 			modelServiceGetDeviceModelHandler.ServeHTTP(w, r)
 		case ModelServiceDeleteArchitectureProcedure:
 			modelServiceDeleteArchitectureHandler.ServeHTTP(w, r)
+		case ModelServiceListModelVersionsProcedure:
+			modelServiceListModelVersionsHandler.ServeHTTP(w, r)
+		case ModelServiceUseModelVersionProcedure:
+			modelServiceUseModelVersionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -412,6 +472,14 @@ func (UnimplementedModelServiceHandler) GetDeviceModel(context.Context, *connect
 
 func (UnimplementedModelServiceHandler) DeleteArchitecture(context.Context, *connect.Request[v1.DeleteArchitectureRequest]) (*connect.Response[v1.DeleteArchitectureResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.DeleteArchitecture is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) ListModelVersions(context.Context, *connect.Request[v1.ListModelVersionsRequest]) (*connect.Response[v1.ListModelVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.ListModelVersions is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) UseModelVersion(context.Context, *connect.Request[v1.UseModelVersionRequest]) (*connect.Response[v1.UseModelVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.UseModelVersion is not implemented"))
 }
 
 // PredictServiceClient is a client for the mimir.v1.PredictService service.

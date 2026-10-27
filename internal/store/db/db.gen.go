@@ -15,6 +15,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
 	"github.com/gsoultan/mimir-server/internal/store/db/delivery"
 	"github.com/gsoultan/mimir-server/internal/store/db/model"
+	"github.com/gsoultan/mimir-server/internal/store/db/modelversion"
 	"github.com/gsoultan/mimir-server/internal/store/db/recoverycode"
 	"github.com/gsoultan/mimir-server/internal/store/db/session"
 	"github.com/gsoultan/mimir-server/internal/store/db/team"
@@ -53,6 +54,7 @@ var FlushOrder = map[string]int{
 	"worker_samples":   17,
 	"api_key_models":   18,
 	"benchmark_scores": 19,
+	"model_versions":   20,
 }
 
 // NewUnit stages writes across this context and flushes them in foreign-key
@@ -1133,6 +1135,123 @@ func (p DeliveryWithWebhookQuery) All(ctx context.Context, ex runtime.Executor) 
 			return nil, fmt.Errorf("storm: %s references a missing %s row", "deliveries", "webhooks")
 		}
 		out[i].Webhook = targets[j]
+	}
+	return out, nil
+}
+
+// ModelVersionWithModelRow is model_versions with its Model loaded.
+type ModelVersionWithModelRow struct {
+	modelversion.Row
+	Model model.Row
+}
+
+type ModelVersionWithModelQuery struct {
+	q modelversion.Query
+}
+
+// ModelVersionWithModel starts the plan.
+func ModelVersionWithModel() ModelVersionWithModelQuery {
+	return ModelVersionWithModelQuery{q: modelversion.New()}
+}
+
+func (p ModelVersionWithModelQuery) Where(ps ...modelversion.Pred) ModelVersionWithModelQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p ModelVersionWithModelQuery) WhereIf(cond bool, pr modelversion.Pred) ModelVersionWithModelQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p ModelVersionWithModelQuery) Any(ps ...modelversion.Pred) ModelVersionWithModelQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p ModelVersionWithModelQuery) Not(pr modelversion.Pred) ModelVersionWithModelQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p ModelVersionWithModelQuery) NotAny(ps ...modelversion.Pred) ModelVersionWithModelQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p ModelVersionWithModelQuery) Order(ts ...modelversion.Sort) ModelVersionWithModelQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p ModelVersionWithModelQuery) Limit(n int64) ModelVersionWithModelQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p ModelVersionWithModelQuery) Offset(n int64) ModelVersionWithModelQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p ModelVersionWithModelQuery) After(r ModelVersionWithModelRow) ModelVersionWithModelQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p ModelVersionWithModelQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p ModelVersionWithModelQuery) All(ctx context.Context, ex runtime.Executor) ([]ModelVersionWithModelRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]ModelVersionWithModelRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = ModelVersionWithModelRow{Row: r}
+		key := r.ModelID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := model.New().Unordered().
+		Where(model.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.ModelID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "model_versions", "models")
+		}
+		out[i].Model = targets[j]
 	}
 	return out, nil
 }
