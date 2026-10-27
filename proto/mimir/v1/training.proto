@@ -71,6 +71,29 @@ service TrainingService {
   rpc DeleteJob(DeleteJobRequest) returns (DeleteJobResponse);
   // SetRepeat changes how often a job keeps learning; 0 stops it.
   rpc SetRepeat(SetRepeatRequest) returns (SetRepeatResponse);
+  // CompareJobs returns two to six runs side by side, with what sets
+  // them apart and which one scored best.
+  rpc CompareJobs(CompareJobsRequest) returns (CompareJobsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+message CompareJobsRequest {
+  // ids are the runs to compare, in the order to show them. Repeats are
+  // dropped.
+  repeated string ids = 1;
+}
+
+message CompareJobsResponse {
+  // jobs are the runs, in the order asked, each with every pass.
+  repeated Job jobs = 1;
+  // differs names what is not the same in every run, from
+  // "architecture", "dataset", "epochs", "batch_size", "learning_rate",
+  // "hold_out", "layers" and "worker".
+  repeated string differs = 2;
+  // best_id is the finished run with the highest accuracy, or empty when
+  // none has finished.
+  string best_id = 3;
 }
 
 message SetRepeatRequest {
@@ -359,6 +382,69 @@ message Job {
   // without starting a pass, and what it found.
   google.protobuf.Timestamp check_time = 29;
   string check_note = 30;
+  // report is how the finished model did on the examples kept aside, in
+  // detail. Set by GetJob and CompareJobs, not ListJobs.
+  RunReport report = 31;
+}
+
+// RunReport scores a finished run's model for its kind of answer. Which
+// fields are set depends on kind.
+message RunReport {
+  // kind is "class", "number" or "ranked".
+  string kind = 1;
+  int64 examples = 2;
+  // on_training says nothing was kept aside, so it was scored on the
+  // examples it learned from.
+  bool on_training = 3;
+  // millis_per_example is how long an answer took while scoring, in
+  // batches; size_bytes is the model file.
+  double millis_per_example = 4;
+  int64 size_bytes = 5;
+
+  // Class and ranked models.
+  double accuracy = 6;
+  // macro_f1 averages F1 over the labels, so a rare one counts as much as
+  // a common one.
+  double macro_f1 = 7;
+  double log_loss = 8;
+  repeated ClassScore classes = 9;
+  // confusion has a row per real label and a count per guess, in
+  // classes' order; empty when there are more than 30 labels.
+  repeated ConfusionRow confusion = 10;
+
+  // Number models, in the answer's units.
+  double mae = 11;
+  double rmse = 12;
+  double r2 = 13;
+  // within10 is the share within 10% of the real answer.
+  double within10 = 14;
+  repeated GuessPoint points = 15;
+
+  // Ranked models: hit_at[i] is the share whose right answer was in the
+  // first i+1 suggestions, up to k.
+  int32 k = 16;
+  repeated double hit_at = 17;
+  double mrr = 18;
+  double ndcg = 19;
+}
+
+message ClassScore {
+  string label = 1;
+  double precision = 2;
+  double recall = 3;
+  double f1 = 4;
+  // support is how many examples really had this label.
+  int64 support = 5;
+}
+
+message ConfusionRow {
+  repeated int64 counts = 1;
+}
+
+// GuessPoint is one real answer and the model's guess.
+message GuessPoint {
+  double real = 1;
+  double guess = 2;
 }
 
 message ListJobsRequest {}

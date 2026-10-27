@@ -10,6 +10,8 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/apikey"
 	"github.com/gsoultan/mimir-server/internal/store/db/apikeymodel"
 	"github.com/gsoultan/mimir-server/internal/store/db/auditevent"
+	"github.com/gsoultan/mimir-server/internal/store/db/benchmark"
+	"github.com/gsoultan/mimir-server/internal/store/db/benchmarkscore"
 	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
 	"github.com/gsoultan/mimir-server/internal/store/db/delivery"
 	"github.com/gsoultan/mimir-server/internal/store/db/model"
@@ -32,25 +34,27 @@ import (
 // runtime code inspects a schema and no constraint has to be deferred for
 // a graph write to succeed.
 var FlushOrder = map[string]int{
-	"architectures":  0,
-	"settings":       1,
-	"teams":          2,
-	"users":          3,
-	"webhooks":       4,
-	"workers":        5,
-	"api_keys":       6,
-	"audit_events":   7,
-	"datasets":       8,
-	"deliveries":     9,
-	"models":         10,
-	"recovery_codes": 11,
-	"sessions":       12,
-	"training_jobs":  13,
-	"usage":          14,
-	"user_models":    15,
-	"worker_samples": 16,
-	"api_key_models": 17,
-	"model_versions": 18,
+	"architectures":    0,
+	"settings":         1,
+	"teams":            2,
+	"users":            3,
+	"webhooks":         4,
+	"workers":          5,
+	"api_keys":         6,
+	"audit_events":     7,
+	"benchmarks":       8,
+	"datasets":         9,
+	"deliveries":       10,
+	"models":           11,
+	"recovery_codes":   12,
+	"sessions":         13,
+	"training_jobs":    14,
+	"usage":            15,
+	"user_models":      16,
+	"worker_samples":   17,
+	"api_key_models":   18,
+	"benchmark_scores": 19,
+	"model_versions":   20,
 }
 
 // NewUnit stages writes across this context and flushes them in foreign-key
@@ -532,6 +536,363 @@ func (p AuditEventWithTeamQuery) All(ctx context.Context, ex runtime.Executor) (
 			// A foreign key pointing at a row that is not there. The database
 			// forbids it, so reaching this means the constraint was dropped.
 			return nil, fmt.Errorf("storm: %s references a missing %s row", "audit_events", "teams")
+		}
+		out[i].Team = &targets[j]
+	}
+	return out, nil
+}
+
+// BenchmarkScoreWithBenchmarkRow is benchmark_scores with its Benchmark loaded.
+type BenchmarkScoreWithBenchmarkRow struct {
+	benchmarkscore.Row
+	Benchmark benchmark.Row
+}
+
+type BenchmarkScoreWithBenchmarkQuery struct {
+	q benchmarkscore.Query
+}
+
+// BenchmarkScoreWithBenchmark starts the plan.
+func BenchmarkScoreWithBenchmark() BenchmarkScoreWithBenchmarkQuery {
+	return BenchmarkScoreWithBenchmarkQuery{q: benchmarkscore.New()}
+}
+
+func (p BenchmarkScoreWithBenchmarkQuery) Where(ps ...benchmarkscore.Pred) BenchmarkScoreWithBenchmarkQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p BenchmarkScoreWithBenchmarkQuery) WhereIf(cond bool, pr benchmarkscore.Pred) BenchmarkScoreWithBenchmarkQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p BenchmarkScoreWithBenchmarkQuery) Any(ps ...benchmarkscore.Pred) BenchmarkScoreWithBenchmarkQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p BenchmarkScoreWithBenchmarkQuery) Not(pr benchmarkscore.Pred) BenchmarkScoreWithBenchmarkQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p BenchmarkScoreWithBenchmarkQuery) NotAny(ps ...benchmarkscore.Pred) BenchmarkScoreWithBenchmarkQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p BenchmarkScoreWithBenchmarkQuery) Order(ts ...benchmarkscore.Sort) BenchmarkScoreWithBenchmarkQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p BenchmarkScoreWithBenchmarkQuery) Limit(n int64) BenchmarkScoreWithBenchmarkQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p BenchmarkScoreWithBenchmarkQuery) Offset(n int64) BenchmarkScoreWithBenchmarkQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p BenchmarkScoreWithBenchmarkQuery) After(r BenchmarkScoreWithBenchmarkRow) BenchmarkScoreWithBenchmarkQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p BenchmarkScoreWithBenchmarkQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p BenchmarkScoreWithBenchmarkQuery) All(ctx context.Context, ex runtime.Executor) ([]BenchmarkScoreWithBenchmarkRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]BenchmarkScoreWithBenchmarkRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = BenchmarkScoreWithBenchmarkRow{Row: r}
+		key := r.BenchmarkID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := benchmark.New().Unordered().
+		Where(benchmark.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.BenchmarkID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "benchmark_scores", "benchmarks")
+		}
+		out[i].Benchmark = targets[j]
+	}
+	return out, nil
+}
+
+// BenchmarkScoreWithModelRow is benchmark_scores with its Model loaded.
+type BenchmarkScoreWithModelRow struct {
+	benchmarkscore.Row
+	Model model.Row
+}
+
+type BenchmarkScoreWithModelQuery struct {
+	q benchmarkscore.Query
+}
+
+// BenchmarkScoreWithModel starts the plan.
+func BenchmarkScoreWithModel() BenchmarkScoreWithModelQuery {
+	return BenchmarkScoreWithModelQuery{q: benchmarkscore.New()}
+}
+
+func (p BenchmarkScoreWithModelQuery) Where(ps ...benchmarkscore.Pred) BenchmarkScoreWithModelQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p BenchmarkScoreWithModelQuery) WhereIf(cond bool, pr benchmarkscore.Pred) BenchmarkScoreWithModelQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p BenchmarkScoreWithModelQuery) Any(ps ...benchmarkscore.Pred) BenchmarkScoreWithModelQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p BenchmarkScoreWithModelQuery) Not(pr benchmarkscore.Pred) BenchmarkScoreWithModelQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p BenchmarkScoreWithModelQuery) NotAny(ps ...benchmarkscore.Pred) BenchmarkScoreWithModelQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p BenchmarkScoreWithModelQuery) Order(ts ...benchmarkscore.Sort) BenchmarkScoreWithModelQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p BenchmarkScoreWithModelQuery) Limit(n int64) BenchmarkScoreWithModelQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p BenchmarkScoreWithModelQuery) Offset(n int64) BenchmarkScoreWithModelQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p BenchmarkScoreWithModelQuery) After(r BenchmarkScoreWithModelRow) BenchmarkScoreWithModelQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p BenchmarkScoreWithModelQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p BenchmarkScoreWithModelQuery) All(ctx context.Context, ex runtime.Executor) ([]BenchmarkScoreWithModelRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]BenchmarkScoreWithModelRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = BenchmarkScoreWithModelRow{Row: r}
+		key := r.ModelID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := model.New().Unordered().
+		Where(model.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.ModelID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "benchmark_scores", "models")
+		}
+		out[i].Model = targets[j]
+	}
+	return out, nil
+}
+
+// BenchmarkWithTeamRow is benchmarks with its Team loaded.
+type BenchmarkWithTeamRow struct {
+	benchmark.Row
+	// A pointer because the link is optional. nil means the row has no
+	// Team, which is different from having one that failed to load.
+	Team *team.Row
+}
+
+type BenchmarkWithTeamQuery struct {
+	q benchmark.Query
+}
+
+// BenchmarkWithTeam starts the plan.
+func BenchmarkWithTeam() BenchmarkWithTeamQuery { return BenchmarkWithTeamQuery{q: benchmark.New()} }
+
+func (p BenchmarkWithTeamQuery) Where(ps ...benchmark.Pred) BenchmarkWithTeamQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p BenchmarkWithTeamQuery) WhereIf(cond bool, pr benchmark.Pred) BenchmarkWithTeamQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p BenchmarkWithTeamQuery) Any(ps ...benchmark.Pred) BenchmarkWithTeamQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p BenchmarkWithTeamQuery) Not(pr benchmark.Pred) BenchmarkWithTeamQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p BenchmarkWithTeamQuery) NotAny(ps ...benchmark.Pred) BenchmarkWithTeamQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p BenchmarkWithTeamQuery) Order(ts ...benchmark.Sort) BenchmarkWithTeamQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p BenchmarkWithTeamQuery) Limit(n int64) BenchmarkWithTeamQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p BenchmarkWithTeamQuery) Offset(n int64) BenchmarkWithTeamQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p BenchmarkWithTeamQuery) After(r BenchmarkWithTeamRow) BenchmarkWithTeamQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p BenchmarkWithTeamQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p BenchmarkWithTeamQuery) All(ctx context.Context, ex runtime.Executor) ([]BenchmarkWithTeamRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]BenchmarkWithTeamRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = BenchmarkWithTeamRow{Row: r}
+		key, ok := r.TeamID.Get()
+		if !ok {
+			continue
+		}
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := team.New().Unordered().
+		Where(team.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key, ok := out[i].Row.TeamID.Get()
+		if !ok {
+			continue
+		}
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "benchmarks", "teams")
 		}
 		out[i].Team = &targets[j]
 	}

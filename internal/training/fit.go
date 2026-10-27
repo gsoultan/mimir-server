@@ -60,6 +60,9 @@ type Result struct {
 	Columns  []schema.Column // the input columns, for a table
 	// Fresh is true when BaseWeights were given but didn't fit.
 	Fresh bool
+	// Report is how the model did on the examples kept aside, in detail;
+	// nil when it couldn't be scored.
+	Report *store.Report
 }
 
 // Fit trains a task to completion, or until ctx ends.
@@ -176,6 +179,21 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 		}
 	}
 
+	var report *store.Report
+	if group == nil || t.Group.Rank() == 0 {
+		// A report that can't be made leaves the run without one; the
+		// model is still good.
+		set := testSet
+		if set == nil {
+			set = trainSet
+		}
+		if report, err = Score(ctx, model, set, t.Arch, spec.Labels); err == nil {
+			report.OnTraining = testSet == nil
+		} else if ctx.Err() != nil {
+			return Result{}, context.Cause(ctx)
+		}
+	}
+
 	nn.Eval(model)
 	var buf bytes.Buffer
 	var save *mim.SaveOptions
@@ -186,7 +204,10 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	if err := mim.Save(ctx, &buf, model, save); err != nil {
 		return Result{}, fmt.Errorf("couldn't save the model: %w", err)
 	}
-	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features, Columns: l.Columns, Fresh: fresh}, nil
+	if report != nil {
+		report.SizeBytes = int64(buf.Len())
+	}
+	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features, Columns: l.Columns, Fresh: fresh, Report: report}, nil
 }
 
 // defaultLayers is the shape of an undesigned table model: the base

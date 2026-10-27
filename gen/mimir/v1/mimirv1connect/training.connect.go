@@ -79,6 +79,9 @@ const (
 	// TrainingServiceSetRepeatProcedure is the fully-qualified name of the TrainingService's SetRepeat
 	// RPC.
 	TrainingServiceSetRepeatProcedure = "/mimir.v1.TrainingService/SetRepeat"
+	// TrainingServiceCompareJobsProcedure is the fully-qualified name of the TrainingService's
+	// CompareJobs RPC.
+	TrainingServiceCompareJobsProcedure = "/mimir.v1.TrainingService/CompareJobs"
 )
 
 // DatasetServiceClient is a client for the mimir.v1.DatasetService service.
@@ -372,6 +375,9 @@ type TrainingServiceClient interface {
 	DeleteJob(context.Context, *connect.Request[v1.DeleteJobRequest]) (*connect.Response[v1.DeleteJobResponse], error)
 	// SetRepeat changes how often a job keeps learning; 0 stops it.
 	SetRepeat(context.Context, *connect.Request[v1.SetRepeatRequest]) (*connect.Response[v1.SetRepeatResponse], error)
+	// CompareJobs returns two to six runs side by side, with what sets
+	// them apart and which one scored best.
+	CompareJobs(context.Context, *connect.Request[v1.CompareJobsRequest]) (*connect.Response[v1.CompareJobsResponse], error)
 }
 
 // NewTrainingServiceClient constructs a client for the mimir.v1.TrainingService service. By
@@ -429,18 +435,26 @@ func NewTrainingServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(trainingServiceMethods.ByName("SetRepeat")),
 			connect.WithClientOptions(opts...),
 		),
+		compareJobs: connect.NewClient[v1.CompareJobsRequest, v1.CompareJobsResponse](
+			httpClient,
+			baseURL+TrainingServiceCompareJobsProcedure,
+			connect.WithSchema(trainingServiceMethods.ByName("CompareJobs")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // trainingServiceClient implements TrainingServiceClient.
 type trainingServiceClient struct {
-	listJobs  *connect.Client[v1.ListJobsRequest, v1.ListJobsResponse]
-	getJob    *connect.Client[v1.GetJobRequest, v1.GetJobResponse]
-	createJob *connect.Client[v1.CreateJobRequest, v1.CreateJobResponse]
-	cancelJob *connect.Client[v1.CancelJobRequest, v1.CancelJobResponse]
-	resumeJob *connect.Client[v1.ResumeJobRequest, v1.ResumeJobResponse]
-	deleteJob *connect.Client[v1.DeleteJobRequest, v1.DeleteJobResponse]
-	setRepeat *connect.Client[v1.SetRepeatRequest, v1.SetRepeatResponse]
+	listJobs    *connect.Client[v1.ListJobsRequest, v1.ListJobsResponse]
+	getJob      *connect.Client[v1.GetJobRequest, v1.GetJobResponse]
+	createJob   *connect.Client[v1.CreateJobRequest, v1.CreateJobResponse]
+	cancelJob   *connect.Client[v1.CancelJobRequest, v1.CancelJobResponse]
+	resumeJob   *connect.Client[v1.ResumeJobRequest, v1.ResumeJobResponse]
+	deleteJob   *connect.Client[v1.DeleteJobRequest, v1.DeleteJobResponse]
+	setRepeat   *connect.Client[v1.SetRepeatRequest, v1.SetRepeatResponse]
+	compareJobs *connect.Client[v1.CompareJobsRequest, v1.CompareJobsResponse]
 }
 
 // ListJobs calls mimir.v1.TrainingService.ListJobs.
@@ -478,6 +492,11 @@ func (c *trainingServiceClient) SetRepeat(ctx context.Context, req *connect.Requ
 	return c.setRepeat.CallUnary(ctx, req)
 }
 
+// CompareJobs calls mimir.v1.TrainingService.CompareJobs.
+func (c *trainingServiceClient) CompareJobs(ctx context.Context, req *connect.Request[v1.CompareJobsRequest]) (*connect.Response[v1.CompareJobsResponse], error) {
+	return c.compareJobs.CallUnary(ctx, req)
+}
+
 // TrainingServiceHandler is an implementation of the mimir.v1.TrainingService service.
 type TrainingServiceHandler interface {
 	ListJobs(context.Context, *connect.Request[v1.ListJobsRequest]) (*connect.Response[v1.ListJobsResponse], error)
@@ -493,6 +512,9 @@ type TrainingServiceHandler interface {
 	DeleteJob(context.Context, *connect.Request[v1.DeleteJobRequest]) (*connect.Response[v1.DeleteJobResponse], error)
 	// SetRepeat changes how often a job keeps learning; 0 stops it.
 	SetRepeat(context.Context, *connect.Request[v1.SetRepeatRequest]) (*connect.Response[v1.SetRepeatResponse], error)
+	// CompareJobs returns two to six runs side by side, with what sets
+	// them apart and which one scored best.
+	CompareJobs(context.Context, *connect.Request[v1.CompareJobsRequest]) (*connect.Response[v1.CompareJobsResponse], error)
 }
 
 // NewTrainingServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -546,6 +568,13 @@ func NewTrainingServiceHandler(svc TrainingServiceHandler, opts ...connect.Handl
 		connect.WithSchema(trainingServiceMethods.ByName("SetRepeat")),
 		connect.WithHandlerOptions(opts...),
 	)
+	trainingServiceCompareJobsHandler := connect.NewUnaryHandler(
+		TrainingServiceCompareJobsProcedure,
+		svc.CompareJobs,
+		connect.WithSchema(trainingServiceMethods.ByName("CompareJobs")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.TrainingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case TrainingServiceListJobsProcedure:
@@ -562,6 +591,8 @@ func NewTrainingServiceHandler(svc TrainingServiceHandler, opts ...connect.Handl
 			trainingServiceDeleteJobHandler.ServeHTTP(w, r)
 		case TrainingServiceSetRepeatProcedure:
 			trainingServiceSetRepeatHandler.ServeHTTP(w, r)
+		case TrainingServiceCompareJobsProcedure:
+			trainingServiceCompareJobsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -597,4 +628,8 @@ func (UnimplementedTrainingServiceHandler) DeleteJob(context.Context, *connect.R
 
 func (UnimplementedTrainingServiceHandler) SetRepeat(context.Context, *connect.Request[v1.SetRepeatRequest]) (*connect.Response[v1.SetRepeatResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.TrainingService.SetRepeat is not implemented"))
+}
+
+func (UnimplementedTrainingServiceHandler) CompareJobs(context.Context, *connect.Request[v1.CompareJobsRequest]) (*connect.Response[v1.CompareJobsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.TrainingService.CompareJobs is not implemented"))
 }
