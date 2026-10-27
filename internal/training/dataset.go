@@ -724,7 +724,7 @@ func Architectures(d store.Dataset) []string {
 				if d.NumberTarget {
 					out = append(out, a.Name)
 				}
-			case len(d.Labels) >= 2 && (a.Custom || a.Text == schema.HasText(d.Columns)):
+			case len(d.Labels) >= 2 && (a.Custom || a.AnyText || a.Text == schema.HasText(d.Columns)):
 				out = append(out, a.Name)
 			}
 		case store.DatasetPhotos:

@@ -511,7 +511,9 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	ran := false
 	if r.Remote != nil {
 		var name string
-		if g, ok := r.Remote.(GroupRemote); ok && j.RunOn == "" && r.GroupWorkers != nil {
+		if g, ok := r.Remote.(GroupRemote); ok && j.RunOn == "" && r.GroupWorkers != nil && a.Learner == nil {
+			// A Learner fits its model in one go; only networks train
+			// as a group.
 			if n := r.GroupWorkers(); n > 1 {
 				res, name, ran, err = g.TrainGroup(ctx, j.ID, n, task, progress)
 			}

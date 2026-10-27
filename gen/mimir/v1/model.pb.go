@@ -416,7 +416,11 @@ type Architecture struct {
 	Items int32 `protobuf:"varint,10,opt,name=items,proto3" json:"items,omitempty"`
 	// designable says its hidden layers can be shaped step by step when it
 	// is taught (TrainingSettings.layers).
-	Designable    bool `protobuf:"varint,11,opt,name=designable,proto3" json:"designable,omitempty"`
+	Designable bool `protobuf:"varint,11,opt,name=designable,proto3" json:"designable,omitempty"`
+	// learned says models of this shape, such as boosted trees and linear
+	// models, are fit to the whole table at once: the epochs, batch size
+	// and learning rate of TrainingSettings don't apply.
+	Learned       bool `protobuf:"varint,12,opt,name=learned,proto3" json:"learned,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -524,6 +528,13 @@ func (x *Architecture) GetItems() int32 {
 func (x *Architecture) GetDesignable() bool {
 	if x != nil {
 		return x.Designable
+	}
+	return false
+}
+
+func (x *Architecture) GetLearned() bool {
+	if x != nil {
+		return x.Learned
 	}
 	return false
 }
@@ -2462,7 +2473,7 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tworker_id\x18\x02 \x01(\tR\bworkerId\"?\n" +
 	"\x16SetModelWorkerResponse\x12%\n" +
-	"\x05model\x18\x01 \x01(\v2\x0f.mimir.v1.ModelR\x05model\"\xad\x02\n" +
+	"\x05model\x18\x01 \x01(\v2\x0f.mimir.v1.ModelR\x05model\"\xc7\x02\n" +
 	"\fArchitecture\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -2478,7 +2489,8 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	" \x01(\x05R\x05items\x12\x1e\n" +
 	"\n" +
 	"designable\x18\v \x01(\bR\n" +
-	"designable\"\\\n" +
+	"designable\x12\x18\n" +
+	"\alearned\x18\f \x01(\bR\alearned\"\\\n" +
 	"\x06Column\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
