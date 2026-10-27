@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/gsoultan/mimir/automl"
 	"github.com/gsoultan/mimir/linear"
 	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/tabular"
@@ -132,9 +134,80 @@ var straight = &Learner{
 	},
 }
 
+// autoTrials and autoBudget bound the candidates auto scores.
+const (
+	autoTrials = 10
+	autoBudget = 10 * time.Minute
+)
+
+// auto scores boosted trees, random forests and linear models over a
+// range of settings and keeps the best, refit to the whole table. Its
+// shape names which kind won.
+var auto = &Learner{
+	Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
+		opts := []automl.Option{automl.Trials(autoTrials), automl.Budget(autoBudget)}
+		if classes > 0 {
+			opts = append(opts, automl.Classes(classes))
+		}
+		if progress != nil {
+			opts = append(opts, automl.Progress(progress))
+		}
+		r, err := automl.Search(ctx, d, task, opts...)
+		if err != nil {
+			return nil, "", err
+		}
+		var mod nn.Module
+		var shape any
+		switch m := r.Best.(type) {
+		case *tree.Model:
+			mod, shape = m.Module(), autoShape{Kind: "tree", Tree: ptr(m.Shape())}
+		case *linear.Model:
+			mod, shape = m.Module(), autoShape{Kind: "linear", Linear: ptr(m.Shape())}
+		default:
+			return nil, "", fmt.Errorf("auto: a model of type %T", r.Best)
+		}
+		s, err := shapeJSON(shape)
+		return mod, s, err
+	},
+	Build: func(shape string) (nn.Module, error) {
+		var s autoShape
+		if err := json.Unmarshal([]byte(shape), &s); err != nil {
+			return nil, fmt.Errorf("an automatic model's shape: %w", err)
+		}
+		switch {
+		case s.Kind == "tree" && s.Tree != nil:
+			return tree.NewModule(*s.Tree), nil
+		case s.Kind == "linear" && s.Linear != nil:
+			return linear.NewModule(*s.Linear), nil
+		}
+		return nil, fmt.Errorf("an automatic model of kind %q", s.Kind)
+	},
+}
+
+// autoShape is the shape of the model auto picked.
+type autoShape struct {
+	Kind   string        `json:"kind"` // "tree" or "linear"
+	Tree   *tree.Shape   `json:"tree,omitempty"`
+	Linear *linear.Shape `json:"linear,omitempty"`
+}
+
+func ptr[T any](v T) *T { return &v }
+
 // learned are the architectures of Learners, for tables: each answers a
 // category or a number.
 var learned = []Architecture{
+	{
+		Name:        "table-auto",
+		Title:       "Best of several (automatic)",
+		Description: "Tries boosted trees, random forests and logistic regression with a range of settings, scores each on rows it didn't learn from, and keeps the best. Takes longer than one of them alone.",
+		Input:       Table, AnyText: true, Learner: auto,
+	},
+	{
+		Name:        "number-auto",
+		Title:       "Best of several for a number (automatic)",
+		Description: "Tries boosted trees, random forests and linear regression with a range of settings, scores each on rows it didn't learn from, and keeps the best. Takes longer than one of them alone.",
+		Input:       Table, AnyText: true, Output: Number, Learner: auto,
+	},
 	{
 		Name:        "table-boost",
 		Title:       "Boosted trees",

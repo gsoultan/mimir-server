@@ -34,8 +34,11 @@ type TrainingJob struct {
 	NextRun       *time.Time
 	ParentID      string
 	BaseModelID   string
-	Note          string
-	RunOn         string // the worker asked to run it, by id; "" for any
+	// StartFrom is the model a new run starts from, keeping what it
+	// learned and learning new answers on top; "" starts from scratch.
+	StartFrom string
+	Note      string
+	RunOn     string // the worker asked to run it, by id; "" for any
 	// Layers is the design of a table model someone shaped themselves, as
 	// arch.FormatLayers writes it; "" is the usual shape.
 	Layers string
@@ -71,6 +74,7 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Col(&j.RepeatSeconds).Default("0")
 	t.Col(&j.ParentID).Default("''").Immutable()
 	t.Col(&j.BaseModelID).Default("''").Immutable()
+	t.Col(&j.StartFrom).Default("''").Immutable()
 	t.Col(&j.Note).Default("''")
 	t.Col(&j.RunOn).Default("''")
 	t.Col(&j.Layers).Default("''").Immutable()

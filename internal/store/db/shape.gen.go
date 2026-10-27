@@ -213,6 +213,7 @@ func _assertTrainingJobShape(m m0.TrainingJob) {
 		m.NextRun,
 		m.ParentID,
 		m.BaseModelID,
+		m.StartFrom,
 		m.Note,
 		m.RunOn,
 		m.Layers,

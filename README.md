@@ -299,7 +299,11 @@ known model types in `internal/arch`: handwritten-digit networks
 whole table at once with mimir's `tree` and `linear` packages: boosted
 trees (`table-boost`, `number-boost`), random forests (`table-forest`,
 `number-forest`) and logistic and linear regression (`table-linear`,
-`number-linear`). Boosted trees are the default for tables. Four more
+`number-linear`). `table-auto` and `number-auto` try all three with a
+range of settings, score each on rows held out by cross-validation, and
+keep the best (mimir's `automl` package); they are the default for tables.
+Photos can also be read by an 18-layer ResNet (`photo-resnet`) or a
+MobileNetV2 (`photo-mobilenet`) from mimir's `vision` package. Four more
 read a table's cells themselves and answer questions that aren't its rows:
 `find-groups` sorts rows into groups by k-means with no answer column,
 `odd-one` scores how unusual a row is with an isolation forest,
@@ -346,6 +350,13 @@ models first says what their data looks like, then trains in three steps:
    little" (dropout) steps, with how many numbers it learns and how many
    examples that wants shown as you go. The design is saved in the model
    file, so any server or worker rebuilds it the same way.
+   A network can also **start from an earlier model** of the same type:
+   it keeps what that model learned and learns the new answers on top
+   (transfer learning), so a photo model for new folders needs fewer
+   photos and less time. ResNet and MobileNet models get a new last layer
+   for the new answers; other types start from the earlier weights only
+   when the answers are the same, and otherwise learn from scratch, which
+   the run's note says. The earlier model is left as it is.
 3. **How long.** Quick look (3 passes), Normal (10) or Thorough (30), with
    batch size, learning rate and the share kept aside for scoring under
    *Expert settings*.
