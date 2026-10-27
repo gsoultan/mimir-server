@@ -14,6 +14,7 @@ import { transport } from "./client";
 export const listModels = createQueryOptions(ModelService.method.listModels, {}, { transport });
 export const listArchitectures = createQueryOptions(ModelService.method.listArchitectures, {}, { transport });
 export const getModel = (id: string) => createQueryOptions(ModelService.method.getModel, { id }, { transport });
+export const modelVersions = (modelId: string) => createQueryOptions(ModelService.method.listModelVersions, { modelId }, { transport });
 
 export const setupState = createQueryOptions(AuthService.method.getSetupState, {}, { transport });
 export const whoAmI = createQueryOptions(AuthService.method.whoAmI, {}, { transport });

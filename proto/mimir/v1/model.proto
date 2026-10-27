@@ -40,6 +40,64 @@ service ModelService {
   }
   // DeleteArchitecture removes a described model type no model uses.
   rpc DeleteArchitecture(DeleteArchitectureRequest) returns (DeleteArchitectureResponse);
+  // ListModelVersions returns the weights a model has had, newest first:
+  // its first upload or training run, and each keep-learning pass since.
+  rpc ListModelVersions(ListModelVersionsRequest) returns (ListModelVersionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // UseModelVersion makes one of a model's versions the one that answers,
+  // such as to go back to an earlier one. The model keeps its id.
+  rpc UseModelVersion(UseModelVersionRequest) returns (UseModelVersionResponse);
+}
+
+// ModelVersionSource says where a version's weights came from.
+enum ModelVersionSource {
+  MODEL_VERSION_SOURCE_UNSPECIFIED = 0;
+  // A model file someone uploaded.
+  MODEL_VERSION_SOURCE_UPLOADED = 1;
+  // The training run that taught the model.
+  MODEL_VERSION_SOURCE_TRAINED = 2;
+  // A keep-learning pass on new rows.
+  MODEL_VERSION_SOURCE_KEEP_LEARNING = 3;
+}
+
+// ModelVersion is one set of weights a model has had. A server keeps a
+// model's 20 newest, and always the live one.
+message ModelVersion {
+  string id = 1;
+  // number counts a model's versions from 1, in the order they were made.
+  int32 number = 2;
+  ModelVersionSource source = 3;
+  google.protobuf.Timestamp create_time = 4;
+  int64 size_bytes = 5;
+  // sha256 is the weights' checksum, the model's version while it is live.
+  string sha256 = 6;
+  // accuracy is the share of held-out examples it got right, 0 when
+  // unknown.
+  double accuracy = 7;
+  // job_id is the training run that made it, if any.
+  string job_id = 8;
+  // note says why it exists or wasn't put live, in plain words.
+  string note = 9;
+  // live says the model answers with this version now.
+  bool live = 10;
+}
+
+message ListModelVersionsRequest {
+  string model_id = 1;
+}
+
+message ListModelVersionsResponse {
+  repeated ModelVersion versions = 1;
+}
+
+message UseModelVersionRequest {
+  string model_id = 1;
+  string version_id = 2;
+}
+
+message UseModelVersionResponse {
+  Model model = 1;
 }
 
 message SaveArchitectureRequest {
@@ -184,6 +242,8 @@ message Model {
   // version identifies the weights: the SHA-256 of the stored file. It
   // changes when the model is retrained in place.
   string version = 19;
+  // version_id is the ModelVersion answering now (ListModelVersions).
+  string version_id = 20;
 }
 
 // LanguageSettings are how a language model answers when a chat or an app
