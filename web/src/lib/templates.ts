@@ -8,9 +8,9 @@ export const kinds = [
   { id: "number", label: "A number", title: "How much or how many?", hint: "A number. Units next week, energy per shift." },
 ] as const;
 
-export type DataType = "table" | "text" | "photos" | "photo_table";
+export type DataType = "table" | "text" | "photos" | "photo_table" | "sounds" | "boxes";
 
-// What the examples look like: the four cards people pick from first.
+// What the examples look like: the cards people pick from first.
 export const dataTypes: { id: DataType; title: string; chip: string; hint: string; examples: string; pic: string; scratch: string }[] = [
   {
     id: "table", title: "A table", chip: "A table",
@@ -39,6 +39,20 @@ export const dataTypes: { id: DataType; title: string; chip: string; hint: strin
     examples: "listings, claims, inspections",
     pic: "photo      title     price\n□ L-1001   iPhone..  0.35\n□ L-1002   Table..   1.02",
     scratch: "Upload my own ZIP of a table and photos",
+  },
+  {
+    id: "sounds", title: "Sounds in folders", chip: "Sounds",
+    hint: "Short recordings as WAV files. One folder per answer, and the folder name is the answer.",
+    examples: "machine noises, bird calls, spoken words",
+    pic: "normal/  ♪ ♪ ♪\nworn/    ♪ ♪\nbroken/  ♪",
+    scratch: "Upload my own sound folders",
+  },
+  {
+    id: "boxes", title: "Photos with boxes", chip: "Photos with boxes",
+    hint: "Photos and a boxes.csv saying where each thing in them is: the photo, what it is, and its box in pixels.",
+    examples: "scratches, packages on a shelf, people in a doorway",
+    pic: "photo     what     left top\n0001.jpg  scratch  112  40\n0002.jpg  dent     300  210",
+    scratch: "Upload my own photos and boxes",
   },
 ];
 
@@ -91,6 +105,10 @@ export function dataTypeOfKind(k: DatasetKind): DataType[] {
       return ["photo_table"];
     case DatasetKind.TEXT:
       return []; // writing for a language model, fine-tuned elsewhere
+    case DatasetKind.SOUNDS:
+      return ["sounds"];
+    case DatasetKind.BOXES:
+      return ["boxes"];
   }
   return ["table", "text"];
 }

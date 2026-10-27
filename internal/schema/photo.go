@@ -60,16 +60,23 @@ func Shrink(img image.Image) []uint8 {
 	r := img.Bounds()
 	side := min(r.Dx(), r.Dy())
 	x0, y0 := r.Min.X+(r.Dx()-side)/2, r.Min.Y+(r.Dy()-side)/2
-	out := make([]uint8, PhotoPixels)
-	if side == 0 {
+	return shrink(img, image.Rect(x0, y0, x0+side, y0+side), PhotoSize)
+}
+
+// shrink averages the part r of img down to size by size, as red, green
+// and blue planes of bytes.
+func shrink(img image.Image, r image.Rectangle, size int) []uint8 {
+	plane := size * size
+	out := make([]uint8, 3*plane)
+	if r.Empty() {
 		return out
 	}
-	const plane = PhotoSize * PhotoSize
-	for py := range PhotoSize {
-		ya, yb := y0+py*side/PhotoSize, y0+(py+1)*side/PhotoSize
+	w, h := r.Dx(), r.Dy()
+	for py := range size {
+		ya, yb := r.Min.Y+py*h/size, r.Min.Y+(py+1)*h/size
 		yb = max(yb, ya+1)
-		for px := range PhotoSize {
-			xa, xb := x0+px*side/PhotoSize, x0+(px+1)*side/PhotoSize
+		for px := range size {
+			xa, xb := r.Min.X+px*w/size, r.Min.X+(px+1)*w/size
 			xb = max(xb, xa+1)
 			// Average at most 8×8 samples of the box, enough for a
 			// smooth result without visiting every pixel of a big photo.
@@ -81,13 +88,43 @@ func Shrink(img image.Image) []uint8 {
 					rs, gs, bs, n = rs+uint64(cr), gs+uint64(cg), bs+uint64(cb), n+1
 				}
 			}
-			i := py*PhotoSize + px
+			i := py*size + px
 			out[i] = uint8(rs / n >> 8)
 			out[plane+i] = uint8(gs / n >> 8)
 			out[2*plane+i] = uint8(bs / n >> 8)
 		}
 	}
 	return out
+}
+
+// SceneSize is the width and height a photo to find things in is
+// stretched to, whole: ScenePixels numbers, red, green and blue planes in
+// turn. Boxes are found in it and scaled back to the photo.
+const (
+	SceneSize   = 128
+	ScenePixels = 3 * SceneSize * SceneSize
+)
+
+// DecodeScene reads a JPG, PNG or GIF and returns its ScenePixels bytes,
+// the whole photo stretched to SceneSize square, and its own width and
+// height.
+func DecodeScene(b []byte) (px []uint8, w, h int, err error) {
+	if len(b) > MaxPhotoBytes {
+		return nil, 0, 0, fmt.Errorf("%w: bigger than %d MB", ErrBadPhoto, MaxPhotoBytes>>20)
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(b))
+	if err != nil {
+		return nil, 0, 0, ErrBadPhoto
+	}
+	if cfg.Width*cfg.Height > 50_000_000 {
+		return nil, 0, 0, fmt.Errorf("%w: more than 50 megapixels", ErrBadPhoto)
+	}
+	img, _, err := image.Decode(bytes.NewReader(b))
+	if err != nil {
+		return nil, 0, 0, ErrBadPhoto
+	}
+	r := img.Bounds()
+	return shrink(img, r, SceneSize), r.Dx(), r.Dy(), nil
 }
 
 // Floats turns photo bytes into values between 0 and 1, appended to dst.

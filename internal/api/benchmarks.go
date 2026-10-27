@@ -330,7 +330,7 @@ func (s *Service) score(ctx context.Context, b store.Benchmark, m store.Model) (
 				fields[h] = row[i]
 			}
 		}
-		input, err := ask.Encode(a, m.Columns, m.Features, fields, nil)
+		input, err := ask.Encode(a, m.Columns, m.Features, fields, nil, nil)
 		if err != nil {
 			return nil, ask.Reason(err)
 		}

@@ -193,6 +193,17 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 // CheckPhotos checks a ZIP of photo folders, against a template when t
 // is not nil.
 func CheckPhotos(t *Template, folders map[string][]string, loose int) *mimirv1.DataCheck {
+	return checkFolders(t, folders, loose, "photo", "photos")
+}
+
+// CheckSounds checks a ZIP of sound folders.
+func CheckSounds(folders map[string][]string, loose int) *mimirv1.DataCheck {
+	return checkFolders(nil, folders, loose, "sound", "sounds")
+}
+
+// checkFolders checks a ZIP of folders of one and many, one folder per
+// answer.
+func checkFolders(t *Template, folders map[string][]string, loose int, one, many string) *mimirv1.DataCheck {
 	c := check{&mimirv1.DataCheck{}}
 	var names []string
 	for name, files := range folders {
@@ -226,21 +237,55 @@ func CheckPhotos(t *Template, folders map[string][]string, loose int) *mimirv1.D
 	}
 	switch {
 	case len(names) == 0:
-		c.note(bad, "No photos in folders.", "Put the photos of each answer in a folder named after it, then zip the folders together.")
+		c.note(bad, fmt.Sprintf("No %s in folders.", many), fmt.Sprintf("Put the %s of each answer in a folder named after it, then zip the folders together.", many))
 	case len(names) == 1:
-		c.note(bad, "All photos are in one folder.", fmt.Sprintf("There's only %s, so there's nothing to tell apart. Add a folder for each other answer.", names[0]))
+		c.note(bad, fmt.Sprintf("All %s are in one folder.", many), fmt.Sprintf("There's only %s, so there's nothing to tell apart. Add a folder for each other answer.", names[0]))
 	default:
 		need := int64(20)
 		if t != nil {
 			need = t.RowsMin
 		}
 		if int64(low) < need {
-			c.note(warn, fmt.Sprintf("%s has only %s.", lowName, plural(low, "photo", "photos")),
+			c.note(warn, fmt.Sprintf("%s has only %s.", lowName, plural(low, one, many)),
 				fmt.Sprintf("Aim for %d or more in every folder, or that answer will be guessed poorly.%s", need, balance(t)))
 		}
 	}
 	if loose > 0 {
-		c.note(info, plural(loose, "photo isn't", "photos aren't")+" in a folder.", "They are left out, since a photo's folder is its answer.")
+		c.note(info, plural(loose, one+" isn't", many+" aren't")+" in a folder.", fmt.Sprintf("They are left out, since a %s's folder is its answer.", one))
+	}
+	return c.finish()
+}
+
+// CheckBoxes checks a ZIP of photos and boxes: photos named, things
+// found of each kind, and photos the table names that aren't there.
+func CheckBoxes(photos int, things map[string]int, missing []string) *mimirv1.DataCheck {
+	c := check{&mimirv1.DataCheck{Rows: int64(photos)}}
+	var names []string
+	total := 0
+	for name, n := range things {
+		names = append(names, name)
+		total += n
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		c.Answers = append(c.Answers, &mimirv1.AnswerCount{Value: name, Count: int64(things[name])})
+	}
+	low, lowName := math.MaxInt, ""
+	for _, name := range names {
+		if things[name] < low {
+			low, lowName = things[name], name
+		}
+	}
+	if low < 50 {
+		c.note(warn, fmt.Sprintf("%s has only %s.", lowName, plural(low, "box", "boxes")),
+			"Aim for 50 or more boxes of every kind of thing, or that kind will be found poorly.")
+	}
+	if photos < 100 {
+		c.note(warn, fmt.Sprintf("Only %s.", plural(photos, "photo", "photos")), "300 photos or more works well.")
+	}
+	if len(missing) > 0 {
+		c.note(warn, plural(len(missing), "photo the table names isn't", "photos the table names aren't")+" in the ZIP.", "Their rows are left out.")
+		c.MissingPhotos = missing[:min(len(missing), MaxMissingPhotos)]
 	}
 	return c.finish()
 }

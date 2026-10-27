@@ -26,12 +26,32 @@ func Reason(err error) string {
 	return strings.TrimPrefix(err.Error(), ErrBadQuestion.Error()+": ")
 }
 
-// Encode turns fields (by column name) and photo into the numbers a model
-// of architecture a reads, the same way its examples were. cols are the
-// model's columns; a model taught before columns had kinds has only
-// features, each a number.
-func Encode(a arch.Architecture, cols []schema.Column, features []string, fields map[string]string, photo []byte) ([]float32, error) {
+// Encode turns fields (by column name) and photo, or sound, into the
+// numbers a model of architecture a reads, the same way its examples
+// were. cols are the model's columns; a model taught before columns had
+// kinds has only features, each a number.
+func Encode(a arch.Architecture, cols []schema.Column, features []string, fields map[string]string, photo, sound []byte) ([]float32, error) {
 	var out []float32
+	if a.Input == arch.Scene {
+		if len(photo) == 0 {
+			return nil, bad("This model finds things in a photo. Send one.")
+		}
+		px, _, _, err := schema.DecodeScene(photo)
+		if err != nil {
+			return nil, bad("That photo can't be read. Send a JPG, PNG or GIF.")
+		}
+		return schema.Floats(out, px), nil
+	}
+	if a.Input == arch.Sound {
+		if len(sound) == 0 {
+			return nil, bad("This model listens to a sound. Send one.")
+		}
+		s, err := schema.DecodeSound(sound)
+		if err != nil {
+			return nil, bad("That sound can't be read. Send a WAV file.")
+		}
+		return schema.SoundFloats(out, s), nil
+	}
 	if a.Input == arch.Image && a.Fixed() || a.Input == arch.Tensor {
 		return nil, bad("This model reads numbers; send them as input.")
 	}
