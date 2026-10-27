@@ -48,6 +48,41 @@ service ModelService {
   // UseModelVersion makes one of a model's versions the one that answers,
   // such as to go back to an earlier one. The model keeps its id.
   rpc UseModelVersion(UseModelVersionRequest) returns (UseModelVersionResponse);
+  // GetModelQuality says how a model does in use: its answers each day,
+  // the feedback apps sent on them (PredictService.SendFeedback) and how
+  // many of those it got right.
+  rpc GetModelQuality(GetModelQualityRequest) returns (GetModelQualityResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+message GetModelQualityRequest {
+  string model_id = 1;
+  // days is how many days back to count, 1 to 365; 0 means 30.
+  int32 days = 2;
+}
+
+// QualityDay is a model's answers on one day (UTC).
+message QualityDay {
+  google.protobuf.Timestamp day = 1;
+  int64 answers = 2;
+  // feedback is how many of them apps said the right answer for, and
+  // correct how many of those the model got.
+  int64 feedback = 3;
+  int64 correct = 4;
+}
+
+message GetModelQualityResponse {
+  // days has one entry per day with answers, oldest first.
+  repeated QualityDay days = 1;
+  // The last 7 days: answers, feedback, and the share of feedback the
+  // model got right (0 with no feedback).
+  int64 week_answers = 2;
+  int64 week_feedback = 3;
+  double week_accuracy = 4;
+  // dropped says the last 7 days' accuracy, over at least 20 answers with
+  // feedback, is more than 10 points below the model's held-out score.
+  bool dropped = 5;
 }
 
 // ModelVersionSource says where a version's weights came from.
@@ -149,6 +184,25 @@ service PredictService {
   // Chat writes a language model's next turn in a chat, sending the text
   // as the model writes it.
   rpc Chat(ChatRequest) returns (stream ChatResponse);
+  // SendFeedback says what a prediction's answer should have been, so the
+  // server can tell how well the model does in use. Send it again to
+  // correct it. Predictions are kept for feedback for 30 days.
+  rpc SendFeedback(SendFeedbackRequest) returns (SendFeedbackResponse);
+}
+
+message SendFeedbackRequest {
+  // prediction_id is PredictResponse.prediction_id.
+  string prediction_id = 1;
+  // label is the right answer for a model that picks one; value for a
+  // model that answers with a number.
+  string label = 2;
+  double value = 3;
+}
+
+message SendFeedbackResponse {
+  // correct says whether the model's answer was right: the same label, or
+  // a number within 10% of the real one.
+  bool correct = 1;
 }
 
 // Architecture is a model shape the server knows how to build.
@@ -384,6 +438,8 @@ message PredictResponse {
   // number is set for a model that answers with a number; value is it.
   bool number = 5;
   double value = 6;
+  // prediction_id names this answer for SendFeedback.
+  string prediction_id = 7;
 }
 
 message GenerateRequest {
