@@ -79,6 +79,7 @@ func newHealthChecker(ping func(context.Context) error) *healthChecker {
 		mimirv1connect.DatasetServiceName,
 		mimirv1connect.TemplateServiceName,
 		mimirv1connect.TrainingServiceName,
+		mimirv1connect.BenchmarkServiceName,
 		mimirv1connect.WorkerServiceName,
 		mimirv1connect.TeamServiceName,
 	} {

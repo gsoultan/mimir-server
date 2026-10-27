@@ -92,7 +92,7 @@ func TestWorker(t *testing.T) {
 		t.Fatal(err)
 	}
 	jb := j.Msg.GetJob()
-	if jb.GetStatus() != mimirv1.JobStatus_JOB_STATUS_SUCCEEDED || jb.GetWorker() != "lab-1" || len(jb.GetHistory()) != 8 || jb.GetAccuracy() < 0.9 {
+	if jb.GetStatus() != mimirv1.JobStatus_JOB_STATUS_SUCCEEDED || jb.GetWorker() != "lab-1" || len(jb.GetHistory()) != 8 || jb.GetAccuracy() < 0.9 || jb.GetReport().GetKind() != "class" {
 		t.Fatalf("job on worker: %v", jb)
 	}
 	m, _ := own.models.GetModel(ctx, connect.NewRequest(&mimirv1.GetModelRequest{Id: jb.GetModelId()}))
