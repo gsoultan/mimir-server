@@ -375,7 +375,11 @@ func (s *Store) Trim(ctx context.Context, auditKeep, deliveryKeep time.Duration)
 		}
 		total += n
 	}
-	return total, nil
+	n, err := s.trimAnswers(ctx, t)
+	if err != nil {
+		return total, fmt.Errorf("store: trim: %w", err)
+	}
+	return total + n, nil
 }
 
 // WorkerSampleKeep is how long worker stats are kept for charts.

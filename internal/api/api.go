@@ -112,6 +112,8 @@ type Service struct {
 
 	memory      *memguard.Guard
 	memoryAlert atomic.Int64 // unix seconds of the last low-memory alert
+	// answers holds predictions until FlushAnswers keeps them for feedback.
+	answers answerLog
 }
 
 // memoryAlertEvery is the least time between two low-memory alerts.
@@ -651,15 +653,22 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		Probabilities:  &mimirv1.Tensor{Shape: []int64{int64(len(r.Probability))}, Values: r.Probability},
 		DurationMicros: time.Since(start).Microseconds(),
 	}
+	kept := store.Answer{ModelID: m.ID, VersionID: m.VersionID, Time: time.Now(), Fields: keptFields(msg.GetFields())}
 	if a.Answers() == arch.Number {
 		res.Number = true
 		if len(r.Output) > 0 {
 			res.Value = float64(r.Output[0])
 		}
+		kept.Number, kept.Value = true, res.Value
+		res.PredictionId = s.keepAnswer(kept)
 		return connect.NewResponse(res), nil
 	}
 	for _, g := range r.Top(spec.Labels, topK) {
 		res.Guesses = append(res.Guesses, &mimirv1.Guess{Label: g.Label, Probability: g.Probability})
+	}
+	if len(res.Guesses) > 0 {
+		kept.Label, kept.Confidence = res.Guesses[0].Label, float64(res.Guesses[0].Probability)
+		res.PredictionId = s.keepAnswer(kept)
 	}
 	return connect.NewResponse(res), nil
 }
