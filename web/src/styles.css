@@ -16,3 +16,22 @@
 body {
   background: var(--mantine-color-body);
 }
+
+/* One color per run on the compare page, in a fixed order checked for
+   colorblind readers; stepped for each surface. */
+:root {
+  --run-1: #2a78d6;
+  --run-2: #eb6834;
+  --run-3: #1baf7a;
+  --run-4: #eda100;
+  --run-5: #e87ba4;
+  --run-6: #008300;
+}
+[data-mantine-color-scheme="dark"] {
+  --run-1: #3987e5;
+  --run-2: #d95926;
+  --run-3: #199e70;
+  --run-4: #c98500;
+  --run-5: #d55181;
+  --run-6: #008300;
+}

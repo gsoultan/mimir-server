@@ -489,6 +489,11 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if src.Kind == store.DatasetTable {
+		if src.CSV, err = r.withoutBenchmarks(ctx, d.ID, src.CSV); err != nil {
+			return "", err
+		}
+	}
 	task := Task{Arch: a, Source: src, Settings: j.Settings, History: j.History, CheckpointDir: r.st.JobDir(j.ID)}
 	var base store.Model
 	if j.BaseModelID != "" {
@@ -532,6 +537,11 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	}
 	if err != nil {
 		return "", err
+	}
+	if res.Report != nil {
+		if err := r.st.SetJobReport(ctx, j.ID, res.Report); err != nil {
+			r.log.Warn("training: couldn't store the run's report", "job_id", j.ID, "err", err)
+		}
 	}
 	m := store.Model{Name: j.Name, Description: j.Description, Architecture: a.Name, JobID: j.ID, TeamID: j.TeamID, WorkerID: j.RunOn}
 	// A model trained on a worker stays there, unless that worker only
@@ -622,4 +632,26 @@ func friendly(err error) string {
 		return "Training stopped with an internal error. It has been logged; try again, and report it if it keeps happening."
 	}
 	return "Training stopped with an error: " + err.Error()
+}
+
+// withoutBenchmarks leaves out of a dataset's rows those its benchmarks
+// test on, so no model learns the answers to its own test.
+func (r *Runner) withoutBenchmarks(ctx context.Context, datasetID string, table []byte) ([]byte, error) {
+	bs, err := r.st.DatasetBenchmarks(ctx, datasetID)
+	if err != nil || len(bs) == 0 {
+		return table, err
+	}
+	var frozen [][]byte
+	for _, b := range bs {
+		rows, err := r.st.ReadBenchmark(b.ID)
+		if errors.Is(err, store.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("couldn't read the benchmark %q: %w", b.Name, err)
+		}
+		frozen = append(frozen, rows)
+	}
+	out, _, err := Without(table, frozen...)
+	return out, err
 }

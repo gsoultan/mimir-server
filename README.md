@@ -426,6 +426,11 @@ log and sends a `model.updated` webhook with the version.
 Every method works over Connect (HTTP/JSON), gRPC and gRPC-Web. The API is
 in `proto/mimir/v1/model.proto`.
 
+From Go, [mimir-server-sdk](https://github.com/gsoultan/mimir-server-sdk)
+wraps it: models, predictions, streamed chats, training runs, webhooks,
+people and workers, with retries and paged lists
+(`go get github.com/gsoultan/mimir-server-sdk`).
+
 ```sh
 curl localhost:8080/mimir.v1.PredictService/Predict \
   -H 'Authorization: Bearer mimir_...' \
