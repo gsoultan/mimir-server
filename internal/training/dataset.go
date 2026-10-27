@@ -720,7 +720,7 @@ func Architectures(d store.Dataset) []string {
 				continue
 			}
 			switch {
-			case a.Target == arch.NoTarget || a.Target == arch.ItemTarget:
+			case a.Target == arch.NoTarget || a.Target == arch.ItemTarget || a.Target == arch.ActionTarget:
 				out = append(out, a.Name)
 			case a.Target == arch.ValueTarget:
 				if d.NumberTarget {

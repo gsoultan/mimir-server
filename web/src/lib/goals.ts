@@ -5,7 +5,7 @@ import type { DataType } from "./templates";
 // elsewhere, or with a developer's own code on a worker.
 export type Ready = "ready" | "file" | "code";
 
-export type GoalId = "yes_no" | "group" | "number" | "segments" | "write" | "recommend" | "forecast" | "odd_one" | "find_in_photo";
+export type GoalId = "yes_no" | "group" | "number" | "segments" | "write" | "recommend" | "forecast" | "odd_one" | "best_action" | "find_in_photo";
 
 export type Goal = {
   id: GoalId;
@@ -52,6 +52,12 @@ export const goals: Goal[] = [
     intro: "The model learns what normal looks like, then scores how unusual each new example is. It needs no answers to learn from.",
     learn: { amount: "5,000 rows or more", time: "seconds to teach", answer: "“0.81: unlike anything usual”", data: "Upload a table of readings from when things were fine, one row each. No answer column needed." },
     sample: { name: "readings.csv", columns: ["machine", "temp_c", "vibration", "amps"], rows: [["press-1", "61.2", "0.31", "12.4"], ["press-1", "60.8", "0.29", "12.1"], ["press-2", "63.0", "0.35", "12.9"], ["press-2", "62.4", "0.33", "12.6"], ["press-3", "59.9", "0.28", "11.8"]] },
+  },
+  {
+    id: "best_action", title: "Pick the best action", example: "Which offer should this customer get?", ready: "ready", arch: "best-action",
+    intro: "From a log of what was tried and how it turned out, the model says which action is likely to turn out best for a new case, and what each one is expected to bring.",
+    learn: { amount: "a few thousand rows, with each action tried often", time: "seconds to a minute to teach", answer: "“1. free-delivery: about 0.42 expected”", data: "Upload a table with one row per time something was tried: who or what it was for, which action was taken, and how it turned out (a number, or yes and no). Say which column is the action." },
+    sample: { name: "offers.csv", columns: ["customer_age", "plan", "offer", "converted"], rows: [["24", "basic", "discount", "yes"], ["58", "pro", "free-delivery", "yes"], ["31", "basic", "newsletter", "no"], ["63", "basic", "discount", "no"], ["27", "pro", "free-delivery", "no"]] },
   },
   {
     id: "find_in_photo", title: "Find it in a photo", example: "Where is the scratch?", ready: "code", arch: "find-scratch",

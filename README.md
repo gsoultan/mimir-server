@@ -306,14 +306,18 @@ with a range of settings, score each on rows held out by
 cross-validation, and keep the best (mimir's `automl` package); they are
 the default for tables.
 Photos can also be read by an 18-layer ResNet (`photo-resnet`) or a
-MobileNetV2 (`photo-mobilenet`) from mimir's `vision` package. Four more
+MobileNetV2 (`photo-mobilenet`) from mimir's `vision` package. Five more
 read a table's cells themselves and answer questions that aren't its rows:
 `find-groups` sorts rows into groups by k-means with no answer column,
 `odd-one` scores how unusual a row is with an isolation forest,
 `recommend` lists the items a person is likeliest to want from who picked
 what (the answer column is the item), and `forecast` says what comes next
 for each series of a dated table, any number of days, hours, weeks or
-months ahead (the answer column is the value). A fitted
+months ahead (the answer column is the value), and `best-action` learns
+from a log of what was tried and how it turned out which action is likely
+to turn out best in a new case, with the reward it expects of each (the
+answer column is the action, and a column such as reward, revenue or
+converted says how it turned out). A fitted
 model is saved as a Mimir Model file of buffers with its shape in the
 metadata, so it is served, kept on devices and moved between workers like
 a network. An upload names its type, and the server checks the weights
@@ -323,7 +327,7 @@ types).
 
 **Models → Build a model** is where a new model starts. It asks what the
 model should do (yes or no, pick a group, a number, find groups, write
-or chat, recommend, forecast, spot the odd one, find it in a photo), then
+or chat, recommend, forecast, spot the odd one, pick the best action, find it in a photo), then
 ranks the ways to get there: a template, your own data, a model file
 trained elsewhere, or your own code.
 

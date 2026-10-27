@@ -12,7 +12,9 @@ import { DrawPad, type DrawPadHandle } from "./DrawPad";
 // Question is one thing to ask a model: the numbers it reads, or fields by
 // column name and a photo.
 export type Question = { input?: { shape: bigint[]; values: number[] }; fields?: Record<string, string>; photo?: Uint8Array; topK: number };
-export type Answer = { number?: boolean; value?: number; guesses?: { label: string; probability: number }[]; ms: number };
+// values, for a decision model, is the reward it expects of each action,
+// in the order of the model's labels.
+export type Answer = { number?: boolean; value?: number; guesses?: { label: string; probability: number }[]; values?: number[]; ms: number };
 
 // How sure the model is, in words.
 function sureness(p: number) {
@@ -44,6 +46,9 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
   const predict = useMutation({ mutationFn: answer });
 
   const best = predict.data?.guesses?.[0];
+  // A decision model's answer is what each action is expected to bring.
+  const expected = (label: string) => predict.data?.values?.[model.labels.indexOf(label)];
+  const reward = (v?: number) => (v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
   // A digits model takes a drawing, a photo model a photo, and a table
   // model one value per column; photo-and-table models take both.
   const draw = arch?.input === "image" && (arch.inputShape.length > 0);
@@ -141,7 +146,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
               </div>
               <div>
                 <Title order={2} fz={22}>{ranked ? `First pick: ${best.label}` : table ? best.label : `It's a ${best.label}`}</Title>
-                <Text c="dimmed">{sureness(best.probability)}: {Math.round(best.probability * 100)} out of 100.</Text>
+                <Text c="dimmed">{predict.data.values ? `Expected to bring about ${reward(expected(best.label))}, the most of any action.` : `${sureness(best.probability)}: ${Math.round(best.probability * 100)} out of 100.`}</Text>
               </div>
             </Group>
             <Stack gap="xs" mt="lg">
@@ -149,8 +154,14 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
               {predict.data.guesses!.map((g, i) => (
                 <Group key={g.label} wrap="nowrap" gap="sm">
                   <Text w={table ? 96 : 24} fw={600} truncate>{ranked ? `${i + 1}. ${g.label}` : g.label}</Text>
-                  <Progress value={g.probability * 100} className="flex-1" size="lg" radius="xl" aria-label={`${g.label}: ${percent(g.probability)}`} />
-                  <Text w={44} size="sm" ta="right">{percent(g.probability)}</Text>
+                  {predict.data!.values ? (
+                    <Text size="sm" c="dimmed" className="flex-1">about {reward(expected(g.label))} expected</Text>
+                  ) : (
+                    <>
+                      <Progress value={g.probability * 100} className="flex-1" size="lg" radius="xl" aria-label={`${g.label}: ${percent(g.probability)}`} />
+                      <Text w={44} size="sm" ta="right">{percent(g.probability)}</Text>
+                    </>
+                  )}
                 </Group>
               ))}
               {took}
