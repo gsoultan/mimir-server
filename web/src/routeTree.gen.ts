@@ -19,6 +19,8 @@ import { Route as AppSecurityRouteImport } from './routes/_app/security'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppTryRouteImport } from './routes/_app/try'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
+import { Route as AppBenchmarksIndexRouteImport } from './routes/_app/benchmarks/index'
+import { Route as AppBenchmarksIdRouteImport } from './routes/_app/benchmarks/$id'
 import { Route as AppModelsIndexRouteImport } from './routes/_app/models/index'
 import { Route as AppModelsIdRouteImport } from './routes/_app/models/$id'
 import { Route as AppModelsFinetuneRouteImport } from './routes/_app/models/finetune'
@@ -28,6 +30,7 @@ import { Route as AppTemplatesIndexRouteImport } from './routes/_app/templates/i
 import { Route as AppTemplatesIdRouteImport } from './routes/_app/templates/$id'
 import { Route as AppTrainingIndexRouteImport } from './routes/_app/training/index'
 import { Route as AppTrainingIdRouteImport } from './routes/_app/training/$id'
+import { Route as AppTrainingCompareRouteImport } from './routes/_app/training/compare'
 import { Route as AppWorkersIdRouteImport } from './routes/_app/workers/$id'
 import { Route as AppModelsBuildIndexRouteImport } from './routes/_app/models/build/index'
 import { Route as AppModelsBuildGoalRouteImport } from './routes/_app/models/build/$goal'
@@ -82,6 +85,16 @@ const AppUsersRoute = AppUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBenchmarksIndexRoute = AppBenchmarksIndexRouteImport.update({
+  id: '/benchmarks/',
+  path: '/benchmarks/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBenchmarksIdRoute = AppBenchmarksIdRouteImport.update({
+  id: '/benchmarks/$id',
+  path: '/benchmarks/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppModelsIndexRoute = AppModelsIndexRouteImport.update({
   id: '/models/',
   path: '/models/',
@@ -127,6 +140,11 @@ const AppTrainingIdRoute = AppTrainingIdRouteImport.update({
   path: '/training/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTrainingCompareRoute = AppTrainingCompareRouteImport.update({
+  id: '/training/compare',
+  path: '/training/compare',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppWorkersIdRoute = AppWorkersIdRouteImport.update({
   id: '/workers/$id',
   path: '/workers/$id',
@@ -158,13 +176,16 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRoute
   '/try': typeof AppTryRoute
   '/users': typeof AppUsersRoute
+  '/benchmarks/$id': typeof AppBenchmarksIdRoute
   '/models/$id': typeof AppModelsIdRoute
   '/models/finetune': typeof AppModelsFinetuneRoute
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
   '/templates/$id': typeof AppTemplatesIdRoute
   '/training/$id': typeof AppTrainingIdRoute
+  '/training/compare': typeof AppTrainingCompareRoute
   '/workers/$id': typeof AppWorkersIdRoute
+  '/benchmarks/': typeof AppBenchmarksIndexRoute
   '/models/': typeof AppModelsIndexRoute
   '/templates/': typeof AppTemplatesIndexRoute
   '/training/': typeof AppTrainingIndexRoute
@@ -182,13 +203,16 @@ export interface FileRoutesByTo {
   '/try': typeof AppTryRoute
   '/users': typeof AppUsersRoute
   '/': typeof AppIndexRoute
+  '/benchmarks/$id': typeof AppBenchmarksIdRoute
   '/models/$id': typeof AppModelsIdRoute
   '/models/finetune': typeof AppModelsFinetuneRoute
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
   '/templates/$id': typeof AppTemplatesIdRoute
   '/training/$id': typeof AppTrainingIdRoute
+  '/training/compare': typeof AppTrainingCompareRoute
   '/workers/$id': typeof AppWorkersIdRoute
+  '/benchmarks': typeof AppBenchmarksIndexRoute
   '/models': typeof AppModelsIndexRoute
   '/templates': typeof AppTemplatesIndexRoute
   '/training': typeof AppTrainingIndexRoute
@@ -208,13 +232,16 @@ export interface FileRoutesById {
   '/_app/try': typeof AppTryRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/benchmarks/$id': typeof AppBenchmarksIdRoute
   '/_app/models/$id': typeof AppModelsIdRoute
   '/_app/models/finetune': typeof AppModelsFinetuneRoute
   '/_app/models/new': typeof AppModelsNewRoute
   '/_app/models/teach': typeof AppModelsTeachRoute
   '/_app/templates/$id': typeof AppTemplatesIdRoute
   '/_app/training/$id': typeof AppTrainingIdRoute
+  '/_app/training/compare': typeof AppTrainingCompareRoute
   '/_app/workers/$id': typeof AppWorkersIdRoute
+  '/_app/benchmarks/': typeof AppBenchmarksIndexRoute
   '/_app/models/': typeof AppModelsIndexRoute
   '/_app/templates/': typeof AppTemplatesIndexRoute
   '/_app/training/': typeof AppTrainingIndexRoute
@@ -234,13 +261,16 @@ export interface FileRouteTypes {
     | '/settings'
     | '/try'
     | '/users'
+    | '/benchmarks/$id'
     | '/models/$id'
     | '/models/finetune'
     | '/models/new'
     | '/models/teach'
     | '/templates/$id'
     | '/training/$id'
+    | '/training/compare'
     | '/workers/$id'
+    | '/benchmarks/'
     | '/models/'
     | '/templates/'
     | '/training/'
@@ -258,13 +288,16 @@ export interface FileRouteTypes {
     | '/try'
     | '/users'
     | '/'
+    | '/benchmarks/$id'
     | '/models/$id'
     | '/models/finetune'
     | '/models/new'
     | '/models/teach'
     | '/templates/$id'
     | '/training/$id'
+    | '/training/compare'
     | '/workers/$id'
+    | '/benchmarks'
     | '/models'
     | '/templates'
     | '/training'
@@ -283,13 +316,16 @@ export interface FileRouteTypes {
     | '/_app/try'
     | '/_app/users'
     | '/_app/'
+    | '/_app/benchmarks/$id'
     | '/_app/models/$id'
     | '/_app/models/finetune'
     | '/_app/models/new'
     | '/_app/models/teach'
     | '/_app/templates/$id'
     | '/_app/training/$id'
+    | '/_app/training/compare'
     | '/_app/workers/$id'
+    | '/_app/benchmarks/'
     | '/_app/models/'
     | '/_app/templates/'
     | '/_app/training/'
@@ -377,6 +413,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUsersRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/benchmarks/': {
+      id: '/_app/benchmarks/'
+      path: '/benchmarks'
+      fullPath: '/benchmarks/'
+      preLoaderRoute: typeof AppBenchmarksIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/benchmarks/$id': {
+      id: '/_app/benchmarks/$id'
+      path: '/benchmarks/$id'
+      fullPath: '/benchmarks/$id'
+      preLoaderRoute: typeof AppBenchmarksIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/models/': {
       id: '/_app/models/'
       path: '/models'
@@ -440,6 +490,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTrainingIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/training/compare': {
+      id: '/_app/training/compare'
+      path: '/training/compare'
+      fullPath: '/training/compare'
+      preLoaderRoute: typeof AppTrainingCompareRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/workers/$id': {
       id: '/_app/workers/$id'
       path: '/workers/$id'
@@ -478,13 +535,16 @@ interface AppRouteChildren {
   AppTryRoute: typeof AppTryRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppBenchmarksIdRoute: typeof AppBenchmarksIdRoute
   AppModelsIdRoute: typeof AppModelsIdRoute
   AppModelsFinetuneRoute: typeof AppModelsFinetuneRoute
   AppModelsNewRoute: typeof AppModelsNewRoute
   AppModelsTeachRoute: typeof AppModelsTeachRoute
   AppTemplatesIdRoute: typeof AppTemplatesIdRoute
   AppTrainingIdRoute: typeof AppTrainingIdRoute
+  AppTrainingCompareRoute: typeof AppTrainingCompareRoute
   AppWorkersIdRoute: typeof AppWorkersIdRoute
+  AppBenchmarksIndexRoute: typeof AppBenchmarksIndexRoute
   AppModelsIndexRoute: typeof AppModelsIndexRoute
   AppTemplatesIndexRoute: typeof AppTemplatesIndexRoute
   AppTrainingIndexRoute: typeof AppTrainingIndexRoute
@@ -500,13 +560,16 @@ const AppRouteChildren: AppRouteChildren = {
   AppTryRoute: AppTryRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppBenchmarksIdRoute: AppBenchmarksIdRoute,
   AppModelsIdRoute: AppModelsIdRoute,
   AppModelsFinetuneRoute: AppModelsFinetuneRoute,
   AppModelsNewRoute: AppModelsNewRoute,
   AppModelsTeachRoute: AppModelsTeachRoute,
   AppTemplatesIdRoute: AppTemplatesIdRoute,
   AppTrainingIdRoute: AppTrainingIdRoute,
+  AppTrainingCompareRoute: AppTrainingCompareRoute,
   AppWorkersIdRoute: AppWorkersIdRoute,
+  AppBenchmarksIndexRoute: AppBenchmarksIndexRoute,
   AppModelsIndexRoute: AppModelsIndexRoute,
   AppTemplatesIndexRoute: AppTemplatesIndexRoute,
   AppTrainingIndexRoute: AppTrainingIndexRoute,

@@ -15,6 +15,7 @@ import { Page } from "../../../components/Page";
 import { LanguageDefaults } from "../../../components/LanguageDefaults";
 import { OnDevice } from "../../../components/OnDevice";
 import { RunsOn } from "../../../components/Placement";
+import { Versions } from "../../../components/Versions";
 import { ago, bytes } from "../../../lib/format";
 import { score } from "../../../lib/training";
 
@@ -129,6 +130,7 @@ function ModelDetails() {
         {!writes && <RunsOn model={m} canWrite={canWrite} />}
         {!writes && <OnDevice model={m} arch={arch} canWrite={canWrite} />}
         {writes && m.language && <LanguageDefaults model={m} canWrite={canWrite} />}
+        <Versions model={m} number={number} canWrite={canWrite} />
         {writes && (
           <Card withBorder radius="lg" padding="lg">
             <Text fw={700} mb={4}>{m.baseModelId ? "A fine-tune" : "Teach it your writing"}</Text>

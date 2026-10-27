@@ -424,6 +424,9 @@ message TrainResult {
   // stay within its memory. The run goes back in the queue and resumes
   // from its checkpoint.
   bool low_memory = 8;
+  // report is how the model did on the examples kept aside, as the JSON
+  // of the console's run report; empty when it wasn't scored.
+  bytes report = 9;
 }
 
 message CancelTask {

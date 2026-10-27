@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -898,7 +899,17 @@ func resultOf(r *mimirv1.TrainResult) training.Result {
 		Features: sp.GetFeatures(),
 		Columns:  ColumnsFromProto(sp.GetColumns()),
 		Fresh:    r.Fresh,
+		Report:   reportOf(r.Report),
 	}
+}
+
+// reportOf reads the run report a worker sent; nil when it sent none.
+func reportOf(b []byte) *store.Report {
+	var r store.Report
+	if len(b) == 0 || json.Unmarshal(b, &r) != nil || r.Kind == "" {
+		return nil
+	}
+	return &r
 }
 
 func cmpCause(ctx context.Context) error {

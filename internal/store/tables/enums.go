@@ -90,6 +90,22 @@ func (s DeliveryStatus) Valid() bool { return s >= DeliveryPending && s <= Deliv
 
 func (s DeliveryStatus) String() string { return name(deliveryStatusNames[:], int32(s)) }
 
+// VersionSource says where a model version's weights came from.
+type VersionSource int32
+
+const (
+	VersionUploaded     VersionSource = 1 + iota // a model file someone uploaded
+	VersionTrained                               // the run that taught the model
+	VersionKeepLearning                          // a keep-learning pass on new rows
+)
+
+var versionSourceNames = [...]string{"", "uploaded", "trained", "keep_learning"}
+
+// Valid reports whether v is one of the sources.
+func (v VersionSource) Valid() bool { return v >= VersionUploaded && v <= VersionKeepLearning }
+
+func (v VersionSource) String() string { return name(versionSourceNames[:], int32(v)) }
+
 // name is the word for v, or the number when v is outside the set.
 func name(names []string, v int32) string {
 	if v > 0 && int(v) < len(names) {

@@ -407,7 +407,9 @@ func (s *Service) GetJob(ctx context.Context, req *connect.Request[mimirv1.GetJo
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&mimirv1.GetJobResponse{Job: s.jobWithDataset(ctx, j)}), nil
+	jp := s.jobWithDataset(ctx, j)
+	jp.Report = reportProto(j.Report)
+	return connect.NewResponse(&mimirv1.GetJobResponse{Job: jp}), nil
 }
 
 func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.CreateJobRequest]) (*connect.Response[mimirv1.CreateJobResponse], error) {
@@ -679,6 +681,7 @@ func (s *Service) TrainingDone(ctx context.Context, j store.Job) {
 			s.emitIn(ctx, j.TeamID, "model.created", modelEvent(m, auth.Principal{}))
 		}
 		s.WarmModel(j.ModelID) // so the first prediction is as quick as the rest
+		s.ScoreOnBenchmarks(ctx, j)
 		s.Notifier.Notify(ctx, "Training finished: "+j.Name, fmt.Sprintf("%s learned from %s and gets %.1f%% of held-out examples right. It's ready to try.", j.Name, name, accuracy(j)*100))
 	case store.JobFailed:
 		s.auditIn(ctx, j.TeamID, "server", "training.failed", j.Name, j.Error)

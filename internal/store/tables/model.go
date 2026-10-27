@@ -33,6 +33,9 @@ type Model struct {
 	// OnDevice lets people download the model and answer with it in their
 	// own browser, offline too.
 	OnDevice bool
+	// VersionID is the ModelVersion answering now; "" for a model made
+	// before versions were kept, until its first version is recorded.
+	VersionID string
 	// BaseModelID is the language model a fine-tune adapts: its file is
 	// then a LoRA adapter, which runs on top of that model's file. "" for
 	// every other model.
@@ -64,6 +67,7 @@ func (m *Model) Schema(t *storm.Table) {
 	t.Col(&m.Temperature).Default("0.7")
 	t.Col(&m.MaxTokens).Default("256")
 	t.Col(&m.OnDevice).Default("false")
+	t.Col(&m.VersionID).Default("''")
 	t.Col(&m.BaseModelID).Default("''")
 	// A team's models, newest first; also the team key's index.
 	t.Col(&m.Team).NoIndex()

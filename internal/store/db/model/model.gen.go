@@ -40,6 +40,7 @@ type Row struct {
 	Temperature  float64
 	MaxTokens    int32
 	OnDevice     bool
+	VersionID    string
 	BaseModelID  string
 }
 
@@ -79,7 +80,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 21
+const nCols = 22
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -312,6 +313,13 @@ func (q *Query) cursor(col uint32, r Row) {
 			q.over = true
 			return
 		}
+		q.strs[q.ns] = r.VersionID
+		q.ns++
+	case 21:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
 		q.strs[q.ns] = r.BaseModelID
 		q.ns++
 	}
@@ -503,7 +511,8 @@ var (
 	Temperature  = Float64Col{17}
 	MaxTokens    = Int32Col{18}
 	OnDevice     = BoolCol{19}
-	BaseModelID  = TextCol{20}
+	VersionID    = TextCol{20}
+	BaseModelID  = TextCol{21}
 )
 
 // TextCol addresses a text column.
@@ -997,6 +1006,13 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 21:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
 		}
 		q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 		return
@@ -1126,6 +1142,13 @@ func (q *Query) leaf(p Pred) {
 		q.bools[q.nbo] = p.bol
 		q.nbo++
 	case 20:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 21:
 		if int(q.ns) >= 6 {
 			q.over = true
 			return
@@ -1293,6 +1316,17 @@ func (q Query) MaxTokensIn(v ...int32) Query            { return q.Where(MaxToke
 func (q Query) MaxTokensNotIn(v ...int32) Query         { return q.Where(MaxTokens.NotIn(v...)) }
 func (q Query) OnDeviceEq(v bool) Query                 { return q.Where(OnDevice.Eq(v)) }
 func (q Query) OnDeviceNotEq(v bool) Query              { return q.Where(OnDevice.NotEq(v)) }
+func (q Query) VersionIDEq(v string) Query              { return q.Where(VersionID.Eq(v)) }
+func (q Query) VersionIDNotEq(v string) Query           { return q.Where(VersionID.NotEq(v)) }
+func (q Query) VersionIDGt(v string) Query              { return q.Where(VersionID.Gt(v)) }
+func (q Query) VersionIDGte(v string) Query             { return q.Where(VersionID.Gte(v)) }
+func (q Query) VersionIDLt(v string) Query              { return q.Where(VersionID.Lt(v)) }
+func (q Query) VersionIDLte(v string) Query             { return q.Where(VersionID.Lte(v)) }
+func (q Query) VersionIDEqLower(v string) Query         { return q.Where(VersionID.EqLower(v)) }
+func (q Query) VersionIDLike(v string) Query            { return q.Where(VersionID.Like(v)) }
+func (q Query) VersionIDILike(v string) Query           { return q.Where(VersionID.ILike(v)) }
+func (q Query) VersionIDIn(v ...string) Query           { return q.Where(VersionID.In(v...)) }
+func (q Query) VersionIDNotIn(v ...string) Query        { return q.Where(VersionID.NotIn(v...)) }
 func (q Query) BaseModelIDEq(v string) Query            { return q.Where(BaseModelID.Eq(v)) }
 func (q Query) BaseModelIDNotEq(v string) Query         { return q.Where(BaseModelID.NotEq(v)) }
 func (q Query) BaseModelIDGt(v string) Query            { return q.Where(BaseModelID.Gt(v)) }
@@ -1305,7 +1339,7 @@ func (q Query) BaseModelIDILike(v string) Query         { return q.Where(BaseMod
 func (q Query) BaseModelIDIn(v ...string) Query         { return q.Where(BaseModelID.In(v...)) }
 func (q Query) BaseModelIDNotIn(v ...string) Query      { return q.Where(BaseModelID.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "base_model_id" FROM "models"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "version_id", "base_model_id" FROM "models"`
 const countPrefix = `SELECT count(*) FROM "models"`
 const existsPrefix = `SELECT 1 FROM "models"`
 const existsSuffix = ` LIMIT 1`
@@ -1462,6 +1496,12 @@ var orderTable = [nCols][4]string{
 		"\"on_device\" ASC NULLS FIRST",
 		"\"on_device\" DESC NULLS LAST",
 	},
+	{ // version_id
+		"\"version_id\"",
+		"\"version_id\" DESC",
+		"\"version_id\" ASC NULLS FIRST",
+		"\"version_id\" DESC NULLS LAST",
+	},
 	{ // base_model_id
 		"\"base_model_id\"",
 		"\"base_model_id\" DESC",
@@ -1493,6 +1533,7 @@ var identTable = [nCols]string{
 	"\"temperature\"",
 	"\"max_tokens\"",
 	"\"on_device\"",
+	"\"version_id\"",
 	"\"base_model_id\"",
 }
 
@@ -1526,7 +1567,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [21][28]runtime.Frag{
+var fragTable = [22][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -2127,6 +2168,36 @@ var fragTable = [21][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // version_id
+		{}, // opNone
+		{A: "\"version_id\" = $", B: ""},
+		{A: "\"version_id\" <> $", B: ""},
+		{A: "\"version_id\" > $", B: ""},
+		{A: "\"version_id\" >= $", B: ""},
+		{A: "\"version_id\" < $", B: ""},
+		{A: "\"version_id\" <= $", B: ""},
+		{A: "lower(\"version_id\") = lower($", B: ")"},
+		{A: "\"version_id\" LIKE $", B: ""},
+		{A: "\"version_id\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"version_id\" = ANY($", B: ")"},
+		{A: "\"version_id\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 	{ // base_model_id
 		{}, // opNone
 		{A: "\"base_model_id\" = $", B: ""},
@@ -2343,7 +2414,8 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.Temperature = runtime.Float8(rv[17])
 	r.MaxTokens = runtime.Int4(rv[18])
 	r.OnDevice = runtime.Bool(rv[19])
-	r.BaseModelID = sl.Str(rv[20])
+	r.VersionID = sl.Str(rv[20])
+	r.BaseModelID = sl.Str(rv[21])
 	return decErr
 }
 
@@ -2479,6 +2551,10 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 21:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
 			}
 			continue
 		}
@@ -2552,6 +2628,10 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.bools[nbo])
 			nbo++
 		case 20:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 21:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
@@ -2860,7 +2940,7 @@ var errPerWorkerOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "models" ("id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "base_model_id") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "base_model_id"`
+const insertSQL = `INSERT INTO "models" ("id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "version_id", "base_model_id") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "version_id", "base_model_id"`
 
 const updatePrefix = `UPDATE "models" SET `
 const deletePrefix = `DELETE FROM "models"`
@@ -2885,10 +2965,11 @@ const (
 	dTemperature  uint64 = 1 << 14
 	dMaxTokens    uint64 = 1 << 15
 	dOnDevice     uint64 = 1 << 16
-	dBaseModelID  uint64 = 1 << 17
+	dVersionID    uint64 = 1 << 17
+	dBaseModelID  uint64 = 1 << 18
 )
 
-const nUpdatable = 18
+const nUpdatable = 19
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
@@ -2909,6 +2990,7 @@ var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"temperature\" = $", B: ""},   // temperature
 	{A: "\"max_tokens\" = $", B: ""},    // max_tokens
 	{A: "\"on_device\" = $", B: ""},     // on_device
+	{A: "\"version_id\" = $", B: ""},    // version_id
 	{A: "\"base_model_id\" = $", B: ""}, // base_model_id
 }
 
@@ -2933,6 +3015,7 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{},                                    // temperature has no server-side form
 	{A: "\"max_tokens\" = \"max_tokens\" + 1", B: ""}, // max_tokens = its own value plus one
 	{}, // on_device has no server-side form
+	{}, // version_id has no server-side form
 	{}, // base_model_id has no server-side form
 }
 
@@ -2965,10 +3048,11 @@ const (
 	iTemperature  uint64 = 1 << 17
 	iMaxTokens    uint64 = 1 << 18
 	iOnDevice     uint64 = 1 << 19
-	iBaseModelID  uint64 = 1 << 20
+	iVersionID    uint64 = 1 << 20
+	iBaseModelID  uint64 = 1 << 21
 )
 
-const nInsertable = 21
+const nInsertable = 22
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -2992,6 +3076,7 @@ var insCols = [nInsertable]string{
 	"\"temperature\"",
 	"\"max_tokens\"",
 	"\"on_device\"",
+	"\"version_id\"",
 	"\"base_model_id\"",
 }
 
@@ -3001,7 +3086,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"models\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\", \"base_model_id\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\", \"version_id\", \"base_model_id\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -3020,7 +3105,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\", \"base_model_id\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\", \"version_id\", \"base_model_id\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -3199,6 +3284,12 @@ func (m *Mut) SetOnDevice(v bool) {
 	m.row.OnDevice = v
 	m.dirty |= dOnDevice
 	m.expr &^= dOnDevice
+}
+
+func (m *Mut) SetVersionID(v string) {
+	m.row.VersionID = v
+	m.dirty |= dVersionID
+	m.expr &^= dVersionID
 }
 
 func (m *Mut) SetBaseModelID(v string) {
@@ -3407,6 +3498,11 @@ func (n *Ins) SetOnDevice(v bool) {
 	n.set |= iOnDevice
 }
 
+func (n *Ins) SetVersionID(v string) {
+	n.row.VersionID = v
+	n.set |= iVersionID
+}
+
 func (n *Ins) SetBaseModelID(v string) {
 	n.row.BaseModelID = v
 	n.set |= iBaseModelID
@@ -3461,7 +3557,7 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 18)
+	set := make([]string, 0, 19)
 	switch i {
 	case 0:
 		if mask&(1<<2) != 0 {
@@ -3516,6 +3612,9 @@ func assignable(i uint8, mask uint64) []string {
 			set = append(set, "on_device")
 		}
 		if mask&(1<<20) != 0 {
+			set = append(set, "version_id")
+		}
+		if mask&(1<<21) != 0 {
 			set = append(set, "base_model_id")
 		}
 	}
@@ -3605,6 +3704,7 @@ var assignFor = map[string]string{
 	"temperature":   "\"temperature\" = EXCLUDED.\"temperature\"",
 	"max_tokens":    "\"max_tokens\" = EXCLUDED.\"max_tokens\"",
 	"on_device":     "\"on_device\" = EXCLUDED.\"on_device\"",
+	"version_id":    "\"version_id\" = EXCLUDED.\"version_id\"",
 	"base_model_id": "\"base_model_id\" = EXCLUDED.\"base_model_id\"",
 }
 
@@ -3697,6 +3797,8 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 		case 19:
 			args = append(args, n.row.OnDevice)
 		case 20:
+			args = append(args, n.row.VersionID)
+		case 21:
 			args = append(args, n.row.BaseModelID)
 		}
 	}
@@ -3735,7 +3837,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 21)
+	args := make([]any, 0, 22)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -3756,6 +3858,7 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.Temperature)
 	args = append(args, r.MaxTokens)
 	args = append(args, r.OnDevice)
+	args = append(args, r.VersionID)
 	args = append(args, r.BaseModelID)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
@@ -3803,6 +3906,7 @@ var copyCols = []string{
 	"temperature",
 	"max_tokens",
 	"on_device",
+	"version_id",
 	"base_model_id",
 }
 
@@ -3810,7 +3914,7 @@ var copyCols = []string{
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [21]any
+	buf  [22]any
 }
 
 func (s *rowSource) Next() bool {
@@ -3848,7 +3952,8 @@ func (s *rowSource) Values() []any {
 	s.buf[17] = &r.Temperature
 	s.buf[18] = &r.MaxTokens
 	s.buf[19] = &r.OnDevice
-	s.buf[20] = &r.BaseModelID
+	s.buf[20] = &r.VersionID
+	s.buf[21] = &r.BaseModelID
 	return s.buf[:]
 }
 
@@ -3900,8 +4005,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 18
 	mask |= 1 << 19
 	mask |= 1 << 20
+	mask |= 1 << 21
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 21)
+	args := make([]any, 0, 22)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -3922,6 +4028,7 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.Temperature)
 	args = append(args, r.MaxTokens)
 	args = append(args, r.OnDevice)
+	args = append(args, r.VersionID)
 	args = append(args, r.BaseModelID)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
@@ -3997,6 +4104,8 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 		case 19:
 			args = append(args, n.row.OnDevice)
 		case 20:
+			args = append(args, n.row.VersionID)
+		case 21:
 			args = append(args, n.row.BaseModelID)
 		}
 	}
@@ -4088,6 +4197,8 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 		case 16:
 			args = append(args, m.row.OnDevice)
 		case 17:
+			args = append(args, m.row.VersionID)
+		case 18:
 			args = append(args, m.row.BaseModelID)
 		}
 	}
@@ -4206,6 +4317,8 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 		case 16:
 			args = append(args, m.row.OnDevice)
 		case 17:
+			args = append(args, m.row.VersionID)
+		case 18:
 			args = append(args, m.row.BaseModelID)
 		}
 	}
@@ -4390,6 +4503,8 @@ func (q Query) UpdateAll(ctx context.Context, ex runtime.Executor, m Mut) (int64
 		case 16:
 			args = append(args, m.row.OnDevice)
 		case 17:
+			args = append(args, m.row.VersionID)
+		case 18:
 			args = append(args, m.row.BaseModelID)
 		}
 	}

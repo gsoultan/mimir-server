@@ -31,6 +31,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/memguard"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/schema"
+	"github.com/gsoultan/mimir-server/internal/sso"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir/tensor"
 )
@@ -69,6 +70,9 @@ type Service struct {
 	// The zero value trusts none, so a client can't choose its own address
 	// or claim it used HTTPS.
 	Proxies auth.Proxies
+	// SignIn talks to outside sign-in providers (Google, GitHub, OpenID
+	// Connect).
+	Providers *sso.Client
 	// KickTraining asks the training runner to look at the queue now, and
 	// CancelTraining stops a running job; either may be nil.
 	KickTraining   func()
@@ -189,7 +193,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	svc := &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true, TrainHereDefault: true}
+	svc := &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true, TrainHereDefault: true, Providers: sso.New()}
 	svc.trainHere.Store(true)
 	return svc
 }
@@ -772,6 +776,7 @@ func toProto(m store.Model) *mimirv1.Model {
 		Language:     languageProto(m),
 		OnDevice:     m.OnDevice,
 		Version:      m.WeightsVersion(),
+		VersionId:    m.VersionID,
 		BaseModelId:  m.BaseModelID,
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
