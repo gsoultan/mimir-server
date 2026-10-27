@@ -34,14 +34,17 @@ function answers(c: Check) {
 // DataCheck shows how well uploaded data fits, and lets people match
 // columns the server couldn't find by name. onMatch gets the template
 // column and the dataset column picked for it, "" for none.
-export function DataCheck({ check, template, photos, onMatch, busy }: {
+export function DataCheck({ check, template, photos, sounds, onMatch, busy }: {
   check: Check;
   template?: string;
   photos?: boolean;
+  // sounds marks folders of sounds rather than photos.
+  sounds?: boolean;
   onMatch?: (column: string, found: string) => void;
   busy?: boolean;
 }) {
   const answer = check.columns.find((c) => c.answer);
+  const unit = sounds ? "sound" : "photo";
   const missingAnswer = !!template && !photos && !answer;
   const lost = check.columns.filter((c) => c.status === "missing");
   const found = check.columns.filter((c) => c.status !== "missing").length;
@@ -62,7 +65,7 @@ export function DataCheck({ check, template, photos, onMatch, busy }: {
         <Badge size="lg" radius="xl" variant="light" color={pill.color}>{pill.text}</Badge>
       </Group>
       <Stack gap="sm">
-        {photos ? (
+        {photos || sounds ? (
           <>
             <Row level="ok"><b>{count(check.folders.length, "folder")} found.</b> Each folder becomes one answer.</Row>
             <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
@@ -71,12 +74,12 @@ export function DataCheck({ check, template, photos, onMatch, busy }: {
                 return (
                   <div key={f.name} className={`rounded-lg border px-3 py-2 ${low ? "border-[var(--mantine-color-orange-3)] bg-[var(--mantine-color-orange-light)]" : "border-[var(--mantine-color-default-border)]"}`}>
                     <Text ff="monospace" size="sm" fw={600} truncate>{f.name}/</Text>
-                    <Text size="xs" c="dimmed">{count(f.photos, "photo")}{template && !f.expected ? " · new answer" : ""}</Text>
+                    <Text size="xs" c="dimmed">{count(f.photos, unit)}{template && !f.expected ? " · new answer" : ""}</Text>
                   </div>
                 );
               })}
             </SimpleGrid>
-            <Row level="ok"><b>{count(check.rows, "photo")} in all.</b> They come in different sizes; we resize them for you.</Row>
+            <Row level="ok"><b>{count(check.rows, unit)} in all.</b> {sounds ? "Each is heard as one second, from its middle; we convert every rate for you." : "They come in different sizes; we resize them for you."}</Row>
           </>
         ) : (
           <>

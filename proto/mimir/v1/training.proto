@@ -122,6 +122,11 @@ enum DatasetKind {
   // CreateDatasetRequest.text): plain text, or chats and prompts with
   // their answers as JSON lines.
   DATASET_KIND_TEXT = 5;
+  // SOUNDS is a ZIP of WAV sounds with one folder per answer.
+  DATASET_KIND_SOUNDS = 6;
+  // BOXES is a ZIP of photos and a table of the boxes around the things
+  // in them.
+  DATASET_KIND_BOXES = 7;
 }
 
 message Dataset {

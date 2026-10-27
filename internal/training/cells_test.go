@@ -42,7 +42,7 @@ func fitCells(t *testing.T, name, target string, csv string) (Result, func(field
 	}
 	return res, func(fields map[string]string) []float32 {
 		t.Helper()
-		x, err := ask.Encode(a, res.Columns, res.Features, fields, nil)
+		x, err := ask.Encode(a, res.Columns, res.Features, fields, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -201,4 +201,56 @@ func TestCellsArchitectures(t *testing.T) {
 	if slices.Contains(got, "forecast") || !slices.Contains(got, "recommend") || slices.Contains(got, "table-boost") {
 		t.Errorf("a table of many text answers offers %v", got)
 	}
+}
+
+func TestBestAction(t *testing.T) {
+	// Offers shown at random: the young buy after a discount, the older
+	// after free delivery, and hardly anyone after the newsletter.
+	var csv strings.Builder
+	csv.WriteString("age,city,offer,bought\n")
+	r := rand.New(rand.NewPCG(7, 8))
+	offers := []string{"discount", "free-delivery", "newsletter"}
+	for range 1500 {
+		age := 18 + r.IntN(60)
+		offer := offers[r.IntN(3)]
+		p := 0.05
+		switch {
+		case offer == "discount" && age < 40:
+			p = 0.6
+		case offer == "free-delivery" && age >= 40:
+			p = 0.5
+		case offer != "newsletter":
+			p = 0.15
+		}
+		bought := "no"
+		if r.Float64() < p {
+			bought = "yes"
+		}
+		fmt.Fprintf(&csv, "%d,%s,%s,%s\n", age, []string{"Oslo", "Lima"}[r.IntN(2)], offer, bought)
+	}
+	res, ask := fitCells(t, "best-action", "offer", csv.String())
+	if len(res.Spec.Labels) != 3 || len(res.Columns) != 2 {
+		t.Fatalf("actions %v, columns %v", res.Spec.Labels, res.Columns)
+	}
+	for _, tc := range []struct{ age, want string }{{"25", "discount"}, {"60", "free-delivery"}} {
+		out := ask(map[string]string{"age": tc.age, "city": "Oslo"})
+		if got := res.Spec.Labels[argmax(out)]; got != tc.want {
+			t.Errorf("age %s: best %q (expected rewards %v for %v), want %q", tc.age, got, out, res.Spec.Labels, tc.want)
+		}
+	}
+	if mae := res.History[0].MAE; !(mae > 0 && mae < 0.5) {
+		t.Errorf("held-out mean error %v", mae)
+	}
+	if _, err := Fit(context.Background(), Task{Arch: mustArch(t, "best-action"), Source: Source{Kind: store.DatasetTable, CSV: []byte("age,offer\n1,a\n2,b\n"), Target: "offer"}, Settings: store.Settings{Epochs: 1}}, nil); err == nil {
+		t.Error("learned actions with no reward column")
+	}
+}
+
+func mustArch(t *testing.T, name string) arch.Architecture {
+	t.Helper()
+	a, ok := arch.Lookup(name)
+	if !ok {
+		t.Fatalf("no architecture %q", name)
+	}
+	return a
 }

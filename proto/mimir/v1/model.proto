@@ -342,6 +342,17 @@ message Guess {
   float probability = 2;
 }
 
+// Box is a thing found in a photo: what it is, how sure the model is, and
+// where, as shares of the photo's width and height from its top left.
+message Box {
+  string label = 1;
+  float score = 2;
+  float left = 3;
+  float top = 4;
+  float width = 5;
+  float height = 6;
+}
+
 message ListArchitecturesRequest {}
 
 message ListArchitecturesResponse {
@@ -424,6 +435,8 @@ message PredictRequest {
   map<string, string> fields = 4;
   // photo is a JPG, PNG or GIF, for a model that looks at photos.
   bytes photo = 5;
+  // sound is a WAV file, for a model that listens to sounds.
+  bytes sound = 6;
 }
 
 message PredictResponse {
@@ -440,6 +453,8 @@ message PredictResponse {
   double value = 6;
   // prediction_id names this answer for SendFeedback.
   string prediction_id = 7;
+  // boxes are the things a model that finds things found, surest first.
+  repeated Box boxes = 8;
 }
 
 message GenerateRequest {

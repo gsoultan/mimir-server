@@ -41,15 +41,22 @@ const (
 	// DatasetText is writing a language model learns from: plain text, or
 	// chats and prompts with their answers as JSON lines.
 	DatasetText
+	// DatasetSounds is a ZIP of WAV sounds, one folder per answer.
+	DatasetSounds
+	// DatasetBoxes is a ZIP of photos and a table of the boxes around
+	// the things in them.
+	DatasetBoxes
 )
 
-var datasetKindNames = [...]string{"", "table", "mnist", "photos", "photo_table", "text"}
+var datasetKindNames = [...]string{"", "table", "mnist", "photos", "photo_table", "text", "sounds", "boxes"}
 
 // Valid reports whether k is one of the kinds.
-func (k DatasetKind) Valid() bool { return k >= DatasetTable && k <= DatasetText }
+func (k DatasetKind) Valid() bool { return k >= DatasetTable && k <= DatasetBoxes }
 
 // Archive reports whether the dataset's file is a ZIP.
-func (k DatasetKind) Archive() bool { return k == DatasetPhotos || k == DatasetPhotoTable }
+func (k DatasetKind) Archive() bool {
+	return k == DatasetPhotos || k == DatasetPhotoTable || k == DatasetSounds || k == DatasetBoxes
+}
 
 func (k DatasetKind) String() string { return name(datasetKindNames[:], int32(k)) }
 

@@ -100,6 +100,10 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 		src = training.Source{Kind: store.DatasetMNIST, MNISTDir: filepath.Join(h.data, "datasets", "mnist")}
 	case "photos":
 		src = training.Source{Kind: store.DatasetPhotos, CSV: t.Dataset.Archive}
+	case "sounds":
+		src = training.Source{Kind: store.DatasetSounds, CSV: t.Dataset.Archive}
+	case "boxes":
+		src = training.Source{Kind: store.DatasetBoxes, CSV: t.Dataset.Archive}
 	case "photo_table":
 		src = training.Source{Kind: store.DatasetPhotoTable, CSV: t.Dataset.Archive, Target: t.Dataset.Target}
 	case "text":

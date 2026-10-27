@@ -582,8 +582,8 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	spec := arch.Resolve(a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
 	start := time.Now()
 	input := msg.GetInput().GetValues()
-	if len(input) == 0 && (len(msg.GetFields()) > 0 || len(msg.GetPhoto()) > 0) {
-		if input, err = encode(m, a, msg.GetFields(), msg.GetPhoto()); err != nil {
+	if len(input) == 0 && (len(msg.GetFields()) > 0 || len(msg.GetPhoto()) > 0 || len(msg.GetSound()) > 0) {
+		if input, err = encode(m, a, msg.GetFields(), msg.GetPhoto(), msg.GetSound()); err != nil {
 			return nil, err
 		}
 	}
@@ -663,6 +663,13 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		res.PredictionId = s.keepAnswer(kept)
 		return connect.NewResponse(res), nil
 	}
+	if a.Answers() == arch.Boxes {
+		res.Probabilities = nil
+		for _, f := range arch.FoundIn(r.Output, spec.Labels) {
+			res.Boxes = append(res.Boxes, &mimirv1.Box{Label: f.Label, Score: f.Score, Left: f.Left, Top: f.Top, Width: f.Width, Height: f.Height})
+		}
+		return connect.NewResponse(res), nil
+	}
 	for _, g := range r.Top(spec.Labels, topK) {
 		res.Guesses = append(res.Guesses, &mimirv1.Guess{Label: g.Label, Probability: g.Probability})
 	}
@@ -673,10 +680,10 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	return connect.NewResponse(res), nil
 }
 
-// encode turns a question asked by column name, and a photo, into the
-// numbers model m reads, the same way its examples were.
-func encode(m store.Model, a arch.Architecture, fields map[string]string, photo []byte) ([]float32, error) {
-	in, err := ask.Encode(a, m.Columns, m.Features, fields, photo)
+// encode turns a question asked by column name, and a photo or a sound,
+// into the numbers model m reads, the same way its examples were.
+func encode(m store.Model, a arch.Architecture, fields map[string]string, photo, sound []byte) ([]float32, error) {
+	in, err := ask.Encode(a, m.Columns, m.Features, fields, photo, sound)
 	if err != nil {
 		return nil, invalid("%s", ask.Reason(err))
 	}

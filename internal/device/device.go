@@ -26,11 +26,12 @@ type Model struct {
 	Columns      []schema.Column `json:"columns"`
 }
 
-// Question is one thing to ask: fields by column name, a photo, or the
-// numbers themselves.
+// Question is one thing to ask: fields by column name, a photo, a sound,
+// or the numbers themselves.
 type Question struct {
 	Fields map[string]string `json:"fields"`
 	Photo  []byte            `json:"-"`
+	Sound  []byte            `json:"-"`
 	Input  []float32         `json:"input"`
 	TopK   int               `json:"topK"`
 }
@@ -46,6 +47,21 @@ type Answer struct {
 	Number  bool    `json:"number,omitempty"`
 	Value   float64 `json:"value,omitempty"`
 	Guesses []Guess `json:"guesses,omitempty"`
+	// Values is a decision model's expected reward of each action, in the
+	// order of its labels.
+	Values []float32 `json:"values,omitempty"`
+	// Boxes are what a model that finds things found, surest first.
+	Boxes []Box `json:"boxes,omitempty"`
+}
+
+// Box is a thing found, where as shares of the photo.
+type Box struct {
+	Label  string  `json:"label"`
+	Score  float32 `json:"score"`
+	Left   float32 `json:"left"`
+	Top    float32 `json:"top"`
+	Width  float32 `json:"width"`
+	Height float32 `json:"height"`
 }
 
 // ErrNotLoaded is what Predict returns for a model not loaded yet.
@@ -99,7 +115,7 @@ func (r *Runner) Predict(ctx context.Context, id string, q Question) (Answer, er
 	in := q.Input
 	if len(in) == 0 {
 		var err error
-		if in, err = ask.Encode(l.a, l.m.Columns, l.m.Features, q.Fields, q.Photo); err != nil {
+		if in, err = ask.Encode(l.a, l.m.Columns, l.m.Features, q.Fields, q.Photo, q.Sound); err != nil {
 			return Answer{}, errors.New(ask.Reason(err))
 		}
 	}
@@ -123,6 +139,13 @@ func (r *Runner) Predict(ctx context.Context, id string, q Question) (Answer, er
 		}
 		return a, nil
 	}
+	if l.a.Answers() == arch.Boxes {
+		var out Answer
+		for _, f := range arch.FoundIn(res.Output, l.spec.Labels) {
+			out.Boxes = append(out.Boxes, Box{Label: f.Label, Score: f.Score, Left: f.Left, Top: f.Top, Width: f.Width, Height: f.Height})
+		}
+		return out, nil
+	}
 	k := q.TopK
 	if k <= 0 {
 		k = 3
@@ -133,6 +156,9 @@ func (r *Runner) Predict(ctx context.Context, id string, q Question) (Answer, er
 	var out Answer
 	for _, g := range res.Top(l.spec.Labels, k) {
 		out.Guesses = append(out.Guesses, Guess{Label: g.Label, Probability: g.Probability})
+	}
+	if l.a.Target == arch.ActionTarget {
+		out.Values = res.Output
 	}
 	return out, nil
 }
