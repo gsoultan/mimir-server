@@ -359,6 +359,8 @@ message Job {
   // without starting a pass, and what it found.
   google.protobuf.Timestamp check_time = 29;
   string check_note = 30;
+  // start_from_model_id is the model the run started from, if any.
+  string start_from_model_id = 31;
 }
 
 message ListJobsRequest {}
@@ -391,6 +393,10 @@ message CreateJobRequest {
   // min_new_rows makes each keep-learning pass wait for that many new rows
   // in the source; 0 starts one every repeat_seconds.
   int64 min_new_rows = 8;
+  // start_from_model_id starts the run from what that model learned, a
+  // model of the same architecture: it keeps the layers that read the
+  // examples and learns this dataset's answers on top, as a new model.
+  string start_from_model_id = 9;
 }
 
 message CreateJobResponse {

@@ -98,18 +98,20 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	}
 	model := t.Arch.New(spec)
 	fresh := false
-	if len(t.BaseWeights) > 0 && (!slices.Equal(t.BaseLabels, spec.Labels) || !slices.Equal(t.BaseFeatures, features)) {
-		fresh = true
-	} else if len(t.BaseWeights) > 0 {
+	switch {
+	case len(t.BaseWeights) == 0:
+	case slices.Equal(t.BaseLabels, spec.Labels) && slices.Equal(t.BaseFeatures, features):
 		// Continue from the earlier model. Its column statistics come with
 		// it, so the inputs it already understands keep meaning the same.
-		f, err := mim.Parse(t.BaseWeights)
-		if err == nil {
-			err = f.Load(model)
-			f.Close()
-		}
-		if err != nil {
+		if load(t.BaseWeights, model) != nil {
 			model, fresh = t.Arch.New(spec), true
+		}
+	default:
+		// Other answers: a model whose last layer can be replaced keeps
+		// what it learned to see and learns the new answers on top.
+		fresh = true
+		if m, ok := transfer(t, spec, features); ok {
+			model, fresh = m, false
 		}
 	}
 	var group *syncer
@@ -284,4 +286,31 @@ func pairs(ctx context.Context, pred, target *tensor.Tensor, f func(p, t float64
 		f(float64(p[i]), float64(t[i]))
 	}
 	return nil
+}
+
+// load reads weights into model.
+func load(weights []byte, model nn.Module) error {
+	f, err := mim.Parse(weights)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Load(model)
+}
+
+// transfer builds t's model from its base model's weights with a new last
+// layer for spec's answers, when the architecture's models have one to
+// replace and read the same inputs.
+func transfer(t Task, spec arch.Spec, features []string) (nn.Module, bool) {
+	if len(t.BaseLabels) == 0 || !slices.Equal(t.BaseFeatures, features) {
+		return nil, false
+	}
+	was := spec
+	was.Labels = t.BaseLabels
+	m, ok := t.Arch.New(was).(arch.Headed)
+	if !ok || load(t.BaseWeights, m) != nil {
+		return nil, false
+	}
+	m.SetHead(len(spec.Labels))
+	return m, true
 }

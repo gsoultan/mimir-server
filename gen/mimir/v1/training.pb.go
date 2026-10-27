@@ -1911,10 +1911,12 @@ type Job struct {
 	TrainedRows int64 `protobuf:"varint,28,opt,name=trained_rows,json=trainedRows,proto3" json:"trained_rows,omitempty"`
 	// check_time and check_note say when it last looked at the source
 	// without starting a pass, and what it found.
-	CheckTime     *timestamppb.Timestamp `protobuf:"bytes,29,opt,name=check_time,json=checkTime,proto3" json:"check_time,omitempty"`
-	CheckNote     string                 `protobuf:"bytes,30,opt,name=check_note,json=checkNote,proto3" json:"check_note,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	CheckTime *timestamppb.Timestamp `protobuf:"bytes,29,opt,name=check_time,json=checkTime,proto3" json:"check_time,omitempty"`
+	CheckNote string                 `protobuf:"bytes,30,opt,name=check_note,json=checkNote,proto3" json:"check_note,omitempty"`
+	// start_from_model_id is the model the run started from, if any.
+	StartFromModelId string `protobuf:"bytes,31,opt,name=start_from_model_id,json=startFromModelId,proto3" json:"start_from_model_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Job) Reset() {
@@ -2157,6 +2159,13 @@ func (x *Job) GetCheckNote() string {
 	return ""
 }
 
+func (x *Job) GetStartFromModelId() string {
+	if x != nil {
+		return x.StartFromModelId
+	}
+	return ""
+}
+
 type ListJobsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2341,9 +2350,13 @@ type CreateJobRequest struct {
 	WorkerId string `protobuf:"bytes,7,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
 	// min_new_rows makes each keep-learning pass wait for that many new rows
 	// in the source; 0 starts one every repeat_seconds.
-	MinNewRows    int64 `protobuf:"varint,8,opt,name=min_new_rows,json=minNewRows,proto3" json:"min_new_rows,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MinNewRows int64 `protobuf:"varint,8,opt,name=min_new_rows,json=minNewRows,proto3" json:"min_new_rows,omitempty"`
+	// start_from_model_id starts the run from what that model learned, a
+	// model of the same architecture: it keeps the layers that read the
+	// examples and learns this dataset's answers on top, as a new model.
+	StartFromModelId string `protobuf:"bytes,9,opt,name=start_from_model_id,json=startFromModelId,proto3" json:"start_from_model_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CreateJobRequest) Reset() {
@@ -2430,6 +2443,13 @@ func (x *CreateJobRequest) GetMinNewRows() int64 {
 		return x.MinNewRows
 	}
 	return 0
+}
+
+func (x *CreateJobRequest) GetStartFromModelId() string {
+	if x != nil {
+		return x.StartFromModelId
+	}
+	return ""
 }
 
 type CreateJobResponse struct {
@@ -2873,7 +2893,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\baccuracy\x18\x03 \x01(\x01R\baccuracy\x12\x19\n" +
 	"\bval_loss\x18\x04 \x01(\x01R\avalLoss\x12'\n" +
 	"\x0fduration_millis\x18\x05 \x01(\x03R\x0edurationMillis\x12#\n" +
-	"\rtypical_error\x18\x06 \x01(\x01R\ftypicalError\"\xbe\b\n" +
+	"\rtypical_error\x18\x06 \x01(\x01R\ftypicalError\"\xed\b\n" +
 	"\x03Job\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -2912,14 +2932,15 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\n" +
 	"check_time\x18\x1d \x01(\v2\x1a.google.protobuf.TimestampR\tcheckTime\x12\x1d\n" +
 	"\n" +
-	"check_note\x18\x1e \x01(\tR\tcheckNote\"\x11\n" +
+	"check_note\x18\x1e \x01(\tR\tcheckNote\x12-\n" +
+	"\x13start_from_model_id\x18\x1f \x01(\tR\x10startFromModelId\"\x11\n" +
 	"\x0fListJobsRequest\"5\n" +
 	"\x10ListJobsResponse\x12!\n" +
 	"\x04jobs\x18\x01 \x03(\v2\r.mimir.v1.JobR\x04jobs\"\x1f\n" +
 	"\rGetJobRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"1\n" +
 	"\x0eGetJobResponse\x12\x1f\n" +
-	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xa9\x02\n" +
+	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xd8\x02\n" +
 	"\x10CreateJobRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\"\n" +
@@ -2930,7 +2951,8 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x0erepeat_seconds\x18\x06 \x01(\x03R\rrepeatSeconds\x12\x1b\n" +
 	"\tworker_id\x18\a \x01(\tR\bworkerId\x12 \n" +
 	"\fmin_new_rows\x18\b \x01(\x03R\n" +
-	"minNewRows\"4\n" +
+	"minNewRows\x12-\n" +
+	"\x13start_from_model_id\x18\t \x01(\tR\x10startFromModelId\"4\n" +
 	"\x11CreateJobResponse\x12\x1f\n" +
 	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\"\n" +
 	"\x10CancelJobRequest\x12\x0e\n" +
