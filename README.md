@@ -347,10 +347,17 @@ server-wide settings are theirs alone.
 ## How models load
 
 A mimir model is Go code plus weights, so the server keeps a registry of
-known model types in `internal/arch` (today: two handwritten-digit models,
-`mnist-mlp` and `mnist-cnn`, and `table-mlp` for rows of numbers). An
-upload names its type, and the server checks the weights fit that type
-before storing them. To serve a model type of your own without changing
+known model types in `internal/arch`: handwritten-digit networks
+(`mnist-mlp`, `mnist-cnn`), table and photo networks (`table-mlp`,
+`text-mlp`, `number-mlp`, `photo-cnn`, `photo-table`), and models fit to a
+whole table at once with mimir's `tree` and `linear` packages: boosted
+trees (`table-boost`, `number-boost`), random forests (`table-forest`,
+`number-forest`) and logistic and linear regression (`table-linear`,
+`number-linear`). Boosted trees are the default for tables. A fitted
+model is saved as a Mimir Model file of buffers with its shape in the
+metadata, so it is served, kept on devices and moved between workers like
+a network. An upload names its type, and the server checks the weights
+fit that type before storing them. To serve a model type of your own without changing
 the server, write it in Go and run it on a worker (see Your own model
 types).
 

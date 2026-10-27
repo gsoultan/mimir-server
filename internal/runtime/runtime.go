@@ -77,7 +77,20 @@ func Build(a arch.Architecture, spec arch.Spec, weights []byte) (nn.Module, erro
 			return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
 		}
 	}
-	m := a.New(spec)
+	var m nn.Module
+	if a.Learner != nil {
+		// A learned model's file says how it is shaped.
+		md, err := f.Metadata()
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+		}
+		s, _ := md[arch.ShapeKey].(string)
+		if m, err = a.Learner.Build(s); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
+		}
+	} else {
+		m = a.New(spec)
+	}
 	if err := f.Load(m); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrBadWeights, err)
 	}

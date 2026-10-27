@@ -125,11 +125,11 @@ func (t Template) Architecture() string {
 	case t.Data == PhotoTable:
 		return "photo-table"
 	case t.Kind == Number:
-		return "number-mlp"
+		return "number-boost"
 	case slices.ContainsFunc(t.Inputs(), func(c Column) bool { return c.Kind == schema.Text }):
 		return "text-mlp"
 	}
-	return "table-mlp"
+	return "table-boost"
 }
 
 // Query returns a starting database query that gives the template's

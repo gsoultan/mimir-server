@@ -546,6 +546,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
           </Stepper.Step>
 
           <Stepper.Step label={steps[2]} description="Then start">
+            {chosenArch?.learned ? (
+              <Text mt="md" size="sm">{chosenArch.title} learn from the whole table in one go, and stop on their own once more would not help, so there is nothing to choose here.</Text>
+            ) : (
             <Radio.Group value={preset} onChange={setPreset} label="How hard should it study?" mt="md">
               <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm">
                 {presets.map((p) => (
@@ -558,12 +561,17 @@ function Wizard({ data: dataType }: { data: DataType }) {
                 ))}
               </SimpleGrid>
             </Radio.Group>
+            )}
             <UnstyledButton mt="md" onClick={toggle} className="text-sm text-[var(--mantine-color-teal-7)] underline">{expert ? "Hide expert settings" : "Expert settings"}</UnstyledButton>
             <Collapse expanded={expert}>
               <SimpleGrid cols={{ base: 1, sm: 2 }} mt="sm">
-                <NumberInput label="Passes over the examples" description="Epochs" min={1} max={1000} value={epochs} onChange={setEpochs} />
-                <NumberInput label="Examples per step" description="Batch size" min={1} max={4096} value={batch} onChange={setBatch} />
-                <NumberInput label="Learning rate" description="How big each adjustment is" min={0.000001} max={1} step={0.0005} decimalScale={6} value={rate} onChange={setRate} />
+                {!chosenArch?.learned && (
+                  <>
+                    <NumberInput label="Passes over the examples" description="Epochs" min={1} max={1000} value={epochs} onChange={setEpochs} />
+                    <NumberInput label="Examples per step" description="Batch size" min={1} max={4096} value={batch} onChange={setBatch} />
+                    <NumberInput label="Learning rate" description="How big each adjustment is" min={0.000001} max={1} step={0.0005} decimalScale={6} value={rate} onChange={setRate} />
+                  </>
+                )}
                 <NumberInput label="Kept aside for scoring" description="Percent of examples the model never learns from, used to measure it honestly" min={0} max={50} suffix="%" value={holdOut} onChange={setHoldOut} />
               </SimpleGrid>
             </Collapse>
@@ -604,7 +612,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
               </Stack>
             )}
             <Text size="sm" c="dimmed" mt="md">
-              {name || "The model"} will learn from {dataset?.rows.toLocaleString()} examples over {chosenEpochs} passes{fromQuery && repeat !== "0" && `, then keep learning ${repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase()}${waitRows > 0 ? ` once ${waitRows.toLocaleString()} new rows are in` : ""}`}. When it&apos;s done you can try it with one {archive ? "photo" : "row"}, or send it new ones from your apps. You can stop it any time and pick up later.
+              {name || "The model"} will learn from {dataset?.rows.toLocaleString()} examples {chosenArch?.learned ? "in one go" : `over ${chosenEpochs} passes`}{fromQuery && repeat !== "0" && `, then keep learning ${repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase()}${waitRows > 0 ? ` once ${waitRows.toLocaleString()} new rows are in` : ""}`}. When it&apos;s done you can try it with one {archive ? "photo" : "row"}, or send it new ones from your apps. You can stop it any time and pick up later.
             </Text>
             {createJob.error && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{message(createJob.error)}</Alert>}
           </Stepper.Step>
