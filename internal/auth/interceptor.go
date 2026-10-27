@@ -52,6 +52,8 @@ var Public = map[string]bool{
 	"/mimir.v1.AuthService/Setup":         true,
 	"/mimir.v1.AuthService/SignIn":        true,
 	"/mimir.v1.AuthService/SignOut":       true,
+	// The sign-in page's buttons.
+	"/mimir.v1.SignInService/ListSignInOptions": true,
 }
 
 // Required maps each procedure to the permission it needs. Model-level
@@ -144,6 +146,9 @@ var Required = map[string]Permission{
 	"/mimir.v1.TeamService/CreateTeam":             TeamsManage,
 	"/mimir.v1.TeamService/UpdateTeam":             TeamsManage,
 	"/mimir.v1.TeamService/DeleteTeam":             TeamsManage,
+	"/mimir.v1.SignInService/ListSignInProviders":  SettingsManage,
+	"/mimir.v1.SignInService/SaveSignInProvider":   SettingsManage,
+	"/mimir.v1.SignInService/DeleteSignInProvider": SettingsManage,
 }
 
 // ErrSignedOut is returned to callers with no valid credentials.

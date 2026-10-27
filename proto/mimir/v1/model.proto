@@ -236,6 +236,10 @@ message Architecture {
   // designable says its hidden layers can be shaped step by step when it
   // is taught (TrainingSettings.layers).
   bool designable = 11;
+  // learned says models of this shape, such as boosted trees and linear
+  // models, are fit to the whole table at once: the epochs, batch size
+  // and learning rate of TrainingSettings don't apply.
+  bool learned = 12;
 }
 
 // Column is one column a model reads and how it becomes numbers.
@@ -298,6 +302,11 @@ message Model {
   string version = 19;
   // version_id is the ModelVersion answering now (ListModelVersions).
   string version_id = 20;
+  // base_model_id is set on a fine-tune of a language model: the model it
+  // adapts, whose file it runs on top of. base_model_name is that model's
+  // name.
+  string base_model_id = 21;
+  string base_model_name = 22;
 }
 
 // LanguageSettings are how a language model answers when a chat or an app

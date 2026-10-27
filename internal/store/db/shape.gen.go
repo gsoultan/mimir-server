@@ -200,6 +200,7 @@ func _assertModelShape(m m0.Model) {
 		m.MaxTokens,
 		m.OnDevice,
 		m.VersionID,
+		m.BaseModelID,
 	}
 }
 
@@ -258,6 +259,20 @@ func _assertSettingShape(m m0.Setting) {
 	_ = shape{
 		m.Key,
 		m.Value,
+	}
+}
+
+// _assertSignInIdentityShape fails to compile if m0.SignInIdentity gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertSignInIdentityShape(m m0.SignInIdentity) {
+	type shape m0.SignInIdentity
+	_ = shape{
+		m.Record,
+		m.User,
+		m.Issuer,
+		m.Subject,
+		m.Email,
+		m.LastSignIn,
 	}
 }
 
