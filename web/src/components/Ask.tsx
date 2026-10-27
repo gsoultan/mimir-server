@@ -14,7 +14,10 @@ import { DrawPad, type DrawPadHandle } from "./DrawPad";
 export type Question = { input?: { shape: bigint[]; values: number[] }; fields?: Record<string, string>; photo?: Uint8Array; sound?: Uint8Array; topK: number };
 // values, for a decision model, is the reward it expects of each action,
 // in the order of the model's labels.
-export type Answer = { number?: boolean; value?: number; guesses?: { label: string; probability: number }[]; values?: number[]; ms: number };
+// boxes, for a model that finds things, are what it found, where as shares
+// of the photo.
+export type Found = { label: string; score: number; left: number; top: number; width: number; height: number };
+export type Answer = { number?: boolean; value?: number; guesses?: { label: string; probability: number }[]; values?: number[]; boxes?: Found[]; ms: number };
 
 // How sure the model is, in words.
 function sureness(p: number) {
@@ -26,7 +29,7 @@ function sureness(p: number) {
 // intro says what Ask asks for, for the page's intro.
 export function askIntro(arch?: Architecture) {
   const draw = arch?.input === "image" && arch.inputShape.length > 0;
-  const wantsPhoto = (arch?.input === "image" && !draw) || arch?.input === "photo_table";
+  const wantsPhoto = (arch?.input === "image" && !draw) || arch?.input === "photo_table" || arch?.input === "scene";
   return draw ? "Draw a number and see what the model thinks it is." : `${wantsPhoto ? "Pick a photo" : arch?.input === "sound" ? "Pick a sound" : "Fill in one example"} and see what the model answers.`;
 }
 
@@ -60,9 +63,10 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
   // A digits model takes a drawing, a photo model a photo, and a table
   // model one value per column; photo-and-table models take both.
   const draw = arch?.input === "image" && (arch.inputShape.length > 0);
-  const wantsPhoto = (arch?.input === "image" && !draw) || arch?.input === "photo_table";
+  const finds = arch?.output === "boxes";
+  const wantsPhoto = (arch?.input === "image" && !draw) || arch?.input === "photo_table" || arch?.input === "scene";
   const wantsSound = arch?.input === "sound";
-  const columns: Column[] = draw || arch?.input === "image" || wantsSound ? [] : model.columns.length > 0
+  const columns: Column[] = draw || arch?.input === "image" || arch?.input === "scene" || wantsSound ? [] : model.columns.length > 0
     ? model.columns.filter((c) => c.kind !== "photo")
     : model.features.map((name) => ({ name, kind: "number", values: [], fill: 0 }) as unknown as Column);
   const shape = model.inputShape.length > 0 ? model.inputShape : arch?.inputShape ?? [];
@@ -122,7 +126,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
                   clearable
                 />
               )}
-              {preview && <img src={preview} alt="The photo you picked" className="max-h-48 self-start rounded-lg object-contain" />}
+              {preview && !finds && <img src={preview} alt="The photo you picked" className="max-h-48 self-start rounded-lg object-contain" />}
               {columns.map((c) => <Field key={c.name} column={c} value={values[c.name] ?? ""} onChange={(v) => change(c.name, v)} />)}
               {raw && (
                 <Textarea
@@ -152,7 +156,31 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
       )}
       <Stack>
         {predict.error && <Alert color="red" icon={<IconAlertCircle />}>{predict.error instanceof ConnectError ? message(predict.error) : predict.error.message}</Alert>}
-        {predict.data?.number ? (
+        {finds && preview ? (
+          <Card withBorder radius="lg" padding="lg" aria-live="polite">
+            <Text c="dimmed" size="sm">{predict.data ? (predict.data.boxes?.length ? `Found ${predict.data.boxes.length}` : "Found nothing it knows") : "The photo"}</Text>
+            <div className="relative mt-2 inline-block">
+              <img src={preview} alt="The photo you picked" className="block max-h-96 max-w-full rounded-lg" />
+              {predict.data?.boxes?.map((b, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded border-2 border-[var(--mantine-color-teal-5)]"
+                  style={{ left: `${b.left * 100}%`, top: `${b.top * 100}%`, width: `${b.width * 100}%`, height: `${b.height * 100}%` }}
+                >
+                  <span className="absolute left-0 top-0 -translate-y-full rounded-sm bg-[var(--mantine-color-teal-7)] px-1 text-xs text-white">{b.label} {Math.round(b.score * 100)}</span>
+                </div>
+              ))}
+            </div>
+            {predict.data?.boxes && predict.data.boxes.length > 0 && (
+              <Stack gap={4} mt="md">
+                {predict.data.boxes.map((b, i) => (
+                  <Text key={i} size="sm"><b>{b.label}</b>, sure about {Math.round(b.score * 100)} of 100</Text>
+                ))}
+              </Stack>
+            )}
+            {took}
+          </Card>
+        ) : predict.data?.number ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
             <Text c="dimmed" size="sm">The model&apos;s answer</Text>
             <Title order={2} fz={40} className="font-[family-name:var(--font-display)]">{(predict.data.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Title>
@@ -192,7 +220,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
           </Card>
         ) : (
           <Card withBorder radius="lg" padding="lg" className="border-dashed">
-            <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : wantsSound ? "Pick a sound" : "Fill in the details"}, then press "What is it?". ${arch?.output === "number" ? "The answer will be a number." : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
+            <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : wantsSound ? "Pick a sound" : "Fill in the details"}, then press "What is it?". ${finds ? `The answer draws a box around each ${model.labels.slice(0, 12).join(", ")} it finds.` : arch?.output === "number" ? "The answer will be a number." : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
           </Card>
         )}
       </Stack>

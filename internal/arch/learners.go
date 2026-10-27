@@ -32,6 +32,9 @@ type Learner struct {
 	// for a model whose questions aren't the table's rows, or that has no
 	// answer column: it says what its questions name and its answers are.
 	Cells func(ctx context.Context, c Cells, progress func(done, total int)) (Learned, error)
+	// Boxes, set in place of Fit, learns from photos and the boxes around
+	// the things in them, in epochs passes.
+	Boxes func(ctx context.Context, b Boxed, epochs int, progress func(done, total int)) (Learned, error)
 	// Build returns an empty module of the shape Fit returned, for its
 	// saved weights to load into.
 	Build func(shape string) (nn.Module, error)

@@ -8,7 +8,7 @@ export const kinds = [
   { id: "number", label: "A number", title: "How much or how many?", hint: "A number. Units next week, energy per shift." },
 ] as const;
 
-export type DataType = "table" | "text" | "photos" | "photo_table" | "sounds";
+export type DataType = "table" | "text" | "photos" | "photo_table" | "sounds" | "boxes";
 
 // What the examples look like: the cards people pick from first.
 export const dataTypes: { id: DataType; title: string; chip: string; hint: string; examples: string; pic: string; scratch: string }[] = [
@@ -46,6 +46,13 @@ export const dataTypes: { id: DataType; title: string; chip: string; hint: strin
     examples: "machine noises, bird calls, spoken words",
     pic: "normal/  ♪ ♪ ♪\nworn/    ♪ ♪\nbroken/  ♪",
     scratch: "Upload my own sound folders",
+  },
+  {
+    id: "boxes", title: "Photos with boxes", chip: "Photos with boxes",
+    hint: "Photos and a boxes.csv saying where each thing in them is: the photo, what it is, and its box in pixels.",
+    examples: "scratches, packages on a shelf, people in a doorway",
+    pic: "photo     what     left top\n0001.jpg  scratch  112  40\n0002.jpg  dent     300  210",
+    scratch: "Upload my own photos and boxes",
   },
 ];
 
@@ -98,6 +105,8 @@ export function dataTypeOfKind(k: DatasetKind): DataType[] {
       return ["photo_table"];
     case DatasetKind.SOUNDS:
       return ["sounds"];
+    case DatasetKind.BOXES:
+      return ["boxes"];
   }
   return ["table", "text"];
 }

@@ -633,6 +633,13 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		}
 		return connect.NewResponse(res), nil
 	}
+	if a.Answers() == arch.Boxes {
+		res.Probabilities = nil
+		for _, f := range arch.FoundIn(r.Output, spec.Labels) {
+			res.Boxes = append(res.Boxes, &mimirv1.Box{Label: f.Label, Score: f.Score, Left: f.Left, Top: f.Top, Width: f.Width, Height: f.Height})
+		}
+		return connect.NewResponse(res), nil
+	}
 	for _, g := range r.Top(spec.Labels, topK) {
 		res.Guesses = append(res.Guesses, &mimirv1.Guess{Label: g.Label, Probability: g.Probability})
 	}

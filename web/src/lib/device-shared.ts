@@ -22,7 +22,7 @@ export type Ask = {
 export type Request = Ask | { type: "forget"; seq: number; id: string };
 
 export type Reply =
-  | { number?: boolean; value?: number; guesses?: { label: string; probability: number }[]; values?: number[]; ms: number }
+  | { number?: boolean; value?: number; guesses?: { label: string; probability: number }[]; values?: number[]; boxes?: { label: string; score: number; left: number; top: number; width: number; height: number }[]; ms: number }
   | { error: string };
 
 // device is what the worker needs to know about a model; see

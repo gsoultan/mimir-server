@@ -97,6 +97,9 @@ enum DatasetKind {
   DATASET_KIND_PHOTO_TABLE = 4;
   // SOUNDS is a ZIP of WAV sounds with one folder per answer.
   DATASET_KIND_SOUNDS = 5;
+  // BOXES is a ZIP of photos and a table of the boxes around the things
+  // in them.
+  DATASET_KIND_BOXES = 6;
 }
 
 message Dataset {

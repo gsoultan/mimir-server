@@ -50,6 +50,18 @@ type Answer struct {
 	// Values is a decision model's expected reward of each action, in the
 	// order of its labels.
 	Values []float32 `json:"values,omitempty"`
+	// Boxes are what a model that finds things found, surest first.
+	Boxes []Box `json:"boxes,omitempty"`
+}
+
+// Box is a thing found, where as shares of the photo.
+type Box struct {
+	Label  string  `json:"label"`
+	Score  float32 `json:"score"`
+	Left   float32 `json:"left"`
+	Top    float32 `json:"top"`
+	Width  float32 `json:"width"`
+	Height float32 `json:"height"`
 }
 
 // ErrNotLoaded is what Predict returns for a model not loaded yet.
@@ -126,6 +138,13 @@ func (r *Runner) Predict(ctx context.Context, id string, q Question) (Answer, er
 			a.Value = float64(res.Output[0])
 		}
 		return a, nil
+	}
+	if l.a.Answers() == arch.Boxes {
+		var out Answer
+		for _, f := range arch.FoundIn(res.Output, l.spec.Labels) {
+			out.Boxes = append(out.Boxes, Box{Label: f.Label, Score: f.Score, Left: f.Left, Top: f.Top, Width: f.Width, Height: f.Height})
+		}
+		return out, nil
 	}
 	k := q.TopK
 	if k <= 0 {

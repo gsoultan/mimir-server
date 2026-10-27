@@ -309,7 +309,11 @@ Photos can also be read by an 18-layer ResNet (`photo-resnet`) or a
 MobileNetV2 (`photo-mobilenet`) from mimir's `vision` package, and sounds
 by `sound`, a small convolutional network over each second's log mel
 spectrogram from mimir's `audio` package; a sound is asked about as a WAV
-file in Predict's `sound` field. Five more
+file in Predict's `sound` field. `find-things` finds things in photos, as
+CenterNet does on a ResNet-18 of a quarter the usual width: each photo is
+read whole at 128 by 128, and Predict answers with `boxes`, each a label,
+a score and where it is as shares of the photo. It scores itself by its
+mean average precision at an overlap of 0.5 on the photos held out. Five more
 read a table's cells themselves and answer questions that aren't its rows:
 `find-groups` sorts rows into groups by k-means with no answer column,
 `odd-one` scores how unusual a row is with an isolation forest,
@@ -343,6 +347,10 @@ models first says what their data looks like, then trains in three steps:
 - **Text**: reviews, messages or notes, one per cell next to the answer.
 - **Photos in folders**: one folder per answer, as a ZIP or a dropped folder.
 - **Photos with details**: a ZIP with `data.csv` and the photos it names.
+- **Photos with boxes**: a ZIP of photos and a `boxes.csv` with one row per
+  thing in them: the photo, what it is, and its box in pixels (`left`,
+  `top`, `width`, `height`, or `right` and `bottom`). A row with `what`
+  empty is a photo with nothing in it.
 - **Sounds in folders**: WAV recordings, one folder per answer, as a ZIP or
   a dropped folder. Each is heard as one second at 16 kHz, from its middle,
   whatever its rate and channels.
@@ -359,7 +367,7 @@ models first says what their data looks like, then trains in three steps:
    a table or text classifier, a **number predictor** when the answer is
    a number, a **picture classifier** for photo folders, a **photo
    and table classifier** when each row has a photo too, and a **sound
-   classifier** for sound folders. A table model
+   classifier** for sound folders, and a **finder** for photos with boxes. A table model
    can be Small, Medium (the usual) or Large, or **designed** step by
    step: up to 8 "learn patterns" (dense, 1 to 1024 units) and "forget a
    little" (dropout) steps, with how many numbers it learns and how many

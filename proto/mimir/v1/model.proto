@@ -223,6 +223,17 @@ message Guess {
   float probability = 2;
 }
 
+// Box is a thing found in a photo: what it is, how sure the model is, and
+// where, as shares of the photo's width and height from its top left.
+message Box {
+  string label = 1;
+  float score = 2;
+  float left = 3;
+  float top = 4;
+  float width = 5;
+  float height = 6;
+}
+
 message ListArchitecturesRequest {}
 
 message ListArchitecturesResponse {
@@ -321,6 +332,8 @@ message PredictResponse {
   // number is set for a model that answers with a number; value is it.
   bool number = 5;
   double value = 6;
+  // boxes are the things a model that finds things found, surest first.
+  repeated Box boxes = 7;
 }
 
 message GenerateRequest {
