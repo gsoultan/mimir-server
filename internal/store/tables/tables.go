@@ -27,5 +27,6 @@ func All() []any {
 		&APIKey{}, &APIKeyModel{}, &AuditEvent{}, &Webhook{}, &Delivery{},
 		&Setting{}, &Dataset{}, &TrainingJob{}, &Worker{}, &WorkerSample{}, &Usage{},
 		&Architecture{}, &ModelVersion{}, &Benchmark{}, &BenchmarkScore{}, &SignInIdentity{},
+		&Answer{}, &AnswerDay{},
 	}
 }
