@@ -73,7 +73,9 @@ jobs:
         run: |
           test -z "$(gofmt -l cmd internal worker)"
           go vet ./...
-          go test -race ./...
+          # The training package learns real models; under -race it takes
+          # most of the default ten minutes, so give it room.
+          go test -race -timeout 20m ./...
       - name: Known vulnerabilities
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
