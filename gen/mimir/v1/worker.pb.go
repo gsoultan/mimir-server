@@ -2812,7 +2812,10 @@ type TrainResult struct {
 	// low_memory says the worker stopped, or wouldn't start, the run to
 	// stay within its memory. The run goes back in the queue and resumes
 	// from its checkpoint.
-	LowMemory     bool `protobuf:"varint,8,opt,name=low_memory,json=lowMemory,proto3" json:"low_memory,omitempty"`
+	LowMemory bool `protobuf:"varint,8,opt,name=low_memory,json=lowMemory,proto3" json:"low_memory,omitempty"`
+	// report is how the model did on the examples kept aside, as the JSON
+	// of the console's run report; empty when it wasn't scored.
+	Report        []byte `protobuf:"bytes,9,opt,name=report,proto3" json:"report,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2901,6 +2904,13 @@ func (x *TrainResult) GetLowMemory() bool {
 		return x.LowMemory
 	}
 	return false
+}
+
+func (x *TrainResult) GetReport() []byte {
+	if x != nil {
+		return x.Report
+	}
+	return nil
 }
 
 type CancelTask struct {
@@ -3854,7 +3864,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x05epoch\x18\x02 \x01(\x05R\x05epoch\x12\x12\n" +
 	"\x04step\x18\x03 \x01(\x05R\x04step\x12&\n" +
 	"\x0fsteps_per_epoch\x18\x04 \x01(\x05R\rstepsPerEpoch\x12/\n" +
-	"\ahistory\x18\x05 \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\"\x83\x02\n" +
+	"\ahistory\x18\x05 \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\"\x9b\x02\n" +
 	"\vTrainResult\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
 	"\aweights\x18\x02 \x01(\fR\aweights\x12/\n" +
@@ -3864,7 +3874,8 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\tcancelled\x18\x06 \x01(\bR\tcancelled\x12\x14\n" +
 	"\x05fresh\x18\a \x01(\bR\x05fresh\x12\x1d\n" +
 	"\n" +
-	"low_memory\x18\b \x01(\bR\tlowMemory\"%\n" +
+	"low_memory\x18\b \x01(\bR\tlowMemory\x12\x16\n" +
+	"\x06report\x18\t \x01(\fR\x06report\"%\n" +
 	"\n" +
 	"CancelTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\x96\x04\n" +

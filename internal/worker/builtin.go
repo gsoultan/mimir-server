@@ -4,6 +4,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 
 	"github.com/gsoultan/mimir-server/internal/arch"
@@ -106,6 +107,9 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 		return worker.Trained{}, err
 	}
 	out := worker.Trained{Weights: res.Weights, History: toSDK(res.History), InputShape: res.Spec.InputShape, Labels: res.Spec.Labels, Features: res.Features, Fresh: res.Fresh}
+	if res.Report != nil {
+		out.Report, _ = json.Marshal(res.Report)
+	}
 	for _, c := range res.Columns {
 		out.Columns = append(out.Columns, worker.Column{Name: c.Name, Kind: string(c.Kind), Values: c.Values, Fill: c.Fill})
 	}

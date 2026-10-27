@@ -755,6 +755,7 @@ func toProto(m store.Model) *mimirv1.Model {
 		Language:     languageProto(m),
 		OnDevice:     m.OnDevice,
 		Version:      m.WeightsVersion(),
+		VersionId:    m.VersionID,
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {
