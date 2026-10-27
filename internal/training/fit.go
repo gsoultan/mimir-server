@@ -82,6 +82,9 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 		}
 	}
 	spec := arch.Resolve(t.Arch, l.Spec)
+	if t.Arch.Learner != nil {
+		return learn(ctx, t, l, spec, progress)
+	}
 	if t.Arch.Designable {
 		if spec.Layers, err = arch.ParseLayers(s.Layers); err != nil {
 			return Result{}, err

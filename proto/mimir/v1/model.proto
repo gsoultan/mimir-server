@@ -124,6 +124,10 @@ message Architecture {
   // designable says its hidden layers can be shaped step by step when it
   // is taught (TrainingSettings.layers).
   bool designable = 11;
+  // learned says models of this shape, such as boosted trees and linear
+  // models, are fit to the whole table at once: the epochs, batch size
+  // and learning rate of TrainingSettings don't apply.
+  bool learned = 12;
 }
 
 // Column is one column a model reads and how it becomes numbers.

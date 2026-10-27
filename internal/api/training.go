@@ -451,6 +451,9 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 	if st == nil || st.HoldOut == 0 {
 		set.HoldOut = def.HoldOut
 	}
+	if a.Learner != nil {
+		set.Epochs = 1 // it learns in one go
+	}
 	switch {
 	case set.Epochs < 1 || set.Epochs > 1000:
 		return nil, invalid("Passes over the examples must be between 1 and 1000.")

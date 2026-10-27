@@ -191,14 +191,20 @@ type Architecture struct {
 	Output Output
 	// Text marks a table architecture made for rows with free text.
 	Text bool
+	// AnyText marks a table architecture made for rows with or without
+	// free text.
+	AnyText bool
 	// Designable says its hidden layers can be designed (Spec.Layers).
 	Designable bool
 	// Spec is the fixed shape and labels, or zero when they come from the
 	// dataset.
 	Spec Spec
 	// New builds the module with freshly initialized weights for spec.
-	// It is nil for a File architecture.
+	// It is nil for a File architecture and a Learner's.
 	New func(spec Spec) nn.Module
+	// Learner, when set, fits the model to the whole table at once in
+	// place of training New's network.
+	Learner *Learner
 	// File marks the architecture of Mimir Model (.mim) files, which hold
 	// their model's graph as well as its weights and so run as they are.
 	// Their shape and labels come from the file.
@@ -335,6 +341,8 @@ var builtin = []Architecture{
 		File:        true,
 	},
 }
+
+func init() { builtin = append(builtin, learned...) }
 
 // All returns every architecture, sorted by name.
 func All() []Architecture {
