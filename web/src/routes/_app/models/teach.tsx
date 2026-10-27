@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_app/models/teach")({
   validateSearch: z.object({
     template: z.string().optional(),
     example: z.boolean().optional(),
-    data: z.enum(["table", "text", "photos", "photo_table"]).optional(),
+    data: z.enum(["table", "text", "photos", "photo_table", "sounds"]).optional(),
     // arch is the model type to teach when the examples fit it, such as
     // one written in someone's own code.
     arch: z.string().optional(),
@@ -153,7 +153,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const presetArch = archs.architectures.find((a) => a.name === search.arch);
   const role = (presetArch?.target ?? "") as Role;
   const photos = dataType === "photos";
-  const archive = dataType === "photos" || dataType === "photo_table";
+  const archive = dataType === "photos" || dataType === "photo_table" || dataType === "sounds";
   const canStore = me.permissions.includes("databases.query");
   const canConnect = canStore && !archive;
   const navigate = useNavigate();
@@ -197,7 +197,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const looked = useMutation(DatasetService.method.testBucket, {
     onSuccess: (res) => setTarget(guessTarget(res.columns, role)),
   });
-  const kindToMake = tpl ? datasetKindOf(tpl) : dataType === "photos" ? DatasetKind.PHOTOS : dataType === "photo_table" ? DatasetKind.PHOTO_TABLE : DatasetKind.TABLE;
+  const kindToMake = tpl ? datasetKindOf(tpl) : dataType === "photos" ? DatasetKind.PHOTOS : dataType === "photo_table" ? DatasetKind.PHOTO_TABLE : dataType === "sounds" ? DatasetKind.SOUNDS : DatasetKind.TABLE;
   const editBucket = (b: Partial<Bucket>) => { setBucket((cur) => ({ ...cur, ...b })); looked.reset(); reset(); };
 
   const createDataset = useMutation(DatasetService.method.createDataset, {
@@ -350,12 +350,13 @@ function Wizard({ data: dataType }: { data: DataType }) {
   });
   const steps = tpl ? ["Your data", "Name it", "How long"] : ["The examples", "What kind", "How long"];
   const dt = dataTypeOf(dataType);
-  const uploadTitle = { table: "Upload a table", text: "Upload a table with text", photos: "Upload your photos", photo_table: "Upload a ZIP" }[dataType];
+  const uploadTitle = { table: "Upload a table", text: "Upload a table with text", photos: "Upload your photos", photo_table: "Upload a ZIP", sounds: "Upload your sounds" }[dataType];
   const uploadHint = {
     table: "A .csv file with a header row, exported from Excel, Google Sheets or your app. One column holds the answer.",
     text: "A .csv file with a header row. Each text sits in one cell, next to its answer.",
     photos: "A ZIP file, or drop the top folder with one folder per answer inside.",
     photo_table: "The table as data.csv and a photos folder, zipped together. Or drop the folder that holds both.",
+    sounds: "A ZIP file of WAV recordings, or drop the top folder with one folder per answer inside.",
   }[dataType];
 
   return (
@@ -381,7 +382,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                 {fitting.length > 0 && (
                   <Choice value="existing" icon={<IconTable size={22} />} title="Examples already here" hint="Reuse examples you added before.">
                     {source === "existing" && (
-                      <Select mt="sm" data={fitting.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} ${archiveKind(d.kind) ? "photos" : "rows"}${d.query ? " · from a database" : d.storage ? " · from storage" : ""}` }))} value={existing} onChange={(v) => { if (v) { setExisting(v); reset(); } }} allowDeselect={false} aria-label="Examples" />
+                      <Select mt="sm" data={fitting.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} ${d.kind === DatasetKind.SOUNDS ? "sounds" : archiveKind(d.kind) ? "photos" : "rows"}${d.query ? " · from a database" : d.storage ? " · from storage" : ""}` }))} value={existing} onChange={(v) => { if (v) { setExisting(v); reset(); } }} allowDeselect={false} aria-label="Examples" />
                     )}
                   </Choice>
                 )}
@@ -393,11 +394,11 @@ function Wizard({ data: dataType }: { data: DataType }) {
                         onReject={() => setFileError(archive ? "Pick a .zip file, or drop a folder of photos." : "Pick a single .csv file.")}
                         maxFiles={archive ? 100_000 : 1}
                         multiple={archive}
-                        accept={archive ? ["application/zip", ".zip", "image/jpeg", "image/png", "image/gif", "text/csv", ".csv"] : ["text/csv", ".csv"]}
+                        accept={dataType === "sounds" ? ["application/zip", ".zip", "audio/wav", "audio/x-wav", ".wav"] : archive ? ["application/zip", ".zip", "image/jpeg", "image/png", "image/gif", "text/csv", ".csv"] : ["text/csv", ".csv"]}
                         radius="md"
                       >
                         <Stack align="center" gap={2} py="md" className="pointer-events-none">
-                          <Text fw={600}>{upload ? upload.name : archive ? "Drop your .zip file or photo folder here" : "Drop your .csv file here"}</Text>
+                          <Text fw={600}>{upload ? upload.name : archive ? `Drop your .zip file or ${dataType === "sounds" ? "sound" : "photo"} folder here` : "Drop your .csv file here"}</Text>
                           <Text size="sm" c="dimmed">{upload ? upload.summary : "or click to choose one"}</Text>
                         </Stack>
                       </Dropzone>
@@ -451,7 +452,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                   </Choice>
                 )}
                 {canStore && (
-                  <Choice value="storage" icon={<IconBucket size={22} />} title="From storage" hint={archive ? "Read a .zip, or a folder of photos, from Cloudflare R2, AWS S3 or other S3-compatible storage." : "Read a .csv, or a folder of them, from Cloudflare R2, AWS S3 or other S3-compatible storage. The model can keep learning as new files land."}>
+                  <Choice value="storage" icon={<IconBucket size={22} />} title="From storage" hint={archive ? `Read a .zip, or a folder of ${dataType === "sounds" ? "sounds" : "photos"}, from Cloudflare R2, AWS S3 or other S3-compatible storage.` : "Read a .csv, or a folder of them, from Cloudflare R2, AWS S3 or other S3-compatible storage. The model can keep learning as new files land."}>
                     {source === "storage" && (
                       <Stack mt="sm" gap="sm">
                         <SegmentedControl value={bucket.provider} onChange={(v) => editBucket({ provider: v })} data={providers} />
@@ -466,9 +467,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
                         </SimpleGrid>
                         <TextInput
                           label="File or folder"
-                          placeholder={archive ? "photos/pets/" : "exports/sales.csv"}
+                          placeholder={dataType === "sounds" ? "sounds/machines/" : archive ? "photos/pets/" : "exports/sales.csv"}
                           description={archive
-                            ? (dataType === "photos" ? "A .zip, or a folder with one folder of photos per answer inside." : "A .zip, or a folder holding data.csv and the photos it names.")
+                            ? (dataType === "photos" || dataType === "sounds" ? `A .zip, or a folder with one folder of ${dataType} per answer inside.` : "A .zip, or a folder holding data.csv and the photos it names.")
                             : "A .csv file, or a folder of .csv files with the same header row. Empty reads the whole bucket."}
                           value={bucketPath}
                           onChange={(e) => { setBucketPath(e.currentTarget.value); looked.reset(); reset(); }}
@@ -511,7 +512,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
             {checkDataset.error && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{message(checkDataset.error)}</Alert>}
             {dataset && check && (
               <div className="mt-6">
-                <DataCheck check={check} template={tpl?.id} photos={dataset.kind === DatasetKind.PHOTOS} onMatch={match} busy={checkDataset.isPending} />
+                <DataCheck check={check} template={tpl?.id} photos={dataset.kind === DatasetKind.PHOTOS} sounds={dataset.kind === DatasetKind.SOUNDS} onMatch={match} busy={checkDataset.isPending} />
               </div>
             )}
           </Stepper.Step>

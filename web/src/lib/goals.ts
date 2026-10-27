@@ -83,6 +83,7 @@ export const shapes: { value: DataType; label: string }[] = [
   { value: "text", label: "Some text" },
   { value: "photos", label: "A photo" },
   { value: "photo_table", label: "Photo + details" },
+  { value: "sounds", label: "A sound" },
 ];
 
 // How much data each shape wants, how long teaching takes, and what an
@@ -94,12 +95,13 @@ export function needs(shape: DataType, kind: "yes_no" | "group" | "number") {
     text: `500 texts${per} to start`,
     photos: `100 photos${per} to start, 500 good`,
     photo_table: `300 rows with photos${per}`,
+    sounds: `100 sounds${per} to start, 500 good`,
   }[shape];
   const time = shape === "table" ? "about a minute to teach" : shape === "text" ? "a few minutes to teach" : "5 to 15 minutes to teach";
   const answer = kind === "yes_no"
     ? "“Yes, sure about 87 of 100”"
     : kind === "group"
-      ? shape === "photos" || shape === "photo_table" ? "“Scratch, sure about 93 of 100”" : "“Billing, sure about 81 of 100”"
+      ? shape === "sounds" ? "“Worn bearing, sure about 91 of 100”" : shape === "photos" || shape === "photo_table" ? "“Scratch, sure about 93 of 100”" : "“Billing, sure about 81 of 100”"
       : "“About 214 units”";
   return { amount, time, answer };
 }
@@ -110,6 +112,7 @@ export const ownData: Record<DataType, string> = {
   text: "Upload a table with the text in one column and the answer in another.",
   photos: "Put the photos in one folder per answer, ZIP them, upload. The folder name is the answer.",
   photo_table: "Upload one ZIP with a data.csv and the photos it names. Say which column is the answer.",
+  sounds: "Put the WAV recordings in one folder per answer, ZIP them, upload. The folder name is the answer; each sound is heard as one second.",
 };
 
 // csv writes a sample as a CSV file's text.

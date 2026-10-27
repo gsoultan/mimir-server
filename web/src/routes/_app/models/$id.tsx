@@ -62,12 +62,13 @@ function ModelDetails() {
   const input = shape.reduce((a, b) => a * b, 1n);
   const number = arch?.output === "number";
   const wantsPhoto = (arch?.input === "image" && shape.length === 0) || arch?.input === "photo_table";
-  const columns = arch?.input === "image" ? [] : m.columns.length > 0 ? m.columns.filter((c) => c.kind !== "photo") : m.features.map((name) => ({ name, kind: "number" }));
-  const named = columns.length > 0 || wantsPhoto;
+  const wantsSound = arch?.input === "sound";
+  const columns = arch?.input === "image" || wantsSound ? [] : m.columns.length > 0 ? m.columns.filter((c) => c.kind !== "photo") : m.features.map((name) => ({ name, kind: "number" }));
+  const named = columns.length > 0 || wantsPhoto || wantsSound;
   const sample = (c: { kind: string; values?: string[] }) => c.kind === "number" ? "1.5" : c.kind === "yesno" ? "yes" : c.kind === "category" || c.kind === "key" ? c.values?.[0] ?? "a" : "some words";
   const fields = JSON.stringify(Object.fromEntries(columns.map((c) => [c.name, sample(c)])));
   const body = (id: string) => named
-    ? `{"${id}": "${m.id}"${columns.length > 0 ? `, "fields": ${fields}` : ""}${wantsPhoto ? `, "photo": "<the photo, base64>"` : ""}}`
+    ? `{"${id}": "${m.id}"${columns.length > 0 ? `, "fields": ${fields}` : ""}${wantsPhoto ? `, "photo": "<the photo, base64>"` : ""}${wantsSound ? `, "sound": "<the WAV file, base64>"` : ""}}`
     : `{"${id}": "${m.id}", "input": {"values": [ /* ${input} numbers */ ]}}`;
   const writes = arch?.output === "text";
   const method = writes ? "Generate" : "Predict";

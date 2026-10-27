@@ -42,7 +42,7 @@ func fitCells(t *testing.T, name, target string, csv string) (Result, func(field
 	}
 	return res, func(fields map[string]string) []float32 {
 		t.Helper()
-		x, err := ask.Encode(a, res.Columns, res.Features, fields, nil)
+		x, err := ask.Encode(a, res.Columns, res.Features, fields, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

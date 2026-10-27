@@ -27,6 +27,7 @@ const (
 	DatasetMNIST      = tables.DatasetMNIST      // the built-in handwritten digits
 	DatasetPhotos     = tables.DatasetPhotos     // a ZIP of photos, one folder per answer
 	DatasetPhotoTable = tables.DatasetPhotoTable // a ZIP of a data.csv and the photos it names
+	DatasetSounds     = tables.DatasetSounds     // a ZIP of WAV sounds, one folder per answer
 )
 
 // Dataset is a set of examples models learn from.

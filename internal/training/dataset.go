@@ -515,7 +515,7 @@ func (s Source) Hints() map[string]schema.Kind {
 // SourceOf returns the Source for a stored dataset.
 func SourceOf(st *store.Store, d store.Dataset) (Source, error) {
 	switch d.Kind {
-	case store.DatasetTable, store.DatasetPhotos, store.DatasetPhotoTable:
+	case store.DatasetTable, store.DatasetPhotos, store.DatasetPhotoTable, store.DatasetSounds:
 		b, err := st.ReadDataset(d.ID)
 		if err != nil {
 			return Source{}, err
@@ -555,6 +555,8 @@ func Load(ctx context.Context, src Source, a arch.Architecture, s store.Settings
 		return fromTable(t, a, s, seed, []int{f}, func(dst []float32, i int) []float32 { return append(dst, t.X[i*f:(i+1)*f]...) })
 	case store.DatasetPhotos:
 		return loadPhotos(ctx, src, a, s, seed)
+	case store.DatasetSounds:
+		return loadSounds(ctx, src, s, seed)
 	case store.DatasetPhotoTable:
 		arc, err := OpenArchive(src.CSV)
 		if err != nil {
@@ -685,9 +687,66 @@ func loadPhotos(ctx context.Context, src Source, a arch.Architecture, s store.Se
 	return l, err
 }
 
+// loadSounds reads a ZIP of sounds sorted into one folder per answer.
+func loadSounds(ctx context.Context, src Source, s store.Settings, seed uint64) (Loaded, error) {
+	arc, err := OpenArchive(src.CSV)
+	if err != nil {
+		return Loaded{}, err
+	}
+	folders, _ := arc.FoldersOf(schema.IsSoundName)
+	labels, err := SoundLabels(folders)
+	if err != nil {
+		return Loaded{}, err
+	}
+	var samples []int16
+	var cls []int32
+	skipped := 0
+	for c, label := range labels {
+		for _, name := range folders[label] {
+			if err := ctx.Err(); err != nil {
+				return Loaded{}, err
+			}
+			one, err := arc.Sound(name)
+			if err != nil {
+				skipped++
+				continue
+			}
+			samples = append(samples, one...)
+			cls = append(cls, int32(c))
+		}
+	}
+	if len(cls) < MinRows {
+		return Loaded{}, fmt.Errorf("%w: only %d sounds could be read; at least %d are needed. Sounds must be WAV files", ErrBadTable, len(cls), MinRows)
+	}
+	shape := []int{schema.SoundSamples}
+	l := Loaded{Spec: arch.Spec{InputShape: shape, Labels: labels}, Skipped: skipped}
+	l.Train, l.Test, err = split(len(cls), s.HoldOut, seed, s.BatchSize, &examples{
+		shape: shape,
+		input: func(dst []float32, i int) []float32 {
+			return schema.SoundFloats(dst, samples[i*schema.SoundSamples:(i+1)*schema.SoundSamples])
+		},
+		cls: cls,
+	})
+	return l, err
+}
+
+// MaxSounds bounds the sounds of one dataset.
+const MaxSounds = 20_000
+
+// SoundLabels returns the answers a ZIP of sound folders teaches: every
+// folder with a sound in it, sorted.
+func SoundLabels(folders map[string][]string) ([]string, error) {
+	return folderLabels(folders, "sounds", MaxSounds)
+}
+
 // PhotoLabels returns the answers a ZIP of photo folders teaches: every
 // folder with a photo in it, sorted.
 func PhotoLabels(folders map[string][]string) ([]string, error) {
+	return folderLabels(folders, "photos", MaxPhotos)
+}
+
+// folderLabels returns the folders holding any of what, sorted.
+func folderLabels(folders map[string][]string, what string, most int) ([]string, error) {
 	var labels []string
 	total := 0
 	for name, files := range folders {
@@ -699,13 +758,13 @@ func PhotoLabels(folders map[string][]string) ([]string, error) {
 	slices.Sort(labels)
 	switch {
 	case len(labels) == 0:
-		return nil, fmt.Errorf("%w: the ZIP has no photos in folders. Put the photos of each answer in a folder named after it", ErrBadTable)
+		return nil, fmt.Errorf("%w: the ZIP has no %s in folders. Put the %s of each answer in a folder named after it", ErrBadTable, what, what)
 	case len(labels) == 1:
-		return nil, fmt.Errorf("%w: all photos are in one folder, %q, so there is nothing to tell apart. Add a folder for each other answer", ErrBadTable, labels[0])
+		return nil, fmt.Errorf("%w: all %s are in one folder, %q, so there is nothing to tell apart. Add a folder for each other answer", ErrBadTable, what, labels[0])
 	case len(labels) > MaxClasses:
 		return nil, fmt.Errorf("%w: at most %d folders", ErrBadTable, MaxClasses)
-	case total > MaxPhotos:
-		return nil, fmt.Errorf("%w: at most %d photos", ErrBadTable, MaxPhotos)
+	case total > most:
+		return nil, fmt.Errorf("%w: at most %d %s", ErrBadTable, most, what)
 	}
 	return labels, nil
 }
@@ -735,6 +794,10 @@ func Architectures(d store.Dataset) []string {
 			}
 		case store.DatasetPhotos:
 			if a.Input == arch.Image && !a.Fixed() {
+				out = append(out, a.Name)
+			}
+		case store.DatasetSounds:
+			if a.Input == arch.Sound {
 				out = append(out, a.Name)
 			}
 		case store.DatasetPhotoTable:

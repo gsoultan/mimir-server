@@ -306,7 +306,10 @@ with a range of settings, score each on rows held out by
 cross-validation, and keep the best (mimir's `automl` package); they are
 the default for tables.
 Photos can also be read by an 18-layer ResNet (`photo-resnet`) or a
-MobileNetV2 (`photo-mobilenet`) from mimir's `vision` package. Five more
+MobileNetV2 (`photo-mobilenet`) from mimir's `vision` package, and sounds
+by `sound`, a small convolutional network over each second's log mel
+spectrogram from mimir's `audio` package; a sound is asked about as a WAV
+file in Predict's `sound` field. Five more
 read a table's cells themselves and answer questions that aren't its rows:
 `find-groups` sorts rows into groups by k-means with no answer column,
 `odd-one` scores how unusual a row is with an isolation forest,
@@ -340,6 +343,9 @@ models first says what their data looks like, then trains in three steps:
 - **Text**: reviews, messages or notes, one per cell next to the answer.
 - **Photos in folders**: one folder per answer, as a ZIP or a dropped folder.
 - **Photos with details**: a ZIP with `data.csv` and the photos it names.
+- **Sounds in folders**: WAV recordings, one folder per answer, as a ZIP or
+  a dropped folder. Each is heard as one second at 16 kHz, from its middle,
+  whatever its rate and channels.
 
 1. **The examples.** Upload a `.csv` with a header row and pick the column
    that holds the answer, upload photos, query a database, or use the
@@ -347,11 +353,13 @@ models first says what their data looks like, then trains in three steps:
    folder). Columns can hold numbers, categories (a word from a short
    list), yes/no, free text, or a photo's file name; the server tells
    them apart and turns each into numbers. CSVs go up to 64 MB, a million
-   rows and a thousand columns; ZIPs up to 200 MB and 30,000 photos.
+   rows and a thousand columns; ZIPs up to 200 MB and 30,000 photos or
+   20,000 sounds.
 2. **What kind.** The model types that fit the examples, plus a name:
    a table or text classifier, a **number predictor** when the answer is
-   a number, a **picture classifier** for photo folders, and a **photo
-   and table classifier** when each row has a photo too. A table model
+   a number, a **picture classifier** for photo folders, a **photo
+   and table classifier** when each row has a photo too, and a **sound
+   classifier** for sound folders. A table model
    can be Small, Medium (the usual) or Large, or **designed** step by
    step: up to 8 "learn patterns" (dense, 1 to 1024 units) and "forget a
    little" (dropout) steps, with how many numbers it learns and how many

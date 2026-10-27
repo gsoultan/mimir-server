@@ -14,6 +14,7 @@ export type Ask = {
   id: string;
   fields?: Record<string, string>;
   photo?: Uint8Array;
+  sound?: Uint8Array;
   input?: number[];
   topK: number;
 };

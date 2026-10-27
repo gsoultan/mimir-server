@@ -368,7 +368,7 @@ message TrainTask {
   // reads; its weights carry over only while they still match.
   repeated string base_labels = 10;
   repeated string base_features = 11;
-  // archive holds the ZIP for DATASET_KIND_PHOTOS and PHOTO_TABLE.
+  // archive holds the ZIP for DATASET_KIND_PHOTOS, PHOTO_TABLE and SOUNDS.
   bytes archive = 12;
   // columns are the dataset's columns as first read; their kinds are kept.
   repeated Column columns = 13;

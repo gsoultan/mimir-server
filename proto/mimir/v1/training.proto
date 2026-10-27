@@ -95,6 +95,8 @@ enum DatasetKind {
   DATASET_KIND_PHOTOS = 3;
   // PHOTO_TABLE is a ZIP of a data.csv and the photos its rows name.
   DATASET_KIND_PHOTO_TABLE = 4;
+  // SOUNDS is a ZIP of WAV sounds with one folder per answer.
+  DATASET_KIND_SOUNDS = 5;
 }
 
 message Dataset {

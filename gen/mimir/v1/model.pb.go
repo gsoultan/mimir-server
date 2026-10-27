@@ -1628,7 +1628,9 @@ type PredictRequest struct {
 	// Missing columns read as empty.
 	Fields map[string]string `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// photo is a JPG, PNG or GIF, for a model that looks at photos.
-	Photo         []byte `protobuf:"bytes,5,opt,name=photo,proto3" json:"photo,omitempty"`
+	Photo []byte `protobuf:"bytes,5,opt,name=photo,proto3" json:"photo,omitempty"`
+	// sound is a WAV file, for a model that listens to sounds.
+	Sound         []byte `protobuf:"bytes,6,opt,name=sound,proto3" json:"sound,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1694,6 +1696,13 @@ func (x *PredictRequest) GetFields() map[string]string {
 func (x *PredictRequest) GetPhoto() []byte {
 	if x != nil {
 		return x.Photo
+	}
+	return nil
+}
+
+func (x *PredictRequest) GetSound() []byte {
+	if x != nil {
+		return x.Sound
 	}
 	return nil
 }
@@ -2580,13 +2589,14 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\x05model\x18\x01 \x01(\v2\x0f.mimir.v1.ModelR\x05model\"$\n" +
 	"\x12DeleteModelRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x15\n" +
-	"\x13DeleteModelResponse\"\xf7\x01\n" +
+	"\x13DeleteModelResponse\"\x8d\x02\n" +
 	"\x0ePredictRequest\x12\x19\n" +
 	"\bmodel_id\x18\x01 \x01(\tR\amodelId\x12&\n" +
 	"\x05input\x18\x02 \x01(\v2\x10.mimir.v1.TensorR\x05input\x12\x13\n" +
 	"\x05top_k\x18\x03 \x01(\x05R\x04topK\x12<\n" +
 	"\x06fields\x18\x04 \x03(\v2$.mimir.v1.PredictRequest.FieldsEntryR\x06fields\x12\x14\n" +
-	"\x05photo\x18\x05 \x01(\fR\x05photo\x1a9\n" +
+	"\x05photo\x18\x05 \x01(\fR\x05photo\x12\x14\n" +
+	"\x05sound\x18\x06 \x01(\fR\x05sound\x1a9\n" +
 	"\vFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf5\x01\n" +

@@ -116,11 +116,11 @@ type Epoch struct {
 // header row and a target column, a ZIP of photos, or the built-in
 // handwritten digits.
 type Dataset struct {
-	Kind   string // "table", "photos", "photo_table" or "mnist"
+	Kind   string // "table", "photos", "photo_table", "sounds" or "mnist"
 	CSV    []byte
 	Target string
-	// Archive is the ZIP for "photos" (a folder per answer) and
-	// "photo_table" (a data.csv and the photos it names).
+	// Archive is the ZIP for "photos" and "sounds" (a folder per answer)
+	// and "photo_table" (a data.csv and the photos it names).
 	Archive []byte
 	// Columns are the table's columns as first read; keep their kinds.
 	Columns []Column
@@ -806,6 +806,7 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		mimirv1.DatasetKind_DATASET_KIND_MNIST:       "mnist",
 		mimirv1.DatasetKind_DATASET_KIND_PHOTOS:      "photos",
 		mimirv1.DatasetKind_DATASET_KIND_PHOTO_TABLE: "photo_table",
+		mimirv1.DatasetKind_DATASET_KIND_SOUNDS:      "sounds",
 	}[t.DatasetKind]
 	if kind == "" {
 		kind = "table"

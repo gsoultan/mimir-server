@@ -25,6 +25,9 @@ const (
 	// PhotoTable is a photo and a row of numbers side by side, flattened
 	// into one shape [schema.PhotoPixels + features].
 	PhotoTable Input = "photo_table"
+	// Sound is a second of sound, shape [schema.SoundSamples]: samples
+	// from -1 to 1 at schema.SoundRate a second.
+	Sound Input = "sound"
 	// Tensor is raw numbers in the shape a Mimir Model file declares.
 	Tensor Input = "tensor"
 	// Prompt is text for a language model to continue.

@@ -30,7 +30,7 @@ func DefaultsFor(k store.DatasetKind) store.Settings {
 	switch k {
 	case store.DatasetTable:
 		return TableDefaults
-	case store.DatasetPhotos, store.DatasetPhotoTable:
+	case store.DatasetPhotos, store.DatasetPhotoTable, store.DatasetSounds:
 		return PhotoDefaults
 	}
 	return Defaults

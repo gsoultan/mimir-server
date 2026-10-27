@@ -305,6 +305,8 @@ message PredictRequest {
   map<string, string> fields = 4;
   // photo is a JPG, PNG or GIF, for a model that looks at photos.
   bytes photo = 5;
+  // sound is a WAV file, for a model that listens to sounds.
+  bytes sound = 6;
 }
 
 message PredictResponse {
