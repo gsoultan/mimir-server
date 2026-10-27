@@ -52,6 +52,8 @@ var Public = map[string]bool{
 	"/mimir.v1.AuthService/Setup":         true,
 	"/mimir.v1.AuthService/SignIn":        true,
 	"/mimir.v1.AuthService/SignOut":       true,
+	// The sign-in page's buttons.
+	"/mimir.v1.SignInService/ListSignInOptions": true,
 }
 
 // Required maps each procedure to the permission it needs. Model-level
@@ -66,6 +68,8 @@ var Required = map[string]Permission{
 	"/mimir.v1.ModelService/CreateModel":           ModelsWrite,
 	"/mimir.v1.ModelService/UpdateModel":           ModelsWrite,
 	"/mimir.v1.ModelService/DeleteModel":           ModelsWrite,
+	"/mimir.v1.ModelService/ListModelVersions":     ModelsRead,
+	"/mimir.v1.ModelService/UseModelVersion":       ModelsWrite,
 	"/mimir.v1.PredictService/Predict":             ModelsPredict,
 	"/mimir.v1.PredictService/Generate":            ModelsPredict,
 	"/mimir.v1.PredictService/GenerateStream":      ModelsPredict,
@@ -119,6 +123,12 @@ var Required = map[string]Permission{
 	"/mimir.v1.DatasetService/TestBucket":          DatabaseQuery,
 	"/mimir.v1.DatasetService/RefreshDataset":      ModelsWrite,
 	"/mimir.v1.TrainingService/SetRepeat":          ModelsWrite,
+	"/mimir.v1.TrainingService/CompareJobs":        ModelsWrite,
+	"/mimir.v1.BenchmarkService/ListBenchmarks":    ModelsWrite,
+	"/mimir.v1.BenchmarkService/GetBenchmark":      ModelsWrite,
+	"/mimir.v1.BenchmarkService/CreateBenchmark":   ModelsWrite,
+	"/mimir.v1.BenchmarkService/DeleteBenchmark":   ModelsWrite,
+	"/mimir.v1.BenchmarkService/ScoreModels":       ModelsWrite,
 	"/mimir.v1.WorkerService/ListWorkers":          WorkersManage,
 	"/mimir.v1.WorkerService/GetWorker":            WorkersManage,
 	"/mimir.v1.WorkerService/ReplaceWorkerToken":   WorkersManage,
@@ -134,6 +144,9 @@ var Required = map[string]Permission{
 	"/mimir.v1.TeamService/CreateTeam":             TeamsManage,
 	"/mimir.v1.TeamService/UpdateTeam":             TeamsManage,
 	"/mimir.v1.TeamService/DeleteTeam":             TeamsManage,
+	"/mimir.v1.SignInService/ListSignInProviders":  SettingsManage,
+	"/mimir.v1.SignInService/SaveSignInProvider":   SettingsManage,
+	"/mimir.v1.SignInService/DeleteSignInProvider": SettingsManage,
 }
 
 // ErrSignedOut is returned to callers with no valid credentials.

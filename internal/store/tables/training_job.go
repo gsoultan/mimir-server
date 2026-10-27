@@ -47,6 +47,9 @@ type TrainingJob struct {
 	// new rows without starting a pass, and what was found.
 	CheckTime *time.Time
 	CheckNote string
+	// Report is the store.Report a finished run's model got on the
+	// examples kept aside, as jsonb; {} until it has one.
+	Report storm.JSON
 }
 
 // Aggregates: how many runs wait for each worker.
@@ -77,6 +80,7 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Col(&j.MinNewRows).Default("0")
 	t.Col(&j.TrainedRows).Default("0")
 	t.Col(&j.CheckNote).Default("''")
+	t.Col(&j.Report).Default("'{}'")
 	// A team's runs, newest first; also the team key's index.
 	t.Col(&j.Team).NoIndex()
 	t.Index(&j.Team, storm.Desc(&j.CreateTime), storm.Desc(&j.ID))

@@ -65,6 +65,40 @@ func _assertAuditEventShape(m m0.AuditEvent) {
 	}
 }
 
+// _assertBenchmarkShape fails to compile if m0.Benchmark gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertBenchmarkShape(m m0.Benchmark) {
+	type shape m0.Benchmark
+	_ = shape{
+		m.Record,
+		m.Named,
+		m.TeamOwned,
+		m.Description,
+		m.DatasetID,
+		m.Target,
+		m.Kind,
+		m.Rows,
+		m.CreatedBy,
+	}
+}
+
+// _assertBenchmarkScoreShape fails to compile if m0.BenchmarkScore gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertBenchmarkScoreShape(m m0.BenchmarkScore) {
+	type shape m0.BenchmarkScore
+	_ = shape{
+		m.Record,
+		m.Benchmark,
+		m.Model,
+		m.WeightsSHA,
+		m.Status,
+		m.Error,
+		m.Report,
+		m.Headline,
+		m.ScoredAt,
+	}
+}
+
 // _assertDatasetShape fails to compile if m0.Dataset gains, loses, renames or
 // reorders a field. Regenerate: `storm generate`.
 func _assertDatasetShape(m m0.Dataset) {
@@ -133,6 +167,28 @@ func _assertModelShape(m m0.Model) {
 		m.Temperature,
 		m.MaxTokens,
 		m.OnDevice,
+		m.VersionID,
+	}
+}
+
+// _assertModelVersionShape fails to compile if m0.ModelVersion gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertModelVersionShape(m m0.ModelVersion) {
+	type shape m0.ModelVersion
+	_ = shape{
+		m.Record,
+		m.Model,
+		m.Number,
+		m.Source,
+		m.SizeBytes,
+		m.SHA256,
+		m.InputShape,
+		m.Labels,
+		m.Features,
+		m.Columns,
+		m.JobID,
+		m.Accuracy,
+		m.Note,
 	}
 }
 
@@ -170,6 +226,20 @@ func _assertSettingShape(m m0.Setting) {
 	_ = shape{
 		m.Key,
 		m.Value,
+	}
+}
+
+// _assertSignInIdentityShape fails to compile if m0.SignInIdentity gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertSignInIdentityShape(m m0.SignInIdentity) {
+	type shape m0.SignInIdentity
+	_ = shape{
+		m.Record,
+		m.User,
+		m.Issuer,
+		m.Subject,
+		m.Email,
+		m.LastSignIn,
 	}
 }
 
@@ -220,6 +290,7 @@ func _assertTrainingJobShape(m m0.TrainingJob) {
 		m.TrainedRows,
 		m.CheckTime,
 		m.CheckNote,
+		m.Report,
 	}
 }
 

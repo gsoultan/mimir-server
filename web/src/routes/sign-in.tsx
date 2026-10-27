@@ -1,17 +1,21 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Anchor, Button, PasswordInput, PinInput, Stack, Text, TextInput } from "@mantine/core";
+import { Alert, Anchor, Button, Divider, PasswordInput, PinInput, Stack, Text, TextInput } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { z } from "zod";
 
 import { message } from "../api/client";
 import { AuthService } from "../api/gen/mimir/v1/access_pb";
-import { setupState } from "../api/queries";
+import { setupState, signInOptions } from "../api/queries";
 import { AuthCard } from "../components/AuthCard";
+import { KindIcon } from "../components/KindIcon";
 
 export const Route = createFileRoute("/sign-in")({
-  validateSearch: z.object({ next: z.string().optional() }),
+  // error and step come back from signing in with another account: why it
+  // didn't work, or that the account's code is still needed.
+  validateSearch: z.object({ next: z.string().optional(), error: z.string().optional(), step: z.enum(["code"]).optional() }),
   beforeLoad: async ({ context }) => {
     const { needsSetup } = await context.queryClient.fetchQuery(setupState);
     if (needsSetup) throw redirect({ to: "/setup" });
@@ -20,12 +24,13 @@ export const Route = createFileRoute("/sign-in")({
 });
 
 function SignIn() {
-  const { next } = Route.useSearch();
+  const { next, error, step: arrived } = Route.useSearch();
   const navigate = useNavigate();
   const { queryClient } = Route.useRouteContext();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [step, setStep] = useState<"password" | "code">("password");
+  const [step, setStep] = useState<"password" | "code">(arrived ?? "password");
+  const { data: options } = useQuery(signInOptions);
   const done = async () => {
     queryClient.clear();
     // Only follow a path on this site, never an outside address.
@@ -36,7 +41,9 @@ function SignIn() {
     onSuccess: (res) => (res.secondFactorRequired ? setStep("code") : done()),
   });
 
-  if (step === "code") return <CodeStep onDone={done} onBack={() => setStep("password")} />;
+  if (step === "code") return <CodeStep onDone={done} onBack={() => { setStep("password"); void navigate({ to: "/sign-in", search: { next }, replace: true }); }} />;
+
+  const others = options?.options ?? [];
 
   return (
     <AuthCard title="Sign in" intro="Welcome back.">
@@ -44,8 +51,18 @@ function SignIn() {
         <Stack>
           <TextInput label="Email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.currentTarget.value)} data-autofocus />
           <PasswordInput label="Password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} />
-          {signIn.error && <Alert color="red" icon={<IconAlertCircle />}>{message(signIn.error)}</Alert>}
+          {signIn.error ? <Alert color="red" icon={<IconAlertCircle />}>{message(signIn.error)}</Alert> : error && <Alert color="red" icon={<IconAlertCircle />}>{error}</Alert>}
           <Button type="submit" loading={signIn.isPending} fullWidth>Sign in</Button>
+          {others.length > 0 && <>
+            <Divider label="or" labelPosition="center" />
+            {others.map((o) => (
+              // A plain link: the browser leaves for the provider and comes back signed in.
+              <Button key={o.id} component="a" variant="default" fullWidth leftSection={<KindIcon kind={o.kind} />}
+                href={`/auth/sso/${encodeURIComponent(o.id)}/start${next ? `?next=${encodeURIComponent(next)}` : ""}`}>
+                Continue with {o.name}
+              </Button>
+            ))}
+          </>}
         </Stack>
       </form>
     </AuthCard>
