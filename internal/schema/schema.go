@@ -27,9 +27,14 @@ const (
 	YesNo    Kind = "yesno"    // yes or no
 	Text     Kind = "text"     // free text, like a message
 	Photo    Kind = "photo"    // the file name of a photo
+	// Key names one of many things, like a customer or a shop: it reads
+	// as its place in Values, or len(Values) for one not among them.
+	// Only a model that learns from the cells themselves makes one; a
+	// column is never found to be a key.
+	Key Kind = "key"
 )
 
-// Valid reports whether k is a known kind.
+// Valid reports whether k is a kind a column can be read as.
 func (k Kind) Valid() bool {
 	switch k {
 	case Number, Category, YesNo, Text, Photo:
@@ -358,6 +363,12 @@ func encode(dst []float32, cols []Column, cell func(i int) string, miss func(j i
 			}
 		case Text:
 			dst = encodeText(dst, v)
+		case Key:
+			at := slices.Index(c.Values, v)
+			if at < 0 {
+				at = len(c.Values)
+			}
+			dst = append(dst, float32(at))
 		}
 	}
 	return dst

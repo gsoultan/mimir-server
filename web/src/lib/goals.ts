@@ -5,7 +5,7 @@ import type { DataType } from "./templates";
 // elsewhere, or with a developer's own code on a worker.
 export type Ready = "ready" | "file" | "code";
 
-export type GoalId = "yes_no" | "group" | "number" | "write" | "recommend" | "forecast" | "odd_one" | "find_in_photo";
+export type GoalId = "yes_no" | "group" | "number" | "segments" | "write" | "recommend" | "forecast" | "odd_one" | "find_in_photo";
 
 export type Goal = {
   id: GoalId;
@@ -14,8 +14,12 @@ export type Goal = {
   intro: string;
   ready: Ready;
   // For a code goal: what it takes, example data to show and download,
-  // and the architecture name a starter project uses.
+  // and the architecture name a starter project uses. For a ready goal
+  // with an arch, that built-in model type teaches it from a table.
   steps?: { label: string; hint: string }[];
+  // For a ready goal with an arch: what it wants, how long, and what an
+  // answer reads like.
+  learn?: { amount: string; time: string; answer: string; data: string };
   sample?: { name: string; columns: string[]; rows: string[][] };
   arch?: string;
 };
@@ -26,36 +30,27 @@ export const goals: Goal[] = [
   { id: "number", title: "A number", example: "How many units next week?", ready: "ready", intro: "The model reads one example and answers with a number, like units, hours or a price." },
   { id: "write", title: "Write or chat", example: "Answer support emails", ready: "file", intro: "A language model writes text: it answers questions, drafts replies and carries on a chat. These are trained elsewhere on a great deal of text; you bring one as a GGUF file." },
   {
-    id: "recommend", title: "Recommend", example: "What else will they like?", ready: "code", arch: "shop-recs",
-    intro: "Given a customer, the model lists the items they're most likely to want next.",
-    steps: [
-      { label: "Gather who liked what", hint: "A table with one row per purchase, click or rating: customer, item, and when. 10,000 rows or more works well." },
-      { label: "Write the model", hint: "About 100 lines of Go with the worker kit. The starting project already reads this table." },
-      { label: "Connect it", hint: "Run it on any machine with a worker token. It shows up here within seconds." },
-      { label: "Teach it and try it", hint: "Teach it from your table like any other model, then pick a customer and see their top 10." },
-    ],
+    id: "segments", title: "Find groups", example: "What kinds of customers do we have?", ready: "ready", arch: "find-groups",
+    intro: "The model sorts your rows into a few groups of similar ones and names each after what sets it apart. It needs no answers to learn from.",
+    learn: { amount: "500 rows or more", time: "seconds to teach", answer: "“Group 2: high spend”", data: "Upload a table of the things to group, one row each, with the columns that describe them. No answer column needed." },
+    sample: { name: "customers.csv", columns: ["customer", "spend", "visits", "plan"], rows: [["c-1042", "12.40", "1", "basic"], ["c-2210", "210.00", "4", "pro"], ["c-3307", "48.90", "19", "basic"], ["c-4120", "9.80", "2", "basic"], ["c-5031", "189.50", "5", "pro"]] },
+  },
+  {
+    id: "recommend", title: "Recommend", example: "What else will they like?", ready: "ready", arch: "recommend",
+    intro: "Given a customer, the model lists the items they're most likely to want next, learned from who picked what.",
+    learn: { amount: "10,000 rows or more", time: "seconds to a minute to teach", answer: "“1. sencha, 2. teapot-s, 3. assam…”", data: "Upload a table with one row per purchase, click or rating: who, and which item. Say which column is the item; a column like customer says who." },
     sample: { name: "purchases.csv", columns: ["customer", "item", "when"], rows: [["c-1042", "earl-grey", "2026-09-02"], ["c-1042", "teapot-s", "2026-09-02"], ["c-2210", "sencha", "2026-09-05"], ["c-2210", "earl-grey", "2026-09-11"], ["c-3307", "teapot-l", "2026-09-12"]] },
   },
   {
-    id: "forecast", title: "Forecast over time", example: "Sales each day next month", ready: "code", arch: "daily-forecast",
-    intro: "From what happened each day so far, the model says what comes next, one value per day ahead.",
-    steps: [
-      { label: "Gather the history", hint: "A table with one row per day (or hour): the date and the value, plus anything that moves it, like price or holidays. A year or more works well." },
-      { label: "Write the model", hint: "About 100 lines of Go with the worker kit. The starting project reads the last 28 days and answers the next 7." },
-      { label: "Connect it", hint: "Run it on any machine with a worker token. It shows up here within seconds." },
-      { label: "Teach it and try it", hint: "Teach it from your history, then send the latest days and see the days ahead." },
-    ],
-    sample: { name: "daily-sales.csv", columns: ["day", "units", "price", "holiday"], rows: [["2026-09-01", "182", "4.50", "no"], ["2026-09-02", "175", "4.50", "no"], ["2026-09-03", "240", "3.99", "no"], ["2026-09-04", "96", "4.50", "yes"], ["2026-09-05", "188", "4.50", "no"]] },
+    id: "forecast", title: "Forecast over time", example: "Sales each day next month", ready: "ready", arch: "forecast",
+    intro: "From what happened each day so far, the model says what comes next: ask it for any day up to a month ahead.",
+    learn: { amount: "a year of days, or 3 months at least", time: "under a minute to teach", answer: "“About 214 units, 7 days ahead”", data: "Upload a table with one row per day (or hour, week or month): the date and the value. A column like store gives each its own forecast. Say which column is the value." },
+    sample: { name: "daily-sales.csv", columns: ["day", "store", "units"], rows: [["2026-09-01", "north", "182"], ["2026-09-01", "south", "96"], ["2026-09-02", "north", "175"], ["2026-09-02", "south", "101"], ["2026-09-03", "north", "240"]] },
   },
   {
-    id: "odd_one", title: "Spot the odd one", example: "Unusual machine readings", ready: "code", arch: "odd-readings",
+    id: "odd_one", title: "Spot the odd one", example: "Unusual machine readings", ready: "ready", arch: "odd-one",
     intro: "The model learns what normal looks like, then scores how unusual each new example is. It needs no answers to learn from.",
-    steps: [
-      { label: "Gather normal examples", hint: "A table of readings from when things were fine. No answers needed. 5,000 rows or more works well." },
-      { label: "Write the model", hint: "About 80 lines of Go with the worker kit. The starting project learns the usual range of every column." },
-      { label: "Connect it", hint: "Run it on any machine with a worker token. It shows up here within seconds." },
-      { label: "Teach it and try it", hint: "Teach it from normal readings, then send a new one and see how unusual it is." },
-    ],
+    learn: { amount: "5,000 rows or more", time: "seconds to teach", answer: "“0.81: unlike anything usual”", data: "Upload a table of readings from when things were fine, one row each. No answer column needed." },
     sample: { name: "readings.csv", columns: ["machine", "temp_c", "vibration", "amps"], rows: [["press-1", "61.2", "0.31", "12.4"], ["press-1", "60.8", "0.29", "12.1"], ["press-2", "63.0", "0.35", "12.9"], ["press-2", "62.4", "0.33", "12.6"], ["press-3", "59.9", "0.28", "11.8"]] },
   },
   {

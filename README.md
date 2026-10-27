@@ -353,7 +353,14 @@ known model types in `internal/arch`: handwritten-digit networks
 whole table at once with mimir's `tree` and `linear` packages: boosted
 trees (`table-boost`, `number-boost`), random forests (`table-forest`,
 `number-forest`) and logistic and linear regression (`table-linear`,
-`number-linear`). Boosted trees are the default for tables. A fitted
+`number-linear`). Boosted trees are the default for tables. Four more
+read a table's cells themselves and answer questions that aren't its rows:
+`find-groups` sorts rows into groups by k-means with no answer column,
+`odd-one` scores how unusual a row is with an isolation forest,
+`recommend` lists the items a person is likeliest to want from who picked
+what (the answer column is the item), and `forecast` says what comes next
+for each series of a dated table, any number of days, hours, weeks or
+months ahead (the answer column is the value). A fitted
 model is saved as a Mimir Model file of buffers with its shape in the
 metadata, so it is served, kept on devices and moved between workers like
 a network. An upload names its type, and the server checks the weights
@@ -362,10 +369,10 @@ the server, write it in Go and run it on a worker (see Your own model
 types).
 
 **Models → Build a model** is where a new model starts. It asks what the
-model should do (yes or no, pick a group, a number, write or chat,
-recommend, forecast, spot the odd one, find it in a photo), then ranks the
-ways to get there: a template, your own data, a model file trained
-elsewhere, or your own code.
+model should do (yes or no, pick a group, a number, find groups, write
+or chat, recommend, forecast, spot the odd one, find it in a photo), then
+ranks the ways to get there: a template, your own data, a model file
+trained elsewhere, or your own code.
 
 ## Teach a new model
 

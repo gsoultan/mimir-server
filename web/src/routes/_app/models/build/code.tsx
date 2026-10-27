@@ -45,7 +45,10 @@ function CodeGuide() {
   const { data: archs } = useSuspenseQuery(listArchitectures);
   const canManage = me.permissions.includes("workers.manage");
   const before = archs.architectures.find((a) => a.custom && a.name === search.arch);
-  const [name, setName] = useState(before?.name ?? goal?.arch ?? "my-model");
+  // A goal mimir teaches itself has a built-in type of its name; one's own
+  // code for it goes by another.
+  const starter = goal?.learn ? `my-${goal.arch}` : goal?.arch;
+  const [name, setName] = useState(before?.name ?? starter ?? "my-model");
   const [input, setInput] = useState(before?.input ?? (goal?.id === "find_in_photo" ? "image" : goal?.id === "forecast" ? "tensor" : "table"));
   const [output, setOutput] = useState(before?.output ?? (goal?.id === "recommend" ? "ranked" : goal?.id === "forecast" || goal?.id === "odd_one" ? "number" : "class"));
   const [items, setItems] = useState<number | string>(before?.items || 10);
@@ -65,8 +68,8 @@ function CodeGuide() {
   });
   const describe = () => save.mutate({
     name: arch,
-    title: goal && goal.arch === arch ? goal.title : arch,
-    description: goal && goal.arch === arch ? goal.intro : "",
+    title: goal && starter === arch ? goal.title : arch,
+    description: goal && starter === arch ? goal.intro : "",
     input, output, items: output === "ranked" ? Number(items) || 10 : 0,
   });
 

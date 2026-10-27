@@ -1,5 +1,5 @@
 import { ConnectError } from "@connectrpc/connect";
-import { Alert, Button, Card, FileInput, Group, NumberInput, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, Textarea, TextInput, Title } from "@mantine/core";
+import { Alert, Autocomplete, Button, Card, FileInput, Group, NumberInput, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, Textarea, TextInput, Title } from "@mantine/core";
 import { IconAlertCircle, IconPhoto } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -128,6 +128,9 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
             <Text c="dimmed" size="sm">The model&apos;s answer</Text>
             <Title order={2} fz={40} className="font-[family-name:var(--font-display)]">{(predict.data.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Title>
+            {arch?.name === "odd-one" && (
+              <Text c="dimmed">{(predict.data.value ?? 0) >= 0.6 ? "Unusual: unlike most of what it learned from." : "Usual: like what it learned from."} Scores run from 0 to 1.</Text>
+            )}
             {took}
           </Card>
         ) : best && predict.data ? (
@@ -168,6 +171,9 @@ function Field({ column: c, value, onChange }: { column: Column; value: number |
   switch (c.kind) {
     case "category":
       return <Select label={c.name} data={c.values} value={value === "" ? null : String(value)} onChange={(v) => onChange(v ?? "")} searchable clearable placeholder="Pick one" />;
+    case "key":
+      // One of many, like a customer: any value, with the known ones to pick from.
+      return <Autocomplete label={c.name} data={c.values} limit={50} value={String(value)} onChange={onChange} placeholder="Type or pick one" />;
     case "yesno":
       return (
         <Stack gap={4}>
