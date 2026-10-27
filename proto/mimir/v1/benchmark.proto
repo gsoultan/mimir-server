@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+import "google/protobuf/timestamp.proto";
+import "mimir/v1/training.proto";
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// BenchmarkService keeps fixed tests that models are scored on the same
+// way, so they can be ranked fairly. A benchmark's rows are frozen from a
+// table dataset; training on that dataset leaves them out, so no model
+// learns the answers to its own test.
+service BenchmarkService {
+  rpc ListBenchmarks(ListBenchmarksRequest) returns (ListBenchmarksResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // GetBenchmark returns a benchmark with its leaderboard.
+  rpc GetBenchmark(GetBenchmarkRequest) returns (GetBenchmarkResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc CreateBenchmark(CreateBenchmarkRequest) returns (CreateBenchmarkResponse);
+  rpc DeleteBenchmark(DeleteBenchmarkRequest) returns (DeleteBenchmarkResponse);
+  // ScoreModels scores models on a benchmark in the background; a model
+  // scored before is scored again with the weights it has now.
+  rpc ScoreModels(ScoreModelsRequest) returns (ScoreModelsResponse);
+}
+
+message Benchmark {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  // dataset_id is the dataset the rows were frozen from; dataset_name is
+  // empty once it is deleted.
+  string dataset_id = 4;
+  string dataset_name = 5;
+  // target is the answer column; kind what a model answers: "class" or
+  // "number".
+  string target = 6;
+  string kind = 7;
+  int64 rows = 8;
+  string created_by = 9;
+  google.protobuf.Timestamp create_time = 10;
+  // metric names the headline score; lower_is_better is true for a
+  // number model's average miss.
+  string metric = 11;
+  bool lower_is_better = 12;
+  // scored counts the models with a score; leader is the best of them.
+  int32 scored = 13;
+  string leader_name = 14;
+  double leader_headline = 15;
+}
+
+message BenchmarkScore {
+  string model_id = 1;
+  string model_name = 2;
+  string architecture = 3;
+  JobStatus status = 4;
+  string error = 5;
+  RunReport report = 6;
+  double headline = 7;
+  google.protobuf.Timestamp scored_time = 8;
+  // rank is 1 for the best finished score, 0 until one is finished.
+  int32 rank = 9;
+  // stale says the model has learned since it was scored.
+  bool stale = 10;
+}
+
+// Candidate is a model that can be scored on a benchmark: it answers the
+// same kind of question and reads columns the rows have.
+message Candidate {
+  string model_id = 1;
+  string model_name = 2;
+  string architecture = 3;
+}
+
+message ListBenchmarksRequest {
+  // dataset_id, when set, lists only the benchmarks frozen from it.
+  string dataset_id = 1;
+}
+
+message ListBenchmarksResponse {
+  repeated Benchmark benchmarks = 1;
+}
+
+message GetBenchmarkRequest {
+  string id = 1;
+}
+
+message GetBenchmarkResponse {
+  Benchmark benchmark = 1;
+  // scores is the leaderboard, best first, then the unfinished.
+  repeated BenchmarkScore scores = 2;
+  // candidates are the models not scored yet that can be.
+  repeated Candidate candidates = 3;
+}
+
+message CreateBenchmarkRequest {
+  string name = 1;
+  string description = 2;
+  // dataset_id is a table dataset; its answer column is the target.
+  string dataset_id = 3;
+  // share is the part of the dataset's rows to keep aside, from 0.05 to
+  // 0.5; 0 means 0.2. At most 10,000 rows are kept.
+  double share = 4;
+  // csv, when set, is the test rows instead: a CSV with a header, with
+  // the dataset's columns.
+  bytes csv = 5;
+}
+
+message CreateBenchmarkResponse {
+  Benchmark benchmark = 1;
+}
+
+message DeleteBenchmarkRequest {
+  string id = 1;
+}
+
+message DeleteBenchmarkResponse {}
+
+message ScoreModelsRequest {
+  string benchmark_id = 1;
+  repeated string model_ids = 2;
+}
+
+message ScoreModelsResponse {
+  repeated BenchmarkScore scores = 1;
+}
