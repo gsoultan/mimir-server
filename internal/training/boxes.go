@@ -198,9 +198,13 @@ func loadBoxed(ctx context.Context, src Source, holdOut float64, seed uint64) (a
 	return b, skipped, nil
 }
 
+// findSeen is about how many photos a finder sees as it learns, counting
+// a photo once for each pass. Tests lower it to learn quickly.
+var findSeen = 6000
+
 // findEpochs is how many passes a finder makes over n photos: about
-// 6,000 photos seen in all, between 10 and 60 passes.
-func findEpochs(n int) int { return min(max((6000+n-1)/max(n, 1), 10), 60) }
+// findSeen photos seen in all, between 10 and 60 passes.
+func findEpochs(n int) int { return min(max((findSeen+n-1)/max(n, 1), 10), 60) }
 
 // learnBoxes fits a Learner that finds things in photos.
 func learnBoxes(ctx context.Context, t Task, progress Progress) (Result, error) {
