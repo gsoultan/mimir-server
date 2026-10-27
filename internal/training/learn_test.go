@@ -55,6 +55,11 @@ func TestLearnersFitAndServe(t *testing.T) {
 		{"number-linear", "amount", 40},
 		{"table-auto", "label", 0.9},
 		{"number-auto", "amount", 8},
+		{"table-svm", "label", 0.9},
+		{"number-svm", "amount", 8},
+		{"table-knn", "label", 0.85},
+		{"number-knn", "amount", 12},
+		{"table-bayes", "label", 0.4},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, ok := arch.Lookup(tc.name)
@@ -98,7 +103,7 @@ func TestLearnersFitAndServe(t *testing.T) {
 				t.Fatal(err)
 			}
 			if a.Answers() == arch.Number {
-				if len(out) != 2 || (tc.name != "number-linear" && (math.Abs(float64(out[0])-25) > 8 || math.Abs(float64(out[1])+25) > 8)) {
+				if len(out) != 2 || (tc.name != "number-linear" && tc.name != "number-knn" && (math.Abs(float64(out[0])-25) > 8 || math.Abs(float64(out[1])+25) > 8)) {
 					t.Errorf("answers %v for 5·5 and -5·5", out)
 				}
 				return
@@ -107,7 +112,7 @@ func TestLearnersFitAndServe(t *testing.T) {
 			if len(out) != 4 || yes < 0 {
 				t.Fatalf("answers %v for labels %v", out, res.Spec.Labels)
 			}
-			if tc.name != "table-linear" && (out[yes] <= out[1-yes] || out[2+yes] >= out[3-yes]) {
+			if tc.name != "table-linear" && tc.name != "table-bayes" && (out[yes] <= out[1-yes] || out[2+yes] >= out[3-yes]) {
 				t.Errorf("logits %v: want yes for (5, 5) and no for (-5, 5)", out)
 			}
 		})

@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/gsoultan/mimir/automl"
+	"github.com/gsoultan/mimir/bayes"
 	"github.com/gsoultan/mimir/linear"
+	"github.com/gsoultan/mimir/neighbors"
 	"github.com/gsoultan/mimir/nn"
+	"github.com/gsoultan/mimir/svm"
 	"github.com/gsoultan/mimir/tabular"
 	"github.com/gsoultan/mimir/tree"
 )
@@ -134,15 +137,107 @@ var straight = &Learner{
 	},
 }
 
+// svmRows is the most rows a support vector machine learns from: a
+// larger table is sampled down to it, as a kernel machine's fit grows
+// with the square of the rows.
+const svmRows = 10_000
+
+var kernelMachine = &Learner{
+	Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
+		if d.Rows() > svmRows {
+			d, _ = d.Split(1-float64(svmRows)/float64(d.Rows()), 11)
+		}
+		opts := []svm.Option{svm.C(1)}
+		if classes > 0 {
+			opts = append(opts, svm.Classes(classes))
+		}
+		m, err := svm.Fit(ctx, d, task, opts...)
+		if err != nil {
+			return nil, "", err
+		}
+		if progress != nil {
+			progress(1, 1)
+		}
+		s, err := shapeJSON(m.Shape())
+		return m.Module(), s, err
+	},
+	Build: func(shape string) (nn.Module, error) {
+		var s svm.Shape
+		if err := json.Unmarshal([]byte(shape), &s); err != nil {
+			return nil, fmt.Errorf("a support vector machine's shape: %w", err)
+		}
+		return svm.NewModule(s), nil
+	},
+}
+
+// neighborRows is the most rows nearest neighbours keep, sampled down
+// from a larger table, since every answer compares a row with each.
+const neighborRows = 100_000
+
+var nearest = &Learner{
+	Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
+		if d.Rows() > neighborRows {
+			d, _ = d.Split(1-float64(neighborRows)/float64(d.Rows()), 13)
+		}
+		opts := []neighbors.Option{neighbors.K(7), neighbors.ByDistance()}
+		if classes > 0 {
+			opts = append(opts, neighbors.Classes(classes))
+		}
+		m, err := neighbors.Fit(ctx, d, task, opts...)
+		if err != nil {
+			return nil, "", err
+		}
+		if progress != nil {
+			progress(1, 1)
+		}
+		s, err := shapeJSON(m.Shape())
+		return m.Module(), s, err
+	},
+	Build: func(shape string) (nn.Module, error) {
+		var s neighbors.Shape
+		if err := json.Unmarshal([]byte(shape), &s); err != nil {
+			return nil, fmt.Errorf("a nearest neighbours model's shape: %w", err)
+		}
+		return neighbors.NewModule(s), nil
+	},
+}
+
+var naiveBayes = &Learner{
+	Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
+		if task != tabular.Classification {
+			return nil, "", fmt.Errorf("naive Bayes picks a category, not a number")
+		}
+		m, err := bayes.Gaussian(ctx, d, bayes.Classes(classes))
+		if err != nil {
+			return nil, "", err
+		}
+		if progress != nil {
+			progress(1, 1)
+		}
+		s, err := shapeJSON(m.Shape())
+		return m.Module(), s, err
+	},
+	Build: buildBayes,
+}
+
+func buildBayes(shape string) (nn.Module, error) {
+	var s bayes.Shape
+	if err := json.Unmarshal([]byte(shape), &s); err != nil {
+		return nil, fmt.Errorf("a naive Bayes model's shape: %w", err)
+	}
+	return bayes.NewModule(s), nil
+}
+
 // autoTrials and autoBudget bound the candidates auto scores.
 const (
 	autoTrials = 10
 	autoBudget = 10 * time.Minute
 )
 
-// auto scores boosted trees, random forests and linear models over a
-// range of settings and keeps the best, refit to the whole table. Its
-// shape names which kind won.
+// auto scores boosted trees, random forests, linear models, support
+// vector machines, nearest neighbours and naive Bayes over a range of
+// settings and keeps the best, refit to the whole table. Its shape names
+// which kind won.
 var auto = &Learner{
 	Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
 		opts := []automl.Option{automl.Trials(autoTrials), automl.Budget(autoBudget)}
@@ -163,6 +258,12 @@ var auto = &Learner{
 			mod, shape = m.Module(), autoShape{Kind: "tree", Tree: ptr(m.Shape())}
 		case *linear.Model:
 			mod, shape = m.Module(), autoShape{Kind: "linear", Linear: ptr(m.Shape())}
+		case *svm.Model:
+			mod, shape = m.Module(), autoShape{Kind: "svm", SVM: ptr(m.Shape())}
+		case *neighbors.Model:
+			mod, shape = m.Module(), autoShape{Kind: "knn", Neighbors: ptr(m.Shape())}
+		case *bayes.Model:
+			mod, shape = m.Module(), autoShape{Kind: "bayes", Bayes: ptr(m.Shape())}
 		default:
 			return nil, "", fmt.Errorf("auto: a model of type %T", r.Best)
 		}
@@ -179,6 +280,12 @@ var auto = &Learner{
 			return tree.NewModule(*s.Tree), nil
 		case s.Kind == "linear" && s.Linear != nil:
 			return linear.NewModule(*s.Linear), nil
+		case s.Kind == "svm" && s.SVM != nil:
+			return svm.NewModule(*s.SVM), nil
+		case s.Kind == "knn" && s.Neighbors != nil:
+			return neighbors.NewModule(*s.Neighbors), nil
+		case s.Kind == "bayes" && s.Bayes != nil:
+			return bayes.NewModule(*s.Bayes), nil
 		}
 		return nil, fmt.Errorf("an automatic model of kind %q", s.Kind)
 	},
@@ -186,9 +293,12 @@ var auto = &Learner{
 
 // autoShape is the shape of the model auto picked.
 type autoShape struct {
-	Kind   string        `json:"kind"` // "tree" or "linear"
-	Tree   *tree.Shape   `json:"tree,omitempty"`
-	Linear *linear.Shape `json:"linear,omitempty"`
+	Kind      string           `json:"kind"` // "tree", "linear", "svm", "knn" or "bayes"
+	Tree      *tree.Shape      `json:"tree,omitempty"`
+	Linear    *linear.Shape    `json:"linear,omitempty"`
+	SVM       *svm.Shape       `json:"svm,omitempty"`
+	Neighbors *neighbors.Shape `json:"knn,omitempty"`
+	Bayes     *bayes.Shape     `json:"bayes,omitempty"`
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -199,13 +309,13 @@ var learned = []Architecture{
 	{
 		Name:        "table-auto",
 		Title:       "Best of several (automatic)",
-		Description: "Tries boosted trees, random forests and logistic regression with a range of settings, scores each on rows it didn't learn from, and keeps the best. Takes longer than one of them alone.",
+		Description: "Tries boosted trees, random forests, logistic regression, a support vector machine, nearest neighbours and naive Bayes with a range of settings, scores each on rows it didn't learn from, and keeps the best. Takes longer than one of them alone.",
 		Input:       Table, AnyText: true, Learner: auto,
 	},
 	{
 		Name:        "number-auto",
 		Title:       "Best of several for a number (automatic)",
-		Description: "Tries boosted trees, random forests and linear regression with a range of settings, scores each on rows it didn't learn from, and keeps the best. Takes longer than one of them alone.",
+		Description: "Tries boosted trees, random forests, linear regression, a support vector machine and nearest neighbours with a range of settings, scores each on rows it didn't learn from, and keeps the best. Takes longer than one of them alone.",
 		Input:       Table, AnyText: true, Output: Number, Learner: auto,
 	},
 	{
@@ -243,6 +353,36 @@ var learned = []Architecture{
 		Title:       "Linear regression",
 		Description: "Weighs each column up or down and adds them up into a number. The simplest model, taught in a moment, and each column's weight says how much it matters.",
 		Input:       Table, AnyText: true, Output: Number, Learner: straight,
+	},
+	{
+		Name:        "table-svm",
+		Title:       "Support vector machine",
+		Description: "Draws the widest possible border between the categories, bending around them where it must. Strong on small and medium tables with numbers in many columns; it learns from up to 10,000 rows.",
+		Input:       Table, AnyText: true, Learner: kernelMachine,
+	},
+	{
+		Name:        "number-svm",
+		Title:       "Support vector machine for a number",
+		Description: "Fits a smooth curve through the rows that ignores small errors, answering with a number. Strong on small and medium tables; it learns from up to 10,000 rows.",
+		Input:       Table, AnyText: true, Output: Number, Learner: kernelMachine,
+	},
+	{
+		Name:        "table-knn",
+		Title:       "Nearest neighbours",
+		Description: "Answers like the 7 rows most similar to the question, the nearer ones counting more. Nothing to teach, so it is ready at once, and you can see why it answered as it did.",
+		Input:       Table, AnyText: true, Learner: nearest,
+	},
+	{
+		Name:        "number-knn",
+		Title:       "Nearest neighbours for a number",
+		Description: "Answers with the average of the 7 rows most similar to the question, the nearer ones counting more. Nothing to teach, so it is ready at once.",
+		Input:       Table, AnyText: true, Output: Number, Learner: nearest,
+	},
+	{
+		Name:        "table-bayes",
+		Title:       "Naive Bayes",
+		Description: "Learns how each column is spread within each category and combines them, as if the columns were independent. Taught in one pass and good with very few rows, though rarely the most accurate.",
+		Input:       Table, AnyText: true, Learner: naiveBayes,
 	},
 	{
 		Name:        "find-groups",
