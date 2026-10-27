@@ -128,6 +128,12 @@ message Architecture {
   // models, are fit to the whole table at once: the epochs, batch size
   // and learning rate of TrainingSettings don't apply.
   bool learned = 12;
+  // target is what a dataset's answer column is to models of this shape:
+  // "" the answer they learn to give, "none" nothing (they read every
+  // column and need no answers), "item" the item someone picked (another
+  // column says who), or "value" a value over time to forecast (a date
+  // column says when).
+  string target = 13;
 }
 
 // Column is one column a model reads and how it becomes numbers.
