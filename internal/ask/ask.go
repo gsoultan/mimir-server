@@ -32,6 +32,16 @@ func Reason(err error) string {
 // kinds has only features, each a number.
 func Encode(a arch.Architecture, cols []schema.Column, features []string, fields map[string]string, photo, sound []byte) ([]float32, error) {
 	var out []float32
+	if a.Input == arch.Scene {
+		if len(photo) == 0 {
+			return nil, bad("This model finds things in a photo. Send one.")
+		}
+		px, _, _, err := schema.DecodeScene(photo)
+		if err != nil {
+			return nil, bad("That photo can't be read. Send a JPG, PNG or GIF.")
+		}
+		return schema.Floats(out, px), nil
+	}
 	if a.Input == arch.Sound {
 		if len(sound) == 0 {
 			return nil, bad("This model listens to a sound. Send one.")

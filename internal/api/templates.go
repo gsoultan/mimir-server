@@ -79,6 +79,8 @@ func (s *Service) CheckDataset(ctx context.Context, req *connect.Request[mimirv1
 		nd, check, err = describePhotoTable(b, target, tpl, match)
 	case store.DatasetSounds:
 		nd, check, err = describeSounds(b)
+	case store.DatasetBoxes:
+		nd, check, err = describeBoxes(b)
 	}
 	if err != nil {
 		return nil, err
@@ -253,6 +255,31 @@ func describeSounds(b []byte) (store.Dataset, *mimirv1.DataCheck, error) {
 	check := templates.CheckSounds(folders, loose)
 	return store.Dataset{Kind: store.DatasetSounds, Rows: check.Rows, Labels: labels, Skipped: int64(loose),
 		InputShape: []int{schema.SoundSamples}}, check, nil
+}
+
+// describeBoxes reads a ZIP of photos and the boxes around the things in
+// them.
+func describeBoxes(b []byte) (store.Dataset, *mimirv1.DataCheck, error) {
+	if len(b) == 0 {
+		return store.Dataset{}, nil, invalid("The file is empty. Upload a ZIP of photos and a boxes.csv saying where each thing is.")
+	}
+	arc, err := training.OpenArchive(b)
+	if err != nil {
+		return store.Dataset{}, nil, badTable(err)
+	}
+	t, err := training.ReadBoxes(arc)
+	if err != nil {
+		return store.Dataset{}, nil, badTable(err)
+	}
+	things := map[string]int{}
+	for _, boxes := range t.Boxes {
+		for _, r := range boxes {
+			things[r.Label]++
+		}
+	}
+	check := templates.CheckBoxes(len(t.Photos), things, t.Missing)
+	return store.Dataset{Kind: store.DatasetBoxes, Rows: int64(len(t.Photos)), Labels: t.Labels, Skipped: int64(len(t.Missing)),
+		InputShape: []int{3, schema.SceneSize, schema.SceneSize}}, check, nil
 }
 
 func templateProto(t templates.Template) *mimirv1.Template {

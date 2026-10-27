@@ -515,7 +515,7 @@ func (s Source) Hints() map[string]schema.Kind {
 // SourceOf returns the Source for a stored dataset.
 func SourceOf(st *store.Store, d store.Dataset) (Source, error) {
 	switch d.Kind {
-	case store.DatasetTable, store.DatasetPhotos, store.DatasetPhotoTable, store.DatasetSounds:
+	case store.DatasetTable, store.DatasetPhotos, store.DatasetPhotoTable, store.DatasetSounds, store.DatasetBoxes:
 		b, err := st.ReadDataset(d.ID)
 		if err != nil {
 			return Source{}, err
@@ -798,6 +798,10 @@ func Architectures(d store.Dataset) []string {
 			}
 		case store.DatasetSounds:
 			if a.Input == arch.Sound {
+				out = append(out, a.Name)
+			}
+		case store.DatasetBoxes:
+			if a.Input == arch.Scene {
 				out = append(out, a.Name)
 			}
 		case store.DatasetPhotoTable:

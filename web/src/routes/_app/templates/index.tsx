@@ -12,7 +12,7 @@ import { categoryColor, count, dataTypeOf, dataTypes, kindColor, kindLabel, kind
 
 const search = z.object({
   kind: z.enum(["yes_no", "group", "number"]).optional(),
-  data: z.enum(["table", "text", "photos", "photo_table", "sounds"]).optional(),
+  data: z.enum(["table", "text", "photos", "photo_table", "sounds", "boxes"]).optional(),
   cat: z.string().optional(),
   q: z.string().optional(),
 });

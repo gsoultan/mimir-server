@@ -256,6 +256,40 @@ func checkFolders(t *Template, folders map[string][]string, loose int, one, many
 	return c.finish()
 }
 
+// CheckBoxes checks a ZIP of photos and boxes: photos named, things
+// found of each kind, and photos the table names that aren't there.
+func CheckBoxes(photos int, things map[string]int, missing []string) *mimirv1.DataCheck {
+	c := check{&mimirv1.DataCheck{Rows: int64(photos)}}
+	var names []string
+	total := 0
+	for name, n := range things {
+		names = append(names, name)
+		total += n
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		c.Answers = append(c.Answers, &mimirv1.AnswerCount{Value: name, Count: int64(things[name])})
+	}
+	low, lowName := math.MaxInt, ""
+	for _, name := range names {
+		if things[name] < low {
+			low, lowName = things[name], name
+		}
+	}
+	if low < 50 {
+		c.note(warn, fmt.Sprintf("%s has only %s.", lowName, plural(low, "box", "boxes")),
+			"Aim for 50 or more boxes of every kind of thing, or that kind will be found poorly.")
+	}
+	if photos < 100 {
+		c.note(warn, fmt.Sprintf("Only %s.", plural(photos, "photo", "photos")), "300 photos or more works well.")
+	}
+	if len(missing) > 0 {
+		c.note(warn, plural(len(missing), "photo the table names isn't", "photos the table names aren't")+" in the ZIP.", "Their rows are left out.")
+		c.MissingPhotos = missing[:min(len(missing), MaxMissingPhotos)]
+	}
+	return c.finish()
+}
+
 // rowsNote compares how many examples there are with the template's
 // targets.
 func rowsNote(c check, t *Template, rows int64, unit string) {

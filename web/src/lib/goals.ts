@@ -22,6 +22,8 @@ export type Goal = {
   learn?: { amount: string; time: string; answer: string; data: string };
   sample?: { name: string; columns: string[]; rows: string[][] };
   arch?: string;
+  // data is what a ready goal learns from, a table unless set.
+  data?: DataType;
 };
 
 export const goals: Goal[] = [
@@ -60,14 +62,9 @@ export const goals: Goal[] = [
     sample: { name: "offers.csv", columns: ["customer_age", "plan", "offer", "converted"], rows: [["24", "basic", "discount", "yes"], ["58", "pro", "free-delivery", "yes"], ["31", "basic", "newsletter", "no"], ["63", "basic", "discount", "no"], ["27", "pro", "free-delivery", "no"]] },
   },
   {
-    id: "find_in_photo", title: "Find it in a photo", example: "Where is the scratch?", ready: "code", arch: "find-scratch",
+    id: "find_in_photo", title: "Find it in a photo", example: "Where is the scratch?", ready: "ready", arch: "find-things", data: "boxes",
     intro: "The model finds things in a photo and says where each one is, with a box around it.",
-    steps: [
-      { label: "Mark the photos", hint: "Photos plus a table with one row per thing found: photo, what it is, and its box (left, top, width, height). 300 photos or more works well." },
-      { label: "Write the model", hint: "Go code with the worker kit, often calling a detector you trained elsewhere. The starting project reads the photos and the boxes." },
-      { label: "Connect it", hint: "Run it on any machine with a worker token. It shows up here within seconds." },
-      { label: "Teach it and try it", hint: "Teach it or upload what you trained, then send a photo and see the boxes." },
-    ],
+    learn: { amount: "300 photos or more, 50 boxes of each kind", time: "5 to 15 minutes to teach", answer: "“Scratch, 0.91, here” with a box", data: "Upload one ZIP of the photos and a boxes.csv with one row per thing: the photo, what it is, and its box in pixels (left, top, width, height). A photo with nothing in it gets a row with what left empty." },
     sample: { name: "boxes.csv", columns: ["photo", "what", "left", "top", "width", "height"], rows: [["photos/0001.jpg", "scratch", "112", "40", "64", "18"], ["photos/0002.jpg", "dent", "300", "210", "48", "44"], ["photos/0002.jpg", "scratch", "20", "88", "90", "12"]] },
   },
 ];
@@ -96,6 +93,7 @@ export function needs(shape: DataType, kind: "yes_no" | "group" | "number") {
     photos: `100 photos${per} to start, 500 good`,
     photo_table: `300 rows with photos${per}`,
     sounds: `100 sounds${per} to start, 500 good`,
+    boxes: "300 photos with boxes",
   }[shape];
   const time = shape === "table" ? "about a minute to teach" : shape === "text" ? "a few minutes to teach" : "5 to 15 minutes to teach";
   const answer = kind === "yes_no"
@@ -113,6 +111,7 @@ export const ownData: Record<DataType, string> = {
   photos: "Put the photos in one folder per answer, ZIP them, upload. The folder name is the answer.",
   photo_table: "Upload one ZIP with a data.csv and the photos it names. Say which column is the answer.",
   sounds: "Put the WAV recordings in one folder per answer, ZIP them, upload. The folder name is the answer; each sound is heard as one second.",
+  boxes: "Upload one ZIP of the photos and a boxes.csv saying where each thing in them is.",
 };
 
 // csv writes a sample as a CSV file's text.

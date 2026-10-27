@@ -61,9 +61,9 @@ function ModelDetails() {
   const shape = m.inputShape.length > 0 ? m.inputShape : arch?.inputShape ?? [];
   const input = shape.reduce((a, b) => a * b, 1n);
   const number = arch?.output === "number";
-  const wantsPhoto = (arch?.input === "image" && shape.length === 0) || arch?.input === "photo_table";
+  const wantsPhoto = (arch?.input === "image" && shape.length === 0) || arch?.input === "photo_table" || arch?.input === "scene";
   const wantsSound = arch?.input === "sound";
-  const columns = arch?.input === "image" || wantsSound ? [] : m.columns.length > 0 ? m.columns.filter((c) => c.kind !== "photo") : m.features.map((name) => ({ name, kind: "number" }));
+  const columns = arch?.input === "image" || arch?.input === "scene" || wantsSound ? [] : m.columns.length > 0 ? m.columns.filter((c) => c.kind !== "photo") : m.features.map((name) => ({ name, kind: "number" }));
   const named = columns.length > 0 || wantsPhoto || wantsSound;
   const sample = (c: { kind: string; values?: string[] }) => c.kind === "number" ? "1.5" : c.kind === "yesno" ? "yes" : c.kind === "category" || c.kind === "key" ? c.values?.[0] ?? "a" : "some words";
   const fields = JSON.stringify(Object.fromEntries(columns.map((c) => [c.name, sample(c)])));
@@ -80,7 +80,7 @@ function ModelDetails() {
   const grpc = `grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \\
   -d '${request("model_id")}' \\
   ${location.host} mimir.v1.PredictService/${method}`;
-  const answer = number ? "You get back a number in value." : `You get back the likeliest of: ${m.labels.join(", ")}.`;
+  const answer = arch?.output === "boxes" ? "You get back boxes: each thing found, its score, and where it is as shares of the photo (left, top, width, height)." : number ? "You get back a number in value." : `You get back the likeliest of: ${m.labels.join(", ")}.`;
 
   return (
     <Page

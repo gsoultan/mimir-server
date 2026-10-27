@@ -70,6 +70,9 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	if t.Arch.Learner != nil && t.Arch.Learner.Cells != nil {
 		return learnCells(ctx, t, progress)
 	}
+	if t.Arch.Learner != nil && t.Arch.Learner.Boxes != nil {
+		return learnBoxes(ctx, t, progress)
+	}
 	s := t.Settings
 	l, err := Load(ctx, t.Source, t.Arch, s, 42)
 	if err != nil {

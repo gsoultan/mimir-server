@@ -152,6 +152,8 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 		d, check, err = describePhotoTable(file, strings.TrimSpace(req.Msg.GetTarget()), tpl, nil)
 	case store.DatasetSounds:
 		d, check, err = describeSounds(file)
+	case store.DatasetBoxes:
+		d, check, err = describeBoxes(file)
 	case store.DatasetMNIST:
 		file = nil
 		d = store.Dataset{Kind: store.DatasetMNIST, Rows: 60000, InputShape: []int{1, 28, 28},

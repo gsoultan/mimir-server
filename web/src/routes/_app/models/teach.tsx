@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_app/models/teach")({
   validateSearch: z.object({
     template: z.string().optional(),
     example: z.boolean().optional(),
-    data: z.enum(["table", "text", "photos", "photo_table", "sounds"]).optional(),
+    data: z.enum(["table", "text", "photos", "photo_table", "sounds", "boxes"]).optional(),
     // arch is the model type to teach when the examples fit it, such as
     // one written in someone's own code.
     arch: z.string().optional(),
@@ -153,7 +153,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const presetArch = archs.architectures.find((a) => a.name === search.arch);
   const role = (presetArch?.target ?? "") as Role;
   const photos = dataType === "photos";
-  const archive = dataType === "photos" || dataType === "photo_table" || dataType === "sounds";
+  const archive = dataType === "photos" || dataType === "photo_table" || dataType === "sounds" || dataType === "boxes";
   const canStore = me.permissions.includes("databases.query");
   const canConnect = canStore && !archive;
   const navigate = useNavigate();
@@ -197,7 +197,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const looked = useMutation(DatasetService.method.testBucket, {
     onSuccess: (res) => setTarget(guessTarget(res.columns, role)),
   });
-  const kindToMake = tpl ? datasetKindOf(tpl) : dataType === "photos" ? DatasetKind.PHOTOS : dataType === "photo_table" ? DatasetKind.PHOTO_TABLE : dataType === "sounds" ? DatasetKind.SOUNDS : DatasetKind.TABLE;
+  const kindToMake = tpl ? datasetKindOf(tpl) : dataType === "photos" ? DatasetKind.PHOTOS : dataType === "photo_table" ? DatasetKind.PHOTO_TABLE : dataType === "sounds" ? DatasetKind.SOUNDS : dataType === "boxes" ? DatasetKind.BOXES : DatasetKind.TABLE;
   const editBucket = (b: Partial<Bucket>) => { setBucket((cur) => ({ ...cur, ...b })); looked.reset(); reset(); };
 
   const createDataset = useMutation(DatasetService.method.createDataset, {
@@ -350,13 +350,14 @@ function Wizard({ data: dataType }: { data: DataType }) {
   });
   const steps = tpl ? ["Your data", "Name it", "How long"] : ["The examples", "What kind", "How long"];
   const dt = dataTypeOf(dataType);
-  const uploadTitle = { table: "Upload a table", text: "Upload a table with text", photos: "Upload your photos", photo_table: "Upload a ZIP", sounds: "Upload your sounds" }[dataType];
+  const uploadTitle = { table: "Upload a table", text: "Upload a table with text", photos: "Upload your photos", photo_table: "Upload a ZIP", sounds: "Upload your sounds", boxes: "Upload your photos and boxes" }[dataType];
   const uploadHint = {
     table: "A .csv file with a header row, exported from Excel, Google Sheets or your app. One column holds the answer.",
     text: "A .csv file with a header row. Each text sits in one cell, next to its answer.",
     photos: "A ZIP file, or drop the top folder with one folder per answer inside.",
     photo_table: "The table as data.csv and a photos folder, zipped together. Or drop the folder that holds both.",
     sounds: "A ZIP file of WAV recordings, or drop the top folder with one folder per answer inside.",
+    boxes: "The photos and a boxes.csv (photo, what, left, top, width, height), zipped together. Or drop the folder that holds both.",
   }[dataType];
 
   return (
@@ -469,7 +470,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                           label="File or folder"
                           placeholder={dataType === "sounds" ? "sounds/machines/" : archive ? "photos/pets/" : "exports/sales.csv"}
                           description={archive
-                            ? (dataType === "photos" || dataType === "sounds" ? `A .zip, or a folder with one folder of ${dataType} per answer inside.` : "A .zip, or a folder holding data.csv and the photos it names.")
+                            ? (dataType === "photos" || dataType === "sounds" ? `A .zip, or a folder with one folder of ${dataType} per answer inside.` : dataType === "boxes" ? "A .zip, or a folder holding boxes.csv and the photos it names." : "A .zip, or a folder holding data.csv and the photos it names.")
                             : "A .csv file, or a folder of .csv files with the same header row. Empty reads the whole bucket."}
                           value={bucketPath}
                           onChange={(e) => { setBucketPath(e.currentTarget.value); looked.reset(); reset(); }}

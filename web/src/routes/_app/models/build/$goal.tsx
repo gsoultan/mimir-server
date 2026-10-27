@@ -14,7 +14,7 @@ import { download, type DataType } from "../../../../lib/templates";
 
 export const Route = createFileRoute("/_app/models/build/$goal")({
   validateSearch: z.object({
-    shape: z.enum(["table", "text", "photos", "photo_table", "sounds"]).optional(),
+    shape: z.enum(["table", "text", "photos", "photo_table", "sounds", "boxes"]).optional(),
     labelled: z.boolean().optional(),
   }),
   loader: ({ context, params }) => {
@@ -137,13 +137,15 @@ function NoCode({ goal, kind }: { goal: Goal; kind: "yes_no" | "group" | "number
 function Learn({ goal }: { goal: Goal }) {
   const l = goal.learn!;
   const sample = goal.sample!;
+  const data = goal.data ?? "table";
+  const boxes = data === "boxes";
   return (
     <Page title={goal.title} intro={goal.intro}>
       <PathOption
         best
-        title="Start from your own table"
+        title={boxes ? "Start from your own photos" : "Start from your own table"}
         hint={l.data}
-        action={<ButtonLink to="/models/teach" search={{ data: "table", arch: goal.arch }}>Start</ButtonLink>}
+        action={<ButtonLink to="/models/teach" search={{ data, arch: goal.arch }}>Start</ButtonLink>}
       >
         <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm" spacing="xs">
           <Stat k="You'll want" v={l.amount} />
@@ -152,7 +154,7 @@ function Learn({ goal }: { goal: Goal }) {
         </SimpleGrid>
       </PathOption>
       <Card withBorder radius="lg" padding="lg">
-        <Text fw={700} mb={4}>A table shaped like this</Text>
+        <Text fw={700} mb={4}>{boxes ? "A boxes.csv shaped like this, next to the photos" : "A table shaped like this"}</Text>
         <div className="overflow-x-auto">
           <Table fz="xs" verticalSpacing={4}>
             <Table.Thead><Table.Tr>{sample.columns.map((c) => <Table.Th key={c}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
