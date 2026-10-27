@@ -89,6 +89,8 @@ export function dataTypeOfKind(k: DatasetKind): DataType[] {
       return ["photos"];
     case DatasetKind.PHOTO_TABLE:
       return ["photo_table"];
+    case DatasetKind.TEXT:
+      return []; // writing for a language model, fine-tuned elsewhere
   }
   return ["table", "text"];
 }

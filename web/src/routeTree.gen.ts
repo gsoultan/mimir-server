@@ -23,6 +23,7 @@ import { Route as AppBenchmarksIndexRouteImport } from './routes/_app/benchmarks
 import { Route as AppBenchmarksIdRouteImport } from './routes/_app/benchmarks/$id'
 import { Route as AppModelsIndexRouteImport } from './routes/_app/models/index'
 import { Route as AppModelsIdRouteImport } from './routes/_app/models/$id'
+import { Route as AppModelsFinetuneRouteImport } from './routes/_app/models/finetune'
 import { Route as AppModelsNewRouteImport } from './routes/_app/models/new'
 import { Route as AppModelsTeachRouteImport } from './routes/_app/models/teach'
 import { Route as AppTemplatesIndexRouteImport } from './routes/_app/templates/index'
@@ -104,6 +105,11 @@ const AppModelsIdRoute = AppModelsIdRouteImport.update({
   path: '/models/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppModelsFinetuneRoute = AppModelsFinetuneRouteImport.update({
+  id: '/models/finetune',
+  path: '/models/finetune',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppModelsNewRoute = AppModelsNewRouteImport.update({
   id: '/models/new',
   path: '/models/new',
@@ -172,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/users': typeof AppUsersRoute
   '/benchmarks/$id': typeof AppBenchmarksIdRoute
   '/models/$id': typeof AppModelsIdRoute
+  '/models/finetune': typeof AppModelsFinetuneRoute
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
   '/templates/$id': typeof AppTemplatesIdRoute
@@ -198,6 +205,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/benchmarks/$id': typeof AppBenchmarksIdRoute
   '/models/$id': typeof AppModelsIdRoute
+  '/models/finetune': typeof AppModelsFinetuneRoute
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
   '/templates/$id': typeof AppTemplatesIdRoute
@@ -226,6 +234,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/benchmarks/$id': typeof AppBenchmarksIdRoute
   '/_app/models/$id': typeof AppModelsIdRoute
+  '/_app/models/finetune': typeof AppModelsFinetuneRoute
   '/_app/models/new': typeof AppModelsNewRoute
   '/_app/models/teach': typeof AppModelsTeachRoute
   '/_app/templates/$id': typeof AppTemplatesIdRoute
@@ -254,6 +263,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/benchmarks/$id'
     | '/models/$id'
+    | '/models/finetune'
     | '/models/new'
     | '/models/teach'
     | '/templates/$id'
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/'
     | '/benchmarks/$id'
     | '/models/$id'
+    | '/models/finetune'
     | '/models/new'
     | '/models/teach'
     | '/templates/$id'
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/benchmarks/$id'
     | '/_app/models/$id'
+    | '/_app/models/finetune'
     | '/_app/models/new'
     | '/_app/models/teach'
     | '/_app/templates/$id'
@@ -429,6 +441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppModelsIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/models/finetune': {
+      id: '/_app/models/finetune'
+      path: '/models/finetune'
+      fullPath: '/models/finetune'
+      preLoaderRoute: typeof AppModelsFinetuneRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/models/new': {
       id: '/_app/models/new'
       path: '/models/new'
@@ -518,6 +537,7 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppBenchmarksIdRoute: typeof AppBenchmarksIdRoute
   AppModelsIdRoute: typeof AppModelsIdRoute
+  AppModelsFinetuneRoute: typeof AppModelsFinetuneRoute
   AppModelsNewRoute: typeof AppModelsNewRoute
   AppModelsTeachRoute: typeof AppModelsTeachRoute
   AppTemplatesIdRoute: typeof AppTemplatesIdRoute
@@ -542,6 +562,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppBenchmarksIdRoute: AppBenchmarksIdRoute,
   AppModelsIdRoute: AppModelsIdRoute,
+  AppModelsFinetuneRoute: AppModelsFinetuneRoute,
   AppModelsNewRoute: AppModelsNewRoute,
   AppModelsTeachRoute: AppModelsTeachRoute,
   AppTemplatesIdRoute: AppTemplatesIdRoute,

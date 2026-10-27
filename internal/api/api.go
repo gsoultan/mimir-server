@@ -31,6 +31,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/memguard"
 	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/schema"
+	"github.com/gsoultan/mimir-server/internal/sso"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir/tensor"
 )
@@ -69,6 +70,9 @@ type Service struct {
 	// The zero value trusts none, so a client can't choose its own address
 	// or claim it used HTTPS.
 	Proxies auth.Proxies
+	// SignIn talks to outside sign-in providers (Google, GitHub, OpenID
+	// Connect).
+	Providers *sso.Client
 	// KickTraining asks the training runner to look at the queue now, and
 	// CancelTraining stops a running job; either may be nil.
 	KickTraining   func()
@@ -191,7 +195,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	svc := &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true, TrainHereDefault: true}
+	svc := &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true, TrainHereDefault: true, Providers: sso.New()}
 	svc.trainHere.Store(true)
 	return svc
 }
@@ -217,6 +221,7 @@ func archProto(a arch.Architecture) *mimirv1.Architecture {
 		Custom:      a.Custom,
 		Items:       int32(a.Items),
 		Designable:  a.Designable,
+		Learned:     a.Learner != nil,
 	}
 }
 
@@ -227,9 +232,15 @@ func (s *Service) ListModels(ctx context.Context, _ *connect.Request[mimirv1.Lis
 		return nil, s.internal(ctx, err)
 	}
 	res := &mimirv1.ListModelsResponse{}
+	names := map[string]string{}
+	for _, m := range ms {
+		names[m.ID] = m.Name
+	}
 	for _, m := range ms {
 		if p.Access.Allows(m.ID) {
-			res.Models = append(res.Models, toProto(m))
+			out := toProto(m)
+			out.BaseModelName = names[m.BaseModelID]
+			res.Models = append(res.Models, out)
 		}
 	}
 	return connect.NewResponse(res), nil
@@ -240,7 +251,13 @@ func (s *Service) GetModel(ctx context.Context, req *connect.Request[mimirv1.Get
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&mimirv1.GetModelResponse{Model: toProto(m)}), nil
+	out := toProto(m)
+	if m.FineTune() {
+		if base, err := s.store.Get(ctx, m.BaseModelID); err == nil {
+			out.BaseModelName = base.Name
+		}
+	}
+	return connect.NewResponse(&mimirv1.GetModelResponse{Model: out}), nil
 }
 
 func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.CreateModelRequest]) (*connect.Response[mimirv1.CreateModelResponse], error) {
@@ -511,6 +528,15 @@ func (s *Service) DeleteModel(ctx context.Context, req *connect.Request[mimirv1.
 	if err != nil {
 		return nil, err
 	}
+	// A fine-tune runs on its base model, so the base stays while it has
+	// any.
+	tunes, err := s.store.FineTunes(ctx, id)
+	if err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	if len(tunes) > 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("%s has fine-tunes that run on it, such as %s. Delete them first.", m.Name, tunes[0].Name))
+	}
 	err = s.store.Delete(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, notFound(id)
@@ -761,6 +787,7 @@ func toProto(m store.Model) *mimirv1.Model {
 		OnDevice:     m.OnDevice,
 		Version:      m.WeightsVersion(),
 		VersionId:    m.VersionID,
+		BaseModelId:  m.BaseModelID,
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {

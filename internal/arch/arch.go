@@ -191,14 +191,20 @@ type Architecture struct {
 	Output Output
 	// Text marks a table architecture made for rows with free text.
 	Text bool
+	// AnyText marks a table architecture made for rows with or without
+	// free text.
+	AnyText bool
 	// Designable says its hidden layers can be designed (Spec.Layers).
 	Designable bool
 	// Spec is the fixed shape and labels, or zero when they come from the
 	// dataset.
 	Spec Spec
 	// New builds the module with freshly initialized weights for spec.
-	// It is nil for a File architecture.
+	// It is nil for a File architecture and a Learner's.
 	New func(spec Spec) nn.Module
+	// Learner, when set, fits the model to the whole table at once in
+	// place of training New's network.
+	Learner *Learner
 	// File marks the architecture of Mimir Model (.mim) files, which hold
 	// their model's graph as well as its weights and so run as they are.
 	// Their shape and labels come from the file.
@@ -221,8 +227,9 @@ func (a Architecture) Answers() Output {
 // Fixed reports whether the architecture's shape and labels are built in.
 func (a Architecture) Fixed() bool { return len(a.Spec.InputShape) > 0 }
 
-// Trainable reports whether the server can teach models of this shape.
-func (a Architecture) Trainable() bool { return !a.File }
+// Trainable reports whether the server can teach models of this shape: a
+// language model learns by fine-tuning, the other files not at all.
+func (a Architecture) Trainable() bool { return !a.File || a.Answers() == Written }
 
 // LanguageModel is the name of the architecture of language models, which
 // come as whole Mimir Model files.
@@ -329,12 +336,14 @@ var builtin = []Architecture{
 	{
 		Name:        LanguageModel,
 		Title:       "Language model",
-		Description: "Give it the start of a text and it carries on writing. Upload a GGUF file of a Llama, TinyLlama, Mistral, SmolLM or Qwen 2 model; it becomes a .mim file when you upload it.",
+		Description: "Give it the start of a text and it carries on writing. Upload a GGUF file of a Llama, TinyLlama, Mistral, SmolLM or Qwen 2 model; it becomes a .mim file when you upload it. Fine-tune one on your own writing or chats to make it answer your way.",
 		Input:       Prompt,
 		Output:      Written,
 		File:        true,
 	},
 }
+
+func init() { builtin = append(builtin, learned...) }
 
 // All returns every architecture, sorted by name.
 func All() []Architecture {

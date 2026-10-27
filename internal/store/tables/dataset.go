@@ -53,5 +53,5 @@ func (d *Dataset) Schema(t *storm.Table) {
 	// A team's datasets, newest first; also the team key's index.
 	t.Col(&d.Team).NoIndex()
 	t.Index(&d.Team, storm.Desc(&d.CreateTime), storm.Desc(&d.ID))
-	t.Check(storm.RawSQL(between("kind", DatasetTable, DatasetPhotoTable)))
+	t.Check(storm.RawSQL(between("kind", DatasetTable, DatasetText)))
 }

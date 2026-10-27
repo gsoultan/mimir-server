@@ -20,6 +20,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/modelversion"
 	"github.com/gsoultan/mimir-server/internal/store/db/recoverycode"
 	"github.com/gsoultan/mimir-server/internal/store/db/session"
+	"github.com/gsoultan/mimir-server/internal/store/db/signinidentity"
 	"github.com/gsoultan/mimir-server/internal/store/db/team"
 	"github.com/gsoultan/mimir-server/internal/store/db/trainingjob"
 	"github.com/gsoultan/mimir-server/internal/store/db/usage"
@@ -36,29 +37,30 @@ import (
 // runtime code inspects a schema and no constraint has to be deferred for
 // a graph write to succeed.
 var FlushOrder = map[string]int{
-	"architectures":    0,
-	"settings":         1,
-	"teams":            2,
-	"users":            3,
-	"webhooks":         4,
-	"workers":          5,
-	"api_keys":         6,
-	"audit_events":     7,
-	"benchmarks":       8,
-	"datasets":         9,
-	"deliveries":       10,
-	"models":           11,
-	"recovery_codes":   12,
-	"sessions":         13,
-	"training_jobs":    14,
-	"usage":            15,
-	"user_models":      16,
-	"worker_samples":   17,
-	"answer_days":      18,
-	"answers":          19,
-	"api_key_models":   20,
-	"benchmark_scores": 21,
-	"model_versions":   22,
+	"architectures":      0,
+	"settings":           1,
+	"teams":              2,
+	"users":              3,
+	"webhooks":           4,
+	"workers":            5,
+	"api_keys":           6,
+	"audit_events":       7,
+	"benchmarks":         8,
+	"datasets":           9,
+	"deliveries":         10,
+	"models":             11,
+	"recovery_codes":     12,
+	"sessions":           13,
+	"sign_in_identities": 14,
+	"training_jobs":      15,
+	"usage":              16,
+	"user_models":        17,
+	"worker_samples":     18,
+	"answer_days":        19,
+	"answers":            20,
+	"api_key_models":     21,
+	"benchmark_scores":   22,
+	"model_versions":     23,
 }
 
 // NewUnit stages writes across this context and flushes them in foreign-key
@@ -1839,6 +1841,123 @@ func (p SessionWithUserQuery) All(ctx context.Context, ex runtime.Executor) ([]S
 			// A foreign key pointing at a row that is not there. The database
 			// forbids it, so reaching this means the constraint was dropped.
 			return nil, fmt.Errorf("storm: %s references a missing %s row", "sessions", "users")
+		}
+		out[i].User = targets[j]
+	}
+	return out, nil
+}
+
+// SignInIdentityWithUserRow is sign_in_identities with its User loaded.
+type SignInIdentityWithUserRow struct {
+	signinidentity.Row
+	User user.Row
+}
+
+type SignInIdentityWithUserQuery struct {
+	q signinidentity.Query
+}
+
+// SignInIdentityWithUser starts the plan.
+func SignInIdentityWithUser() SignInIdentityWithUserQuery {
+	return SignInIdentityWithUserQuery{q: signinidentity.New()}
+}
+
+func (p SignInIdentityWithUserQuery) Where(ps ...signinidentity.Pred) SignInIdentityWithUserQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p SignInIdentityWithUserQuery) WhereIf(cond bool, pr signinidentity.Pred) SignInIdentityWithUserQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p SignInIdentityWithUserQuery) Any(ps ...signinidentity.Pred) SignInIdentityWithUserQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p SignInIdentityWithUserQuery) Not(pr signinidentity.Pred) SignInIdentityWithUserQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p SignInIdentityWithUserQuery) NotAny(ps ...signinidentity.Pred) SignInIdentityWithUserQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p SignInIdentityWithUserQuery) Order(ts ...signinidentity.Sort) SignInIdentityWithUserQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p SignInIdentityWithUserQuery) Limit(n int64) SignInIdentityWithUserQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p SignInIdentityWithUserQuery) Offset(n int64) SignInIdentityWithUserQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p SignInIdentityWithUserQuery) After(r SignInIdentityWithUserRow) SignInIdentityWithUserQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p SignInIdentityWithUserQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p SignInIdentityWithUserQuery) All(ctx context.Context, ex runtime.Executor) ([]SignInIdentityWithUserRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]SignInIdentityWithUserRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = SignInIdentityWithUserRow{Row: r}
+		key := r.UserID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := user.New().Unordered().
+		Where(user.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.UserID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "sign_in_identities", "users")
 		}
 		out[i].User = targets[j]
 	}

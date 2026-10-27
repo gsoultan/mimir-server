@@ -77,8 +77,9 @@ the main database. **Download a backup** covers the main database only;
 `mimir-server backup` (below) takes both.
 
 Secrets the server keeps in the database (webhook signing secrets, dataset
-connection strings, alert passwords and bot tokens, and each person's
-two-step verification key) are encrypted with
+connection strings, alert passwords and bot tokens, sign-in providers'
+client secrets, and each person's two-step verification key) are
+encrypted with
 AES-256-GCM, so a copy or backup of the database does not reveal them. The
 key is 32 random bytes as base64 or hex (`openssl rand -base64 32`), taken
 from `MIMIR_SECRET_KEY`, else from the file `-secret-key-file` (or
@@ -128,7 +129,7 @@ any other, so nothing downstream sees the original format.
   `PredictService.Chat`, `Generate` or `GenerateStream`, or the
   OpenAI-compatible API under `/v1` (see Use it from your app). Language
   models run on the console itself, one generation at a time per model,
-  not on workers.
+  not on workers; workers can fine-tune them (see below).
 
   A chat is written out in the format the model was trained on: ChatML
   (Qwen, SmolLM), Llama 3, Zephyr (TinyLlama Chat), `[INST]` (Llama 2,
@@ -142,6 +143,43 @@ any other, so nothing downstream sees the original format.
 
 The server goes by what the file holds: a GGUF file added as a Mimir Model
 file still becomes a language model.
+
+### Fine-tune a language model on your own writing
+
+**Fine-tune it** on a language model's page teaches it from your own
+examples with LoRA: small trainable pairs next to its attention
+projections learn, while the model's own weights stay as they are,
+quantized or not. Upload either:
+
+- plain text (`.txt`, `.md`), such as documents or notes, which it learns
+  whole, in passages of about 2,000 characters split at paragraphs; or
+- JSON Lines, one example a line, in the formats OpenAI's fine-tuning
+  takes: `{"messages": [...]}` chats, of which it learns the assistant's
+  answers, `{"prompt": ..., "completion": ...}`, of which it learns the
+  completion, or `{"text": ...}` passages.
+
+A file can be up to 64 MB and 100,000 examples; each example counts up to
+its first 512 tokens. A run defaults to 3 passes of 4 examples a step at
+a learning rate of 2e-4, rank 8 pairs scaled by 16/8, and keeps a tenth
+of the examples aside to score on: its score is how many tokens of those
+it writes as they go on. A run resumes from its last pass when it is
+stopped.
+
+The fine-tune is a model of its own, with the base model's chat settings,
+that answers in **Try a model**, `PredictService` and the OpenAI API like
+any language model. Its file is only the adapter, a few megabytes, stored
+next to the base model; it names the base by its SHA-256, so it is never
+applied to another, and the base can't be deleted while it has
+fine-tunes. Fine-tuning a fine-tune continues from its adapter.
+
+A run trains on a worker when one is connected, so a rented GPU box does
+the heavy part (see Console and workers), as long as the base model's
+file is under 1 GB, the most a worker takes in one message; a larger
+model trains on the console. The fine-tune then runs on the console, as
+language models do. In the API, a fine-tune is a `TrainingService.CreateJob`
+of architecture `language-model` on a dataset of kind
+`DATASET_KIND_TEXT`, with `base_model_id` naming the model to start from.
+The adapter format is mimir-model's `spec/adapters.md`.
 
 Anything else, such as an ONNX model with an operator outside that list,
 a recurrent or quantized ONNX model, a GGUF file of another architecture
@@ -257,6 +295,22 @@ server-wide settings are theirs alone.
   authenticator, takes the password and a current code (or a recovery
   code), so a stolen cookie and password aren't enough. An admin can reset
   it for someone who lost their phone.
+- **Sign in with Google, GitHub or a company account.** Under
+  **Settings → Sign-in** an owner adds Google, GitHub, or any OpenID
+  Connect provider (Microsoft Entra ID, Okta, Keycloak, Authentik and the
+  like): the page shows the redirect address to register there, and takes
+  the client id and secret it gives back. The sign-in page then has a
+  "Continue with" button for each. Someone who already has an account
+  signs in with the email address the provider checked, and is tied to
+  that provider's id for them from then on, so a later change of address
+  at the provider keeps the same account. Someone new gets an account only
+  when one of the provider's rules matches their email domain or a group
+  (a GitHub organization, or the groups claim of an OpenID Connect token),
+  as a viewer, editor or admin in the rule's team; everyone else is turned
+  away. Two-step verification still asks for its code after the provider,
+  and the policy under **Settings → Security** still applies. The sign-in
+  uses PKCE and a nonce, and is checked against a short-lived cookie set
+  when it started, so a link can't sign you in to someone else's account.
 - **Sessions.** Each browser gets its own session, listed under
   **Security** with a sign-out button and a "sign out everywhere else"
   button. A session ends after 30 days, or 7 days without use, and is tied
@@ -293,10 +347,17 @@ server-wide settings are theirs alone.
 ## How models load
 
 A mimir model is Go code plus weights, so the server keeps a registry of
-known model types in `internal/arch` (today: two handwritten-digit models,
-`mnist-mlp` and `mnist-cnn`, and `table-mlp` for rows of numbers). An
-upload names its type, and the server checks the weights fit that type
-before storing them. To serve a model type of your own without changing
+known model types in `internal/arch`: handwritten-digit networks
+(`mnist-mlp`, `mnist-cnn`), table and photo networks (`table-mlp`,
+`text-mlp`, `number-mlp`, `photo-cnn`, `photo-table`), and models fit to a
+whole table at once with mimir's `tree` and `linear` packages: boosted
+trees (`table-boost`, `number-boost`), random forests (`table-forest`,
+`number-forest`) and logistic and linear regression (`table-linear`,
+`number-linear`). Boosted trees are the default for tables. A fitted
+model is saved as a Mimir Model file of buffers with its shape in the
+metadata, so it is served, kept on devices and moved between workers like
+a network. An upload names its type, and the server checks the weights
+fit that type before storing them. To serve a model type of your own without changing
 the server, write it in Go and run it on a worker (see Your own model
 types).
 
@@ -528,13 +589,29 @@ client = OpenAI(base_url="http://localhost:8080/v1", api_key="mimir_...")
 print(client.chat.completions.create(model="tiny-llama", messages=[{"role": "user", "content": "Hello!"}]).choices[0].message.content)
 ```
 
-It serves `GET /v1/models`, `POST /v1/chat/completions` and
-`POST /v1/completions`, with `stream` (server-sent events, ending in
-`data: [DONE]`, and `stream_options.include_usage`), `max_tokens` or
+It serves `GET /v1/models`, `POST /v1/chat/completions`,
+`POST /v1/completions` and `POST /v1/embeddings`. Completions take
+`stream` (server-sent events, ending in `data: [DONE]`, and
+`stream_options.include_usage`), `max_tokens` or
 `max_completion_tokens`, `temperature`, `seed` and `stop` (up to four
 strings). System and developer messages become the instructions. Tools,
 images, `n` above 1 and log probabilities aren't supported and are refused
 with a 400.
+
+`/v1/embeddings` turns `input`, a string or a list of up to 256, into an
+embedding each, for search and grouping: the mean of the model's last
+hidden states over the text's first 512 tokens, scaled to length 1, so
+the dot product of two says how alike they are. A fine-tune embeds with
+its adapter. It takes `encoding_format` `float` or `base64`; `dimensions`
+must be left out or match the model's width, and lists of tokens aren't
+taken.
+
+```sh
+curl localhost:8080/v1/embeddings \
+  -H 'Authorization: Bearer mimir_...' \
+  -H 'Content-Type: application/json' \
+  -d '{"model": "tiny-llama", "input": ["Where is my order?", "Shipping times"]}'
+```
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public.

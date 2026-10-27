@@ -2,7 +2,7 @@ import { useMutation } from "@connectrpc/connect-query";
 import { Alert, Button, Card, Code, Group, Modal, SimpleGrid, Stack, Tabs, Text, Textarea, TextInput } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconPlayerPlay, IconTrash } from "@tabler/icons-react";
+import { IconAlertCircle, IconPlayerPlay, IconSparkles, IconTrash } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -86,7 +86,7 @@ function ModelDetails() {
   return (
     <Page
       title={m.name}
-      intro={`${arch?.title ?? m.architecture} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}${m.accuracy > 0 ? ` · ${score(m.accuracy, arch?.output === "number")}` : ""}${m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? ` · last learned ${ago(m.updateTime)}` : ""}`}
+      intro={`${arch?.title ?? m.architecture}${m.baseModelName ? `, fine-tuned from ${m.baseModelName}` : ""} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}${m.accuracy > 0 ? ` · ${score(m.accuracy, arch?.output === "number")}` : ""}${m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? ` · last learned ${ago(m.updateTime)}` : ""}`}
       actions={<ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>{writes ? "Chat with it" : "Try it"}</ButtonLink>}
     >
       <SimpleGrid cols={{ base: 1, md: 2 }}>
@@ -133,6 +133,18 @@ function ModelDetails() {
         {writes && m.language && <LanguageDefaults model={m} canWrite={canWrite} />}
         {!writes && <InUse model={m} number={number} />}
         <Versions model={m} number={number} canWrite={canWrite} />
+        {writes && (
+          <Card withBorder radius="lg" padding="lg">
+            <Text fw={700} mb={4}>{m.baseModelId ? "A fine-tune" : "Teach it your writing"}</Text>
+            <Text size="sm" c="dimmed" mb="sm">
+              {m.baseModelId
+                ? <>It runs on <Link to="/models/$id" params={{ id: m.baseModelId }}>{m.baseModelName || "its base model"}</Link> with small adapters it learned from your examples; this file holds only the adapters. Fine-tune it again to keep teaching it.</>
+                : "Fine-tune it on your documents or on example chats, so it knows what you know and answers your way. It learns small adapters next to the model, which stays as it is."}
+            </Text>
+            <Text size="sm" c="dimmed" mb="sm">It also makes embeddings for search: POST /v1/embeddings with its API name as model.</Text>
+            {canWrite && <ButtonLink variant="default" to="/models/finetune" search={{ model: m.id }} leftSection={<IconSparkles size={16} />}>Fine-tune it</ButtonLink>}
+          </Card>
+        )}
       </SimpleGrid>
 
       <Modal opened={confirming} onClose={confirm.close} title={`Delete ${m.name}?`} centered>
