@@ -168,6 +168,7 @@ function WorkerCard({ w, rented, gpuProvider = "" }: { w: Worker; rented: boolea
       )}
       <Group gap="md" mt="sm">
         {w.online && <Text size="xs" c="dimmed">{w.busy} of {w.capacity} tasks</Text>}
+        {w.online && w.gpus > 1 && <Text size="xs" c="dimmed">teaches on {w.gpus} GPUs at once</Text>}
         {w.online && w.trainingOnly && <Text size="xs" c="dimmed">teaches only</Text>}
         {short && <Text size="xs" c="yellow.8">{s?.memoryPressure === 2 ? "memory critical: answering only" : "memory low: not teaching"}</Text>}
         {w.online && !w.trains && !w.trainingOnly && <Text size="xs" c="dimmed">answers only</Text>}

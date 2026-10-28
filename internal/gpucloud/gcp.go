@@ -35,6 +35,10 @@ var gcpMachines = map[string]struct {
 	"nvidia-l4":         {"g2-standard-4", false},
 	"nvidia-tesla-a100": {"a2-highgpu-1g", false},
 	"nvidia-a100-80gb":  {"a2-ultragpu-1g", false},
+
+	"nvidia-l4:4":         {"g2-standard-48", false},
+	"nvidia-a100-80gb:4":  {"a2-ultragpu-4g", false},
+	"nvidia-tesla-a100:8": {"a2-highgpu-8g", false},
 }
 
 // GCP is the Cloud on Google Compute Engine: a VM from the Deep Learning
@@ -179,7 +183,7 @@ func gcpInstance(m Machine) (map[string]any, error) {
 		"labels":   map[string]string{tag: m.WorkerID},
 	}
 	if mt.Added {
-		inst["guestAccelerators"] = []any{map[string]any{"acceleratorType": "zones/" + m.Region + "/acceleratorTypes/" + m.GPU, "acceleratorCount": 1}}
+		inst["guestAccelerators"] = []any{map[string]any{"acceleratorType": "zones/" + m.Region + "/acceleratorTypes/" + gpuName(m.GPU), "acceleratorCount": max(1, m.GPUs)}}
 	}
 	return inst, nil
 }

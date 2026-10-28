@@ -220,6 +220,13 @@ running or billing. The model it made is answered by your serving
 workers, which get the new weights with the first question after it was
 trained.
 
+Each provider also offers machines with 4 or 8 GPUs, such as Modal's
+`H100:8`, AWS's `g6.12xlarge` (4 × L4) or Vast.ai's `RTX 4090:4`. Such a
+machine trains each run on all its GPUs at once (see *Every GPU in a
+machine* in the README) and gets a CPU core and 4 GB of memory per GPU
+where the provider lets them be picked. It costs that many times as much
+an hour, so it pays off for runs big enough to keep every GPU busy.
+
 **Set it up**
 
 1. Get credentials from the provider (see the table below).

@@ -25,7 +25,14 @@ type GPU struct {
 	ID string
 	// Label names it with its memory and about what an hour costs.
 	Label string
+	// Count is how many GPUs the machine has. A training run
+	// uses them all at once. For Modal, RunPod, Vast.ai and Google Cloud
+	// the ID of a machine with several ends in ":" and the count.
+	Count int
 }
+
+// GPUs returns how many GPUs the machine has.
+func (g GPU) GPUs() int { return max(1, g.Count) }
 
 // Provider describes a place that rents GPUs.
 type Provider struct {
@@ -50,15 +57,19 @@ var Providers = []Provider{
 	{
 		ID: ProviderModal, Name: "Modal",
 		GPUs: []GPU{
-			{"T4", "T4, 16 GB · about $0.59/h"},
-			{"L4", "L4, 24 GB · about $0.80/h"},
-			{"A10", "A10, 24 GB · about $1.10/h"},
-			{"L40S", "L40S, 48 GB · about $1.95/h"},
-			{"A100-40GB", "A100, 40 GB · about $2.10/h"},
-			{"A100-80GB", "A100, 80 GB · about $2.50/h"},
-			{"H100", "H100, 80 GB · about $3.95/h"},
-			{"H200", "H200, 141 GB · about $4.54/h"},
-			{"B200", "B200, 180 GB · about $6.25/h"},
+			{"T4", "T4, 16 GB · about $0.59/h", 1},
+			{"L4", "L4, 24 GB · about $0.80/h", 1},
+			{"A10", "A10, 24 GB · about $1.10/h", 1},
+			{"L40S", "L40S, 48 GB · about $1.95/h", 1},
+			{"A100-40GB", "A100, 40 GB · about $2.10/h", 1},
+			{"A100-80GB", "A100, 80 GB · about $2.50/h", 1},
+			{"H100", "H100, 80 GB · about $3.95/h", 1},
+			{"H200", "H200, 141 GB · about $4.54/h", 1},
+			{"B200", "B200, 180 GB · about $6.25/h", 1},
+			{"L4:4", "4 × L4, 24 GB each · about $3.20/h", 4},
+			{"A100-80GB:4", "4 × A100, 80 GB each · about $10.00/h", 4},
+			{"H100:4", "4 × H100, 80 GB each · about $15.80/h", 4},
+			{"H100:8", "8 × H100, 80 GB each · about $31.60/h", 8},
 		},
 		DefaultGPU: "L4",
 		Logs:       "see its logs under Apps on modal.com",
@@ -67,10 +78,14 @@ var Providers = []Provider{
 	{
 		ID: ProviderAWS, Name: "AWS EC2",
 		GPUs: []GPU{
-			{"g4dn.xlarge", "T4, 16 GB (g4dn.xlarge) · about $0.53/h"},
-			{"g6.xlarge", "L4, 24 GB (g6.xlarge) · about $0.81/h"},
-			{"g5.xlarge", "A10G, 24 GB (g5.xlarge) · about $1.01/h"},
-			{"g6e.xlarge", "L40S, 48 GB (g6e.xlarge) · about $1.86/h"},
+			{"g4dn.xlarge", "T4, 16 GB (g4dn.xlarge) · about $0.53/h", 1},
+			{"g6.xlarge", "L4, 24 GB (g6.xlarge) · about $0.81/h", 1},
+			{"g5.xlarge", "A10G, 24 GB (g5.xlarge) · about $1.01/h", 1},
+			{"g6e.xlarge", "L40S, 48 GB (g6e.xlarge) · about $1.86/h", 1},
+			{"g6.12xlarge", "4 × L4, 24 GB each (g6.12xlarge) · about $4.60/h", 4},
+			{"g5.12xlarge", "4 × A10G, 24 GB each (g5.12xlarge) · about $5.67/h", 4},
+			{"g6e.12xlarge", "4 × L40S, 48 GB each (g6e.12xlarge) · about $10.49/h", 4},
+			{"p4d.24xlarge", "8 × A100, 40 GB each (p4d.24xlarge) · about $21.96/h", 8},
 		},
 		DefaultGPU:    "g6.xlarge",
 		Regions:       []string{"us-east-1", "us-east-2", "us-west-2", "eu-west-1", "eu-central-1", "ap-northeast-1", "ap-southeast-1"},
@@ -80,10 +95,13 @@ var Providers = []Provider{
 	{
 		ID: ProviderGCP, Name: "Google Cloud",
 		GPUs: []GPU{
-			{"nvidia-tesla-t4", "T4, 16 GB (n1-standard-4) · about $0.54/h"},
-			{"nvidia-l4", "L4, 24 GB (g2-standard-4) · about $0.71/h"},
-			{"nvidia-tesla-a100", "A100, 40 GB (a2-highgpu-1g) · about $3.67/h"},
-			{"nvidia-a100-80gb", "A100, 80 GB (a2-ultragpu-1g) · about $5.07/h"},
+			{"nvidia-tesla-t4", "T4, 16 GB (n1-standard-4) · about $0.54/h", 1},
+			{"nvidia-l4", "L4, 24 GB (g2-standard-4) · about $0.71/h", 1},
+			{"nvidia-tesla-a100", "A100, 40 GB (a2-highgpu-1g) · about $3.67/h", 1},
+			{"nvidia-a100-80gb", "A100, 80 GB (a2-ultragpu-1g) · about $5.07/h", 1},
+			{"nvidia-l4:4", "4 × L4, 24 GB each (g2-standard-48) · about $4.00/h", 4},
+			{"nvidia-a100-80gb:4", "4 × A100, 80 GB each (a2-ultragpu-4g) · about $20.30/h", 4},
+			{"nvidia-tesla-a100:8", "8 × A100, 40 GB each (a2-highgpu-8g) · about $29.40/h", 8},
 		},
 		DefaultGPU:    "nvidia-l4",
 		Regions:       []string{"us-central1-a", "us-central1-b", "us-east1-c", "us-east4-c", "us-west1-b", "us-west4-a", "europe-west4-a", "europe-west1-b", "asia-southeast1-b"},
@@ -93,13 +111,16 @@ var Providers = []Provider{
 	{
 		ID: ProviderRunPod, Name: "RunPod",
 		GPUs: []GPU{
-			{"NVIDIA RTX A5000", "RTX A5000, 24 GB · about $0.27/h"},
-			{"NVIDIA L4", "L4, 24 GB · about $0.43/h"},
-			{"NVIDIA RTX A6000", "RTX A6000, 48 GB · about $0.49/h"},
-			{"NVIDIA GeForce RTX 4090", "RTX 4090, 24 GB · about $0.69/h"},
-			{"NVIDIA L40S", "L40S, 48 GB · about $0.86/h"},
-			{"NVIDIA A100 80GB PCIe", "A100, 80 GB · about $1.64/h"},
-			{"NVIDIA H100 80GB HBM3", "H100, 80 GB · about $2.69/h"},
+			{"NVIDIA RTX A5000", "RTX A5000, 24 GB · about $0.27/h", 1},
+			{"NVIDIA L4", "L4, 24 GB · about $0.43/h", 1},
+			{"NVIDIA RTX A6000", "RTX A6000, 48 GB · about $0.49/h", 1},
+			{"NVIDIA GeForce RTX 4090", "RTX 4090, 24 GB · about $0.69/h", 1},
+			{"NVIDIA L40S", "L40S, 48 GB · about $0.86/h", 1},
+			{"NVIDIA A100 80GB PCIe", "A100, 80 GB · about $1.64/h", 1},
+			{"NVIDIA H100 80GB HBM3", "H100, 80 GB · about $2.69/h", 1},
+			{"NVIDIA GeForce RTX 4090:4", "4 × RTX 4090, 24 GB each · about $2.76/h", 4},
+			{"NVIDIA A100 80GB PCIe:4", "4 × A100, 80 GB each · about $6.56/h", 4},
+			{"NVIDIA H100 80GB HBM3:8", "8 × H100, 80 GB each · about $21.52/h", 8},
 		},
 		DefaultGPU: "NVIDIA L4",
 		Logs:       "see the pod's logs on runpod.io",
@@ -107,10 +128,13 @@ var Providers = []Provider{
 	{
 		ID: ProviderLambda, Name: "Lambda Cloud",
 		GPUs: []GPU{
-			{"gpu_1x_a10", "A10, 24 GB · about $0.75/h"},
-			{"gpu_1x_a6000", "RTX A6000, 48 GB · about $0.80/h"},
-			{"gpu_1x_a100_sxm4", "A100, 40 GB · about $1.29/h"},
-			{"gpu_1x_h100_pcie", "H100, 80 GB · about $2.49/h"},
+			{"gpu_1x_a10", "A10, 24 GB · about $0.75/h", 1},
+			{"gpu_1x_a6000", "RTX A6000, 48 GB · about $0.80/h", 1},
+			{"gpu_1x_a100_sxm4", "A100, 40 GB · about $1.29/h", 1},
+			{"gpu_1x_h100_pcie", "H100, 80 GB · about $2.49/h", 1},
+			{"gpu_4x_a6000", "4 × RTX A6000, 48 GB each · about $3.20/h", 4},
+			{"gpu_8x_a100_80gb_sxm4", "8 × A100, 80 GB each · about $14.32/h", 8},
+			{"gpu_8x_h100_sxm5", "8 × H100, 80 GB each · about $23.92/h", 8},
 		},
 		DefaultGPU:    "gpu_1x_a10",
 		Regions:       []string{"us-east-1", "us-west-1", "us-west-2", "us-west-3", "us-south-1", "us-midwest-1", "europe-central-1", "asia-northeast-1", "asia-south-1"},
@@ -120,12 +144,15 @@ var Providers = []Provider{
 	{
 		ID: ProviderVast, Name: "Vast.ai",
 		GPUs: []GPU{
-			{"RTX 3090", "RTX 3090, 24 GB · often about $0.20/h"},
-			{"RTX 4090", "RTX 4090, 24 GB · often about $0.35/h"},
-			{"RTX A6000", "RTX A6000, 48 GB · often about $0.45/h"},
-			{"L40S", "L40S, 48 GB · often about $0.70/h"},
-			{"A100 SXM4", "A100, 80 GB · often about $1.00/h"},
-			{"H100 SXM", "H100, 80 GB · often about $1.90/h"},
+			{"RTX 3090", "RTX 3090, 24 GB · often about $0.20/h", 1},
+			{"RTX 4090", "RTX 4090, 24 GB · often about $0.35/h", 1},
+			{"RTX A6000", "RTX A6000, 48 GB · often about $0.45/h", 1},
+			{"L40S", "L40S, 48 GB · often about $0.70/h", 1},
+			{"A100 SXM4", "A100, 80 GB · often about $1.00/h", 1},
+			{"H100 SXM", "H100, 80 GB · often about $1.90/h", 1},
+			{"RTX 4090:4", "4 × RTX 4090, 24 GB each · often about $1.40/h", 4},
+			{"A100 SXM4:8", "8 × A100, 80 GB each · often about $8.00/h", 8},
+			{"H100 SXM:8", "8 × H100, 80 GB each · often about $15.20/h", 8},
 		},
 		DefaultGPU: "RTX 4090",
 		Logs:       "see the instance's logs on vast.ai",
@@ -142,7 +169,24 @@ func ProviderByID(id string) (Provider, bool) {
 }
 
 func (p Provider) hasGPU(id string) bool {
-	return slices.ContainsFunc(p.GPUs, func(g GPU) bool { return g.ID == id })
+	_, ok := p.gpu(id)
+	return ok
+}
+
+// gpu returns the machine called id.
+func (p Provider) gpu(id string) (GPU, bool) {
+	i := slices.IndexFunc(p.GPUs, func(g GPU) bool { return g.ID == id })
+	if i < 0 {
+		return GPU{}, false
+	}
+	return p.GPUs[i], true
+}
+
+// gpuName is the GPU of a machine id that ends in ":" and a count, such
+// as "H100" for "H100:8".
+func gpuName(id string) string {
+	name, _, _ := strings.Cut(id, ":")
+	return name
 }
 
 func (p Provider) gpuIDs() string {

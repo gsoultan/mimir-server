@@ -31,8 +31,8 @@ func (r *RunPod) Start(ctx context.Context, c Config, m Machine) (string, error)
 	err := r.API.do(ctx, http.MethodPost, "/pods", c.TokenSecret, map[string]any{
 		"name":              m.Name,
 		"imageName":         containerImage,
-		"gpuTypeIds":        []string{m.GPU},
-		"gpuCount":          1,
+		"gpuTypeIds":        []string{gpuName(m.GPU)},
+		"gpuCount":          max(1, m.GPUs),
 		"cloudType":         "SECURE",
 		"containerDiskInGb": 20,
 		"volumeInGb":        0,
