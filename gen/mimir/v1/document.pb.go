@@ -1330,7 +1330,7 @@ type AskResponse struct {
 	Done            bool       `protobuf:"varint,3,opt,name=done,proto3" json:"done,omitempty"`
 	PromptTokens    int32      `protobuf:"varint,4,opt,name=prompt_tokens,json=promptTokens,proto3" json:"prompt_tokens,omitempty"`
 	GeneratedTokens int32      `protobuf:"varint,5,opt,name=generated_tokens,json=generatedTokens,proto3" json:"generated_tokens,omitempty"`
-	// finished is false when the answer stopped at max_tokens.
+	// finished says the model ended the answer itself, not max_tokens.
 	Finished       bool  `protobuf:"varint,6,opt,name=finished,proto3" json:"finished,omitempty"`
 	DurationMicros int64 `protobuf:"varint,7,opt,name=duration_micros,json=durationMicros,proto3" json:"duration_micros,omitempty"`
 	unknownFields  protoimpl.UnknownFields

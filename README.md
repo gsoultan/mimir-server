@@ -567,6 +567,27 @@ in `proto/mimir/v1/document.proto`), including `Search`, which returns the
 matching passages without an answer. Deleting the model that reads a
 collection's documents deletes the collection.
 
+### Why did it answer that
+
+For a model taught on a table, the Try page has **Why this answer?** under
+each answer. It shows how much each column moved the answer, compared with
+a typical row (each number column at the value training filled gaps with,
+each category at its most common value, the rest empty): for a category,
+in points of the chance of the answer given; for a number, in the answer's
+own units. The effects are Shapley values, so they add up to the
+difference between this row's answer and the typical row's. Only the
+columns that differ from the typical row take part; with up to ten of them
+every combination is tried and the result is exact, and above that (up to
+sixty) the server samples orderings, seeded by the row so the same
+question gets the same explanation.
+
+A model's page shows **Columns that matter**: the average size of each
+column's effect over up to 24 rows, taken from its recent questions or,
+when it has none, from the examples it learned from. In the API these are
+`Explain` and `ExplainModel` on `PredictService`, and need permission to
+ask the model. Models that rank, and models of photos, sound or text,
+aren't explained.
+
 ### Versions
 
 Every model keeps the weights it has had as numbered versions: version 1
