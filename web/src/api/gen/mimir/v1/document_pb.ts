@@ -657,7 +657,7 @@ export type AskResponse = Message<"mimir.v1.AskResponse"> & {
   generatedTokens: number;
 
   /**
-   * finished is false when the answer stopped at max_tokens.
+   * finished says the model ended the answer itself, not max_tokens.
    *
    * @generated from field: bool finished = 6;
    */
