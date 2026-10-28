@@ -19,6 +19,8 @@ import { InUse } from "../../../components/InUse";
 import { Versions } from "../../../components/Versions";
 import { ago, bytes } from "../../../lib/format";
 import { scores } from "../../../lib/scoring";
+import { explains } from "../../../lib/explain";
+import { ColumnsThatMatter } from "../../../components/Why";
 import { score } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/models/$id")({
@@ -135,6 +137,7 @@ function ModelDetails() {
             <Tabs.Panel value="grpc" pt="sm"><Code block>{grpc}</Code></Tabs.Panel>
           </Tabs>
         </Card>
+        {explains(m, arch) && <ColumnsThatMatter model={m} />}
         {!writes && <RunsOn model={m} canWrite={canWrite} />}
         {!writes && <OnDevice model={m} arch={arch} canWrite={canWrite} />}
         {writes && m.language && <LanguageDefaults model={m} canWrite={canWrite} />}
