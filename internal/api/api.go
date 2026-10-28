@@ -116,6 +116,11 @@ type Service struct {
 	answers answerLog
 	// scorer runs scorings (RunScorings).
 	scorer scorer
+	// indexes keeps collections' embeddings for search; docKicks wakes
+	// the document reader (RunDocuments).
+	indexes  indexCache
+	docKick  sync.Once
+	docKicks chan struct{}
 }
 
 // memoryAlertEvery is the least time between two low-memory alerts.

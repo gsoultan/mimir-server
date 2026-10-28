@@ -14,10 +14,13 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/auditevent"
 	"github.com/gsoultan/mimir-server/internal/store/db/benchmark"
 	"github.com/gsoultan/mimir-server/internal/store/db/benchmarkscore"
+	"github.com/gsoultan/mimir-server/internal/store/db/collection"
 	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
 	"github.com/gsoultan/mimir-server/internal/store/db/delivery"
+	"github.com/gsoultan/mimir-server/internal/store/db/document"
 	"github.com/gsoultan/mimir-server/internal/store/db/model"
 	"github.com/gsoultan/mimir-server/internal/store/db/modelversion"
+	"github.com/gsoultan/mimir-server/internal/store/db/passage"
 	"github.com/gsoultan/mimir-server/internal/store/db/recoverycode"
 	"github.com/gsoultan/mimir-server/internal/store/db/scoring"
 	"github.com/gsoultan/mimir-server/internal/store/db/session"
@@ -62,7 +65,10 @@ var FlushOrder = map[string]int{
 	"answers":            21,
 	"api_key_models":     22,
 	"benchmark_scores":   23,
-	"model_versions":     24,
+	"collections":        24,
+	"documents":          25,
+	"model_versions":     26,
+	"passages":           27,
 }
 
 // NewUnit stages writes across this context and flushes them in foreign-key
@@ -1137,6 +1143,248 @@ func (p BenchmarkWithTeamQuery) All(ctx context.Context, ex runtime.Executor) ([
 	return out, nil
 }
 
+// CollectionWithEmbeddingModelRow is collections with its EmbeddingModel loaded.
+type CollectionWithEmbeddingModelRow struct {
+	collection.Row
+	EmbeddingModel model.Row
+}
+
+type CollectionWithEmbeddingModelQuery struct {
+	q collection.Query
+}
+
+// CollectionWithEmbeddingModel starts the plan.
+func CollectionWithEmbeddingModel() CollectionWithEmbeddingModelQuery {
+	return CollectionWithEmbeddingModelQuery{q: collection.New()}
+}
+
+func (p CollectionWithEmbeddingModelQuery) Where(ps ...collection.Pred) CollectionWithEmbeddingModelQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p CollectionWithEmbeddingModelQuery) WhereIf(cond bool, pr collection.Pred) CollectionWithEmbeddingModelQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p CollectionWithEmbeddingModelQuery) Any(ps ...collection.Pred) CollectionWithEmbeddingModelQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p CollectionWithEmbeddingModelQuery) Not(pr collection.Pred) CollectionWithEmbeddingModelQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p CollectionWithEmbeddingModelQuery) NotAny(ps ...collection.Pred) CollectionWithEmbeddingModelQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p CollectionWithEmbeddingModelQuery) Order(ts ...collection.Sort) CollectionWithEmbeddingModelQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p CollectionWithEmbeddingModelQuery) Limit(n int64) CollectionWithEmbeddingModelQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p CollectionWithEmbeddingModelQuery) Offset(n int64) CollectionWithEmbeddingModelQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p CollectionWithEmbeddingModelQuery) After(r CollectionWithEmbeddingModelRow) CollectionWithEmbeddingModelQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p CollectionWithEmbeddingModelQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p CollectionWithEmbeddingModelQuery) All(ctx context.Context, ex runtime.Executor) ([]CollectionWithEmbeddingModelRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]CollectionWithEmbeddingModelRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = CollectionWithEmbeddingModelRow{Row: r}
+		key := r.EmbeddingModelID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := model.New().Unordered().
+		Where(model.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.EmbeddingModelID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "collections", "models")
+		}
+		out[i].EmbeddingModel = targets[j]
+	}
+	return out, nil
+}
+
+// CollectionWithTeamRow is collections with its Team loaded.
+type CollectionWithTeamRow struct {
+	collection.Row
+	// A pointer because the link is optional. nil means the row has no
+	// Team, which is different from having one that failed to load.
+	Team *team.Row
+}
+
+type CollectionWithTeamQuery struct {
+	q collection.Query
+}
+
+// CollectionWithTeam starts the plan.
+func CollectionWithTeam() CollectionWithTeamQuery {
+	return CollectionWithTeamQuery{q: collection.New()}
+}
+
+func (p CollectionWithTeamQuery) Where(ps ...collection.Pred) CollectionWithTeamQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p CollectionWithTeamQuery) WhereIf(cond bool, pr collection.Pred) CollectionWithTeamQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p CollectionWithTeamQuery) Any(ps ...collection.Pred) CollectionWithTeamQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p CollectionWithTeamQuery) Not(pr collection.Pred) CollectionWithTeamQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p CollectionWithTeamQuery) NotAny(ps ...collection.Pred) CollectionWithTeamQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p CollectionWithTeamQuery) Order(ts ...collection.Sort) CollectionWithTeamQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p CollectionWithTeamQuery) Limit(n int64) CollectionWithTeamQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p CollectionWithTeamQuery) Offset(n int64) CollectionWithTeamQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p CollectionWithTeamQuery) After(r CollectionWithTeamRow) CollectionWithTeamQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p CollectionWithTeamQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p CollectionWithTeamQuery) All(ctx context.Context, ex runtime.Executor) ([]CollectionWithTeamRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]CollectionWithTeamRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = CollectionWithTeamRow{Row: r}
+		key, ok := r.TeamID.Get()
+		if !ok {
+			continue
+		}
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := team.New().Unordered().
+		Where(team.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key, ok := out[i].Row.TeamID.Get()
+		if !ok {
+			continue
+		}
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "collections", "teams")
+		}
+		out[i].Team = &targets[j]
+	}
+	return out, nil
+}
+
 // DatasetWithTeamRow is datasets with its Team loaded.
 type DatasetWithTeamRow struct {
 	dataset.Row
@@ -1377,6 +1625,246 @@ func (p DeliveryWithWebhookQuery) All(ctx context.Context, ex runtime.Executor) 
 	return out, nil
 }
 
+// DocumentWithCollectionRow is documents with its Collection loaded.
+type DocumentWithCollectionRow struct {
+	document.Row
+	Collection collection.Row
+}
+
+type DocumentWithCollectionQuery struct {
+	q document.Query
+}
+
+// DocumentWithCollection starts the plan.
+func DocumentWithCollection() DocumentWithCollectionQuery {
+	return DocumentWithCollectionQuery{q: document.New()}
+}
+
+func (p DocumentWithCollectionQuery) Where(ps ...document.Pred) DocumentWithCollectionQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p DocumentWithCollectionQuery) WhereIf(cond bool, pr document.Pred) DocumentWithCollectionQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p DocumentWithCollectionQuery) Any(ps ...document.Pred) DocumentWithCollectionQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p DocumentWithCollectionQuery) Not(pr document.Pred) DocumentWithCollectionQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p DocumentWithCollectionQuery) NotAny(ps ...document.Pred) DocumentWithCollectionQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p DocumentWithCollectionQuery) Order(ts ...document.Sort) DocumentWithCollectionQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p DocumentWithCollectionQuery) Limit(n int64) DocumentWithCollectionQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p DocumentWithCollectionQuery) Offset(n int64) DocumentWithCollectionQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p DocumentWithCollectionQuery) After(r DocumentWithCollectionRow) DocumentWithCollectionQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p DocumentWithCollectionQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p DocumentWithCollectionQuery) All(ctx context.Context, ex runtime.Executor) ([]DocumentWithCollectionRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]DocumentWithCollectionRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = DocumentWithCollectionRow{Row: r}
+		key := r.CollectionID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := collection.New().Unordered().
+		Where(collection.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.CollectionID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "documents", "collections")
+		}
+		out[i].Collection = targets[j]
+	}
+	return out, nil
+}
+
+// DocumentWithTeamRow is documents with its Team loaded.
+type DocumentWithTeamRow struct {
+	document.Row
+	// A pointer because the link is optional. nil means the row has no
+	// Team, which is different from having one that failed to load.
+	Team *team.Row
+}
+
+type DocumentWithTeamQuery struct {
+	q document.Query
+}
+
+// DocumentWithTeam starts the plan.
+func DocumentWithTeam() DocumentWithTeamQuery { return DocumentWithTeamQuery{q: document.New()} }
+
+func (p DocumentWithTeamQuery) Where(ps ...document.Pred) DocumentWithTeamQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p DocumentWithTeamQuery) WhereIf(cond bool, pr document.Pred) DocumentWithTeamQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p DocumentWithTeamQuery) Any(ps ...document.Pred) DocumentWithTeamQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p DocumentWithTeamQuery) Not(pr document.Pred) DocumentWithTeamQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p DocumentWithTeamQuery) NotAny(ps ...document.Pred) DocumentWithTeamQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p DocumentWithTeamQuery) Order(ts ...document.Sort) DocumentWithTeamQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p DocumentWithTeamQuery) Limit(n int64) DocumentWithTeamQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p DocumentWithTeamQuery) Offset(n int64) DocumentWithTeamQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p DocumentWithTeamQuery) After(r DocumentWithTeamRow) DocumentWithTeamQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p DocumentWithTeamQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p DocumentWithTeamQuery) All(ctx context.Context, ex runtime.Executor) ([]DocumentWithTeamRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]DocumentWithTeamRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = DocumentWithTeamRow{Row: r}
+		key, ok := r.TeamID.Get()
+		if !ok {
+			continue
+		}
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := team.New().Unordered().
+		Where(team.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key, ok := out[i].Row.TeamID.Get()
+		if !ok {
+			continue
+		}
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "documents", "teams")
+		}
+		out[i].Team = &targets[j]
+	}
+	return out, nil
+}
+
 // ModelVersionWithModelRow is model_versions with its Model loaded.
 type ModelVersionWithModelRow struct {
 	modelversion.Row
@@ -1613,6 +2101,240 @@ func (p ModelWithTeamQuery) All(ctx context.Context, ex runtime.Executor) ([]Mod
 			return nil, fmt.Errorf("storm: %s references a missing %s row", "models", "teams")
 		}
 		out[i].Team = &targets[j]
+	}
+	return out, nil
+}
+
+// PassageWithCollectionRow is passages with its Collection loaded.
+type PassageWithCollectionRow struct {
+	passage.Row
+	Collection collection.Row
+}
+
+type PassageWithCollectionQuery struct {
+	q passage.Query
+}
+
+// PassageWithCollection starts the plan.
+func PassageWithCollection() PassageWithCollectionQuery {
+	return PassageWithCollectionQuery{q: passage.New()}
+}
+
+func (p PassageWithCollectionQuery) Where(ps ...passage.Pred) PassageWithCollectionQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p PassageWithCollectionQuery) WhereIf(cond bool, pr passage.Pred) PassageWithCollectionQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p PassageWithCollectionQuery) Any(ps ...passage.Pred) PassageWithCollectionQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p PassageWithCollectionQuery) Not(pr passage.Pred) PassageWithCollectionQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p PassageWithCollectionQuery) NotAny(ps ...passage.Pred) PassageWithCollectionQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p PassageWithCollectionQuery) Order(ts ...passage.Sort) PassageWithCollectionQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p PassageWithCollectionQuery) Limit(n int64) PassageWithCollectionQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p PassageWithCollectionQuery) Offset(n int64) PassageWithCollectionQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p PassageWithCollectionQuery) After(r PassageWithCollectionRow) PassageWithCollectionQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p PassageWithCollectionQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p PassageWithCollectionQuery) All(ctx context.Context, ex runtime.Executor) ([]PassageWithCollectionRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]PassageWithCollectionRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = PassageWithCollectionRow{Row: r}
+		key := r.CollectionID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := collection.New().Unordered().
+		Where(collection.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.CollectionID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "passages", "collections")
+		}
+		out[i].Collection = targets[j]
+	}
+	return out, nil
+}
+
+// PassageWithDocumentRow is passages with its Document loaded.
+type PassageWithDocumentRow struct {
+	passage.Row
+	Document document.Row
+}
+
+type PassageWithDocumentQuery struct {
+	q passage.Query
+}
+
+// PassageWithDocument starts the plan.
+func PassageWithDocument() PassageWithDocumentQuery {
+	return PassageWithDocumentQuery{q: passage.New()}
+}
+
+func (p PassageWithDocumentQuery) Where(ps ...passage.Pred) PassageWithDocumentQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p PassageWithDocumentQuery) WhereIf(cond bool, pr passage.Pred) PassageWithDocumentQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p PassageWithDocumentQuery) Any(ps ...passage.Pred) PassageWithDocumentQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p PassageWithDocumentQuery) Not(pr passage.Pred) PassageWithDocumentQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p PassageWithDocumentQuery) NotAny(ps ...passage.Pred) PassageWithDocumentQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p PassageWithDocumentQuery) Order(ts ...passage.Sort) PassageWithDocumentQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p PassageWithDocumentQuery) Limit(n int64) PassageWithDocumentQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p PassageWithDocumentQuery) Offset(n int64) PassageWithDocumentQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p PassageWithDocumentQuery) After(r PassageWithDocumentRow) PassageWithDocumentQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p PassageWithDocumentQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p PassageWithDocumentQuery) All(ctx context.Context, ex runtime.Executor) ([]PassageWithDocumentRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]PassageWithDocumentRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = PassageWithDocumentRow{Row: r}
+		key := r.DocumentID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := document.New().Unordered().
+		Where(document.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.DocumentID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "passages", "documents")
+		}
+		out[i].Document = targets[j]
 	}
 	return out, nil
 }
