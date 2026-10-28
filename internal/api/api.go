@@ -582,7 +582,9 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	spec := arch.Resolve(a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
 	start := time.Now()
 	input := msg.GetInput().GetValues()
-	if len(input) == 0 && (len(msg.GetFields()) > 0 || len(msg.GetPhoto()) > 0 || len(msg.GetSound()) > 0) {
+	// A model with columns reads a question with none filled in as every
+	// column empty, as a forecast of a single series is asked.
+	if len(input) == 0 && (len(msg.GetFields()) > 0 || len(m.Columns) > 0 || len(msg.GetPhoto()) > 0 || len(msg.GetSound()) > 0) {
 		if input, err = encode(m, a, msg.GetFields(), msg.GetPhoto(), msg.GetSound()); err != nil {
 			return nil, err
 		}
