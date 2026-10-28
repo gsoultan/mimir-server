@@ -26,6 +26,8 @@ import { Route as AppModelsIdRouteImport } from './routes/_app/models/$id'
 import { Route as AppModelsFinetuneRouteImport } from './routes/_app/models/finetune'
 import { Route as AppModelsNewRouteImport } from './routes/_app/models/new'
 import { Route as AppModelsTeachRouteImport } from './routes/_app/models/teach'
+import { Route as AppScoringIndexRouteImport } from './routes/_app/scoring/index'
+import { Route as AppScoringIdRouteImport } from './routes/_app/scoring/$id'
 import { Route as AppTemplatesIndexRouteImport } from './routes/_app/templates/index'
 import { Route as AppTemplatesIdRouteImport } from './routes/_app/templates/$id'
 import { Route as AppTrainingIndexRouteImport } from './routes/_app/training/index'
@@ -120,6 +122,16 @@ const AppModelsTeachRoute = AppModelsTeachRouteImport.update({
   path: '/models/teach',
   getParentRoute: () => AppRoute,
 } as any)
+const AppScoringIndexRoute = AppScoringIndexRouteImport.update({
+  id: '/scoring/',
+  path: '/scoring/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppScoringIdRoute = AppScoringIdRouteImport.update({
+  id: '/scoring/$id',
+  path: '/scoring/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTemplatesIndexRoute = AppTemplatesIndexRouteImport.update({
   id: '/templates/',
   path: '/templates/',
@@ -181,12 +193,14 @@ export interface FileRoutesByFullPath {
   '/models/finetune': typeof AppModelsFinetuneRoute
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
+  '/scoring/$id': typeof AppScoringIdRoute
   '/templates/$id': typeof AppTemplatesIdRoute
   '/training/$id': typeof AppTrainingIdRoute
   '/training/compare': typeof AppTrainingCompareRoute
   '/workers/$id': typeof AppWorkersIdRoute
   '/benchmarks/': typeof AppBenchmarksIndexRoute
   '/models/': typeof AppModelsIndexRoute
+  '/scoring/': typeof AppScoringIndexRoute
   '/templates/': typeof AppTemplatesIndexRoute
   '/training/': typeof AppTrainingIndexRoute
   '/models/build/$goal': typeof AppModelsBuildGoalRoute
@@ -208,12 +222,14 @@ export interface FileRoutesByTo {
   '/models/finetune': typeof AppModelsFinetuneRoute
   '/models/new': typeof AppModelsNewRoute
   '/models/teach': typeof AppModelsTeachRoute
+  '/scoring/$id': typeof AppScoringIdRoute
   '/templates/$id': typeof AppTemplatesIdRoute
   '/training/$id': typeof AppTrainingIdRoute
   '/training/compare': typeof AppTrainingCompareRoute
   '/workers/$id': typeof AppWorkersIdRoute
   '/benchmarks': typeof AppBenchmarksIndexRoute
   '/models': typeof AppModelsIndexRoute
+  '/scoring': typeof AppScoringIndexRoute
   '/templates': typeof AppTemplatesIndexRoute
   '/training': typeof AppTrainingIndexRoute
   '/models/build/$goal': typeof AppModelsBuildGoalRoute
@@ -237,12 +253,14 @@ export interface FileRoutesById {
   '/_app/models/finetune': typeof AppModelsFinetuneRoute
   '/_app/models/new': typeof AppModelsNewRoute
   '/_app/models/teach': typeof AppModelsTeachRoute
+  '/_app/scoring/$id': typeof AppScoringIdRoute
   '/_app/templates/$id': typeof AppTemplatesIdRoute
   '/_app/training/$id': typeof AppTrainingIdRoute
   '/_app/training/compare': typeof AppTrainingCompareRoute
   '/_app/workers/$id': typeof AppWorkersIdRoute
   '/_app/benchmarks/': typeof AppBenchmarksIndexRoute
   '/_app/models/': typeof AppModelsIndexRoute
+  '/_app/scoring/': typeof AppScoringIndexRoute
   '/_app/templates/': typeof AppTemplatesIndexRoute
   '/_app/training/': typeof AppTrainingIndexRoute
   '/_app/models/build/$goal': typeof AppModelsBuildGoalRoute
@@ -266,12 +284,14 @@ export interface FileRouteTypes {
     | '/models/finetune'
     | '/models/new'
     | '/models/teach'
+    | '/scoring/$id'
     | '/templates/$id'
     | '/training/$id'
     | '/training/compare'
     | '/workers/$id'
     | '/benchmarks/'
     | '/models/'
+    | '/scoring/'
     | '/templates/'
     | '/training/'
     | '/models/build/$goal'
@@ -293,12 +313,14 @@ export interface FileRouteTypes {
     | '/models/finetune'
     | '/models/new'
     | '/models/teach'
+    | '/scoring/$id'
     | '/templates/$id'
     | '/training/$id'
     | '/training/compare'
     | '/workers/$id'
     | '/benchmarks'
     | '/models'
+    | '/scoring'
     | '/templates'
     | '/training'
     | '/models/build/$goal'
@@ -321,12 +343,14 @@ export interface FileRouteTypes {
     | '/_app/models/finetune'
     | '/_app/models/new'
     | '/_app/models/teach'
+    | '/_app/scoring/$id'
     | '/_app/templates/$id'
     | '/_app/training/$id'
     | '/_app/training/compare'
     | '/_app/workers/$id'
     | '/_app/benchmarks/'
     | '/_app/models/'
+    | '/_app/scoring/'
     | '/_app/templates/'
     | '/_app/training/'
     | '/_app/models/build/$goal'
@@ -462,6 +486,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppModelsTeachRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/scoring/': {
+      id: '/_app/scoring/'
+      path: '/scoring'
+      fullPath: '/scoring/'
+      preLoaderRoute: typeof AppScoringIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/scoring/$id': {
+      id: '/_app/scoring/$id'
+      path: '/scoring/$id'
+      fullPath: '/scoring/$id'
+      preLoaderRoute: typeof AppScoringIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/templates/': {
       id: '/_app/templates/'
       path: '/templates'
@@ -540,12 +578,14 @@ interface AppRouteChildren {
   AppModelsFinetuneRoute: typeof AppModelsFinetuneRoute
   AppModelsNewRoute: typeof AppModelsNewRoute
   AppModelsTeachRoute: typeof AppModelsTeachRoute
+  AppScoringIdRoute: typeof AppScoringIdRoute
   AppTemplatesIdRoute: typeof AppTemplatesIdRoute
   AppTrainingIdRoute: typeof AppTrainingIdRoute
   AppTrainingCompareRoute: typeof AppTrainingCompareRoute
   AppWorkersIdRoute: typeof AppWorkersIdRoute
   AppBenchmarksIndexRoute: typeof AppBenchmarksIndexRoute
   AppModelsIndexRoute: typeof AppModelsIndexRoute
+  AppScoringIndexRoute: typeof AppScoringIndexRoute
   AppTemplatesIndexRoute: typeof AppTemplatesIndexRoute
   AppTrainingIndexRoute: typeof AppTrainingIndexRoute
   AppModelsBuildGoalRoute: typeof AppModelsBuildGoalRoute
@@ -565,12 +605,14 @@ const AppRouteChildren: AppRouteChildren = {
   AppModelsFinetuneRoute: AppModelsFinetuneRoute,
   AppModelsNewRoute: AppModelsNewRoute,
   AppModelsTeachRoute: AppModelsTeachRoute,
+  AppScoringIdRoute: AppScoringIdRoute,
   AppTemplatesIdRoute: AppTemplatesIdRoute,
   AppTrainingIdRoute: AppTrainingIdRoute,
   AppTrainingCompareRoute: AppTrainingCompareRoute,
   AppWorkersIdRoute: AppWorkersIdRoute,
   AppBenchmarksIndexRoute: AppBenchmarksIndexRoute,
   AppModelsIndexRoute: AppModelsIndexRoute,
+  AppScoringIndexRoute: AppScoringIndexRoute,
   AppTemplatesIndexRoute: AppTemplatesIndexRoute,
   AppTrainingIndexRoute: AppTrainingIndexRoute,
   AppModelsBuildGoalRoute: AppModelsBuildGoalRoute,

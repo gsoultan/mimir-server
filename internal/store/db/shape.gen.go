@@ -235,6 +235,36 @@ func _assertRecoveryCodeShape(m m0.RecoveryCode) {
 	}
 }
 
+// _assertScoringShape fails to compile if m0.Scoring gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertScoringShape(m m0.Scoring) {
+	type shape m0.Scoring
+	_ = shape{
+		m.Record,
+		m.Named,
+		m.TeamOwned,
+		m.Model,
+		m.DatasetID,
+		m.Driver,
+		m.DSN,
+		m.SourceQuery,
+		m.Status,
+		m.Error,
+		m.Rows,
+		m.Done,
+		m.Failed,
+		m.Columns,
+		m.ResultBytes,
+		m.VersionID,
+		m.CreatedBy,
+		m.StartTime,
+		m.EndTime,
+		m.RepeatSeconds,
+		m.NextRun,
+		m.Runs,
+	}
+}
+
 // _assertSessionShape fails to compile if m0.Session gains, loses, renames or
 // reorders a field. Regenerate: `storm generate`.
 func _assertSessionShape(m m0.Session) {
