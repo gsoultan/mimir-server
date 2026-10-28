@@ -877,9 +877,9 @@ people's credentials.
 
 ### Your own model types
 
-For models mimir can't build itself, such as a recommender or a
-forecaster, write the model in Go with the `worker` package and run it as
-a worker. **Build a model → Write your own model** walks through it:
+For a model type mimir can't build itself, such as one that calls your
+own Go code or another library, write the model in Go with the `worker`
+package and run it as a worker. **Build a model → Write your own model** walks through it:
 
 1. **Describe it**: the name your code runs it under, what people send
    (a row of columns, a photo or a list of numbers) and what it answers
