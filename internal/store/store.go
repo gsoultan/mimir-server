@@ -645,9 +645,14 @@ func (s *Store) SetModelWorker(ctx context.Context, id, workerID string) error {
 	return nil
 }
 
-// Delete removes a model's row and then its weights, every version's.
+// Delete removes a model's row and then its weights, every version's,
+// and its scorings' files.
 func (s *Store) Delete(ctx context.Context, id string) error {
 	versions, err := s.versionIDs(ctx, id)
+	if err != nil {
+		return err
+	}
+	scorings, err := s.modelScoringIDs(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -658,6 +663,9 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("store: delete %s: %w", id, err)
 	}
 	s.removeVersions(versions)
+	for _, sc := range scorings {
+		s.removeScoringFiles(sc)
+	}
 	if err := os.Remove(s.path(id)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("store: delete weights %s: %w", id, err)
 	}

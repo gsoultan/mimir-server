@@ -183,6 +183,7 @@ func uploadError(w http.ResponseWriter, err error) {
 		connect.CodeInvalidArgument:    http.StatusBadRequest,
 		connect.CodeUnauthenticated:    http.StatusUnauthorized,
 		connect.CodePermissionDenied:   http.StatusForbidden,
+		connect.CodeNotFound:           http.StatusNotFound,
 		connect.CodeFailedPrecondition: http.StatusPreconditionFailed,
 		connect.CodeResourceExhausted:  http.StatusRequestEntityTooLarge,
 		connect.CodeInternal:           http.StatusInternalServerError,

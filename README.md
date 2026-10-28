@@ -77,7 +77,7 @@ the main database. **Download a backup** covers the main database only;
 `mimir-server backup` (below) takes both.
 
 Secrets the server keeps in the database (webhook signing secrets, dataset
-connection strings, alert passwords and bot tokens, sign-in providers'
+and scoring connection strings, alert passwords and bot tokens, sign-in providers'
 client secrets, and each person's two-step verification key) are
 encrypted with
 AES-256-GCM, so a copy or backup of the database does not reveal them. The
@@ -504,6 +504,37 @@ lists every pass of the model with its rows, score and outcome.
 Datasets and runs are also in the API (`DatasetService`, `TrainingService`
 in `proto/mimir/v1/training.proto`), and webhooks can listen for
 `training.queued`, `training.finished` and `training.failed`.
+
+### Score a whole list
+
+**Score a list** answers every row of a table with one model at once,
+for when the questions come as a list rather than one at a time: this
+month's customers, every open order. Pick a model that reads a row of a
+table and where the rows are: a CSV file (up to 64 MB; it needs no answer
+column), a table of examples, or, for admins, a database query or a
+.csv file or folder in S3-compatible storage, read the same way as for
+training. The rows are checked as the scoring is made: at least one of
+their columns has to be one the model reads, and other columns come along
+untouched, so an id column lets you match the answers up.
+
+Scorings run in the background, two at a time, each asking the model 16
+rows at once so it answers them in batches, on a worker when the model
+runs on one. The page shows progress, the first rows and **Download
+results**: a CSV of every row, in order, with the model's answer after
+it: `predicted`, then `confidence` for a model that picks a label or
+`suggestions` (the top ten, best first) for one that ranks items, and
+`problem`, which says why a row couldn't be answered, such as a word in a
+number column; one bad row never stops the rest. A scoring from a database
+or storage can run again every hour, day or week, fetching its rows afresh
+and replacing the results; the results of a run only replace the last
+ones once it finishes. **Score again** runs it now. Scorings of a model
+go with it when it is deleted.
+
+The results download from `GET /api/scorings/{id}/results` with a session
+or an API key that may add models, and the rest is in the API
+(`ScoringService` in `proto/mimir/v1/scoring.proto`). Webhooks can listen
+for `scoring.finished` and `scoring.failed`. Rows scored this way don't
+count toward the prediction limits under Settings.
 
 ### Versions
 

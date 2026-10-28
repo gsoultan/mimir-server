@@ -87,6 +87,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	mux.Handle(mimirv1connect.NewTemplateServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes), connect.WithSendMaxBytes(maxModelBytes)))
 	mux.Handle(mimirv1connect.NewTrainingServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewBenchmarkServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
+	mux.Handle(mimirv1connect.NewScoringServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
 	mux.Handle(mimirv1connect.NewTeamServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewSignInServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	// Workers authenticate inside Link with their token; the interceptor
@@ -95,6 +96,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	mux.Handle("GET /api/backup", backupHandler(st, log))
 	mux.Handle("GET "+api.SSOPath, svc.SSOHandler())
 	mux.Handle("POST /api/uploads", svc.UploadHandler(int64(uploadBytes)))
+	mux.Handle("GET "+api.ScoringPath, svc.ScoringResultsHandler())
 	mux.Handle("GET "+gpucloud.ProgramPath, svc.ProgramHandler())
 	mux.Handle("/v1/", openai.Handler(svc, st, log))
 	mux.Handle(grpchealth.NewHandler(newHealthChecker(st.Ping), connect.WithInterceptors(metrics.Interceptor())))

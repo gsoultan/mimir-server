@@ -21,6 +21,8 @@ const eventWords: Record<string, string> = {
   "training.queued": "A training run is queued",
   "training.finished": "A training run finishes",
   "training.failed": "A training run fails",
+  "scoring.finished": "A list is scored",
+  "scoring.failed": "Scoring a list fails",
   "user.created": "A person is added",
   "user.deleted": "A person is removed",
   test: "Test events you send from here",

@@ -114,6 +114,8 @@ type Service struct {
 	memoryAlert atomic.Int64 // unix seconds of the last low-memory alert
 	// answers holds predictions until FlushAnswers keeps them for feedback.
 	answers answerLog
+	// scorer runs scorings (RunScorings).
+	scorer scorer
 }
 
 // memoryAlertEvery is the least time between two low-memory alerts.

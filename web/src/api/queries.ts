@@ -5,6 +5,7 @@ import { ModelService } from "./gen/mimir/v1/model_pb";
 import { SettingsService } from "./gen/mimir/v1/settings_pb";
 import { SignInService } from "./gen/mimir/v1/signin_pb";
 import { BenchmarkService } from "./gen/mimir/v1/benchmark_pb";
+import { ScoringService } from "./gen/mimir/v1/scoring_pb";
 import { DatasetService, TrainingService } from "./gen/mimir/v1/training_pb";
 import { WebhookService } from "./gen/mimir/v1/webhook_pb";
 import { TeamService } from "./gen/mimir/v1/team_pb";
@@ -48,6 +49,9 @@ export const compareJobs = (ids: string[]) => createQueryOptions(TrainingService
 export const listBenchmarks = createQueryOptions(BenchmarkService.method.listBenchmarks, {}, { transport });
 export const getBenchmark = (id: string) => createQueryOptions(BenchmarkService.method.getBenchmark, { id }, { transport });
 
+export const listScorings = createQueryOptions(ScoringService.method.listScorings, {}, { transport });
+export const getScoring = (id: string) => createQueryOptions(ScoringService.method.getScoring, { id }, { transport });
+
 // Keys for refreshing after a change.
 export const allModelQueries = createConnectQueryKey({ schema: ModelService, cardinality: undefined });
 export const allUserQueries = createConnectQueryKey({ schema: UserService, cardinality: undefined });
@@ -56,6 +60,7 @@ export const allAuthQueries = createConnectQueryKey({ schema: AuthService, cardi
 export const allWebhookQueries = createConnectQueryKey({ schema: WebhookService, cardinality: undefined });
 export const allSettingsQueries = createConnectQueryKey({ schema: SettingsService, cardinality: undefined });
 export const allBenchmarkQueries = createConnectQueryKey({ schema: BenchmarkService, cardinality: undefined });
+export const allScoringQueries = createConnectQueryKey({ schema: ScoringService, cardinality: undefined });
 export const allDatasetQueries = createConnectQueryKey({ schema: DatasetService, cardinality: undefined });
 export const listTeams = createQueryOptions(TeamService.method.listTeams, {}, { transport });
 export const allTeamQueries = createConnectQueryKey({ schema: TeamService, cardinality: undefined });

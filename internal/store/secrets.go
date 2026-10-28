@@ -9,12 +9,14 @@ import (
 
 	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
+	"github.com/gsoultan/mimir-server/internal/store/db/scoring"
 	"github.com/gsoultan/mimir-server/internal/store/db/setting"
 	"github.com/gsoultan/mimir-server/internal/store/db/user"
 	"github.com/gsoultan/mimir-server/internal/store/db/webhook"
 )
 
-// Secrets at rest. Webhook signing secrets, dataset connection strings,
+// Secrets at rest. Webhook signing secrets, dataset and scoring
+// connection strings,
 // alert settings (mail passwords, bot tokens) and two-step verification
 // keys are sealed with AES-256-GCM
 // as they are written and opened as they are read, here in the mapping
@@ -101,6 +103,19 @@ var sealedColumns = []sealedColumn{{
 		var m dataset.Mut
 		m.SetDsn(sealed)
 		n, err := dataset.New().Where(dataset.ID.Eq(key), dataset.Dsn.Eq(plain)).UpdateAll(ctx, ex, m)
+		return n > 0, err
+	},
+}, {
+	name:    "scorings.dsn",
+	context: scoringContext,
+	rows: func(ctx context.Context, ex storm.Executor) ([]secretRow, error) {
+		rs, err := scoring.New().Where(scoring.Dsn.NotEq("")).All(ctx, ex, nil)
+		return collect(rs, func(r scoring.Row) secretRow { return secretRow{r.ID, r.Dsn} }), err
+	},
+	replace: func(ctx context.Context, ex storm.Executor, key, plain, sealed string) (bool, error) {
+		var m scoring.Mut
+		m.SetDsn(sealed)
+		n, err := scoring.New().Where(scoring.ID.Eq(key), scoring.Dsn.Eq(plain)).UpdateAll(ctx, ex, m)
 		return n > 0, err
 	},
 }, {
