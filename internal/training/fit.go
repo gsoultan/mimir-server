@@ -170,6 +170,11 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 			return nil
 		}),
 	}
+	// Batch norms' running averages trail weights that are still moving,
+	// most after the few steps a small dataset makes, so a photo or sound
+	// network could answer every question alike; recompute them from the
+	// finished epoch's weights before scoring and saving.
+	opts = append(opts, train.PreciseBatchNorm(PreciseBatches))
 	if t.CheckpointDir != "" {
 		opts = append(opts, train.Checkpoint(t.CheckpointDir))
 	}
@@ -227,6 +232,10 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	}
 	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features, Columns: l.Columns, Fresh: fresh, Report: report}, nil
 }
+
+// PreciseBatches is how many training batches a network's batch norm
+// statistics are recomputed from after every epoch.
+const PreciseBatches = 50
 
 // defaultLayers is the shape of an undesigned table model: the base
 // model's, when continuing from one, so its weights still fit, and
