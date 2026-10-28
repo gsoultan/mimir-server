@@ -8,6 +8,7 @@
   colours had answered every photo alike (mimir#39).
 - A model with columns can be asked with none filled in, as a forecast of
   one series is; it used to ask for a list of numbers instead.
+- Built against mimir v0.4.1.
 
 ## v0.2.0
 
