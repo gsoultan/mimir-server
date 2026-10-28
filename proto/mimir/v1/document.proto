@@ -1,0 +1,209 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+import "google/protobuf/timestamp.proto";
+import "mimir/v1/model.proto";
+import "mimir/v1/training.proto";
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// DocumentService answers questions from a team's own documents. A
+// collection holds documents (text, Markdown, HTML, Word or PDF files);
+// the server cuts each into passages and keeps an embedding of each,
+// made by the collection's embedding model. Ask finds the passages that
+// best match a question, by meaning and by words, and has the
+// collection's language model answer from them, citing each as [n].
+//
+// Apps that speak the OpenAI API ask a collection by sending its
+// api_name as the model to /v1/chat/completions.
+service DocumentService {
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // GetCollection returns a collection with its documents.
+  rpc GetCollection(GetCollectionRequest) returns (GetCollectionResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse);
+  // UpdateCollection changes a collection's name, language model and
+  // instructions. Its embedding model is fixed: the passages' embeddings
+  // were made by it.
+  rpc UpdateCollection(UpdateCollectionRequest) returns (UpdateCollectionResponse);
+  // DeleteCollection removes a collection with its documents.
+  rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse);
+
+  // AddDocument adds a file to a collection. The server reads it in the
+  // background: it is queued, then running, then succeeded (ready to
+  // answer from) or failed.
+  rpc AddDocument(AddDocumentRequest) returns (AddDocumentResponse);
+  rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
+
+  // Search returns the passages that best match a query, best first.
+  rpc Search(SearchRequest) returns (SearchResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Ask answers the last question of a chat from the collection's
+  // documents. The first message carries the sources, the next ones the
+  // answer as it is written, and the last one has done set.
+  rpc Ask(AskRequest) returns (stream AskResponse);
+}
+
+message Collection {
+  string id = 1;
+  string name = 2;
+  // api_name is what apps send as the model to the OpenAI-compatible API.
+  string api_name = 3;
+  // embedding_model makes the passages' embeddings; language_model
+  // writes the answers. Both are language models on this server.
+  string embedding_model_id = 4;
+  string embedding_model_name = 5;
+  string language_model_id = 6;
+  string language_model_name = 7;
+  // instructions are added to the language model's, such as who the
+  // answers are for.
+  string instructions = 8;
+  int32 documents = 9;
+  int64 passages = 10;
+  int64 bytes = 11;
+  string created_by = 12;
+  google.protobuf.Timestamp create_time = 13;
+}
+
+message Document {
+  string id = 1;
+  string collection_id = 2;
+  // name is the file's name.
+  string name = 3;
+  // kind is "text", "markdown", "html", "docx" or "pdf".
+  string kind = 4;
+  int64 bytes = 5;
+  JobStatus status = 6;
+  // error says in plain words why a document couldn't be read.
+  string error = 7;
+  int64 passages = 8;
+  string created_by = 9;
+  google.protobuf.Timestamp create_time = 10;
+  google.protobuf.Timestamp end_time = 11;
+}
+
+// Passage is a piece of a document that matched.
+message Passage {
+  string id = 1;
+  string document_id = 2;
+  string document_name = 3;
+  // number is the passage's place in its document, from 1.
+  int32 number = 4;
+  string text = 5;
+  // score says how well it matched, higher is better; only the order
+  // means anything.
+  double score = 6;
+}
+
+message ListCollectionsRequest {}
+
+message ListCollectionsResponse {
+  repeated Collection collections = 1;
+}
+
+message GetCollectionRequest {
+  string id = 1;
+}
+
+message GetCollectionResponse {
+  Collection collection = 1;
+  // documents are newest first.
+  repeated Document documents = 2;
+}
+
+message CreateCollectionRequest {
+  string name = 1;
+  string embedding_model_id = 2;
+  string language_model_id = 3;
+  string instructions = 4;
+}
+
+message CreateCollectionResponse {
+  Collection collection = 1;
+}
+
+message UpdateCollectionRequest {
+  string id = 1;
+  string name = 2;
+  string language_model_id = 3;
+  string instructions = 4;
+}
+
+message UpdateCollectionResponse {
+  Collection collection = 1;
+}
+
+message DeleteCollectionRequest {
+  string id = 1;
+}
+
+message DeleteCollectionResponse {}
+
+message AddDocumentRequest {
+  string collection_id = 1;
+  // name is the file's name; its extension says how to read it
+  // (.txt, .md, .html, .docx or .pdf).
+  string name = 2;
+  bytes data = 3;
+}
+
+message AddDocumentResponse {
+  Document document = 1;
+}
+
+message GetDocumentRequest {
+  string id = 1;
+}
+
+message GetDocumentResponse {
+  Document document = 1;
+}
+
+message DeleteDocumentRequest {
+  string id = 1;
+}
+
+message DeleteDocumentResponse {}
+
+message SearchRequest {
+  string collection_id = 1;
+  string query = 2;
+  // limit is how many passages to return; 0 means 5, at most 20.
+  int32 limit = 3;
+}
+
+message SearchResponse {
+  repeated Passage passages = 1;
+}
+
+message AskRequest {
+  string collection_id = 1;
+  // messages is the chat, oldest first, ending with the user's question.
+  repeated ChatMessage messages = 2;
+  // max_tokens and temperature default to the language model's settings.
+  int32 max_tokens = 3;
+  optional float temperature = 4;
+  // sources is how many passages to answer from; 0 means 5, at most 10.
+  int32 sources = 5;
+}
+
+message AskResponse {
+  // sources come in the first message: the passages the answer may cite,
+  // as [1], [2] and so on in their order here.
+  repeated Passage sources = 1;
+  string text = 2;
+  bool done = 3;
+  int32 prompt_tokens = 4;
+  int32 generated_tokens = 5;
+  // finished says the model ended the answer itself, not max_tokens.
+  bool finished = 6;
+  int64 duration_micros = 7;
+}

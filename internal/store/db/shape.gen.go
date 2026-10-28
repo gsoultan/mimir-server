@@ -131,6 +131,21 @@ func _assertBenchmarkScoreShape(m m0.BenchmarkScore) {
 	}
 }
 
+// _assertCollectionShape fails to compile if m0.Collection gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertCollectionShape(m m0.Collection) {
+	type shape m0.Collection
+	_ = shape{
+		m.Record,
+		m.Named,
+		m.TeamOwned,
+		m.EmbeddingModel,
+		m.LanguageModelID,
+		m.Instructions,
+		m.CreatedBy,
+	}
+}
+
 // _assertDatasetShape fails to compile if m0.Dataset gains, loses, renames or
 // reorders a field. Regenerate: `storm generate`.
 func _assertDatasetShape(m m0.Dataset) {
@@ -172,6 +187,25 @@ func _assertDeliveryShape(m m0.Delivery) {
 		m.Error,
 		m.LastAttempt,
 		m.NextAttempt,
+	}
+}
+
+// _assertDocumentShape fails to compile if m0.Document gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertDocumentShape(m m0.Document) {
+	type shape m0.Document
+	_ = shape{
+		m.Record,
+		m.Named,
+		m.TeamOwned,
+		m.Collection,
+		m.Kind,
+		m.Bytes,
+		m.Status,
+		m.Error,
+		m.Passages,
+		m.CreatedBy,
+		m.EndTime,
 	}
 }
 
@@ -222,6 +256,21 @@ func _assertModelVersionShape(m m0.ModelVersion) {
 		m.JobID,
 		m.Accuracy,
 		m.Note,
+	}
+}
+
+// _assertPassageShape fails to compile if m0.Passage gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertPassageShape(m m0.Passage) {
+	type shape m0.Passage
+	_ = shape{
+		m.Record,
+		m.Document,
+		m.Collection,
+		m.Number,
+		m.Text,
+		m.Vector,
+		m.Search,
 	}
 }
 

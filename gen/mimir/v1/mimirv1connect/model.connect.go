@@ -84,6 +84,11 @@ const (
 	// PredictServiceSendFeedbackProcedure is the fully-qualified name of the PredictService's
 	// SendFeedback RPC.
 	PredictServiceSendFeedbackProcedure = "/mimir.v1.PredictService/SendFeedback"
+	// PredictServiceExplainProcedure is the fully-qualified name of the PredictService's Explain RPC.
+	PredictServiceExplainProcedure = "/mimir.v1.PredictService/Explain"
+	// PredictServiceExplainModelProcedure is the fully-qualified name of the PredictService's
+	// ExplainModel RPC.
+	PredictServiceExplainModelProcedure = "/mimir.v1.PredictService/ExplainModel"
 )
 
 // ModelServiceClient is a client for the mimir.v1.ModelService service.
@@ -538,6 +543,16 @@ type PredictServiceClient interface {
 	// server can tell how well the model does in use. Send it again to
 	// correct it. Predictions are kept for feedback for 30 days.
 	SendFeedback(context.Context, *connect.Request[v1.SendFeedbackRequest]) (*connect.Response[v1.SendFeedbackResponse], error)
+	// Explain says why a model that reads table rows gave its answer to
+	// one: how much each column pushed it up or down, compared with a
+	// typical row (each number column at its average, each category at its
+	// most common value). The effects add up to the difference between the
+	// answer and the typical row's.
+	Explain(context.Context, *connect.Request[v1.ExplainRequest]) (*connect.Response[v1.ExplainResponse], error)
+	// ExplainModel says which columns matter most to a model overall, from
+	// the questions it was asked lately or, before any, the examples it
+	// learned from.
+	ExplainModel(context.Context, *connect.Request[v1.ExplainModelRequest]) (*connect.Response[v1.ExplainModelResponse], error)
 }
 
 // NewPredictServiceClient constructs a client for the mimir.v1.PredictService service. By default,
@@ -581,6 +596,20 @@ func NewPredictServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(predictServiceMethods.ByName("SendFeedback")),
 			connect.WithClientOptions(opts...),
 		),
+		explain: connect.NewClient[v1.ExplainRequest, v1.ExplainResponse](
+			httpClient,
+			baseURL+PredictServiceExplainProcedure,
+			connect.WithSchema(predictServiceMethods.ByName("Explain")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		explainModel: connect.NewClient[v1.ExplainModelRequest, v1.ExplainModelResponse](
+			httpClient,
+			baseURL+PredictServiceExplainModelProcedure,
+			connect.WithSchema(predictServiceMethods.ByName("ExplainModel")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -591,6 +620,8 @@ type predictServiceClient struct {
 	generateStream *connect.Client[v1.GenerateStreamRequest, v1.GenerateStreamResponse]
 	chat           *connect.Client[v1.ChatRequest, v1.ChatResponse]
 	sendFeedback   *connect.Client[v1.SendFeedbackRequest, v1.SendFeedbackResponse]
+	explain        *connect.Client[v1.ExplainRequest, v1.ExplainResponse]
+	explainModel   *connect.Client[v1.ExplainModelRequest, v1.ExplainModelResponse]
 }
 
 // Predict calls mimir.v1.PredictService.Predict.
@@ -618,6 +649,16 @@ func (c *predictServiceClient) SendFeedback(ctx context.Context, req *connect.Re
 	return c.sendFeedback.CallUnary(ctx, req)
 }
 
+// Explain calls mimir.v1.PredictService.Explain.
+func (c *predictServiceClient) Explain(ctx context.Context, req *connect.Request[v1.ExplainRequest]) (*connect.Response[v1.ExplainResponse], error) {
+	return c.explain.CallUnary(ctx, req)
+}
+
+// ExplainModel calls mimir.v1.PredictService.ExplainModel.
+func (c *predictServiceClient) ExplainModel(ctx context.Context, req *connect.Request[v1.ExplainModelRequest]) (*connect.Response[v1.ExplainModelResponse], error) {
+	return c.explainModel.CallUnary(ctx, req)
+}
+
 // PredictServiceHandler is an implementation of the mimir.v1.PredictService service.
 type PredictServiceHandler interface {
 	// Predict runs one input through a model.
@@ -634,6 +675,16 @@ type PredictServiceHandler interface {
 	// server can tell how well the model does in use. Send it again to
 	// correct it. Predictions are kept for feedback for 30 days.
 	SendFeedback(context.Context, *connect.Request[v1.SendFeedbackRequest]) (*connect.Response[v1.SendFeedbackResponse], error)
+	// Explain says why a model that reads table rows gave its answer to
+	// one: how much each column pushed it up or down, compared with a
+	// typical row (each number column at its average, each category at its
+	// most common value). The effects add up to the difference between the
+	// answer and the typical row's.
+	Explain(context.Context, *connect.Request[v1.ExplainRequest]) (*connect.Response[v1.ExplainResponse], error)
+	// ExplainModel says which columns matter most to a model overall, from
+	// the questions it was asked lately or, before any, the examples it
+	// learned from.
+	ExplainModel(context.Context, *connect.Request[v1.ExplainModelRequest]) (*connect.Response[v1.ExplainModelResponse], error)
 }
 
 // NewPredictServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -673,6 +724,20 @@ func NewPredictServiceHandler(svc PredictServiceHandler, opts ...connect.Handler
 		connect.WithSchema(predictServiceMethods.ByName("SendFeedback")),
 		connect.WithHandlerOptions(opts...),
 	)
+	predictServiceExplainHandler := connect.NewUnaryHandler(
+		PredictServiceExplainProcedure,
+		svc.Explain,
+		connect.WithSchema(predictServiceMethods.ByName("Explain")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	predictServiceExplainModelHandler := connect.NewUnaryHandler(
+		PredictServiceExplainModelProcedure,
+		svc.ExplainModel,
+		connect.WithSchema(predictServiceMethods.ByName("ExplainModel")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.PredictService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PredictServicePredictProcedure:
@@ -685,6 +750,10 @@ func NewPredictServiceHandler(svc PredictServiceHandler, opts ...connect.Handler
 			predictServiceChatHandler.ServeHTTP(w, r)
 		case PredictServiceSendFeedbackProcedure:
 			predictServiceSendFeedbackHandler.ServeHTTP(w, r)
+		case PredictServiceExplainProcedure:
+			predictServiceExplainHandler.ServeHTTP(w, r)
+		case PredictServiceExplainModelProcedure:
+			predictServiceExplainModelHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -712,4 +781,12 @@ func (UnimplementedPredictServiceHandler) Chat(context.Context, *connect.Request
 
 func (UnimplementedPredictServiceHandler) SendFeedback(context.Context, *connect.Request[v1.SendFeedbackRequest]) (*connect.Response[v1.SendFeedbackResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.SendFeedback is not implemented"))
+}
+
+func (UnimplementedPredictServiceHandler) Explain(context.Context, *connect.Request[v1.ExplainRequest]) (*connect.Response[v1.ExplainResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.Explain is not implemented"))
+}
+
+func (UnimplementedPredictServiceHandler) ExplainModel(context.Context, *connect.Request[v1.ExplainModelRequest]) (*connect.Response[v1.ExplainModelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.PredictService.ExplainModel is not implemented"))
 }

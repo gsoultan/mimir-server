@@ -8,6 +8,7 @@ import { message } from "../api/client";
 import type { Architecture, Column, Model } from "../api/gen/mimir/v1/model_pb";
 import { percent } from "../lib/format";
 import { DrawPad, type DrawPadHandle } from "./DrawPad";
+import { WhyAnswer } from "./Why";
 
 // Question is one thing to ask a model: the numbers it reads, fields by
 // column name and a photo, or a sound.
@@ -35,7 +36,8 @@ export function askIntro(arch?: Architecture) {
 
 // Ask is the form for asking a model that isn't a language model, and its
 // answer. answer does the asking: on the server, or on this device.
-export function Ask({ model, arch, answer, where }: { model: Model; arch?: Architecture; answer: (q: Question) => Promise<Answer>; where?: ReactNode }) {
+// explainable, when set, offers to explain an answer to a table row.
+export function Ask({ model, arch, answer, where, explainable }: { model: Model; arch?: Architecture; answer: (q: Question) => Promise<Answer>; where?: ReactNode; explainable?: boolean }) {
   const pad = useRef<DrawPadHandle>(null);
   const [values, setValues] = useState<Record<string, number | string>>({});
   const [photo, setPhoto] = useState<File | null>(null);
@@ -55,6 +57,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
     return () => URL.revokeObjectURL(url);
   }, [photo]);
   const predict = useMutation({ mutationFn: answer });
+  const [asked, setAsked] = useState<Record<string, string>>();
 
   const best = predict.data?.guesses?.[0];
   // A decision model's answer is what each action is expected to bring.
@@ -90,6 +93,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
     if (inOrder) return predict.mutate({ input: { shape, values: columns.map((c) => Number(values[c.name] ?? 0)) }, topK });
     const fields: Record<string, string> = {};
     for (const c of columns) fields[c.name] = String(values[c.name] ?? "");
+    setAsked(fields);
     predict.mutate({ fields, photo: photo ? new Uint8Array(await photo.arrayBuffer()) : undefined, topK });
   };
   const change = (name: string, v: number | string) => { predict.reset(); setValues({ ...values, [name]: v }); };
@@ -188,6 +192,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
               <Text c="dimmed">{(predict.data.value ?? 0) >= 0.6 ? "Unusual: unlike most of what it learned from." : "Usual: like what it learned from."} Scores run from 0 to 1.</Text>
             )}
             {took}
+            {explainable && asked && <WhyAnswer key={JSON.stringify(asked)} model={model} fields={asked} />}
           </Card>
         ) : best && predict.data ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
@@ -217,6 +222,7 @@ export function Ask({ model, arch, answer, where }: { model: Model; arch?: Archi
               ))}
               {took}
             </Stack>
+            {explainable && asked && !predict.data.values && <WhyAnswer key={JSON.stringify(asked)} model={model} fields={asked} label={best.label} />}
           </Card>
         ) : (
           <Card withBorder radius="lg" padding="lg" className="border-dashed">

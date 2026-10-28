@@ -536,6 +536,58 @@ or an API key that may add models, and the rest is in the API
 for `scoring.finished` and `scoring.failed`. Rows scored this way don't
 count toward the prediction limits under Settings.
 
+### Ask your documents
+
+**Ask your documents** answers questions from a team's own files: handbooks,
+policies, notes. Make a collection, pick the language model that answers
+and the one that reads the documents (it makes an embedding of each
+passage; it can't change later, as the passages were read by it), and drop
+in files: PDF (with text, not scans), Word (.docx), Markdown, web pages
+(.html) or plain text, up to 64 MB each. The server reads them in the
+background: it cuts each into passages of a few paragraphs (a Markdown
+passage starts with its heading) and keeps them in PostgreSQL with their
+embeddings and a full-text index.
+
+A question is matched two ways, by meaning (its embedding against every
+passage's, held in memory for the four collections asked last; a
+collection holds up to 50,000 passages) and by words (PostgreSQL's
+full-text search, English stems), and the two rankings are merged by
+reciprocal rank fusion. The best five passages go to the language model
+with the collection's instructions and the rule to answer only from them,
+citing each as [1], [2]; a question too long for the model with all five
+is asked with fewer. The page streams the answer with each citation
+linked to its passage, and a short follow-up is searched together with the
+question before it. Nothing leaves the server.
+
+Apps ask a collection through the OpenAI-compatible API by sending its
+name (shown on its page, such as `shop-handbook`) as the model to
+`/v1/chat/completions`; it is listed in `/v1/models`, and an API key needs
+access to both of its models. The rest is in the API (`DocumentService`
+in `proto/mimir/v1/document.proto`), including `Search`, which returns the
+matching passages without an answer. Deleting the model that reads a
+collection's documents deletes the collection.
+
+### Why did it answer that
+
+For a model taught on a table, the Try page has **Why this answer?** under
+each answer. It shows how much each column moved the answer, compared with
+a typical row (each number column at the value training filled gaps with,
+each category at its most common value, the rest empty): for a category,
+in points of the chance of the answer given; for a number, in the answer's
+own units. The effects are Shapley values, so they add up to the
+difference between this row's answer and the typical row's. Only the
+columns that differ from the typical row take part; with up to ten of them
+every combination is tried and the result is exact, and above that (up to
+sixty) the server samples orderings, seeded by the row so the same
+question gets the same explanation.
+
+A model's page shows **Columns that matter**: the average size of each
+column's effect over up to 24 rows, taken from its recent questions or,
+when it has none, from the examples it learned from. In the API these are
+`Explain` and `ExplainModel` on `PredictService`, and need permission to
+ask the model. Models that rank, and models of photos, sound or text,
+aren't explained.
+
 ### Versions
 
 Every model keeps the weights it has had as numbered versions: version 1

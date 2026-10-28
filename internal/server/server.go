@@ -88,6 +88,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	mux.Handle(mimirv1connect.NewTrainingServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewBenchmarkServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
 	mux.Handle(mimirv1connect.NewScoringServiceHandler(svc, guard, connect.WithReadMaxBytes(maxModelBytes)))
+	mux.Handle(mimirv1connect.NewDocumentServiceHandler(svc, guard, connect.WithReadMaxBytes(api.MaxDocumentBytes+maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewTeamServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewSignInServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	// Workers authenticate inside Link with their token; the interceptor
