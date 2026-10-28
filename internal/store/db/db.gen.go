@@ -19,6 +19,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/model"
 	"github.com/gsoultan/mimir-server/internal/store/db/modelversion"
 	"github.com/gsoultan/mimir-server/internal/store/db/recoverycode"
+	"github.com/gsoultan/mimir-server/internal/store/db/scoring"
 	"github.com/gsoultan/mimir-server/internal/store/db/session"
 	"github.com/gsoultan/mimir-server/internal/store/db/signinidentity"
 	"github.com/gsoultan/mimir-server/internal/store/db/team"
@@ -50,17 +51,18 @@ var FlushOrder = map[string]int{
 	"deliveries":         10,
 	"models":             11,
 	"recovery_codes":     12,
-	"sessions":           13,
-	"sign_in_identities": 14,
-	"training_jobs":      15,
-	"usage":              16,
-	"user_models":        17,
-	"worker_samples":     18,
-	"answer_days":        19,
-	"answers":            20,
-	"api_key_models":     21,
-	"benchmark_scores":   22,
-	"model_versions":     23,
+	"scorings":           13,
+	"sessions":           14,
+	"sign_in_identities": 15,
+	"training_jobs":      16,
+	"usage":              17,
+	"user_models":        18,
+	"worker_samples":     19,
+	"answer_days":        20,
+	"answers":            21,
+	"api_key_models":     22,
+	"benchmark_scores":   23,
+	"model_versions":     24,
 }
 
 // NewUnit stages writes across this context and flushes them in foreign-key
@@ -1728,6 +1730,244 @@ func (p RecoveryCodeWithUserQuery) All(ctx context.Context, ex runtime.Executor)
 			return nil, fmt.Errorf("storm: %s references a missing %s row", "recovery_codes", "users")
 		}
 		out[i].User = targets[j]
+	}
+	return out, nil
+}
+
+// ScoringWithModelRow is scorings with its Model loaded.
+type ScoringWithModelRow struct {
+	scoring.Row
+	Model model.Row
+}
+
+type ScoringWithModelQuery struct {
+	q scoring.Query
+}
+
+// ScoringWithModel starts the plan.
+func ScoringWithModel() ScoringWithModelQuery { return ScoringWithModelQuery{q: scoring.New()} }
+
+func (p ScoringWithModelQuery) Where(ps ...scoring.Pred) ScoringWithModelQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p ScoringWithModelQuery) WhereIf(cond bool, pr scoring.Pred) ScoringWithModelQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p ScoringWithModelQuery) Any(ps ...scoring.Pred) ScoringWithModelQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p ScoringWithModelQuery) Not(pr scoring.Pred) ScoringWithModelQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p ScoringWithModelQuery) NotAny(ps ...scoring.Pred) ScoringWithModelQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p ScoringWithModelQuery) Order(ts ...scoring.Sort) ScoringWithModelQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p ScoringWithModelQuery) Limit(n int64) ScoringWithModelQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p ScoringWithModelQuery) Offset(n int64) ScoringWithModelQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p ScoringWithModelQuery) After(r ScoringWithModelRow) ScoringWithModelQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p ScoringWithModelQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p ScoringWithModelQuery) All(ctx context.Context, ex runtime.Executor) ([]ScoringWithModelRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]ScoringWithModelRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = ScoringWithModelRow{Row: r}
+		key := r.ModelID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := model.New().Unordered().
+		Where(model.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.ModelID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "scorings", "models")
+		}
+		out[i].Model = targets[j]
+	}
+	return out, nil
+}
+
+// ScoringWithTeamRow is scorings with its Team loaded.
+type ScoringWithTeamRow struct {
+	scoring.Row
+	// A pointer because the link is optional. nil means the row has no
+	// Team, which is different from having one that failed to load.
+	Team *team.Row
+}
+
+type ScoringWithTeamQuery struct {
+	q scoring.Query
+}
+
+// ScoringWithTeam starts the plan.
+func ScoringWithTeam() ScoringWithTeamQuery { return ScoringWithTeamQuery{q: scoring.New()} }
+
+func (p ScoringWithTeamQuery) Where(ps ...scoring.Pred) ScoringWithTeamQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p ScoringWithTeamQuery) WhereIf(cond bool, pr scoring.Pred) ScoringWithTeamQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p ScoringWithTeamQuery) Any(ps ...scoring.Pred) ScoringWithTeamQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p ScoringWithTeamQuery) Not(pr scoring.Pred) ScoringWithTeamQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p ScoringWithTeamQuery) NotAny(ps ...scoring.Pred) ScoringWithTeamQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p ScoringWithTeamQuery) Order(ts ...scoring.Sort) ScoringWithTeamQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p ScoringWithTeamQuery) Limit(n int64) ScoringWithTeamQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p ScoringWithTeamQuery) Offset(n int64) ScoringWithTeamQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p ScoringWithTeamQuery) After(r ScoringWithTeamRow) ScoringWithTeamQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p ScoringWithTeamQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p ScoringWithTeamQuery) All(ctx context.Context, ex runtime.Executor) ([]ScoringWithTeamRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]ScoringWithTeamRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = ScoringWithTeamRow{Row: r}
+		key, ok := r.TeamID.Get()
+		if !ok {
+			continue
+		}
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := team.New().Unordered().
+		Where(team.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key, ok := out[i].Row.TeamID.Get()
+		if !ok {
+			continue
+		}
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "scorings", "teams")
+		}
+		out[i].Team = &targets[j]
 	}
 	return out, nil
 }

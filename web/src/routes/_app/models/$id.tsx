@@ -2,7 +2,7 @@ import { useMutation } from "@connectrpc/connect-query";
 import { Alert, Button, Card, Code, Group, Modal, SimpleGrid, Stack, Tabs, Text, Textarea, TextInput } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconPlayerPlay, IconSparkles, IconTrash } from "@tabler/icons-react";
+import { IconAlertCircle, IconListCheck, IconPlayerPlay, IconSparkles, IconTrash } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -18,6 +18,7 @@ import { RunsOn } from "../../../components/Placement";
 import { InUse } from "../../../components/InUse";
 import { Versions } from "../../../components/Versions";
 import { ago, bytes } from "../../../lib/format";
+import { scores } from "../../../lib/scoring";
 import { score } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/models/$id")({
@@ -88,7 +89,12 @@ function ModelDetails() {
     <Page
       title={m.name}
       intro={`${arch?.title ?? m.architecture}${m.baseModelName ? `, fine-tuned from ${m.baseModelName}` : ""} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}${m.accuracy > 0 ? ` · ${score(m.accuracy, arch?.output === "number")}` : ""}${m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? ` · last learned ${ago(m.updateTime)}` : ""}`}
-      actions={<ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>{writes ? "Chat with it" : "Try it"}</ButtonLink>}
+      actions={
+        <Group gap="xs">
+          {canWrite && scores(arch) && <ButtonLink variant="default" to="/scoring" search={{ model: m.id }} leftSection={<IconListCheck size={18} />}>Score a list</ButtonLink>}
+          <ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>{writes ? "Chat with it" : "Try it"}</ButtonLink>
+        </Group>
+      }
     >
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Card withBorder radius="lg" padding="lg">
