@@ -130,7 +130,7 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 	if err != nil {
 		return worker.Trained{}, err
 	}
-	out := worker.Trained{Weights: res.Weights, History: toSDK(res.History), InputShape: res.Spec.InputShape, Labels: res.Spec.Labels, Features: res.Features, Fresh: res.Fresh}
+	out := worker.Trained{Weights: res.Weights, History: toSDK(res.History), InputShape: res.Spec.InputShape, Labels: res.Spec.Labels, Features: res.Features, Fresh: res.Fresh, Devices: res.Devices}
 	if res.Report != nil {
 		out.Report, _ = json.Marshal(res.Report)
 	}

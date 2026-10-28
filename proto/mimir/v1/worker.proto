@@ -98,6 +98,8 @@ message Worker {
   // page: "all", "train" or "serve". Empty leaves it to the worker's own
   // -tasks flag; trains and training_only say what applies now.
   string tasks = 24;
+  // gpus is how many GPUs it trains one run on together (see Hello.gpus).
+  int32 gpus = 25;
 }
 
 // Stats is how a worker's machine is doing.
@@ -306,6 +308,9 @@ message Hello {
   // group_architectures are those the worker can train together with
   // other workers, one run split between them (see TrainTask.group_size).
   repeated string group_architectures = 11;
+  // gpus is how many GPUs the worker trains one run on together, each
+  // taking a share of every batch; 0 or 1 is one device.
+  int32 gpus = 12;
 }
 
 // Heartbeat keeps the link alive and carries fresh stats.
@@ -428,6 +433,8 @@ message TrainResult {
   // report is how the model did on the examples kept aside, as the JSON
   // of the console's run report; empty when it wasn't scored.
   bytes report = 9;
+  // devices is how many GPUs the run trained on together; 0 or 1 is one.
+  int32 devices = 10;
 }
 
 message CancelTask {

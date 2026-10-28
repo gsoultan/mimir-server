@@ -63,7 +63,9 @@ type Worker struct {
 	// tasks is what the console tells the worker to take, set from its
 	// page: "all", "train" or "serve". Empty leaves it to the worker's own
 	// -tasks flag; trains and training_only say what applies now.
-	Tasks         string `protobuf:"bytes,24,opt,name=tasks,proto3" json:"tasks,omitempty"`
+	Tasks string `protobuf:"bytes,24,opt,name=tasks,proto3" json:"tasks,omitempty"`
+	// gpus is how many GPUs it trains one run on together (see Hello.gpus).
+	Gpus          int32 `protobuf:"varint,25,opt,name=gpus,proto3" json:"gpus,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -264,6 +266,13 @@ func (x *Worker) GetTasks() string {
 		return x.Tasks
 	}
 	return ""
+}
+
+func (x *Worker) GetGpus() int32 {
+	if x != nil {
+		return x.Gpus
+	}
+	return 0
 }
 
 // Stats is how a worker's machine is doing.
@@ -1971,8 +1980,11 @@ type Hello struct {
 	// group_architectures are those the worker can train together with
 	// other workers, one run split between them (see TrainTask.group_size).
 	GroupArchitectures []string `protobuf:"bytes,11,rep,name=group_architectures,json=groupArchitectures,proto3" json:"group_architectures,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// gpus is how many GPUs the worker trains one run on together, each
+	// taking a share of every batch; 0 or 1 is one device.
+	Gpus          int32 `protobuf:"varint,12,opt,name=gpus,proto3" json:"gpus,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Hello) Reset() {
@@ -2080,6 +2092,13 @@ func (x *Hello) GetGroupArchitectures() []string {
 		return x.GroupArchitectures
 	}
 	return nil
+}
+
+func (x *Hello) GetGpus() int32 {
+	if x != nil {
+		return x.Gpus
+	}
+	return 0
 }
 
 // Heartbeat keeps the link alive and carries fresh stats.
@@ -2835,7 +2854,9 @@ type TrainResult struct {
 	LowMemory bool `protobuf:"varint,8,opt,name=low_memory,json=lowMemory,proto3" json:"low_memory,omitempty"`
 	// report is how the model did on the examples kept aside, as the JSON
 	// of the console's run report; empty when it wasn't scored.
-	Report        []byte `protobuf:"bytes,9,opt,name=report,proto3" json:"report,omitempty"`
+	Report []byte `protobuf:"bytes,9,opt,name=report,proto3" json:"report,omitempty"`
+	// devices is how many GPUs the run trained on together; 0 or 1 is one.
+	Devices       int32 `protobuf:"varint,10,opt,name=devices,proto3" json:"devices,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2931,6 +2952,13 @@ func (x *TrainResult) GetReport() []byte {
 		return x.Report
 	}
 	return nil
+}
+
+func (x *TrainResult) GetDevices() int32 {
+	if x != nil {
+		return x.Devices
+	}
+	return 0
 }
 
 type CancelTask struct {
@@ -3668,7 +3696,7 @@ var File_mimir_v1_worker_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\n" +
-	"\x15mimir/v1/worker.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mimir/v1/model.proto\x1a\x17mimir/v1/training.proto\"\x83\x06\n" +
+	"\x15mimir/v1/worker.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mimir/v1/model.proto\x1a\x17mimir/v1/training.proto\"\x97\x06\n" +
 	"\x06Worker\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
@@ -3697,7 +3725,8 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x06models\x18\x15 \x01(\x05R\x06models\x12\x18\n" +
 	"\awaiting\x18\x16 \x01(\x05R\awaiting\x12#\n" +
 	"\rtraining_only\x18\x17 \x01(\bR\ftrainingOnly\x12\x14\n" +
-	"\x05tasks\x18\x18 \x01(\tR\x05tasks\"\xf7\x02\n" +
+	"\x05tasks\x18\x18 \x01(\tR\x05tasks\x12\x12\n" +
+	"\x04gpus\x18\x19 \x01(\x05R\x04gpus\"\xf7\x02\n" +
 	"\x05Stats\x12\x1f\n" +
 	"\vcpu_percent\x18\x01 \x01(\x01R\n" +
 	"cpuPercent\x12*\n" +
@@ -3809,7 +3838,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\tChallenge\x12\x14\n" +
 	"\x05nonce\x18\x01 \x01(\fR\x05nonce\"%\n" +
 	"\x05Proof\x12\x1c\n" +
-	"\tsignature\x18\x01 \x01(\fR\tsignature\"\xe6\x02\n" +
+	"\tsignature\x18\x01 \x01(\fR\tsignature\"\xfa\x02\n" +
 	"\x05Hello\x12\x16\n" +
 	"\x06device\x18\x01 \x01(\tR\x06device\x12\x12\n" +
 	"\x04cpus\x18\x02 \x01(\x05R\x04cpus\x12!\n" +
@@ -3823,7 +3852,8 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x05stats\x18\t \x01(\v2\x0f.mimir.v1.StatsR\x05stats\x12#\n" +
 	"\rtraining_only\x18\n" +
 	" \x01(\bR\ftrainingOnly\x12/\n" +
-	"\x13group_architectures\x18\v \x03(\tR\x12groupArchitectures\"2\n" +
+	"\x13group_architectures\x18\v \x03(\tR\x12groupArchitectures\x12\x12\n" +
+	"\x04gpus\x18\f \x01(\x05R\x04gpus\"2\n" +
 	"\tHeartbeat\x12%\n" +
 	"\x05stats\x18\x01 \x01(\v2\x0f.mimir.v1.StatsR\x05stats\"P\n" +
 	"\aWelcome\x12\x1b\n" +
@@ -3886,7 +3916,7 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x05epoch\x18\x02 \x01(\x05R\x05epoch\x12\x12\n" +
 	"\x04step\x18\x03 \x01(\x05R\x04step\x12&\n" +
 	"\x0fsteps_per_epoch\x18\x04 \x01(\x05R\rstepsPerEpoch\x12/\n" +
-	"\ahistory\x18\x05 \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\"\x9b\x02\n" +
+	"\ahistory\x18\x05 \x03(\v2\x15.mimir.v1.EpochResultR\ahistory\"\xb5\x02\n" +
 	"\vTrainResult\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x18\n" +
 	"\aweights\x18\x02 \x01(\fR\aweights\x12/\n" +
@@ -3897,7 +3927,9 @@ const file_mimir_v1_worker_proto_rawDesc = "" +
 	"\x05fresh\x18\a \x01(\bR\x05fresh\x12\x1d\n" +
 	"\n" +
 	"low_memory\x18\b \x01(\bR\tlowMemory\x12\x16\n" +
-	"\x06report\x18\t \x01(\fR\x06report\"%\n" +
+	"\x06report\x18\t \x01(\fR\x06report\x12\x18\n" +
+	"\adevices\x18\n" +
+	" \x01(\x05R\adevices\"%\n" +
 	"\n" +
 	"CancelTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\x96\x04\n" +

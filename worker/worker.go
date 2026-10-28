@@ -184,6 +184,8 @@ type Trained struct {
 	// as JSON the console shows on the run. Built-in models fill it; a
 	// custom Trainer may leave it empty.
 	Report []byte
+	// Devices is how many GPUs it trained on together; 0 or 1 is one.
+	Devices int
 }
 
 // Trainer is a Handler that can also train its architecture.
@@ -205,6 +207,9 @@ type Config struct {
 	Device string
 	// Capacity is how many tasks to run at once. Defaults to the CPU count.
 	Capacity int
+	// GPUs is how many GPUs the worker trains one run on together, shown
+	// on the console's Workers page and preferred for training there.
+	GPUs int
 	// Tasks is the kind of work the worker takes: TasksAll (the default),
 	// TasksServe for predictions only, or TasksTrain for training runs
 	// only. A machine dedicated to training keeps its load away from the
@@ -504,7 +509,7 @@ func (w *worker) serve(ctx context.Context) error {
 		}
 	}
 	slices.Sort(archs)
-	hello := &mimirv1.Hello{Device: w.cfg.Device, Cpus: int32(runtime.NumCPU()), MemoryBytes: memory(), Architectures: archs, Trains: trains, TrainingOnly: w.cfg.Tasks == TasksTrain, Capacity: int32(w.cfg.Capacity), Version: w.cfg.Version,
+	hello := &mimirv1.Hello{Device: w.cfg.Device, Cpus: int32(runtime.NumCPU()), MemoryBytes: memory(), Architectures: archs, Trains: trains, TrainingOnly: w.cfg.Tasks == TasksTrain, Capacity: int32(w.cfg.Capacity), Gpus: int32(w.cfg.GPUs), Version: w.cfg.Version,
 		PublicKey: w.key.Public().(ed25519.PublicKey), Stats: w.stats.read()}
 	if trains {
 		hello.GroupArchitectures = groupArchitectures(w.handlers)
@@ -862,7 +867,7 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 		reply(&mimirv1.TrainResult{}) // member 0 sends the weights
 	default:
 		reply(&mimirv1.TrainResult{
-			Weights: res.Weights, History: epochsToProto(res.History), Fresh: res.Fresh, Report: res.Report,
+			Weights: res.Weights, History: epochsToProto(res.History), Fresh: res.Fresh, Report: res.Report, Devices: int32(res.Devices),
 			Spec: &mimirv1.ModelSpec{InputShape: int64s(res.InputShape), Labels: res.Labels, Features: res.Features, Columns: columnsToProto(res.Columns)},
 		})
 	}

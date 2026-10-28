@@ -846,7 +846,9 @@ mimir-server -role=worker -tasks serve -server https://mimir.example.com -token 
 No GPU of your own? Under **Settings → Workers**, **Rent a GPU for
 training** has the console start a GPU on Modal, AWS EC2, Google Cloud,
 RunPod, Lambda Cloud or Vast.ai when a training run waits, and remove it
-a few minutes after the last one; you pay only while it runs. See
+a few minutes after the last one; you pay only while it runs. Each
+provider also offers machines with 4 or 8 GPUs, which train a run on all
+of them at once (see below). See
 [Training on a rented GPU](docs/deploy.md#training-on-a-rented-gpu).
 
 You can also decide this from the console: each worker's page under
@@ -921,6 +923,30 @@ model and dataset, about as much memory as one worker training alone.
 The built-in model types train this way. A custom worker's handler takes
 part when it implements `worker.GroupTrainer` and averages its weights
 with `TrainTask.Group.Mean`.
+
+### Every GPU in a machine
+
+A worker or standalone server on a machine with several NVIDIA GPUs
+trains each run on all of them at once, as PyTorch's
+DistributedDataParallel does in one process: the model has a copy on each
+GPU, every batch is split between them, and their gradients are summed
+over NCCL into one step, so the run takes the same steps it would on one
+GPU with the same batch size, only sooner. The batch is split, not
+multiplied, so a GPU gets a share of each batch: raise the batch size
+under the run's settings to keep several busy. `-gpus N` limits a run to
+the first N GPUs (`-gpus 1` turns it off). One run holds the GPUs at a
+time; a second run that starts meanwhile trains on the first GPU beside
+it, as on a machine with one. The Workers page shows how many GPUs a
+worker teaches on, the console sends a run to an idle worker with the
+most GPUs first, and the run's page says how many it trained on.
+
+It applies to the built-in neural networks, such as the table, photo and
+sound models; models that fit in one go (trees, nearest neighbours and
+the like), object finders, and fine-tunes of language models use one
+device. It combines with *One run
+on several workers*: each worker then trains its share on all its GPUs.
+This hasn't yet been measured on real multi-GPU machines; the same code
+path runs in the tests with two CPU devices standing in for the GPUs.
 
 ### Dashboards
 

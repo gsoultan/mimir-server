@@ -67,6 +67,9 @@ type Result struct {
 	// Report is how the model did on the examples kept aside, in detail;
 	// nil when it couldn't be scored.
 	Report *store.Report
+	// Devices is how many GPUs it trained on together (see UseDevices);
+	// 0 or 1 is one device.
+	Devices int
 }
 
 // Fit trains a task to completion, or until ctx ends.
@@ -181,7 +184,15 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	// rather than failing or running out of memory: a run trains in the
 	// memory there is. Every run sets the same budget, so runs side by
 	// side don't undo each other's.
-	if b := tensor.MemoryBudget(tensor.DefaultDevice()); b > 0 {
+	//
+	// With several GPUs free (see UseDevices) the run takes them all and
+	// splits each batch between them instead; each holds a share of the
+	// batch, so the budget, which can't be combined with that, is left out.
+	devs, release := takeDevices()
+	defer release()
+	if len(devs) > 1 {
+		opts = append(opts, train.DataParallel(devs...))
+	} else if b := tensor.MemoryBudget(tensor.DefaultDevice()); b > 0 {
 		opts = append(opts, train.MemoryBudget(b))
 	}
 	progress(len(history), 0, steps, history)
@@ -225,7 +236,7 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 	if report != nil {
 		report.SizeBytes = int64(buf.Len())
 	}
-	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features, Columns: l.Columns, Fresh: fresh, Report: report}, nil
+	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: features, Columns: l.Columns, Fresh: fresh, Report: report, Devices: len(devs)}, nil
 }
 
 // defaultLayers is the shape of an undesigned table model: the base

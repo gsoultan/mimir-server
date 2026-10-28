@@ -164,7 +164,7 @@ export function CloudGpu() {
               <Select label="Rent from" data={providers.map((p) => ({ value: p.id, label: p.name }))} value={form.provider} onChange={pick} allowDeselect={false} />
               <Select label="GPU" data={(provider?.gpus ?? []).map((x) => ({ value: x.id, label: x.label }))} value={form.gpu} onChange={(v) => v && set({ gpu: v })} allowDeselect={false} />
             </SimpleGrid>
-            <Hint>{help.prices} A T4, L4 or A10 suits table, text and small photo models.</Hint>
+            <Hint>{help.prices} A T4, L4 or A10 suits table, text and small photo models; a machine with 4 or 8 GPUs trains a big run on all of them at once.</Hint>
             <Fields>
               {(form.provider === "modal" || form.provider === "aws") && (
                 <TextInput label={form.provider === "aws" ? "Access key id" : "Modal token id"} placeholder={form.provider === "aws" ? "AKIA…" : "ak-…"} value={form.tokenId} onChange={(e) => set({ tokenId: e.currentTarget.value })} />
