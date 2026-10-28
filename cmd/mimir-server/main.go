@@ -91,6 +91,7 @@ func run() error {
 	token := flag.String("token", os.Getenv("MIMIR_WORKER_TOKEN"), "worker: the token made under Settings → Workers ($MIMIR_WORKER_TOKEN)")
 	name := flag.String("name", "", "worker: a name for the logs")
 	capacity := flag.Int("capacity", 0, "worker: how many tasks to run at once (default: the CPU count)")
+	gpus := flag.Int("gpus", 0, "how many GPUs one training run uses together, each taking a share of every batch (default: every GPU)")
 	maxModelMB := flag.Int("max-model-mb", 256, "console: the largest model file an upload may be, in MB; a GGUF language model is often larger. The console streams uploads to disk, so their size takes disk rather than memory")
 	trustedProxies := flag.String("trusted-proxies", os.Getenv("MIMIR_TRUSTED_PROXIES"), "console: comma-separated addresses and CIDR ranges of reverse proxies whose X-Forwarded-For and X-Forwarded-Proto headers to believe, such as 10.0.0.0/8,127.0.0.1; by default no one's are ($MIMIR_TRUSTED_PROXIES)")
 	secretKeyFile := flag.String("secret-key-file", os.Getenv("MIMIR_SECRET_KEY_FILE"), "console: file holding the key stored secrets are encrypted with, 32 bytes as base64 or hex ($MIMIR_SECRET_KEY_FILE); $MIMIR_SECRET_KEY, the key itself, comes first; with neither, the key is <data>/secret.key, made on first start")
@@ -134,6 +135,8 @@ func run() error {
 		}
 	}
 
+	spread := useGPUs(*gpus, log)
+
 	switch *role {
 	case "worker":
 		if *serverURL == "" || *token == "" {
@@ -164,7 +167,7 @@ func run() error {
 		if dev := tensor.DefaultDevice(); dev.Name() != "cpu" {
 			device += ", " + dev.String()
 		}
-		err = worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Device: device, Capacity: *capacity, Tasks: kind, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes, Key: key, ExitWhenIdle: *exitWhenIdle, MemoryLimit: memLimit, Memory: memory}, builtin.Builtin(*data))
+		err = worker.Run(ctx, worker.Config{Server: *serverURL, Token: *token, Name: *name, Device: device, Capacity: *capacity, Tasks: kind, Version: version, Log: log, DataDir: *data, Insecure: *insecure, CacheBytes: cacheBytes, Key: key, ExitWhenIdle: *exitWhenIdle, MemoryLimit: memLimit, Memory: memory, GPUs: spread}, builtin.Builtin(*data))
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -612,4 +615,22 @@ func loopbackOnly(addr string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+// useGPUs has a training run take up to n GPUs together, every GPU for 0,
+// when the default device is a GPU and there are several, and returns how
+// many it takes (1 for one device).
+func useGPUs(n int, log *slog.Logger) int {
+	if tensor.DefaultDevice().Name() == "cpu" {
+		return 1
+	}
+	devs := tensor.GPUs()
+	if n > 0 && n < len(devs) {
+		devs = devs[:n]
+	}
+	training.UseDevices(devs)
+	if k := training.Devices(); k > 1 {
+		log.Info("training: each run trains on several GPUs at once", "gpus", k)
+	}
+	return training.Devices()
 }

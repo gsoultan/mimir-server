@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -590,11 +592,14 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 	if !a.Fixed() {
 		m.InputShape, m.Labels, m.Features, m.Columns = res.Spec.InputShape, res.Spec.Labels, res.Features, res.Columns
 	}
+	spread := ""
+	if res.Devices > 1 {
+		spread = fmt.Sprintf("Trained on %d GPUs at once.", res.Devices)
+	}
+	noted := false
 	setNote := func(note string) {
-		if j.Note != "" {
-			note = j.Note + " " + note
-		}
-		r.st.SetJobNote(ctx, j.ID, note)
+		noted = true
+		r.st.SetJobNote(ctx, j.ID, strings.Join(slices.DeleteFunc([]string{j.Note, note, spread}, func(s string) bool { return s == "" }), " "))
 	}
 	if base.ID != "" {
 		// Replace the model in place only when the pass did at least as
@@ -624,6 +629,9 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 		} else {
 			setNote("Started from what the chosen model had learned.")
 		}
+	}
+	if spread != "" && !noted {
+		setNote("")
 	}
 	created, err := r.st.Create(ctx, m, res.Weights)
 	if err != nil {

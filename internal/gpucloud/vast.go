@@ -29,7 +29,8 @@ type vastInstance struct {
 func (v *Vast) Start(ctx context.Context, c Config, m Machine) (string, error) {
 	// Vast's own listings write GPU names with spaces, its examples with
 	// underscores; ask for both.
-	names := []string{m.GPU, strings.ReplaceAll(m.GPU, " ", "_")}
+	gpu := gpuName(m.GPU)
+	names := []string{gpu, strings.ReplaceAll(gpu, " ", "_")}
 	var offers struct {
 		Offers []struct {
 			ID       int64   `json:"id"`
@@ -38,7 +39,7 @@ func (v *Vast) Start(ctx context.Context, c Config, m Machine) (string, error) {
 	}
 	err := v.API.do(ctx, http.MethodPost, "/bundles/", c.TokenSecret, map[string]any{
 		"gpu_name":      map[string]any{"in": slices.Compact(names)},
-		"num_gpus":      map[string]any{"eq": 1},
+		"num_gpus":      map[string]any{"eq": max(1, m.GPUs)},
 		"rentable":      map[string]any{"eq": true},
 		"rented":        map[string]any{"eq": false},
 		"verified":      map[string]any{"eq": true},
