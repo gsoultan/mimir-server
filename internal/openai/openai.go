@@ -99,6 +99,16 @@ func (h *handler) models(w http.ResponseWriter, r *http.Request) {
 	for _, m := range ms {
 		out.Data = append(out.Data, model{ID: api.APIName(m.Name), Object: "model", Created: m.Created.Unix(), OwnedBy: "mimir"})
 	}
+	// Collections answer chats from their documents, under their own
+	// names; a language model of the same name comes first.
+	cs, err := h.svc.Collections(r.Context())
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	for _, c := range cs {
+		out.Data = append(out.Data, model{ID: api.APIName(c.Name), Object: "model", Created: c.Created.Unix(), OwnedBy: "mimir-documents"})
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -204,6 +214,12 @@ func (h *handler) chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m, err := h.svc.LanguageModel(r.Context(), req.Model)
+	if connect.CodeOf(err) == connect.CodeNotFound && !store.ValidID(req.Model) {
+		if c, cerr := h.svc.CollectionByAPIName(r.Context(), req.Model); cerr == nil {
+			h.grounded(w, r, c, req)
+			return
+		}
+	}
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -237,7 +253,42 @@ func (h *handler) chat(w http.ResponseWriter, r *http.Request) {
 	if wr.Messages == nil {
 		wr.Messages = []runtime.Message{} // a chat, though an empty one
 	}
-	h.answer(w, r, m, req.settings, wr, "chat.completion")
+	h.answer(w, r, api.APIName(m.Name), req.settings, wr, "chat.completion", func(wr api.Writing) (api.Written, error) {
+		return h.svc.Write(r.Context(), m, wr)
+	})
+}
+
+// grounded answers a chat sent to a collection from its documents:
+// system and developer messages add to the collection's instructions,
+// and the answer cites the passages it was given as [1], [2] and so on.
+func (h *handler) grounded(w http.ResponseWriter, r *http.Request, c store.Collection, req chatRequest) {
+	var extra []string
+	var chat []runtime.Message
+	for _, msg := range req.Messages {
+		switch msg.Role {
+		case "system", "developer":
+			extra = append(extra, string(msg.Content))
+		case runtime.RoleUser, runtime.RoleAssistant:
+			chat = append(chat, runtime.Message{Role: msg.Role, Content: string(msg.Content)})
+		default:
+			fail(w, http.StatusBadRequest, "invalid_request_error", fmt.Sprintf("Messages can be from system, developer, user or assistant, not %q: collections don't call tools.", msg.Role))
+			return
+		}
+	}
+	g, err := h.svc.Ground(r.Context(), c, chat, strings.Join(extra, "\n\n"), 5)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	wr, err := req.writing(g.Model)
+	if err != nil {
+		fail(w, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return
+	}
+	h.answer(w, r, api.APIName(c.Name), req.settings, wr, "chat.completion", func(wr api.Writing) (api.Written, error) {
+		res, _, err := h.svc.WriteGrounded(r.Context(), g, wr, func([]store.Passage) func(string) error { return wr.OnText })
+		return res, err
+	})
 }
 
 type completionRequest struct {
@@ -270,7 +321,9 @@ func (h *handler) completions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	wr.Prompt = prompt
-	h.answer(w, r, m, req.settings, wr, "text_completion")
+	h.answer(w, r, api.APIName(m.Name), req.settings, wr, "text_completion", func(wr api.Writing) (api.Written, error) {
+		return h.svc.Write(r.Context(), m, wr)
+	})
 }
 
 type embeddingRequest struct {
@@ -339,15 +392,14 @@ func encodeFloats(v []float32) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-// answer has the model write and sends the answer whole, or as events
-// when the request asked to stream.
-func (h *handler) answer(w http.ResponseWriter, r *http.Request, m store.Model, s settings, wr api.Writing, object string) {
+// answer has write write the answer and sends it whole, or as events
+// when the request asked to stream; name is the model's, as apps call it.
+func (h *handler) answer(w http.ResponseWriter, r *http.Request, name string, s settings, wr api.Writing, object string, write func(api.Writing) (api.Written, error)) {
 	id := newID(object)
 	created := time.Now().Unix()
-	name := api.APIName(m.Name)
 	chat := object == "chat.completion"
 	if !s.Stream {
-		res, err := h.svc.Write(r.Context(), m, wr)
+		res, err := write(wr)
 		if err != nil {
 			h.fail(w, r, err)
 			return
@@ -415,7 +467,7 @@ func (h *handler) answer(w http.ResponseWriter, r *http.Request, m store.Model, 
 		first = false
 		return err
 	}
-	res, err := h.svc.Write(r.Context(), m, wr)
+	res, err := write(wr)
 	if err != nil {
 		if !started {
 			h.fail(w, r, err)
