@@ -19,8 +19,8 @@ The files it uses are in [`deploy/`](../deploy).
 
 ```sh
 useradd --system --home-dir /var/lib/mimir --shell /usr/sbin/nologin mimir
-tar xzf mimir-server_v0.2.0_linux_amd64.tar.gz
-install -m 0755 mimir-server_v0.2.0_linux_amd64/mimir-server /usr/local/bin/
+tar xzf mimir-server_v0.3.0_linux_amd64.tar.gz
+install -m 0755 mimir-server_v0.3.0_linux_amd64/mimir-server /usr/local/bin/
 
 install -d -m 0750 -g mimir /etc/mimir
 install -m 0640 -g mimir deploy/systemd/mimir.env /etc/mimir/mimir.env
