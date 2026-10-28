@@ -60,6 +60,10 @@ func TestTemplates(t *testing.T) {
 	if _, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: m.GetId(), Fields: map[string]string{"colour": "red"}})); code(err) != connect.CodeInvalidArgument {
 		t.Fatalf("unknown column: %v", err)
 	}
+	// No fields at all read as every column empty.
+	if p, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: m.GetId()})); err != nil || !p.Msg.GetNumber() {
+		t.Fatalf("Predict with no fields = %v, %v", p, err)
+	}
 
 	// A table with differently named columns: the answer is matched by
 	// hand, then kept.

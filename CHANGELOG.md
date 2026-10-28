@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- ResNet, MobileNet and sound models taught from a few dozen examples
+  answer as well as they learned: their batch norms' statistics are
+  recomputed after every epoch. A MobileNet taught from 60 photos of two
+  colours had answered every photo alike (mimir#39).
+- A model with columns can be asked with none filled in, as a forecast of
+  one series is; it used to ask for a list of numbers instead.
+
 ## v0.2.0
 
 The first release with notes by feature. The v0.1.x tags carried the same
