@@ -286,6 +286,10 @@ func run() error {
 	if err := st.FailUnfinishedScores(ctx); err != nil {
 		log.Warn("couldn't close unfinished benchmark scores", "error", err)
 	}
+	// Scorings a stopped server left running start over.
+	if err := st.ResetRunningScorings(ctx); err != nil {
+		log.Warn("couldn't queue unfinished scorings again", "error", err)
+	}
 	if err := svc.LoadArchitectures(ctx); err != nil {
 		log.Error("couldn't read the described model types", "error", err)
 		os.Exit(1)
@@ -430,6 +434,7 @@ func run() error {
 	bg.Go(func() { safe.Loop(bgCtx, log, "GPU launcher", func() { gpu.Run(bgCtx) }) })
 	svc.CancelTraining = runner.Cancel
 	bg.Go(func() { safe.Loop(bgCtx, log, "training runner", func() { runner.Run(bgCtx) }) })
+	bg.Go(func() { safe.Loop(bgCtx, log, "scoring runner", func() { svc.RunScorings(bgCtx, 30*time.Second) }) })
 
 	if *metricsToken == "" && !loopbackOnly(*addr) {
 		log.Warn("/metrics is open to anyone who can reach this address; set -metrics-token ($MIMIR_METRICS_TOKEN) to require a token", "addr", *addr)
