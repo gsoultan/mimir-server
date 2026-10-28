@@ -1,14 +1,71 @@
 # Changelog
 
-## Unreleased
+## v0.3.0
 
+Scoring whole lists, answering from documents, explaining answers and
+training on every GPU in a machine. It needs PostgreSQL 14 or later and is
+built against mimir v0.4.1, mimir-model v0.3.0 and storm v1.4.0.
+
+### Scoring a whole list
+
+- **Score a list** answers every row of a table with one model at once:
+  an uploaded CSV, a table of examples, or, for admins, a database query
+  (PostgreSQL, MySQL or SQLite) or files in S3-compatible storage. It runs
+  in the background with live progress, and the results download as a CSV
+  of every row with `predicted`, `confidence` or `suggestions`, and
+  `problem` for a row that couldn't be answered. A scoring from a database
+  or storage can run again every hour, day or week. Webhooks can listen
+  for `scoring.finished` and `scoring.failed`; the API is
+  `ScoringService` (#61). See [Score a whole list](README.md#score-a-whole-list).
+
+### Ask your documents
+
+- **Ask your documents** answers questions from a team's own PDF, Word,
+  Markdown, HTML and text files with a language model, citing the
+  passages it used. Passages are matched both by meaning and by
+  PostgreSQL full-text search, and answers stream with each citation
+  linked. A collection's name works as a model in `/v1/chat/completions`
+  and is listed in `/v1/models`; the API is `DocumentService` (#62, #63).
+  See [Ask your documents](README.md#ask-your-documents).
+
+### Why this answer?
+
+- For a model taught on a table, **Why this answer?** on the Try page
+  shows how much each column moved the answer compared with a typical
+  row, as Shapley values that add up to the difference. A model's page
+  shows **Columns that matter** over its recent questions. In the API
+  these are `Explain` and `ExplainModel` on `PredictService` (#63). See
+  [Why did it answer that](README.md#why-did-it-answer-that).
+
+### Training
+
+- A worker or standalone server with several NVIDIA GPUs trains each run
+  on all of them at once: every batch is split between them and their
+  gradients are summed over NCCL. `-gpus N` limits a run to N GPUs
+  (`-gpus 1` turns it off). The Workers pages show each worker's GPUs,
+  runs go to an idle worker with the most GPUs first, and **Rent a GPU
+  for training** can rent 4- and 8-GPU machines from every provider
+  (#64). See [Every GPU in a machine](README.md#every-gpu-in-a-machine).
+  It has run in the tests with two CPU devices standing in for GPUs, not
+  yet on real multi-GPU machines.
 - ResNet, MobileNet and sound models taught from a few dozen examples
   answer as well as they learned: their batch norms' statistics are
   recomputed after every epoch. A MobileNet taught from 60 photos of two
-  colours had answered every photo alike (mimir#39).
+  colours had answered every photo alike (#60, mimir#39).
 - A model with columns can be asked with none filled in, as a forecast of
-  one series is; it used to ask for a list of numbers instead.
-- Built against mimir v0.4.1.
+  one series is; it used to ask for a list of numbers instead (#60).
+
+### Dependencies
+
+- mimir v0.4.1 (#65).
+
+### Upgrading from v0.2.0
+
+Back up first, then run `mimir-server migrate -check` with the new binary
+to see the schema changes (two new migrations, for scorings and for
+document collections), swap the binary and restart; the console migrates
+its database when it starts. Upgrade workers right after the console: a
+worker from v0.2.0 keeps working but trains on one GPU.
 
 ## v0.2.0
 
