@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -156,7 +157,10 @@ type Machine struct {
 	WorkerID string
 	Name     string
 	GPU      string
-	Region   string
+	// GPUs is how many GPUs the machine has, for a GPU whose ID ends in
+	// ":" and the count; the provider's cloud asks for that many.
+	GPUs   int
+	Region string
 	// CPU and MemoryMiB are what the machine gets besides the GPU, where
 	// the provider lets them be picked.
 	CPU       float64
@@ -637,18 +641,20 @@ func (l *Launcher) machineFor(c Config) (Machine, error) {
 		strings.Join(curl, " "),
 		"chmod +x " + programPath,
 	}, "\n")
+	gpus := machineGPUs(c)
 	run := fmt.Sprintf("%s -role=worker -tasks=train -server %s -data %s -capacity %d -exit-when-idle %dm -name %s",
 		programPath, shellQuote(strings.TrimRight(c.ConsoleURL, "/")), dataDir, c.Capacity, c.IdleMinutes, shellQuote(workerName(c)))
 	return Machine{
 		WorkerID: c.WorkerID,
 		Name:     machineName(c.WorkerID),
 		GPU:      c.GPU,
+		GPUs:     gpus,
 		Region:   c.Region,
-		// A physical core (two vCPUs) and 4 GB: Modal bills a sandbox's
-		// CPU and memory at three times its usual rate, so only what
-		// feeding the GPU needs.
-		CPU:       1,
-		MemoryMiB: 4 << 10,
+		// A physical core (two vCPUs) and 4 GB for each GPU: Modal bills
+		// a sandbox's CPU and memory at three times its usual rate, so
+		// only what feeding the GPUs needs.
+		CPU:       float64(gpus),
+		MemoryMiB: gpus * 4 << 10,
 		Timeout:   time.Duration(c.MaxHours) * time.Hour,
 		Setup:     setup,
 		Run:       run,
@@ -664,6 +670,21 @@ func (l *Launcher) machineFor(c Config) (Machine, error) {
 	}, nil
 }
 
+// machineGPUs is how many GPUs the machine c asks for has: as offered,
+// or for a Modal GPU not on the list, the count after its ":".
+func machineGPUs(c Config) int {
+	p, _ := ProviderByID(c.Provider)
+	if g, ok := p.gpu(c.GPU); ok {
+		return g.GPUs()
+	}
+	if _, n, ok := strings.Cut(c.GPU, ":"); ok {
+		if k, err := strconv.Atoi(n); err == nil && k > 1 {
+			return k
+		}
+	}
+	return 1
+}
+
 // machineName is what the provider shows for the machine of workerID; the
 // providers without tags find it by this name.
 func machineName(workerID string) string {
@@ -674,8 +695,11 @@ func machineName(workerID string) string {
 // modal-l4 or aws-g6.xlarge.
 func workerName(c Config) string {
 	g := strings.Map(func(r rune) rune {
-		if r == ' ' || r == '_' {
+		switch r {
+		case ' ', '_':
 			return '-'
+		case ':':
+			return 'x'
 		}
 		return r
 	}, strings.ToLower(c.GPU))

@@ -245,7 +245,7 @@ func (s *Service) workerView(w store.Worker, live []cluster.Status, models, wait
 	for _, st := range live {
 		pw.Online = true
 		pw.LastSeen = timestamppb.Now()
-		pw.Device, pw.Cpus, pw.MemoryBytes = st.Hello.Device, st.Hello.Cpus, st.Hello.MemoryBytes
+		pw.Device, pw.Cpus, pw.MemoryBytes, pw.Gpus = st.Hello.Device, st.Hello.Cpus, st.Hello.MemoryBytes, st.Hello.Gpus
 		pw.Architectures, pw.Trains, pw.TrainingOnly = st.Hello.Architectures, st.Trains, st.TrainingOnly
 		pw.Capacity += st.Hello.Capacity
 		pw.Busy += int32(st.Busy)

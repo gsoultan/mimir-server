@@ -85,7 +85,7 @@ function WorkerPage() {
           <span className="self-center"><StatusDot online={w.online} busy={full} /></span>
           <span>
             {w.online
-              ? `${full ? "Busy" : "Online"}${w.connectTime ? ` for ${duration((Date.now() - timestampDate(w.connectTime).getTime()) / 1000)}` : ""} · ${w.device}${w.version ? ` · version ${w.version}` : ""}`
+              ? `${full ? "Busy" : "Online"}${w.connectTime ? ` for ${duration((Date.now() - timestampDate(w.connectTime).getTime()) / 1000)}` : ""} · ${w.device}${w.gpus > 1 ? ` · ${w.gpus} GPUs, each run on all of them` : ""}${w.version ? ` · version ${w.version}` : ""}`
               : w.lastSeen ? `Offline since ${ago(w.lastSeen)}` : "Hasn't connected yet"}
           </span>
         </span>

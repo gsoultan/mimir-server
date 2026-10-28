@@ -512,10 +512,11 @@ const (
 
 // best is pick with p.mu held. A worker whose memory is running short
 // takes no training runs, and gets a prediction only when every other
-// worker that could run it is as short.
+// worker that could run it is as short. A training run goes to an idle
+// worker with several GPUs first, since it trains on all of them at once.
 func (p *Pool) best(archName string, train bool, workerID string) *link {
 	var best *link
-	bestBusy, bestShort := 0, false
+	bestBusy, bestShort, bestGPUs := 0, false, 0
 	for _, l := range p.links {
 		if workerID != "" && l.worker.ID != workerID {
 			continue
@@ -531,8 +532,12 @@ func (p *Pool) best(archName string, train bool, workerID string) *link {
 			continue
 		}
 		short := pressure >= pressureCritical
-		if best == nil || (bestShort && !short) || (short == bestShort && busy < bestBusy) {
-			best, bestBusy, bestShort = l, busy, short
+		gpus := 0
+		if train && busy == 0 {
+			gpus = int(l.hello.Gpus)
+		}
+		if best == nil || (bestShort && !short) || (short == bestShort && (gpus > bestGPUs || gpus == bestGPUs && busy < bestBusy)) {
+			best, bestBusy, bestShort, bestGPUs = l, busy, short, gpus
 		}
 	}
 	return best
@@ -900,6 +905,7 @@ func resultOf(r *mimirv1.TrainResult) training.Result {
 		Columns:  ColumnsFromProto(sp.GetColumns()),
 		Fresh:    r.Fresh,
 		Report:   reportOf(r.Report),
+		Devices:  int(r.Devices),
 	}
 }
 
