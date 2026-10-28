@@ -1,10 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- ResNet, MobileNet and sound models taught from a few dozen examples
+  answer as well as they learned: their batch norms' statistics are
+  recomputed after every epoch. A MobileNet taught from 60 photos of two
+  colours had answered every photo alike (mimir#39).
+- A model with columns can be asked with none filled in, as a forecast of
+  one series is; it used to ask for a list of numbers instead.
+
 ## v0.2.0
 
 The first release with notes by feature. The v0.1.x tags carried the same
 work as it landed; this is the version to deploy. It needs PostgreSQL 14 or
-later and is built against mimir v0.3.2, mimir-model v0.2.2 and storm
+later and is built against mimir v0.4.0, mimir-model v0.3.0 and storm
 v1.4.0.
 
 ### Workers
@@ -36,6 +45,48 @@ v1.4.0.
 - A live test rents one real machine from a provider and checks it starts,
   is found, and is gone after stopping. It is built only with the `livegpu`
   tag, so `go test ./...` never rents anything (#45).
+
+### Model types
+
+- Tables can be taught boosted trees, random forests and logistic or
+  linear regression (`table-boost`, `number-boost`, `table-forest`,
+  `number-forest`, `table-linear`, `number-linear`) (#53), support vector
+  machines, nearest neighbours and naive Bayes (`table-svm`, `number-svm`,
+  `table-knn`, `number-knn`, `table-bayes`) (#58). `table-auto` and
+  `number-auto` try them all with a range of settings and keep the best;
+  they are the default for tables (#57).
+- From a table with no code: **Find groups** (`find-groups`), **Spot the
+  odd one** (`odd-one`), **Recommend** (`recommend`, from who picked
+  which item) and **Forecast over time** (`forecast`, per series and in
+  total) (#55), and **Pick the best action** (`best-action`, from a log
+  of what was tried and how it turned out) (#58).
+- Photos can be read by a ResNet-18 (`photo-resnet`) or MobileNetV2
+  (`photo-mobilenet`), and a run can **start from an earlier model** of
+  the same type, keeping what it learned (#57).
+- **Sounds in folders** teach a sound classifier (`sound`), and **photos
+  with boxes** teach `find-things`, which answers with a box around each
+  thing it finds (#58).
+
+### Versions, quality and comparing runs
+
+- Every model keeps its last 20 versions: the run or upload that made it
+  and each keep-learning pass, including one held back for scoring worse.
+  **Use this one** puts an earlier version live under the same model id
+  (#50).
+- Every prediction returns a `predictionId`; apps send the right answer
+  back with `SendFeedback`, the model's page shows how it does in use
+  over 7 and 30 days, and a model that drops more than 10 points sends an
+  alert and a `model.accuracy_dropped` webhook (#54).
+- **Compare** puts two to six runs side by side, every finished run has a
+  full report (per-label scores and the confusion table, or the average
+  miss and R² for a number), and **benchmarks** freeze a test from a
+  dataset that every model takes the same way, with a leaderboard (#49).
+
+### Language models
+
+- **Fine-tune it** teaches a language model from your own text or JSON
+  Lines with LoRA, as a new model that is only the adapter, and
+  `/v1/embeddings` serves embeddings in OpenAI's format (#52).
 
 ### Training
 
@@ -75,6 +126,9 @@ v1.4.0.
 
 ### Security
 
+- **Sign in with Google, GitHub or a company account** (any OpenID
+  Connect provider), added under **Settings → Sign-in**; new people get
+  an account only when a rule matches their email domain or group (#51).
 - Two-step verification keys are encrypted at rest, and the remaining
   security-pass items are closed (#26).
 - Closed gaps in outbound connections and two-step verification
@@ -89,7 +143,8 @@ v1.4.0.
 
 ### Dependencies
 
-- mimir v0.3.2 (#43, #44, #47), mimir-model v0.2.2, storm v1.4.0 (#20).
+- mimir v0.4.0 (#43, #44, #47, #59), mimir-model v0.3.0 (#56), storm
+  v1.4.0 (#20).
 
 ### Upgrading from v0.1.x
 
