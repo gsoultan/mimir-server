@@ -188,6 +188,80 @@ service PredictService {
   // server can tell how well the model does in use. Send it again to
   // correct it. Predictions are kept for feedback for 30 days.
   rpc SendFeedback(SendFeedbackRequest) returns (SendFeedbackResponse);
+  // Explain says why a model that reads table rows gave its answer to
+  // one: how much each column pushed it up or down, compared with a
+  // typical row (each number column at its average, each category at its
+  // most common value). The effects add up to the difference between the
+  // answer and the typical row's.
+  rpc Explain(ExplainRequest) returns (ExplainResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // ExplainModel says which columns matter most to a model overall, from
+  // the questions it was asked lately or, before any, the examples it
+  // learned from.
+  rpc ExplainModel(ExplainModelRequest) returns (ExplainModelResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+message ExplainRequest {
+  string model_id = 1;
+  // fields are the row by column name, as for Predict.
+  map<string, string> fields = 2;
+  // label is the answer to explain, for a model that picks one; empty
+  // means its first guess.
+  string label = 3;
+}
+
+message ExplainResponse {
+  // label is the answer explained; empty for a model that answers with
+  // a number.
+  string label = 1;
+  bool number = 2;
+  // value is the answer: the chance of label, from 0 to 1, or the
+  // number. typical is the model's answer for the typical row.
+  double value = 3;
+  double typical = 4;
+  // contributions are the columns that differ from the typical row,
+  // biggest effect first.
+  repeated Contribution contributions = 5;
+  // exact says the effects were worked out over every mix of the
+  // columns; otherwise they are estimated from a sample of them.
+  bool exact = 6;
+}
+
+// Contribution is how much one column moved an answer.
+message Contribution {
+  string column = 1;
+  // value is the row's cell; typical the typical row's.
+  string value = 2;
+  string typical = 3;
+  // effect is how far it moved the answer: in chance (0.18 is 18 points)
+  // or in the number's own units.
+  double effect = 4;
+}
+
+message ExplainModelRequest {
+  string model_id = 1;
+}
+
+message ExplainModelResponse {
+  // columns are every column the model reads, most important first.
+  repeated ColumnImportance columns = 1;
+  // rows is how many rows the importance was worked out from, and
+  // source where they came from: "answers" or "examples".
+  int32 rows = 2;
+  string source = 3;
+  bool number = 4;
+}
+
+message ColumnImportance {
+  string column = 1;
+  // importance is the column's average effect, up or down, on an answer:
+  // in chance, or in the number's units. share is its part of all the
+  // columns' importance, from 0 to 1.
+  double importance = 2;
+  double share = 3;
 }
 
 message SendFeedbackRequest {

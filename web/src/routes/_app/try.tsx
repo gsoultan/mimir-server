@@ -13,6 +13,7 @@ import { ButtonLink } from "../../components/links";
 import { Page } from "../../components/Page";
 import { Writer } from "../../components/Writer";
 import * as device from "../../lib/device";
+import { explains } from "../../lib/explain";
 import { bytes } from "../../lib/format";
 
 export const Route = createFileRoute("/_app/try")({
@@ -97,7 +98,7 @@ function Try() {
         )}
       </div>
       {onDevice && <DeviceNote model={model} />}
-      <Ask key={`${model.id}-${onDevice}`} model={model} arch={arch} answer={ask} where={onDevice ? "on this device" : undefined} />
+      <Ask key={`${model.id}-${onDevice}`} model={model} arch={arch} answer={ask} where={onDevice ? "on this device" : undefined} explainable={!onDevice && explains(model, arch)} />
     </Page>
   );
 }
