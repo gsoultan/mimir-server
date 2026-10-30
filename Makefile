@@ -5,7 +5,7 @@ export GOTOOLCHAIN := auto
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X main.version=$(VERSION)
 
-.PHONY: all gen web wasm build test run dev clean
+.PHONY: all gen web wasm build test run dev dev-reset clean
 
 all: web build
 
@@ -37,6 +37,10 @@ run: all
 # Server rebuilds on Go changes, web app hot-reloads; open :5173.
 dev:
 	./scripts/dev.sh
+
+# Deletes data/dev and the dev PostgreSQL container's database.
+dev-reset:
+	./scripts/dev.sh reset
 
 clean:
 	rm -rf bin web/dist/assets web/dist/wasm web/dist/*.html web/dist/*.js web/dist/*.webmanifest
