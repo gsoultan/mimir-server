@@ -451,15 +451,7 @@ func (e *entry) load(c *Cache, a arch.Architecture, spec arch.Spec, weights []by
 		e.err = err
 		return
 	}
-	run := func(ctx context.Context, x []float32, n int) ([][]float32, error) {
-		shape := append([]int{n}, spec.InputShape...)
-		out, err := mod.Forward(tensor.FromSlice(x, shape...)).Reshape(-1).Data[float32](ctx)
-		if err != nil {
-			return nil, err
-		}
-		return split(out, n), nil
-	}
-	e.batch = newBatcher(run, "mimir", 0, c.batchingNow, c.observerNow)
+	e.batch = newBatcher(newReplayer(mod, spec.InputShape).run, "mimir", 0, c.batchingNow, c.observerNow)
 }
 
 // NewCache returns an empty cache that holds at most limit bytes of
