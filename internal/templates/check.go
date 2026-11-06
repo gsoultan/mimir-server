@@ -189,6 +189,7 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 		c.note(warn, plural(len(missing), "row has", "rows have")+" no photo in the ZIP.",
 			"They are left out. Download the list to see which, then add the photos and upload again.")
 	}
+	suggest(c, t, tab)
 	return c.finish()
 }
 

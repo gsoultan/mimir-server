@@ -14,7 +14,7 @@ import (
 
 func TestCatalog(t *testing.T) {
 	cats, tpls := All()
-	if len(tpls) != 52 || len(cats) != 8 {
+	if len(tpls) != 53 || len(cats) != 8 {
 		t.Fatalf("%d templates in %d categories", len(tpls), len(cats))
 	}
 	seen := map[string]bool{}
@@ -161,6 +161,8 @@ func TestTeach(t *testing.T) {
 		// The share of held-out next orders among its top 10.
 		{id: "product-recommend", epoch: 1, want: 0.5},
 		{id: "nearby-products", epoch: 1, want: 0.8},
+		// How often it orders two customers' next orders right.
+		{id: "reorder-within", epoch: 1, want: 0.65},
 		// Guessing the usual success rate for every step is off by about
 		// 0.46.
 		{id: "lead-next-step", epoch: 1, mae: 0.42},

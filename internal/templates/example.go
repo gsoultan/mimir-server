@@ -50,6 +50,8 @@ func Example(t Template) (name, contentType string, data []byte, err error) {
 		err = g.actions(&buf, ExampleRows)
 	case nearbyArch:
 		err = g.nearby(&buf, ExampleRows)
+	case survivalArch:
+		err = g.survival(&buf, ExampleRows)
 	default:
 		err = g.table(&buf, ExampleRows, nil)
 	}
@@ -69,6 +71,7 @@ const (
 	recommendArch  = "recommend"
 	bestActionArch = "best-action"
 	nearbyArch     = "recommend-nearby"
+	survivalArch   = "time-to-event"
 )
 
 type gen struct {
@@ -345,6 +348,45 @@ func (g *gen) nearby(w *bytes.Buffer, rows int) error {
 			}
 			cw.Write(append(rec, products[p]))
 		}
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// survival writes made-up rows for a time-to-event template, whose last
+// input is how many days each row was watched and whose answer says
+// whether it happened. How soon it happens follows the other inputs;
+// each row is watched for a while, so for some it hasn't happened yet.
+func (g *gen) survival(w *bytes.Buffer, rows int) error {
+	inputs := g.t.Inputs()
+	situation := inputs[:len(inputs)-1]
+	lo, hi, _, _ := numberRange(inputs[len(inputs)-1].Examples)
+	// The usual time is a third of the way into the watch.
+	typical := lo + (hi-lo)/3
+	weights := make([]float64, len(situation))
+	for j := range weights {
+		weights[j] = (0.5 + g.r.Float64()) * float64(1-2*g.r.IntN(2))
+	}
+	yes, no := "yes", "no"
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	for i := range rows {
+		rec := make([]string, 0, len(g.t.Columns))
+		score := 0.0
+		for j, in := range situation {
+			z := g.r.NormFloat64()
+			if in.Kind != schema.Text && in.Kind != schema.Photo {
+				score += weights[j] * z / math.Sqrt(float64(max(1, len(situation))))
+			}
+			rec = append(rec, g.cell(in, z, "", i, 0, nil))
+		}
+		when := g.r.ExpFloat64() * typical * math.Exp(-1.2*score)
+		watch := lo + g.r.Float64()*(hi-lo)
+		out := no
+		if when <= watch {
+			watch, out = when, yes
+		}
+		cw.Write(append(rec, formatNumber(max(watch, 0.5), false, true), out))
 	}
 	cw.Flush()
 	return cw.Error()

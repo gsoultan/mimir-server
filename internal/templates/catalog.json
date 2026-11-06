@@ -1777,6 +1777,121 @@
    ]
   },
   {
+   "id": "reorder-within",
+   "category": "b2b",
+   "kind": "yes_no",
+   "data": "table",
+   "architecture": "time-to-event",
+   "name": "Chance they order within N days",
+   "question": "How likely is each customer to order again within the next N days, so salespeople visit the ones about to reorder, for tomorrow, this week or this month?",
+   "predicts": "The chance the customer orders within the number of days you ask, from 0 to 100%. Ask with within_days set to 1, 7, 30 or any other number.",
+   "row_means": "One customer since one of their orders: what was known that day, how many days were watched after it, and whether they ordered again in that time.",
+   "source": "Order history from your ERP or billing system, with customer details from your CRM",
+   "source_short": "order history",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Include customers who haven't reordered yet, with no and the days since their last order; leaving them out makes everyone look faster than they are.",
+   "table": "customer_orders",
+   "tips": [
+    "Make a row for each order. days_watched is the days until the next order when there was one (reordered yes), or the days until today when there wasn't (reordered no).",
+    "Unlike a yes or no model, one model answers for any window: ask with within_days 1 for tomorrow, 7 for the next week.",
+    "To plan visits, use Score a list on every customer with today's values and the window you want, and visit the likeliest first."
+   ],
+   "columns": [
+    {
+     "name": "segment",
+     "kind": "category",
+     "meaning": "Size band of the business.",
+     "examples": [
+      "smb",
+      "mid-market",
+      "enterprise"
+     ]
+    },
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "What the customer does.",
+     "examples": [
+      "construction",
+      "retail",
+      "food"
+     ]
+    },
+    {
+     "name": "avg_days_between_orders",
+     "kind": "number",
+     "meaning": "Their usual gap between orders, in days.",
+     "examples": [
+      "14",
+      "30",
+      "7"
+     ]
+    },
+    {
+     "name": "orders_last_12m",
+     "kind": "number",
+     "meaning": "Orders in the 12 months before.",
+     "examples": [
+      "24",
+      "6",
+      "48"
+     ]
+    },
+    {
+     "name": "order_total",
+     "kind": "number",
+     "meaning": "Money in this order.",
+     "examples": [
+      "3200",
+      "900",
+      "12500"
+     ]
+    },
+    {
+     "name": "days_since_last_visit",
+     "kind": "number",
+     "meaning": "Days since someone last visited.",
+     "examples": [
+      "21",
+      "60",
+      "7"
+     ]
+    },
+    {
+     "name": "open_quotes",
+     "kind": "number",
+     "meaning": "Quotes sent and not yet answered.",
+     "examples": [
+      "1",
+      "0",
+      "3"
+     ]
+    },
+    {
+     "name": "days_watched",
+     "kind": "number",
+     "meaning": "Days from this order to the next one, or to today if there is none yet.",
+     "examples": [
+      "13",
+      "90",
+      "6"
+     ]
+    },
+    {
+     "name": "reordered",
+     "kind": "yesno",
+     "meaning": "Did they order again within days_watched?",
+     "examples": [
+      "yes",
+      "no",
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
    "id": "product-recommend",
    "category": "b2b",
    "kind": "ranked",

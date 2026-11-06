@@ -418,6 +418,12 @@ var learned = []Architecture{
 		Input:       Table, AnyText: true, Output: Ranked, Items: decideTop, Target: ActionTarget, Learner: decider,
 	},
 	{
+		Name:        "time-to-event",
+		Title:       "Time until it happens",
+		Description: "Learns how soon something happens, such as a customer's next order or its leaving, from a yes or no answer and a column of how many days each row was watched, counting the rows where it hasn't happened yet. Says how likely it is within any number of days you ask. It is scored by how often it puts which of two rows happens first in the right order: 0.5 is guessing and 1 is always right.",
+		Input:       Table, AnyText: true, Learner: survival,
+	},
+	{
 		Name:        "forecast",
 		Title:       "Forecast over time",
 		Description: "Learns from a value's history, one row per day, hour, week or month, and says what comes next, up to a month of days ahead. With a column like store, it forecasts each one, and their total.",
