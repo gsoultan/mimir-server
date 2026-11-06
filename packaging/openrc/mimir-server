@@ -1,0 +1,49 @@
+#!/sbin/openrc-run
+# The mimir-server console (and, as standalone, a worker in the same
+# process), as installed by the Alpine package. Installing the package
+# doesn't start it; when the settings are in place:
+#
+#   rc-update add mimir-server && rc-service mimir-server start
+#
+# It listens on 127.0.0.1:8080 for a reverse proxy on the same machine that
+# serves HTTPS. Settings go in /etc/mimir-server/mimir-server.env. This
+# build has no GPU support. See docs/deploy.md.
+
+name="mimir-server"
+description="mimir-server console"
+
+: "${MIMIR_ENV_FILE:=/etc/mimir-server/mimir-server.env}"
+: "${MIMIR_ADDR:=127.0.0.1:8080}"
+: "${MIMIR_DATA:=/var/lib/mimir-server}"
+
+# Every setting in the env file reaches the server as an environment
+# variable, as systemd's EnvironmentFile does.
+if [ -r "$MIMIR_ENV_FILE" ]; then
+	set -a
+	. "$MIMIR_ENV_FILE"
+	set +a
+fi
+
+command="/usr/bin/mimir-server"
+command_args="-role standalone -addr $MIMIR_ADDR -data $MIMIR_DATA"
+command_user="mimir-server:mimir-server"
+supervisor="supervise-daemon"
+respawn_delay=5
+respawn_max=0
+umask=077
+output_log="/var/log/mimir-server/mimir-server.log"
+error_log="/var/log/mimir-server/mimir-server.log"
+# On stop the console finishes requests for up to 15 seconds, and training
+# runs save a checkpoint and go back in the queue.
+retry="TERM/60/KILL/5"
+rc_ulimit="-n 65536"
+
+depend() {
+	need net
+	after firewall postgresql
+}
+
+start_pre() {
+	checkpath -d -m 0700 -o mimir-server:mimir-server "$MIMIR_DATA"
+	checkpath -d -m 0750 -o mimir-server:mimir-server /var/log/mimir-server
+}

@@ -2,7 +2,8 @@ name: release
 
 # Pushing a tag such as v1.2.3 runs GoReleaser (.goreleaser.yaml): it builds
 # mimir-server for Linux, macOS and Windows on amd64 and arm64 with the
-# version set from the tag, attaches the archives and their SHA-256 sums to
+# version set from the tag, packages it for Linux (.deb, .rpm, .apk and
+# Arch), and attaches the archives, the packages and their SHA-256 sums to
 # a GitHub release with notes from the merged pull requests.
 
 on:

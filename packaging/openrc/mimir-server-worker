@@ -1,0 +1,49 @@
+#!/sbin/openrc-run
+# A mimir-server worker: runs and teaches models for a console on another
+# machine. Installing the package doesn't start it. Put the console's
+# address and the token from Settings → Workers in
+# /etc/mimir-server/worker.env, then:
+#
+#   rc-update add mimir-server-worker && rc-service mimir-server-worker start
+#
+# Run either this or mimir-server on a machine, not both: a standalone
+# console already has a worker in it. See docs/deploy.md.
+
+name="mimir-server-worker"
+description="mimir-server worker"
+
+: "${MIMIR_WORKER_ENV_FILE:=/etc/mimir-server/worker.env}"
+: "${MIMIR_WORKER_DATA:=/var/lib/mimir-server-worker}"
+
+if [ -r "$MIMIR_WORKER_ENV_FILE" ]; then
+	set -a
+	. "$MIMIR_WORKER_ENV_FILE"
+	set +a
+fi
+
+command="/usr/bin/mimir-server"
+command_args="-role worker -server $MIMIR_CONSOLE -data $MIMIR_WORKER_DATA"
+command_user="mimir-server:mimir-server"
+supervisor="supervise-daemon"
+# A worker that loses its console keeps trying.
+respawn_delay=5
+respawn_max=0
+umask=077
+output_log="/var/log/mimir-server/worker.log"
+error_log="/var/log/mimir-server/worker.log"
+retry="TERM/30/KILL/5"
+rc_ulimit="-n 65536"
+
+depend() {
+	need net
+	after firewall
+}
+
+start_pre() {
+	if [ -z "$MIMIR_CONSOLE" ] || [ -z "$MIMIR_WORKER_TOKEN" ]; then
+		eerror "Set MIMIR_CONSOLE and MIMIR_WORKER_TOKEN in $MIMIR_WORKER_ENV_FILE"
+		return 1
+	fi
+	checkpath -d -m 0700 -o mimir-server:mimir-server "$MIMIR_WORKER_DATA"
+	checkpath -d -m 0750 -o mimir-server:mimir-server /var/log/mimir-server
+}

@@ -1,0 +1,66 @@
+# The mimir-server console (and, as standalone, a worker in the same
+# process), as installed by the .deb, .rpm and Arch packages. Installing
+# the package doesn't start it; when the settings are in place:
+#
+#   systemctl enable --now mimir-server
+#
+# It listens on 127.0.0.1:8080 for a reverse proxy on the same machine
+# that serves HTTPS. Settings go in /etc/mimir-server/mimir-server.env; the
+# databases come from first-run setup, which writes
+# /var/lib/mimir-server/mimir.json. See docs/deploy.md.
+
+[Unit]
+Description=mimir-server console
+Documentation=https://github.com/gsoultan/mimir-server/blob/main/docs/deploy.md
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=exec
+User=mimir-server
+Group=mimir-server
+EnvironmentFile=-/etc/mimir-server/mimir-server.env
+ExecStart=/usr/bin/mimir-server -role standalone -addr 127.0.0.1:8080 -data /var/lib/mimir-server
+
+# The data folder: model weights, uploaded examples, the configuration and
+# (unless it lives elsewhere) the secret key. The package makes it, owned
+# by mimir-server and private to it; systemd keeps it that way.
+StateDirectory=mimir-server
+StateDirectoryMode=0700
+UMask=0077
+
+# On stop the console finishes requests for up to 15 seconds, and training
+# runs save a checkpoint and go back in the queue.
+KillSignal=SIGTERM
+TimeoutStopSec=60
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=65536
+
+# Hardening. The console needs the network, its data folder and /tmp
+# (backups downloaded from Settings are made there first).
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+# A GPU needs its device files. On a machine that runs models on one, turn
+# this off with `systemctl edit mimir-server` (PrivateDevices=no) rather
+# than editing this file, which upgrades replace.
+PrivateDevices=yes
+
+[Install]
+WantedBy=multi-user.target
