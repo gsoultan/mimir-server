@@ -1037,8 +1037,9 @@ Owners find these under **Settings**; admins see their team's
 
 ## Develop
 
-You need Go, [Bun](https://bun.sh), and either Docker or Podman running
-or a PostgreSQL database of your own. Then:
+You need Go, [Bun](https://bun.sh), and a container tool running (Apple's
+[container](https://github.com/apple/container) on a Mac, Docker or
+Podman) or a PostgreSQL database of your own. Then:
 
 ```sh
 make dev        # or ./scripts/dev.sh
@@ -1049,13 +1050,14 @@ server rebuilds and restarts whenever a Go or SQL file changes (a build
 error is printed and the old server keeps running). Webhooks may point at
 local addresses. Stop everything with Ctrl+C.
 
-Without `MIMIR_DATABASE_URL`, the script starts PostgreSQL 16 in Docker or
-Podman (container `mimir-dev-postgres` on port 55432) and stops it again
+Without `MIMIR_DATABASE_URL`, the script starts PostgreSQL 16 in a
+container (`mimir-dev-postgres` on port 55432) and stops it again
 on Ctrl+C; the server creates its tables at start. To use a database of
 your own, set `MIMIR_DATABASE_URL` to its PostgreSQL URL. Files go to
 `data/dev` and the container's database to a volume, so both survive
-restarts; `make dev-reset` deletes both to start over. On Windows, run it
-in WSL.
+restarts; `make dev-reset` deletes both to start over. On a Mac the
+script uses Apple's container when its services are running (`container
+system start`), and Docker or Podman otherwise. On Windows, run it in WSL.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
@@ -1064,6 +1066,7 @@ in WSL.
 | `MIMIR_DEV_ADDR` | `localhost:8080` | Where the Go server listens |
 | `MIMIR_DEV_ARGS` | | Extra server flags, such as `-role console` |
 | `MIMIR_DEV_PG_PORT` | `55432` | Local port of the PostgreSQL container |
+| `MIMIR_DEV_ENGINE` | the first one running | `container`, `docker` or `podman` |
 
 Tests that need a database read `MIMIR_TEST_DATABASE_URL`, a PostgreSQL
 URL whose role may create databases; each test makes its own database and
