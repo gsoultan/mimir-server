@@ -7,7 +7,8 @@ The files it uses are in [`deploy/`](../deploy).
 
 ## What you need
 
-- A Linux machine with systemd. The release binaries need glibc.
+- A Linux machine with systemd (or OpenRC, with the Alpine package). The
+  release binaries need glibc; the Alpine package has its own static build.
 - PostgreSQL 14 or later, on the same machine or another.
 - The PostgreSQL client tools (`pg_dump`, `pg_restore`; the
   `postgresql-client` package) on the console's machine, the database's
@@ -16,6 +17,52 @@ The files it uses are in [`deploy/`](../deploy).
   [Caddy](https://caddyserver.com) or nginx for HTTPS.
 
 ## 1. Install
+
+### From a package
+
+Each release has packages for Debian and Ubuntu (`.deb`), Fedora, RHEL and
+openSUSE (`.rpm`), Arch (`.pkg.tar.zst`) and Alpine (`.apk`), for amd64
+and arm64. Download the one for your machine from the
+[releases page](https://github.com/gsoultan/mimir-server/releases) and
+install it:
+
+```sh
+sudo apt install ./mimir-server_0.3.0_amd64.deb        # Debian, Ubuntu
+sudo dnf install ./mimir-server-0.3.0-1.x86_64.rpm     # Fedora, RHEL
+sudo pacman -U mimir-server-0.3.0-1-x86_64.pkg.tar.zst # Arch
+sudo apk add --allow-untrusted mimir-server_0.3.0_x86_64.apk  # Alpine
+```
+
+A package sets up everything the steps below do by hand, under its own
+names:
+
+| | Package | By hand (below) |
+|---|---|---|
+| Binary | `/usr/bin/mimir-server` | `/usr/local/bin/mimir-server` |
+| Account | `mimir-server` | `mimir` |
+| Settings | `/etc/mimir-server/mimir-server.env` | `/etc/mimir/mimir.env` |
+| Worker settings | `/etc/mimir-server/worker.env` | `/etc/mimir/worker.env` |
+| Data folder | `/var/lib/mimir-server` | `/var/lib/mimir` |
+| Backups | `/var/backups/mimir-server` | `/var/backups/mimir` |
+| Services | `mimir-server`, `mimir-server-worker`, `mimir-server-backup.timer` | `mimir-server`, `mimir-worker`, `mimir-backup.timer` |
+
+Read the rest of this guide with those names. Installing **doesn't start
+anything**: put your settings in `/etc/mimir-server/mimir-server.env`, then
+`systemctl enable --now mimir-server` (on Alpine, `rc-update add
+mimir-server && rc-service mimir-server start`) when you get to step 5.
+Upgrading the package keeps your changes to the settings files and
+**doesn't restart** a running console, so you choose when the new version
+(and its schema changes, step 8) takes over: `systemctl restart
+mimir-server`. Removing it stops the services and leaves the data,
+settings and account in place.
+
+The `.deb`, `.rpm` and Arch packages have the GPU backends; on a GPU
+machine, turn off `PrivateDevices` with `systemctl edit mimir-server`
+rather than editing the unit, which upgrades replace. The Alpine package
+is a static build without GPU support (Alpine has musl, not glibc), and
+runs under OpenRC, logging to `/var/log/mimir-server/`.
+
+### From the release archive
 
 ```sh
 useradd --system --home-dir /var/lib/mimir --shell /usr/sbin/nologin mimir

@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Linux packages
+
+- Releases have `.deb`, `.rpm`, Arch and Alpine packages for amd64 and
+  arm64. Each installs `/usr/bin/mimir-server`, a `mimir-server` system
+  account, hardened systemd units for the console, a worker and nightly
+  backups (OpenRC services on Alpine), settings in `/etc/mimir-server/`
+  that upgrades keep, and the data folder `/var/lib/mimir-server`.
+  Nothing starts until you enable it, and an upgrade never restarts a
+  running console. The Alpine package is a static build without GPU
+  support. See [From a package](docs/deploy.md#from-a-package).
+
 ## v0.3.0
 
 Scoring whole lists, answering from documents, explaining answers and

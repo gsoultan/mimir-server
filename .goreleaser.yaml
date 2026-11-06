@@ -26,8 +26,25 @@ builds:
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
+  # For the Alpine package only. Alpine has musl, not glibc, so this build
+  # is static and leaves the GPU backends out, as the Docker image does:
+  # mimir loads CUDA and ROCm through glibc's dynamic loader.
+  - id: mimir-server-static
+    main: ./cmd/mimir-server
+    binary: mimir-server
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    tags: [nocuda, norocm]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [linux]
+    goarch: [amd64, arm64]
+
 archives:
-  - formats: [tar.gz]
+  - ids: [mimir-server]
+    formats: [tar.gz]
     format_overrides:
       - goos: windows
         formats: [zip]
@@ -40,6 +57,122 @@ archives:
       - CHANGELOG.md
       - docs/*.md
       - deploy/**/*
+
+# Linux packages: .deb, .rpm and Arch from the glibc build, .apk from the
+# static one. Each installs the binary in /usr/bin, a mimir-server system
+# account, its data folder in /var/lib/mimir-server and settings in
+# /etc/mimir-server that upgrades keep. Nothing starts until you enable it,
+# and an upgrade never restarts a running server. See docs/deploy.md.
+nfpms:
+  # Debian, Ubuntu, Fedora, RHEL and Arch, with systemd units.
+  - id: packages
+    ids: [mimir-server]
+    formats: [deb, rpm, archlinux]
+    package_name: mimir-server
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: gsoultan
+    homepage: https://github.com/gsoultan/mimir-server
+    maintainer: gsoultan <23358102+gsoultan@users.noreply.github.com>
+    description: |-
+      Train and serve machine learning models on your own server
+      mimir-server is a web console and API that teaches models from your
+      own data and answers with them, built on the pure-Go mimir framework.
+    section: net
+    priority: optional
+    bindir: /usr/bin
+    contents:
+      - src: packaging/systemd/mimir-server.service
+        dst: /usr/lib/systemd/system/mimir-server.service
+        file_info: { mode: 0644 }
+      - src: packaging/systemd/mimir-server-worker.service
+        dst: /usr/lib/systemd/system/mimir-server-worker.service
+        file_info: { mode: 0644 }
+      - src: packaging/systemd/mimir-server-backup.service
+        dst: /usr/lib/systemd/system/mimir-server-backup.service
+        file_info: { mode: 0644 }
+      - src: packaging/systemd/mimir-server-backup.timer
+        dst: /usr/lib/systemd/system/mimir-server-backup.timer
+        file_info: { mode: 0644 }
+      # Settings, kept on upgrade when you have changed them.
+      - src: packaging/mimir-server.env
+        dst: /etc/mimir-server/mimir-server.env
+        type: config|noreplace
+        file_info: { mode: 0640 }
+      - src: packaging/worker.env
+        dst: /etc/mimir-server/worker.env
+        type: config|noreplace
+        file_info: { mode: 0600 }
+      - src: docs/deploy.md
+        dst: /usr/share/doc/mimir-server/deploy.md
+        file_info: { mode: 0644 }
+    scripts:
+      preinstall: packaging/scripts/preinstall.sh
+      postinstall: packaging/scripts/postinstall.sh
+      preremove: packaging/scripts/preremove.sh
+      postremove: packaging/scripts/postremove.sh
+    # pg_dump, for backups.
+    overrides:
+      deb:
+        recommends: [postgresql-client]
+      rpm:
+        recommends: [postgresql]
+    rpm:
+      group: System Environment/Daemons
+    archlinux:
+      packager: gsoultan <23358102+gsoultan@users.noreply.github.com>
+      # Arch runs these on upgrade in place of the install scripts.
+      scripts:
+        preupgrade: packaging/scripts/preinstall.sh
+        postupgrade: packaging/scripts/postinstall.sh
+
+  # Alpine, with OpenRC services and the static build.
+  - id: alpine
+    ids: [mimir-server-static]
+    formats: [apk]
+    package_name: mimir-server
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: gsoultan
+    homepage: https://github.com/gsoultan/mimir-server
+    maintainer: gsoultan <23358102+gsoultan@users.noreply.github.com>
+    description: |-
+      Train and serve machine learning models on your own server
+      mimir-server is a web console and API that teaches models from your
+      own data and answers with them, built on the pure-Go mimir framework.
+    section: net
+    priority: optional
+    bindir: /usr/bin
+    contents:
+      - src: packaging/openrc/mimir-server
+        dst: /etc/init.d/mimir-server
+        file_info: { mode: 0755 }
+      - src: packaging/openrc/mimir-server-worker
+        dst: /etc/init.d/mimir-server-worker
+        file_info: { mode: 0755 }
+      # Settings, kept on upgrade when you have changed them.
+      - src: packaging/mimir-server.env
+        dst: /etc/mimir-server/mimir-server.env
+        type: config|noreplace
+        file_info: { mode: 0640 }
+      - src: packaging/worker.env
+        dst: /etc/mimir-server/worker.env
+        type: config|noreplace
+        file_info: { mode: 0600 }
+      - src: docs/deploy.md
+        dst: /usr/share/doc/mimir-server/deploy.md
+        file_info: { mode: 0644 }
+    scripts:
+      preinstall: packaging/scripts/preinstall.sh
+      postinstall: packaging/scripts/postinstall.sh
+      preremove: packaging/scripts/preremove.sh
+      postremove: packaging/scripts/postremove.sh
+    overrides:
+      apk:
+        recommends: [postgresql-client]
+    apk:
+      # Alpine runs these on upgrade in place of the install scripts.
+      scripts:
+        preupgrade: packaging/scripts/preinstall.sh
+        postupgrade: packaging/scripts/postinstall.sh
 
 checksum:
   name_template: SHA256SUMS

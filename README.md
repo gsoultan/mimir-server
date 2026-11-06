@@ -214,6 +214,10 @@ whoever sent it, and is removed if it isn't used within an hour.
 [docs/deploy.md](docs/deploy.md) runs the console under systemd behind an
 HTTPS reverse proxy, with nightly backups and upgrades you can undo; the
 systemd units and the Caddy and nginx configs are in [`deploy/`](deploy).
+Each release also has `.deb`, `.rpm`, Arch and Alpine packages for amd64
+and arm64 that install the binary, a system account and the services
+(not started until you enable them); see
+[From a package](docs/deploy.md#from-a-package).
 Three commands help:
 
 - `mimir-server backup -out /var/backups/mimir [-keep 14]` dumps the main
