@@ -27,7 +27,7 @@ func TestTemplates(t *testing.T) {
 	tpls := mimirv1connect.NewTemplateServiceClient(srv.Client(), srv.URL, connect.WithInterceptors(own.jar))
 
 	ls, err := tpls.ListTemplates(ctx, connect.NewRequest(&mimirv1.ListTemplatesRequest{}))
-	if err != nil || len(ls.Msg.GetTemplates()) != 46 || len(ls.Msg.GetCategories()) != 8 {
+	if err != nil || len(ls.Msg.GetTemplates()) != 53 || len(ls.Msg.GetCategories()) != 8 {
 		t.Fatalf("ListTemplates = %d, %v", len(ls.Msg.GetTemplates()), err)
 	}
 	ex, err := tpls.GetTemplateExample(ctx, connect.NewRequest(&mimirv1.GetTemplateExampleRequest{TemplateId: "energy-use"}))
