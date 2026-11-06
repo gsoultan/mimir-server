@@ -1,6 +1,7 @@
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { useMutation } from "@connectrpc/connect-query";
 import { Alert, Badge, Button, Card, Group, NumberInput, PasswordInput, Radio, SimpleGrid, Stack, Switch, Table, Tabs, TagsInput, Text, TextInput, Title } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconDownload } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseInfiniteQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -41,10 +42,12 @@ function Settings() {
   const navigate = Route.useNavigate();
   const { data: me } = useSuspenseQuery(whoAmI);
   const owner = me.permissions.includes("settings.manage");
+  const wide = useMediaQuery("(min-width: 62em)", true, { getInitialValueInEffect: false });
   const shown = owner || tab === "audit" || tab === "usage" ? tab ?? "audit" : "audit";
   return (
     <Page title="Settings" intro={owner ? "How this server stores data and keeps you informed." : `What's happening in ${me.user?.teamName ?? "your team"}.`}>
-      <Tabs value={shown} onChange={(t) => navigate({ search: { tab: (t ?? "audit") as "audit" }, replace: true })}>
+      <Tabs value={shown} onChange={(t) => navigate({ search: { tab: (t ?? "audit") as "audit" }, replace: true })}
+        orientation={wide ? "vertical" : "horizontal"} variant={wide ? "pills" : "default"} classNames={wide ? { list: "settings-list", tab: "side-link", panel: "settings-panel" } : undefined}>
         <Tabs.List>
           <Tabs.Tab value="audit">Audit log</Tabs.Tab>
           {owner && <>
@@ -59,18 +62,18 @@ function Settings() {
           </>}
           <Tabs.Tab value="usage">Usage</Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="audit" pt="md"><AuditLog showTeam={owner} /></Tabs.Panel>
+        <Tabs.Panel value="audit" pt={wide ? 0 : "md"}><AuditLog showTeam={owner} /></Tabs.Panel>
         {owner && <>
-          <Tabs.Panel value="teams" pt="md"><Teams /></Tabs.Panel>
-          <Tabs.Panel value="database" pt="md"><Database /></Tabs.Panel>
-          <Tabs.Panel value="alerts" pt="md"><Alerts /></Tabs.Panel>
-          <Tabs.Panel value="retention" pt="md"><Retention /></Tabs.Panel>
-          <Tabs.Panel value="security" pt="md"><SecurityPolicy /></Tabs.Panel>
-          <Tabs.Panel value="signin" pt="md"><SignInProviders /></Tabs.Panel>
-          <Tabs.Panel value="workers" pt="md"><Workers /></Tabs.Panel>
-          <Tabs.Panel value="limits" pt="md"><Limits /></Tabs.Panel>
+          <Tabs.Panel value="teams" pt={wide ? 0 : "md"}><Teams /></Tabs.Panel>
+          <Tabs.Panel value="database" pt={wide ? 0 : "md"}><Database /></Tabs.Panel>
+          <Tabs.Panel value="alerts" pt={wide ? 0 : "md"}><Alerts /></Tabs.Panel>
+          <Tabs.Panel value="retention" pt={wide ? 0 : "md"}><Retention /></Tabs.Panel>
+          <Tabs.Panel value="security" pt={wide ? 0 : "md"}><SecurityPolicy /></Tabs.Panel>
+          <Tabs.Panel value="signin" pt={wide ? 0 : "md"}><SignInProviders /></Tabs.Panel>
+          <Tabs.Panel value="workers" pt={wide ? 0 : "md"}><Workers /></Tabs.Panel>
+          <Tabs.Panel value="limits" pt={wide ? 0 : "md"}><Limits /></Tabs.Panel>
         </>}
-        <Tabs.Panel value="usage" pt="md"><Usage /></Tabs.Panel>
+        <Tabs.Panel value="usage" pt={wide ? 0 : "md"}><Usage /></Tabs.Panel>
       </Tabs>
     </Page>
   );

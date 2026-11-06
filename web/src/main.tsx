@@ -13,7 +13,7 @@ import { createRoot } from "react-dom/client";
 
 import { transport } from "./api/client";
 import { routeTree } from "./routeTree.gen";
-import { theme } from "./theme";
+import { resolver, theme } from "./theme";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, retry: 1 } },
@@ -35,7 +35,7 @@ declare module "@tanstack/react-router" {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <MantineProvider theme={theme} defaultColorScheme="auto">
+    <MantineProvider theme={theme} cssVariablesResolver={resolver} defaultColorScheme="auto">
       <Notifications position="top-center" />
       <TransportProvider transport={transport}>
         <QueryClientProvider client={queryClient}>

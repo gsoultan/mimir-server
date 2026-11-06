@@ -6,6 +6,7 @@
 @import "@mantine/core/styles.layer.css";
 @import "@mantine/dropzone/styles.layer.css";
 @import "@mantine/notifications/styles.layer.css";
+@import "@mantine/spotlight/styles.layer.css";
 
 /* Mantine owns colors and components; Tailwind is for layout. */
 @theme {
@@ -15,6 +16,81 @@
 
 body {
   background: var(--mantine-color-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { letter-spacing: -0.01em; }
+
+@layer components {
+  /* Panels: white on the warm page, a hairline and the softest shadow. */
+  .m-card {
+    background: var(--mimir-surface);
+    border-color: var(--mimir-line);
+    box-shadow: var(--mimir-shadow);
+  }
+
+  /* Tabs: a quiet underline, the brand on the open tab. */
+  .m-tabs-list { --tab-border-color: var(--mimir-line); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .m-tab { font-weight: 600; color: var(--mantine-color-dimmed); white-space: nowrap; }
+  .m-tab[data-active] { color: var(--mantine-color-text); }
+  .m-tabs-list[data-orientation="vertical"] { overflow: visible; }
+}
+
+/* Status pill: a dot and a word, never a color alone. */
+.status-pill { display: inline-flex; align-items: center; gap: 6px; }
+.status-pill::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: currentColor; flex: none; }
+
+/* Lists of rows inside one panel. */
+.row-list > * + * { border-top: 1px solid var(--mimir-line); }
+
+/* The sidebar's search button. */
+.side-search {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  border: 1px solid var(--mimir-line); background: var(--mimir-surface);
+  border-radius: var(--mantine-radius-md); padding: 7px 10px; font-size: 13px; color: var(--mimir-faint);
+}
+.side-search kbd { margin-left: auto; font: inherit; font-size: 11px; border: 1px solid var(--mimir-line); border-radius: 5px; padding: 0 5px; }
+
+/* Menu entries: the open page is a raised white pill. */
+.side-link { border-radius: var(--mantine-radius-md); font-weight: 550; color: var(--mantine-color-dimmed); }
+.side-link[data-active] { background: var(--mimir-surface); color: var(--mantine-color-text); box-shadow: var(--mimir-shadow); outline: 1px solid var(--mimir-line); }
+.side-link[data-active] svg { color: var(--mantine-primary-color-filled); }
+.side-group { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--mimir-faint); padding: 14px 12px 4px; }
+
+/* Phone bottom bar. */
+.tab-bar a, .tab-bar button { color: var(--mimir-faint); }
+.tab-bar [aria-current="page"] { color: var(--mantine-primary-color-filled); }
+.tab-bar .plus { background: var(--mantine-primary-color-filled); color: var(--mantine-primary-color-contrast); border-radius: 12px; width: 40px; height: 30px; display: grid; place-items: center; }
+
+/* Sign-in brand panel. */
+.brand-panel {
+  position: relative; overflow: hidden; isolation: isolate;
+  background: radial-gradient(120% 80% at 0% 0%, #13806D 0%, #0E6B5C 35%, #08453B 75%, #062F28 100%);
+  color: #fff;
+}
+.brand-orb { position: absolute; border-radius: 999px; filter: blur(60px); opacity: .55; z-index: -1; animation: orb 18s ease-in-out infinite alternate; }
+.brand-orb.a { width: 420px; height: 420px; background: #3FB59A; top: -120px; right: -80px; }
+.brand-orb.b { width: 360px; height: 360px; background: #0A5246; bottom: -140px; left: -100px; animation-duration: 22s; }
+.brand-orb.c { width: 240px; height: 240px; background: #A0D2C2; top: 45%; left: 55%; opacity: .25; animation-duration: 26s; }
+@keyframes orb { from { transform: translate(0, 0) scale(1); } to { transform: translate(-40px, 30px) scale(1.12); } }
+.brand-net line { stroke: rgba(255,255,255,.22); stroke-width: 1; stroke-dasharray: 4 6; animation: flow 3s linear infinite; }
+.brand-net circle { fill: #fff; animation: pulse 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes flow { to { stroke-dashoffset: -20; } }
+@keyframes pulse { 0%, 100% { opacity: .35; transform: scale(1); } 50% { opacity: 1; transform: scale(1.5); } }
+.brand-line { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.brand-rotate { display: inline-grid; }
+.brand-rotate > span { grid-area: 1 / 1; opacity: 0; animation: swap 12s infinite; }
+.brand-rotate > span:nth-child(2) { animation-delay: 3s; }
+.brand-rotate > span:nth-child(3) { animation-delay: 6s; }
+.brand-rotate > span:nth-child(4) { animation-delay: 9s; }
+@keyframes swap { 0% { opacity: 0; transform: translateY(8px); } 4%, 21% { opacity: 1; transform: none; } 25%, 100% { opacity: 0; transform: translateY(-8px); } }
+.auth-in { animation: rise .5s cubic-bezier(.2,.7,.2,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-orb, .brand-net line, .brand-net circle, .brand-line, .auth-in { animation: none; }
+  .brand-rotate > span { animation: none; }
+  .brand-rotate > span:first-child { opacity: 1; }
 }
 
 /* One color per run on the compare page, in a fixed order checked for
@@ -35,3 +111,19 @@ body {
   --run-5: #d55181;
   --run-6: #008300;
 }
+
+/* On a phone the page's buttons fill the width under the title. */
+@media (max-width: 48em) {
+  .page-actions > .mantine-Group-root { width: 100%; flex-wrap: wrap; }
+  .page-actions > .mantine-Group-root > * { flex: 1 1 auto; }
+  .page-actions > .mantine-Button-root { width: 100%; }
+}
+
+
+/* Settings: a side list of sections on wide screens. */
+.settings-list { width: 190px; flex: none; gap: 2px; margin-right: var(--mantine-spacing-xl); align-self: flex-start; position: sticky; top: var(--mantine-spacing-xl); }
+.settings-list .side-link { justify-content: flex-start; padding: 8px 12px; height: auto; background: transparent; }
+.settings-list .side-link[data-active] { background: var(--mimir-surface); color: var(--mantine-color-text); }
+.settings-panel { min-width: 0; flex: 1; }
+.settings-list .mantine-Tabs-tab { justify-content: flex-start; text-align: left; }
+.settings-list .mantine-Tabs-tabLabel { text-align: left; }

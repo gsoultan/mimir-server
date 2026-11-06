@@ -1,4 +1,4 @@
-import { Alert, Code, Group, Card, Stack, Text, Tooltip } from "@mantine/core";
+import { Alert, Code, Card, Text, Tooltip } from "@mantine/core";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -15,7 +15,6 @@ export function InUse({ model: m, number }: { model: Model; number: boolean }) {
   const days = new Map((data?.days ?? []).map((d) => [Number(d.day?.seconds ?? 0n) * 1000, d]));
   const today = Math.floor(Date.now() / day) * day;
   const span = Array.from({ length: 30 }, (_, i) => today - (29 - i) * day);
-  const feedback = Number(data?.weekFeedback ?? 0n);
   const curl = `curl ${location.origin}/mimir.v1.PredictService/SendFeedback \\
   -H 'Authorization: Bearer mimir_...' \\
   -H 'Content-Type: application/json' \\
@@ -23,28 +22,12 @@ export function InUse({ model: m, number }: { model: Model; number: boolean }) {
 
   return (
     <Card withBorder radius="lg" padding="lg">
-      <Text fw={700} mb={4}>How it does in use</Text>
+      <Text fw={700} mb="sm">How it does in use, the last 30 days</Text>
       {data?.dropped && (
         <Alert color="orange" icon={<IconAlertTriangle />} mb="sm">
           It got {Math.round(data.weekAccuracy * 100)} of 100 right this week, by the answers apps sent back, against {Math.round(m.accuracy * 100)} when it was trained. Look at its versions, or teach it again with newer examples.
         </Alert>
       )}
-      <Group gap="xl" mb="sm">
-        <Stack gap={0}>
-          <Text size="xl" fw={700}>{Number(data?.weekAnswers ?? 0n).toLocaleString()}</Text>
-          <Text size="xs" c="dimmed">answers this week</Text>
-        </Stack>
-        <Stack gap={0}>
-          <Text size="xl" fw={700}>{feedback > 0 ? `${Math.round((data?.weekAccuracy ?? 0) * 100)} of 100` : "–"}</Text>
-          <Text size="xs" c="dimmed">{feedback > 0 ? `${number ? "close" : "right"}, of ${feedback.toLocaleString()} checked` : "right, once apps send answers back"}</Text>
-        </Stack>
-        {m.accuracy > 0 && (
-          <Stack gap={0}>
-            <Text size="xl" fw={700}>{Math.round(m.accuracy * 100)} of 100</Text>
-            <Text size="xs" c="dimmed">when trained</Text>
-          </Stack>
-        )}
-      </Group>
       <div className="flex h-16 items-end gap-[2px]" role="img" aria-label="Answers each day for the last 30 days">
         {span.map((t) => {
           const d = days.get(t);

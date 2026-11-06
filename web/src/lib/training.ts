@@ -12,10 +12,20 @@ export const statusWord: Record<JobStatus, string> = {
 export const statusColor: Record<JobStatus, string> = {
   [JobStatus.UNSPECIFIED]: "gray",
   [JobStatus.QUEUED]: "gray",
-  [JobStatus.RUNNING]: "blue",
+  [JobStatus.RUNNING]: "violet",
   [JobStatus.SUCCEEDED]: "teal",
   [JobStatus.FAILED]: "red",
   [JobStatus.CANCELLED]: "yellow",
+};
+
+// The same statuses as tones, for status pills.
+export const jobTone: Record<JobStatus, "ok" | "warn" | "bad" | "busy" | "idle"> = {
+  [JobStatus.UNSPECIFIED]: "idle",
+  [JobStatus.QUEUED]: "idle",
+  [JobStatus.RUNNING]: "busy",
+  [JobStatus.SUCCEEDED]: "ok",
+  [JobStatus.FAILED]: "bad",
+  [JobStatus.CANCELLED]: "warn",
 };
 
 export function active(j: Job) {

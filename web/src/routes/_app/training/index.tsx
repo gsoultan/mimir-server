@@ -1,5 +1,5 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Badge, Button, Card, Checkbox, Group, Progress, Stack, Text } from "@mantine/core";
+import { Badge, Button, Card, Checkbox, Group, Progress, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconArrowsDiff, IconSchool } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
@@ -12,7 +12,8 @@ import { AnchorLink, ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { maxCompare } from "../../../lib/compare";
 import { ago } from "../../../lib/format";
-import { active, progress, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
+import { active, jobTone, progress, repeatWord, score, statusWord } from "../../../lib/training";
+import { RowList, StatusPill } from "../../../components/ui";
 
 export const Route = createFileRoute("/_app/training/")({
   loader: ({ context }) => Promise.all([
@@ -58,25 +59,25 @@ function Training() {
           <Group justify="center"><ButtonLink to="/models/teach">Teach a new model</ButtonLink></Group>
         </Card>
       ) : (
-        <Stack gap="sm">
+        <RowList>
           {data.jobs.map((j) => (
-            <Card key={j.id} withBorder radius="lg" padding="md">
-              <Group justify="space-between" wrap="nowrap" align="flex-start">
+            <div key={j.id} className="px-4 py-4 sm:px-5">
+              <Group justify="space-between" wrap="wrap" align="flex-start" gap="sm">
                 {data.jobs.length > 1 && (
                   <Checkbox mt={3} aria-label={`Compare ${j.name}`} checked={shown.includes(j.id)} disabled={!shown.includes(j.id) && shown.length >= maxCompare}
                     onChange={(e) => pick(j.id, e.currentTarget.checked)} />
                 )}
-                <div className="min-w-0 flex-1">
-                  <Group gap="xs" wrap="nowrap">
+                <div className="min-w-0 flex-1 basis-[240px]">
+                  <Group gap="xs" wrap="wrap">
                     <AnchorLink fw={700} truncate to="/training/$id" params={{ id: j.id }} c="inherit">{j.name}</AnchorLink>
-                    <Badge color={statusColor[j.status]} variant="light">{statusWord[j.status]}</Badge>
+                    <StatusPill tone={jobTone[j.status]}>{statusWord[j.status]}</StatusPill>
                     {j.repeatSeconds > 0n && <Badge color="grape" variant="light">Keeps learning {repeatWord(j.repeatSeconds)}</Badge>}
                   </Group>
                   <Text size="sm" c="dimmed">
                     From {j.datasetName || "deleted examples"} · {j.settings?.epochs} passes · started {ago(j.createTime)}
                     {j.status === JobStatus.SUCCEEDED && ` · ${score(j.accuracy, numbers.has(j.architecture))}`}
                   </Text>
-                  {active(j) && <Progress value={progress(j)} mt="xs" size="sm" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label="Progress" />}
+                  {active(j) && <Progress value={progress(j)} color="violet" mt="xs" size="sm" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label="Progress" />}
                   {j.status === JobStatus.FAILED && <Text size="sm" c="red" mt={4}>{j.error}</Text>}
                   {j.note && <Text size="sm" mt={4}>{j.note}</Text>}
                 </div>
@@ -87,9 +88,9 @@ function Training() {
                   {!active(j) && <Button size="xs" variant="subtle" color="red" onClick={() => remove.mutate({ id: j.id })}>Delete</Button>}
                 </Group>
               </Group>
-            </Card>
+            </div>
           ))}
-        </Stack>
+        </RowList>
       )}
     </Page>
   );
