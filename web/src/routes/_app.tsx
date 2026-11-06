@@ -1,16 +1,19 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, AppShell, Avatar, Burger, Button, Group, Menu, NavLink, Stack, Text, UnstyledButton } from "@mantine/core";
-import { useDisclosure, useMediaQuery } from "@mantine/hooks";
-import { IconAlertCircle, IconChevronDown, IconDots, IconKey, IconLogout, IconShieldLock, IconWifiOff } from "@tabler/icons-react";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { Alert, AppShell, Avatar, Button, Drawer, Group, Menu, NavLink, ScrollArea, Stack, Text, UnstyledButton, useMantineColorScheme } from "@mantine/core";
+import { useDisclosure, useHotkeys, useMediaQuery } from "@mantine/hooks";
+import { Spotlight, spotlight, type SpotlightActionData } from "@mantine/spotlight";
+import { IconAlertCircle, IconBox, IconDeviceDesktop, IconKey, IconLogout, IconMenu2, IconMoon, IconPlus, IconSearch, IconSelector, IconShieldLock, IconSun, IconWifiOff } from "@tabler/icons-react";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useMemo } from "react";
 
 import { message } from "../api/client";
 import { AuthService } from "../api/gen/mimir/v1/access_pb";
-import { setupState, whoAmI } from "../api/queries";
-import { nav } from "../components/nav";
+import { listModels, setupState, whoAmI } from "../api/queries";
+import { deviceItem, groups, isActive, type NavItem } from "../components/nav";
 import { ChangePasswordModal } from "../components/ChangePasswordModal";
+import { roleLabel } from "../lib/roles";
 
 // Every screen under _app needs a signed-in person. The guard runs before
 // any page loads, so an expired session lands on sign-in, not an error.
@@ -72,103 +75,201 @@ function ErrorPage({ error, reset }: { error: unknown; reset: () => void }) {
   );
 }
 
-function active(path: string, to: string) {
-  return to === "/" ? path === "/" : path === to || path.startsWith(to + "/");
-}
 
 function Layout() {
-  const [opened, { toggle, close }] = useDisclosure();
+  const [menuOpen, menu] = useDisclosure();
   const [changing, change] = useDisclosure();
-  const phone = useMediaQuery("(max-width: 48em)") ?? false;
+  const phone = useMediaQuery("(max-width: 48em)", false, { getInitialValueInEffect: false });
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
   const { data: me } = useSuspenseQuery(whoAmI);
+  const { data: models } = useQuery(listModels);
   const { queryClient } = Route.useRouteContext();
   const can = (p: string) => me.permissions.includes(p);
-  const items = nav.filter((n) => !n.needs || can(n.needs));
+  const shown = groups.map((g) => ({ ...g, items: g.items.filter((n) => !n.needs || can(n.needs)) })).filter((g) => g.items.length > 0);
+  const canBuild = can("models.write");
   const signOut = useMutation(AuthService.method.signOut, {
     onSuccess: () => { queryClient.clear(); location.assign("/sign-in"); },
   });
+  useHotkeys([["mod+K", () => spotlight.open()]]);
+
+  // Search finds pages and models, and offers the common next steps.
+  const actions = useMemo<SpotlightActionData[]>(() => [
+    ...shown.flatMap((g) => g.items).concat(deviceItem).map((n) => ({
+      id: "page:" + n.to, label: n.label, group: "Pages", leftSection: <n.icon size={18} stroke={1.8} />,
+      onClick: () => void navigate({ to: n.to }),
+    })),
+    ...(models?.models ?? []).flatMap((m) => [
+      { id: "model:" + m.id, label: m.name, description: m.description || "Model", group: "Models", leftSection: <IconBox size={18} stroke={1.8} />, onClick: () => void navigate({ to: "/models/$id", params: { id: m.id } }) },
+      { id: "try:" + m.id, label: `Try ${m.name}`, group: "Actions", keywords: [m.name], leftSection: <IconSearch size={18} stroke={1.8} />, onClick: () => void navigate({ to: "/try", search: { model: m.id } }) },
+    ]),
+  ], [shown, models, navigate]);
+
+  const account = (
+    <AccountMenu
+      name={me.user?.name ?? ""} email={me.user?.email ?? ""} team={me.user?.teamName ?? ""} role={me.user?.access ? roleLabel(me.user.access.role) : ""}
+      onPassword={change.open} onSignOut={() => signOut.mutate({})}
+    />
+  );
+
+  const links = (onPick?: () => void) => shown.map((g, gi) => (
+    <div key={gi}>
+      {g.label && <div className="side-group">{g.label}</div>}
+      <Stack gap={2}>
+        {g.items.map((n) => <SideLink key={n.to} item={n} active={isActive(path, n)} onClick={onPick} />)}
+      </Stack>
+    </div>
+  ));
+
+  // The phone bar holds the four things people do most and More.
+  const first = groups[0]!.items;
+  const bar: (NavItem | "build")[] = [first[0]!, first[1]!, ...(canBuild ? ["build" as const] : []), first[2]!];
 
   return (
     <AppShell
-      header={{ height: 60, collapsed: false }}
-      navbar={{ width: 248, breakpoint: "sm", collapsed: { mobile: !opened } }}
-      footer={{ height: 68, collapsed: !phone }}
+      header={{ height: 56, collapsed: !phone }}
+      navbar={{ width: 248, breakpoint: "sm", collapsed: { mobile: true } }}
+      footer={{ height: 72, collapsed: !phone }}
       padding={{ base: "md", sm: "xl" }}
+      styles={{ header: { background: "var(--mantine-color-body)" }, navbar: { background: "var(--mantine-color-body)" } }}
+      classNames={{ header: "app-header", footer: "app-footer" }}
     >
-      <AppShell.Header px="md">
+      {/* Phones only: the brand, search and the account. */}
+      <AppShell.Header px="md" hiddenFrom="sm">
         <Group h="100%" justify="space-between">
-          <Group gap="sm">
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" aria-label="Open menu" />
-            <Link to="/" className="flex items-center gap-2 no-underline" style={{ color: "inherit" }}>
-              <img src="/icon.svg" alt="" width={28} height={28} />
-              <Text fw={700} ff="var(--font-display)" fz={22}>mimir</Text>
-            </Link>
+          <Link to="/" className="flex items-center gap-2 no-underline" style={{ color: "inherit" }} aria-label="mimir home">
+            <img src="/icon.svg" alt="" width={28} height={28} />
+            <Text fw={750} ff="var(--font-display)" fz={20}>mimir</Text>
+          </Link>
+          <Group gap="xs">
+            <UnstyledButton onClick={() => spotlight.open()} aria-label="Search" p={6} c="dimmed"><IconSearch size={22} stroke={1.8} /></UnstyledButton>
+            <Menu position="bottom-end" width={240}>
+              <Menu.Target>
+                <UnstyledButton aria-label="Account menu"><Avatar size={32} radius="xl" color="teal">{initial(me.user?.name)}</Avatar></UnstyledButton>
+              </Menu.Target>
+              <AccountItems email={me.user?.email ?? ""} team={me.user?.teamName ?? ""} onPassword={change.open} onSignOut={() => signOut.mutate({})} />
+            </Menu>
           </Group>
-          <Menu position="bottom-end" width={220}>
-            <Menu.Target>
-              <UnstyledButton className="flex items-center gap-2 rounded-md px-2 py-1" aria-label="Account menu">
-                <Avatar size={30} radius="xl" color="teal">{me.user?.name.slice(0, 1).toUpperCase()}</Avatar>
-                <Text size="sm" fw={600} visibleFrom="sm">{me.user?.name}</Text>
-                <IconChevronDown size={16} />
-              </UnstyledButton>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Label>{me.user?.email}</Menu.Label>
-              {me.user?.teamName && <Menu.Label>Team: {me.user.teamName}</Menu.Label>}
-              <Menu.Item leftSection={<IconKey size={16} />} onClick={change.open}>Change password</Menu.Item>
-              <Menu.Item component={Link} to="/security" leftSection={<IconShieldLock size={16} />}>Security</Menu.Item>
-              <Menu.Item leftSection={<IconLogout size={16} />} onClick={() => signOut.mutate({})}>Sign out</Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
         </Group>
       </AppShell.Header>
 
       <AppShell.Navbar p="sm" aria-label="Main menu">
-        {items.map((n) => (
-          <NavLink
-            key={n.to}
-            component={Link}
-            to={n.to}
-            label={n.label}
-            leftSection={<n.icon size={20} stroke={1.8} />}
-            active={active(path, n.to)}
-            onClick={close}
-            variant="light"
-            className="rounded-md"
-            py={10}
-          />
-        ))}
+        <AppShell.Section>
+          <Link to="/" className="flex items-center gap-2 px-2 pb-4 pt-1 no-underline" style={{ color: "inherit" }} aria-label="mimir home">
+            <img src="/icon.svg" alt="" width={28} height={28} />
+            <Text fw={750} ff="var(--font-display)" fz={21}>mimir</Text>
+          </Link>
+          <button type="button" className="side-search" onClick={() => spotlight.open()}>
+            <IconSearch size={16} /> Search or jump to… <kbd>{isMac() ? "⌘" : "Ctrl"} K</kbd>
+          </button>
+        </AppShell.Section>
+        <AppShell.Section grow component={ScrollArea} mt="sm">{links()}</AppShell.Section>
+        <AppShell.Section pt="sm" style={{ borderTop: "1px solid var(--mimir-line)" }}>{account}</AppShell.Section>
       </AppShell.Navbar>
 
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
 
-      {/* Phones get a bottom bar with the three things people do most. */}
-      <AppShell.Footer aria-label="Quick menu">
-        <nav className="grid h-full grid-cols-4">
-          {items.slice(0, 3).map((n) => (
-            <UnstyledButton
-              key={n.to}
-              component={Link}
-              to={n.to}
-              aria-current={active(path, n.to) ? "page" : undefined}
-              className="flex flex-col items-center justify-center gap-0.5 text-xs"
-              c={active(path, n.to) ? "teal.8" : "dimmed"}
-              fw={active(path, n.to) ? 700 : 500}
-            >
-              <n.icon size={22} stroke={1.8} />
-              {n.short}
+      <AppShell.Footer aria-label="Quick menu" hiddenFrom="sm" className="tab-bar">
+        <nav className="grid h-full" style={{ gridTemplateColumns: `repeat(${bar.length + 1}, 1fr)` }}>
+          {bar.map((n) => n === "build" ? (
+            <UnstyledButton key="build" component={Link} to="/models/build" aria-current={path.startsWith("/models/build") || path.startsWith("/templates") ? "page" : undefined}
+              className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold">
+              <span className="plus"><IconPlus size={20} /></span>Build
+            </UnstyledButton>
+          ) : (
+            <UnstyledButton key={n.to} component={Link} to={n.to} aria-current={isActive(path, n) ? "page" : undefined}
+              className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold">
+              <n.icon size={23} stroke={1.8} />{n.short}
             </UnstyledButton>
           ))}
-          <UnstyledButton onClick={toggle} className="flex flex-col items-center justify-center gap-0.5 text-xs" c="dimmed">
-            <IconDots size={22} stroke={1.8} />
-            More
+          <UnstyledButton onClick={menu.toggle} className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold"
+            aria-current={!bar.some((n) => n !== "build" && isActive(path, n)) && !path.startsWith("/models/build") ? "page" : undefined}>
+            <IconMenu2 size={23} stroke={1.8} />More
           </UnstyledButton>
         </nav>
       </AppShell.Footer>
+
+      <Drawer opened={menuOpen} onClose={menu.close} position="bottom" size="auto" radius="lg" title="Menu" hiddenFrom="sm"
+        styles={{ content: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }, body: { paddingBottom: 24 } }}>
+        {links(menu.close)}
+        <div className="side-group">You</div>
+        <SideLink item={deviceItem} active={isActive(path, deviceItem)} onClick={menu.close} />
+      </Drawer>
+
+      <Spotlight
+        actions={actions}
+        nothingFound="Nothing matches"
+        highlightQuery
+        limit={12}
+        scrollable
+        maxHeight={420}
+        searchProps={{ leftSection: <IconSearch size={18} />, placeholder: "Search pages and models" }}
+        shortcut={null}
+      />
       <ChangePasswordModal opened={changing} onClose={change.close} />
     </AppShell>
+  );
+}
+
+function SideLink({ item: n, active, onClick }: { item: NavItem; active: boolean; onClick?: () => void }) {
+  return (
+    <NavLink component={Link} to={n.to} label={n.label} leftSection={<n.icon size={20} stroke={1.8} />}
+      active={active} onClick={onClick} className="side-link" py={8} variant="subtle" color="gray" />
+  );
+}
+
+function initial(name?: string) {
+  return (name ?? "?").slice(0, 1).toUpperCase();
+}
+
+function isMac() {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+}
+
+// The account at the bottom of the sidebar: who you are and your own settings.
+function AccountMenu({ name, email, team, role, onPassword, onSignOut }: { name: string; email: string; team: string; role: string; onPassword: () => void; onSignOut: () => void }) {
+  const who = [role, team].filter(Boolean).join(" · ");
+  return (
+    <Menu position="top-start" width={240}>
+      <Menu.Target>
+        <UnstyledButton className="flex w-full items-center gap-3 rounded-md p-2 hover:bg-[var(--mantine-color-default-hover)]" aria-label="Account menu">
+          <Avatar size={32} radius="xl" color="teal">{initial(name)}</Avatar>
+          <div className="min-w-0 flex-1">
+            <Text size="sm" fw={650} truncate>{name}</Text>
+            {who && <Text size="xs" c="dimmed" truncate>{who}</Text>}
+          </div>
+          <IconSelector size={16} color="var(--mimir-faint)" />
+        </UnstyledButton>
+      </Menu.Target>
+      <AccountItems email={email} team={team} onPassword={onPassword} onSignOut={onSignOut} />
+    </Menu>
+  );
+}
+
+function AccountItems({ email, team, onPassword, onSignOut }: { email: string; team: string; onPassword: () => void; onSignOut: () => void }) {
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const look = [
+    { value: "light" as const, label: "Light", icon: IconSun },
+    { value: "dark" as const, label: "Dark", icon: IconMoon },
+    { value: "auto" as const, label: "Match device", icon: IconDeviceDesktop },
+  ];
+  return (
+    <Menu.Dropdown>
+      <Menu.Label>{email}</Menu.Label>
+      {team && <Menu.Label>Team: {team}</Menu.Label>}
+      <Menu.Item component={Link} to="/device" leftSection={<deviceItem.icon size={16} />}>On this device</Menu.Item>
+      <Menu.Item component={Link} to="/security" leftSection={<IconShieldLock size={16} />}>Security</Menu.Item>
+      <Menu.Item leftSection={<IconKey size={16} />} onClick={onPassword}>Change password</Menu.Item>
+      <Menu.Divider />
+      <Menu.Label>Look</Menu.Label>
+      {look.map((l) => (
+        <Menu.Item key={l.value} leftSection={<l.icon size={16} />} onClick={() => setColorScheme(l.value)}
+          rightSection={colorScheme === l.value ? <Text size="xs" c="teal" fw={700}>On</Text> : null}>{l.label}</Menu.Item>
+      ))}
+      <Menu.Divider />
+      <Menu.Item leftSection={<IconLogout size={16} />} onClick={onSignOut}>Sign out</Menu.Item>
+    </Menu.Dropdown>
   );
 }

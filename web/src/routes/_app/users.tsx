@@ -46,7 +46,7 @@ function Users() {
 
   return (
     <Page
-      title="Users"
+      title="People"
       intro={manyTeams ? "Who can sign in, which team they're in, and which models each person can reach." : `Who in ${me.user?.teamName ?? "your team"} can sign in, and which models each person can reach.`}
       actions={<Button leftSection={<IconUserPlus size={18} />} onClick={add.open}>Add a person</Button>}
     >
