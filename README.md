@@ -544,6 +544,21 @@ or an API key that may add models, and the rest is in the API
 for `scoring.finished` and `scoring.failed`. Rows scored this way don't
 count toward the prediction limits under Settings.
 
+### Plan visit routes
+
+`PlanVisits` (`VisitService` in `proto/mimir/v1/visit.proto`) turns a
+list of customers to visit into each salesperson's days: who they see on
+which day, in what order, and when they arrive. Give each stop its place,
+how long the visit takes, when it is open, and a priority, such as the
+chance from **Chance they order within N days** or **Who to visit next**
+scored as a list. Give each salesperson where their day starts and ends
+and their hours. The plan fits must-visit stops and then the most
+valuable ones, earliest days first, with the least driving, keeps every
+opening time and day end, and lists the stops that didn't fit. Distances
+are straight lines times a road factor (1.3 unless set) at an average
+speed (30 km/h unless set). It plans up to 2,000 stops over up to 31
+days, and needs the permission to ask models.
+
 ### Ask your documents
 
 **Ask your documents** answers questions from a team's own files: handbooks,
