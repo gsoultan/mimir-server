@@ -231,7 +231,7 @@ type Template struct {
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// category is a TemplateCategory id.
 	Category string `protobuf:"bytes,2,opt,name=category,proto3" json:"category,omitempty"`
-	// kind is what is answered: "yes_no", "group" or "number".
+	// kind is what is answered: "yes_no", "group", "number", or "ranked" for a list, best first.
 	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
 	// data is what the examples look like: "table", "text", "photos" or
 	// "photo_table".

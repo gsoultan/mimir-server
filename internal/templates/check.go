@@ -154,7 +154,9 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 	for _, k := range counts[:min(20, len(counts))] {
 		c.Answers = append(c.Answers, &mimirv1.AnswerCount{Value: k.v, Count: int64(k.n)})
 	}
-	if t == nil || t.Kind != Number {
+	// A ranked answer is a list of many items or actions, each rarer than
+	// a class would be, so only a class answer is checked for balance.
+	if t == nil || t.Kind != Number && t.Kind != Ranked {
 		if tab.Classes != nil {
 			low := counts[len(counts)-1]
 			switch {

@@ -444,10 +444,15 @@ usually is.
 
 ### Templates
 
-**Templates** lists 46 business problems across manufacturing, quality
+**Templates** lists 51 business problems across manufacturing, quality
 control, sales, shops, finance, people, logistics and support: "which
 customers won't renew", "is this weld OK", "how much energy will the
-next shift use". Each says exactly what data to bring, with a
+next shift use". Some answer with a ranked list instead of one answer:
+which products to offer each customer (the **Recommend** model type)
+and the best next step for a lead (**Pick the best action**). Sales
+teams also get **Who to visit next**, the chance that each customer or
+lead orders within the next 1 to 30 days, which ranks the accounts to
+visit when scored as a list. Each says exactly what data to bring, with a
 downloadable made-up example (a CSV, a ZIP of photo folders, or a ZIP
 with `data.csv` and photos) and a starting SQL query. **Use this
 template** opens the wizard with the template filled in; **Try it with

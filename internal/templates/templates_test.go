@@ -14,7 +14,7 @@ import (
 
 func TestCatalog(t *testing.T) {
 	cats, tpls := All()
-	if len(tpls) != 46 || len(cats) != 8 {
+	if len(tpls) != 51 || len(cats) != 8 {
 		t.Fatalf("%d templates in %d categories", len(tpls), len(cats))
 	}
 	seen := map[string]bool{}
@@ -146,12 +146,23 @@ func TestTeach(t *testing.T) {
 		id    string
 		epoch int
 		want  float64
+		// mae, when set, is the most typical error allowed, for a model
+		// whose accuracy isn't measured.
+		mae float64
 	}{
-		{"account-churn", 6, 0.85},
-		{"review-mood", 4, 0.8},
-		{"energy-use", 12, 0.5},
-		{"surface-defect", 4, 0.8},
-		{"warranty-claim", 4, 0.8},
+		{id: "account-churn", epoch: 6, want: 0.85},
+		{id: "review-mood", epoch: 4, want: 0.8},
+		{id: "energy-use", epoch: 12, want: 0.5},
+		{id: "surface-defect", epoch: 4, want: 0.8},
+		{id: "warranty-claim", epoch: 4, want: 0.8},
+		{id: "visit-plan", epoch: 6, want: 0.8},
+		// Guessing the average for every order is off by about 12 days.
+		{id: "reorder-days", epoch: 12, mae: 8},
+		// The share of held-out next orders among its top 10.
+		{id: "product-recommend", epoch: 1, want: 0.5},
+		// Guessing the usual success rate for every step is off by about
+		// 0.46.
+		{id: "lead-next-step", epoch: 1, mae: 0.42},
 	} {
 		t.Run(c.id, func(t *testing.T) {
 			tp, ok := Get(c.id)
@@ -172,6 +183,9 @@ func TestTeach(t *testing.T) {
 			t.Logf("%s: accuracy %.3f, typical error %.3f", a.Name, last.Accuracy, last.MAE)
 			if last.Accuracy < c.want {
 				t.Errorf("accuracy %.3f, want at least %.2f", last.Accuracy, c.want)
+			}
+			if c.mae > 0 && last.MAE > c.mae {
+				t.Errorf("typical error %.3f, want at most %.2f", last.MAE, c.mae)
 			}
 		})
 	}

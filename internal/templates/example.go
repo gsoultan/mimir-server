@@ -43,7 +43,15 @@ func Example(t Template) (name, contentType string, data []byte, err error) {
 		return t.ID + "-example.zip", "application/zip", data, err
 	}
 	var buf bytes.Buffer
-	if err := g.table(&buf, ExampleRows, nil); err != nil {
+	switch t.Arch {
+	case recommendArch:
+		err = g.picks(&buf, ExampleRows)
+	case bestActionArch:
+		err = g.actions(&buf, ExampleRows)
+	default:
+		err = g.table(&buf, ExampleRows, nil)
+	}
+	if err != nil {
 		return "", "", nil, err
 	}
 	name = t.Table
@@ -52,6 +60,13 @@ func Example(t Template) (name, contentType string, data []byte, err error) {
 	}
 	return name + "-example.csv", "text/csv", buf.Bytes(), nil
 }
+
+// The model types of Ranked templates whose examples are made their own
+// way.
+const (
+	recommendArch  = "recommend"
+	bestActionArch = "best-action"
+)
 
 type gen struct {
 	t Template
@@ -88,11 +103,7 @@ func (g *gen) answers() []string {
 // row i and is told its answer index.
 func (g *gen) table(w *bytes.Buffer, rows int, photo func(i, answer int) string) error {
 	cw := csv.NewWriter(w)
-	header := make([]string, len(g.t.Columns))
-	for i, c := range g.t.Columns {
-		header[i] = c.Name
-	}
-	cw.Write(header)
+	g.header(cw)
 	inputs := g.t.Inputs()
 	answers := g.answers()
 	// Each input column gets a hidden score per row; the answer is a
@@ -144,7 +155,7 @@ func (g *gen) table(w *bytes.Buffer, rows int, photo func(i, answer int) string)
 			}
 			value = answers[at]
 		}
-		rec := make([]string, 0, len(header))
+		rec := make([]string, 0, len(g.t.Columns))
 		for j, in := range inputs {
 			rec = append(rec, g.cell(in, z[j], value, i, at, photo))
 		}
@@ -152,6 +163,126 @@ func (g *gen) table(w *bytes.Buffer, rows int, photo func(i, answer int) string)
 	}
 	cw.Flush()
 	return cw.Error()
+}
+
+// header writes the template's column names.
+func (g *gen) header(cw *csv.Writer) {
+	header := make([]string, len(g.t.Columns))
+	for i, c := range g.t.Columns {
+		header[i] = c.Name
+	}
+	cw.Write(header)
+}
+
+// picks writes made-up order lines for a recommend template, whose first
+// column says who picked and whose answer is the item. Customers fall
+// into a few groups of similar taste, and each works through a list of
+// products of their own, mostly their group's favourites in an order of
+// their own, so what a customer buys next can be told from what customers
+// like them bought. A customer who reaches the end of the list orders it
+// again. Some customers order far more often than others, as in real
+// order books.
+func (g *gen) picks(w *bytes.Buffer, rows int) error {
+	const customers, products, tastes, favourites = 200, 60, 6, 12
+	inputs := g.t.Inputs()
+	people := names(inputs[0].Examples, "C-", customers)
+	items := names(g.t.Answer().Examples, "P-", products)
+	fav := make([][]int, tastes)
+	for k := range fav {
+		fav[k] = g.r.Perm(products)[:favourites]
+	}
+	lists := make([][]int, customers)
+	for c := range lists {
+		k := g.r.IntN(tastes)
+		for _, i := range g.r.Perm(favourites) {
+			lists[c] = append(lists[c], fav[k][i])
+			if g.r.Float64() < 0.15 { // now and then, something else
+				lists[c] = append(lists[c], g.r.IntN(products))
+			}
+		}
+	}
+	next := make([]int, customers)
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	for range rows {
+		c := int(float64(customers) * math.Pow(g.r.Float64(), 1.3))
+		p := lists[c][next[c]%len(lists[c])]
+		next[c]++
+		rec := []string{people[c]}
+		for _, in := range inputs[1:] {
+			// Inside the examples' range, so an amount is never zero.
+			rec = append(rec, g.cell(in, 2*g.r.Float64()-1, items[p], 0, 0, nil))
+		}
+		cw.Write(append(rec, items[p]))
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// actions writes a made-up log for a best-action template, whose answer
+// is the action taken and whose last input says how it turned out. Each
+// row is a situation and an action picked at random, as when people try
+// different steps; whether it worked depends on how well the action
+// suits the situation, so the best one differs from row to row.
+func (g *gen) actions(w *bytes.Buffer, rows int) error {
+	inputs := g.t.Inputs()
+	situation, reward := inputs[:len(inputs)-1], inputs[len(inputs)-1]
+	acts := g.answers()
+	weights := make([][]float64, len(acts))
+	bias := make([]float64, len(acts))
+	for a := range weights {
+		bias[a] = 0.6 * g.r.NormFloat64()
+		weights[a] = make([]float64, len(situation))
+		for j := range situation {
+			weights[a][j] = (0.5 + g.r.Float64()) * float64(1-2*g.r.IntN(2))
+		}
+	}
+	lo, hi, whole, positive := numberRange(reward.Examples)
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	for i := range rows {
+		a := g.r.IntN(len(acts))
+		s := bias[a]
+		rec := make([]string, 0, len(g.t.Columns))
+		for j, in := range situation {
+			z := g.r.NormFloat64()
+			if in.Kind != schema.Text && in.Kind != schema.Photo {
+				s += 1.5 * weights[a][j] * z / math.Sqrt(float64(max(1, len(situation))))
+			}
+			rec = append(rec, g.cell(in, z, acts[a], i, a, nil))
+		}
+		chance := 1 / (1 + math.Exp(0.8-s))
+		var out string
+		switch {
+		case reward.Kind == schema.Number:
+			out = formatNumber(lo+chance*(hi-lo), whole, positive)
+		case g.r.Float64() < chance:
+			out = "yes"
+		default:
+			out = "no"
+		}
+		cw.Write(append(rec, out, acts[a]))
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// names makes n names like the examples: their letters before the
+// number, such as C- of C-1042, then 1001, 1002 and on. fallback is the
+// letters when no example has any.
+func names(examples []string, fallback string, n int) []string {
+	prefix := fallback
+	for _, e := range examples {
+		if p := strings.TrimRight(e, "0123456789"); p != "" && p != e {
+			prefix = p
+			break
+		}
+	}
+	out := make([]string, n)
+	for i := range out {
+		out[i] = prefix + strconv.Itoa(1001+i)
+	}
+	return out
 }
 
 // cell makes one input cell from its hidden score z.
