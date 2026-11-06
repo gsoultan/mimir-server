@@ -1832,6 +1832,106 @@
    ]
   },
   {
+   "id": "nearby-products",
+   "category": "b2b",
+   "kind": "ranked",
+   "data": "table",
+   "architecture": "recommend-nearby",
+   "name": "Products nearby customers like them buy",
+   "question": "Which products should a salesperson offer a customer or lead, from what businesses of the same kind within N km already buy?",
+   "predicts": "The 10 products that customers of the same category within the distance you ask buy most, best first, leaving out what this customer already buys.",
+   "row_means": "One order line: a customer, its category and place, and a product it bought.",
+   "source": "Order lines from your ERP joined with customer addresses and categories from your CRM",
+   "source_short": "orders and CRM",
+   "rows_min": 500,
+   "rows_good": 10000,
+   "rows_great": 200000,
+   "balance": "Have at least 20 customers in each category; a category with fewer gets the products all customers buy.",
+   "table": "order_lines",
+   "tips": [
+    "Ask with a customer_id and a radius_km, such as 5 for a city district or 50 for a region. Leave radius_km out and it uses a distance that reaches about 10 customers of the same kind.",
+    "For a lead, leave customer_id out and give its customer_category, latitude and longitude.",
+    "Latitude and longitude are in degrees, as maps show them. Geocode addresses once and keep them in your CRM.",
+    "Use Score a list with a salesperson's route for the day to get suggestions for every stop at once."
+   ],
+   "columns": [
+    {
+     "name": "customer_id",
+     "kind": "category",
+     "meaning": "Who bought: the customer's number in your system.",
+     "examples": [
+      "C-1042",
+      "C-2318",
+      "C-3307"
+     ]
+    },
+    {
+     "name": "customer_category",
+     "kind": "category",
+     "meaning": "What kind of business the customer is.",
+     "examples": [
+      "bakery",
+      "restaurant",
+      "hotel",
+      "cafe"
+     ]
+    },
+    {
+     "name": "latitude",
+     "kind": "number",
+     "meaning": "Where the customer is: latitude in degrees.",
+     "examples": [
+      "-6.2000",
+      "-7.2575",
+      "-6.9175"
+     ]
+    },
+    {
+     "name": "longitude",
+     "kind": "number",
+     "meaning": "Where the customer is: longitude in degrees.",
+     "examples": [
+      "106.8166",
+      "112.7521",
+      "107.6191"
+     ]
+    },
+    {
+     "name": "quantity",
+     "kind": "number",
+     "meaning": "How many they bought on this line.",
+     "examples": [
+      "12",
+      "3",
+      "40"
+     ]
+    },
+    {
+     "name": "product",
+     "kind": "category",
+     "meaning": "The product they bought: its code or name.",
+     "examples": [
+      "wheat flour 25 kg",
+      "instant yeast 500 g",
+      "butter 5 kg",
+      "granulated sugar 50 kg",
+      "cooking oil 18 L",
+      "rice 25 kg",
+      "chicken 10 kg",
+      "coffee beans 1 kg",
+      "fresh milk 1 L",
+      "paper cups 1000",
+      "bottled water 24",
+      "detergent 5 L",
+      "napkins 500",
+      "frying oil 20 L",
+      "chili sauce 5 kg",
+      "soy sauce 5 L"
+     ]
+    }
+   ]
+  },
+  {
    "id": "lead-next-step",
    "category": "b2b",
    "kind": "ranked",

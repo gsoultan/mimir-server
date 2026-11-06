@@ -48,6 +48,8 @@ func Example(t Template) (name, contentType string, data []byte, err error) {
 		err = g.picks(&buf, ExampleRows)
 	case bestActionArch:
 		err = g.actions(&buf, ExampleRows)
+	case nearbyArch:
+		err = g.nearby(&buf, ExampleRows)
 	default:
 		err = g.table(&buf, ExampleRows, nil)
 	}
@@ -66,6 +68,7 @@ func Example(t Template) (name, contentType string, data []byte, err error) {
 const (
 	recommendArch  = "recommend"
 	bestActionArch = "best-action"
+	nearbyArch     = "recommend-nearby"
 )
 
 type gen struct {
@@ -262,6 +265,86 @@ func (g *gen) actions(w *bytes.Buffer, rows int) error {
 			out = "no"
 		}
 		cw.Write(append(rec, out, acts[a]))
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// nearby writes made-up order lines for a recommend-nearby template,
+// whose inputs are the customer, its category, latitude and longitude,
+// then any amounts, and whose answer is the product. Customers sit around
+// the example places, a few kilometres from the centre, and buy mostly
+// what their category buys plus a few products local to their place, so
+// what customers of the same kind nearby buy says what a customer will
+// want. The catalogue is the example products and more, up to 60.
+func (g *gen) nearby(w *bytes.Buffer, rows int) error {
+	inputs := g.t.Inputs()
+	distinct := func(c Column) []string {
+		var out []string
+		for _, e := range c.Examples {
+			if e != "" && !slices.Contains(out, e) {
+				out = append(out, e)
+			}
+		}
+		return out
+	}
+	cats := distinct(inputs[1])
+	if len(cats) == 0 {
+		cats = []string{"retail"}
+	}
+	type place struct{ lat, lon float64 }
+	var places []place
+	for i := range min(len(inputs[2].Examples), len(inputs[3].Examples)) {
+		lat, ok1 := schema.ParseNumber(inputs[2].Examples[i])
+		lon, ok2 := schema.ParseNumber(inputs[3].Examples[i])
+		if ok1 && ok2 && !slices.Contains(places, place{lat, lon}) {
+			places = append(places, place{lat, lon})
+		}
+	}
+	if len(places) == 0 {
+		places = []place{{0, 0}}
+	}
+	// The example products, and more like a real catalogue.
+	products := distinct(g.t.Answer())
+	products = append(products, names(nil, "SKU-", max(0, 60-len(products)))...)
+	// Each category has a core of products; each place adds its own.
+	core := make([][]int, len(cats))
+	for k := range core {
+		core[k] = g.r.Perm(len(products))[:min(5, len(products))]
+	}
+	local := make([][][]int, len(places))
+	for c := range local {
+		local[c] = make([][]int, len(cats))
+		for k := range local[c] {
+			local[c][k] = g.r.Perm(len(products))[:min(3, len(products))]
+		}
+	}
+	customers := max(rows/5, 10)
+	people := names(inputs[0].Examples, "C-", customers)
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	for u := range customers {
+		c, k := g.r.IntN(len(places)), g.r.IntN(len(cats))
+		// About 10 km around the centre.
+		lat := places[c].lat + 0.06*g.r.NormFloat64()
+		lon := places[c].lon + 0.06*g.r.NormFloat64()
+		likes := append(slices.Clone(core[k]), local[c][k]...)
+		picked := map[int]bool{}
+		for range 3 + g.r.IntN(5) {
+			p := likes[g.r.IntN(len(likes))]
+			if g.r.Float64() < 0.1 {
+				p = g.r.IntN(len(products))
+			}
+			if picked[p] {
+				continue
+			}
+			picked[p] = true
+			rec := []string{people[u], cats[k], strconv.FormatFloat(lat, 'f', 5, 64), strconv.FormatFloat(lon, 'f', 5, 64)}
+			for _, in := range inputs[4:] {
+				rec = append(rec, g.cell(in, 2*g.r.Float64()-1, products[p], 0, 0, nil))
+			}
+			cw.Write(append(rec, products[p]))
+		}
 	}
 	cw.Flush()
 	return cw.Error()

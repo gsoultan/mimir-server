@@ -406,6 +406,12 @@ var learned = []Architecture{
 		Input:       Table, AnyText: true, Output: Ranked, Items: recommendTop, Target: ItemTarget, Learner: recommender,
 	},
 	{
+		Name:        "recommend-nearby",
+		Title:       "Recommend from nearby customers",
+		Description: "Learns which products customers buy, where they are and what kind of business they are, and lists what customers of the same kind within a distance buy that this one doesn't yet. Ask with a customer, or a place and a category for a lead, and how many kilometres to look.",
+		Input:       Table, AnyText: true, Output: Ranked, Items: recommendTop, Target: ItemTarget, Learner: nearbyRecommender,
+	},
+	{
 		Name:        "best-action",
 		Title:       "Pick the best action",
 		Description: "Learns from a log of what was done in each situation and how it turned out, such as which offer each customer saw and whether they bought, and says which action should turn out best in a new situation, with the result each would likely bring.",

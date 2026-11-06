@@ -254,3 +254,76 @@ func mustArch(t *testing.T, name string) arch.Architecture {
 	}
 	return a
 }
+
+func TestRecommendNearby(t *testing.T) {
+	// Bakeries in two cities 660 km apart buy different flours; cafés
+	// buy coffee wherever they are.
+	cities := [][2]float64{{-6.2, 106.8}, {-7.25, 112.75}}
+	kinds := map[string][][]string{
+		"bakery": {{"flour-a", "yeast-a", "butter-a", "sugar-a", "salt-a"}, {"flour-b", "yeast-b", "butter-b", "sugar-b", "salt-b"}},
+		"cafe":   {{"beans", "milk", "cups", "syrup", "lids"}, {"beans", "milk", "cups", "syrup", "lids"}},
+	}
+	var csv strings.Builder
+	csv.WriteString("customer_id,customer_category,latitude,longitude,quantity,product\n")
+	r := rand.New(rand.NewPCG(3, 4))
+	for u := range 240 {
+		city, kind := u%2, []string{"bakery", "cafe"}[u/2%2]
+		lat, lon := cities[city][0]+0.1*r.NormFloat64(), cities[city][1]+0.1*r.NormFloat64()
+		items := kinds[kind][city]
+		for _, k := range r.Perm(len(items))[:3] {
+			fmt.Fprintf(&csv, "c-%d,%s,%.5f,%.5f,%d,%s\n", u, kind, lat, lon, 1+r.IntN(20), items[k])
+		}
+	}
+	res, ask := fitCells(t, "recommend-nearby", "product", csv.String())
+	names := make([]string, len(res.Columns))
+	for i, c := range res.Columns {
+		names[i] = c.Name
+	}
+	if !slices.Equal(names, []string{"customer_id", "customer_category", "latitude", "longitude", arch.RadiusColumn}) {
+		t.Fatalf("columns %v", names)
+	}
+	if acc := res.History[0].Accuracy; acc < 0.9 {
+		t.Errorf("the hidden product is in the top 10 %v of the time", acc)
+	}
+	top := func(scores []float32, n int) []string {
+		idx := make([]int, len(scores))
+		for i := range idx {
+			idx[i] = i
+		}
+		slices.SortStableFunc(idx, func(a, b int) int { return int(math.Copysign(1, float64(scores[b]-scores[a]))) })
+		var out []string
+		for _, i := range idx[:n] {
+			out = append(out, res.Spec.Labels[i])
+		}
+		return out
+	}
+	// c-0 is a bakery in the first city: it is offered the first city's
+	// bakery products it hasn't bought, and never what it already buys.
+	got := top(ask(map[string]string{"customer_id": "c-0", RadiusKm: "50"}), 2)
+	for _, p := range got {
+		if !strings.HasSuffix(p, "-a") {
+			t.Errorf("a bakery in the first city is offered %v", got)
+		}
+	}
+	// A lead: a bakery in the second city, known only by its place.
+	lead := map[string]string{"customer_category": "bakery", "latitude": "-7.3", "longitude": "112.7", RadiusKm: "50"}
+	for _, p := range top(ask(lead), 5) {
+		if !strings.HasSuffix(p, "-b") {
+			t.Errorf("a bakery lead in the second city is offered %s", p)
+		}
+	}
+	// With a radius that takes in both cities, both cities' flours count.
+	lead[RadiusKm] = "2000"
+	if got := top(ask(lead), 10); !slices.Contains(got, "flour-a") || !slices.Contains(got, "flour-b") {
+		t.Errorf("a wide search offers %v", got)
+	}
+	// A café lead gets café products.
+	if got := top(ask(map[string]string{"customer_category": "cafe", "latitude": "-6.2", "longitude": "106.8"}), 5); slices.ContainsFunc(got, func(p string) bool { return strings.Contains(p, "-") }) {
+		t.Errorf("a café is offered %v", got)
+	}
+	if out := ask(map[string]string{"customer_id": "nobody"}); len(out) != len(res.Spec.Labels) || math.IsNaN(float64(out[0])) {
+		t.Errorf("a stranger's scores %v", out)
+	}
+}
+
+const RadiusKm = arch.RadiusColumn
