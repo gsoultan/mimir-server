@@ -832,7 +832,12 @@ type ColumnCheck struct {
 	// answer marks the answer column.
 	Answer bool `protobuf:"varint,9,opt,name=answer,proto3" json:"answer,omitempty"`
 	// optional marks a template column that isn't needed.
-	Optional      bool `protobuf:"varint,10,opt,name=optional,proto3" json:"optional,omitempty"`
+	Optional bool `protobuf:"varint,10,opt,name=optional,proto3" json:"optional,omitempty"`
+	// distinct is how many different values the column holds, up to 1001.
+	Distinct int64 `protobuf:"varint,11,opt,name=distinct,proto3" json:"distinct,omitempty"`
+	// tells_answer marks a column each of whose values goes with exactly one
+	// answer: it gives the answer away.
+	TellsAnswer   bool `protobuf:"varint,12,opt,name=tells_answer,json=tellsAnswer,proto3" json:"tells_answer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -933,6 +938,20 @@ func (x *ColumnCheck) GetAnswer() bool {
 func (x *ColumnCheck) GetOptional() bool {
 	if x != nil {
 		return x.Optional
+	}
+	return false
+}
+
+func (x *ColumnCheck) GetDistinct() int64 {
+	if x != nil {
+		return x.Distinct
+	}
+	return 0
+}
+
+func (x *ColumnCheck) GetTellsAnswer() bool {
+	if x != nil {
+		return x.TellsAnswer
 	}
 	return false
 }
@@ -1184,7 +1203,7 @@ const file_mimir_v1_template_proto_rawDesc = "" +
 	"\brows_min\x18\r \x01(\x03R\arowsMin\x12\x1b\n" +
 	"\trows_good\x18\x0e \x01(\x03R\browsGood\x12\x1d\n" +
 	"\n" +
-	"rows_great\x18\x0f \x01(\x03R\trowsGreat\"\x82\x02\n" +
+	"rows_great\x18\x0f \x01(\x03R\trowsGreat\"\xc1\x02\n" +
 	"\vColumnCheck\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x14\n" +
@@ -1199,7 +1218,9 @@ const file_mimir_v1_template_proto_rawDesc = "" +
 	"\x06status\x18\b \x01(\tR\x06status\x12\x16\n" +
 	"\x06answer\x18\t \x01(\bR\x06answer\x12\x1a\n" +
 	"\boptional\x18\n" +
-	" \x01(\bR\boptional\"U\n" +
+	" \x01(\bR\boptional\x12\x1a\n" +
+	"\bdistinct\x18\v \x01(\x03R\bdistinct\x12!\n" +
+	"\ftells_answer\x18\f \x01(\bR\vtellsAnswer\"U\n" +
 	"\vFolderCheck\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
 	"\x06photos\x18\x02 \x01(\x03R\x06photos\x12\x1a\n" +

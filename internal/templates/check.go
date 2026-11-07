@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"math"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -72,6 +73,7 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 			i := byName[found]
 			col, p := tab.Columns[i], tab.Profile[i]
 			cc.FoundKind, cc.Empty, cc.Unreadable, cc.Words = string(col.Kind), int64(p.Empty), int64(p.Unreadable), p.Words
+			cc.Distinct, cc.TellsAnswer = int64(p.Distinct), p.TellsAnswer
 			switch {
 			case found != name:
 				cc.Status = "renamed"
@@ -163,6 +165,9 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 			c.note(warn, fmt.Sprintf("%s is empty in %d%% of rows.", cc.Found, int(math.Round(share*100))),
 				"Empty number cells read as the column's average; empty words read as unknown. Fill in what you can.")
 		}
+		if columnNotes(c, cc, tab) {
+			continue
+		}
 		if cc.FoundKind == string(schema.Text) {
 			c.note(info, fmt.Sprintf("%s holds about %s per row.", cc.Found, plural(int(math.Round(cc.Words)), "word", "words")),
 				"Text is read word by word. A few words per row is enough to help.")
@@ -181,6 +186,26 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 	slices.SortFunc(counts, func(a, b count) int { return cmp.Or(cmp.Compare(b.n, a.n), cmp.Compare(a.v, b.v)) })
 	for _, k := range counts[:min(20, len(counts))] {
 		c.Answers = append(c.Answers, &mimirv1.AnswerCount{Value: k.v, Count: int64(k.n)})
+	}
+	// Answers that differ only in case or spacing are one answer spelled
+	// several ways, and would be learned as several.
+	if tab.Classes != nil {
+		alike := map[string][]string{}
+		for _, k := range counts {
+			key := strings.Join(strings.Fields(strings.ToLower(strings.NewReplacer("_", " ", "-", " ").Replace(k.v))), " ")
+			alike[key] = append(alike[key], k.v)
+		}
+		var groups [][]string
+		for _, g := range alike {
+			if len(g) > 1 {
+				groups = append(groups, g)
+			}
+		}
+		slices.SortFunc(groups, func(a, b []string) int { return strings.Compare(a[0], b[0]) })
+		for _, g := range groups[:min(3, len(groups))] {
+			c.note(warn, fmt.Sprintf("%s look like the same answer.", quoteJoin(g)),
+				fmt.Sprintf("They differ only in capitals or spaces, so the model learns them as %d answers. Make them the same in the file, then upload again.", len(g)))
+		}
 	}
 	// A ranked answer is a list of many items or actions, each rarer than
 	// a class would be, so only a class answer is checked for balance.
@@ -375,6 +400,52 @@ func thousands(n int64) string {
 		s = s[:i] + "," + s[i:]
 	}
 	return s
+}
+
+// idName says a column is an ID by its name.
+var idName = regexp.MustCompile(`(^|[_\s-])(id|no|nr|num|number|code|key|uuid|guid)$|^id[_\s-]|^(id|uuid|guid)$`)
+
+// IsID reports whether a checked column looks like an ID: different in
+// every row, and not a measurement unless its name says so.
+func IsID(cc *mimirv1.ColumnCheck, rows int64) bool {
+	filled := rows - cc.Empty
+	return filled >= 20 && cc.Distinct >= min(filled, training.MaxDistinct) && (cc.FoundKind != string(schema.Number) || idName.MatchString(strings.ToLower(cc.Found)))
+}
+
+// columnNotes says what to know about one input column: that it is an ID,
+// that it never changes, or that it gives the answer away. It reports
+// whether the column was an ID or empty, which says all there is to say
+// about it.
+func columnNotes(c check, cc *mimirv1.ColumnCheck, tab *training.Table) bool {
+	filled := int64(tab.Rows) - cc.Empty
+	if filled == 0 {
+		c.note(info, fmt.Sprintf("%s is empty.", cc.Found), "It tells the model nothing. Fill it in or leave it out; it does no harm.")
+		return true
+	}
+	id := IsID(cc, int64(tab.Rows))
+	switch {
+	case id:
+		c.note(info, fmt.Sprintf("%s looks like an ID.", cc.Found),
+			"It's different in every row, so it tells the model nothing about a new row. It does no harm; just don't expect it to help.")
+	case cc.Distinct == 1 && cc.FoundKind != string(schema.Number):
+		c.note(info, fmt.Sprintf("%s is the same in every row.", cc.Found), "It tells the model nothing. It does no harm.")
+	case cc.TellsAnswer:
+		c.note(warn, fmt.Sprintf("%s gives the answer away.", cc.Found),
+			fmt.Sprintf("Every value of %s goes with exactly one answer. If it's the answer under another name, or only known once the answer is (like a reason for leaving), take it out of the file: the model would score well here and poorly in use.", cc.Found))
+	}
+	return id
+}
+
+// quoteJoin writes "a", "b" and "c".
+func quoteJoin(vs []string) string {
+	q := make([]string, len(vs))
+	for i, v := range vs {
+		q[i] = fmt.Sprintf("%q", v)
+	}
+	if len(q) == 1 {
+		return q[0]
+	}
+	return strings.Join(q[:len(q)-1], ", ") + " and " + q[len(q)-1]
 }
 
 // cellsModel reports whether t's model type reads the table's cells

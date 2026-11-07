@@ -13,11 +13,13 @@ import { message } from "../../../api/client";
 import type { DataCheck as Check } from "../../../api/gen/mimir/v1/template_pb";
 import { DatasetKind, DatasetService, TrainingService, type Dataset } from "../../../api/gen/mimir/v1/training_pb";
 import { allDatasetQueries, allTrainingQueries, listArchitectures, listDatasets, listModels, listTemplates, whoAmI } from "../../../api/queries";
+import { ColumnPicker } from "../../../components/ColumnPicker";
 import { DataCheck } from "../../../components/DataCheck";
 import { ModelShape } from "../../../components/ModelShape";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { useWorkerChoices, WorkerSelect } from "../../../components/Placement";
+import { answer, guess, parse, profile, type Role } from "../../../lib/csv";
 import { bytes } from "../../../lib/format";
 import { dataTypeOf, dataTypeOfKind, dataTypes, datasetKindOf, kindLabel, type DataType } from "../../../lib/templates";
 import { layersOf, type Size, type Step } from "../../../lib/shape";
@@ -69,7 +71,13 @@ type Bucket = { provider: string; accountId: string; region: string; endpoint: s
 const noBucket: Bucket = { provider: "r2", accountId: "", region: "", endpoint: "", bucket: "", accessKeyId: "", secretAccessKey: "" };
 const bucketFilled = (b: Bucket) => !!b.bucket.trim() && !!b.accessKeyId.trim() && !!b.secretAccessKey.trim()
   && (b.provider !== "r2" || !!b.accountId.trim()) && (b.provider !== "other" || !!b.endpoint.trim());
-type Upload = { name: string; size: number; bytes: Uint8Array; columns: string[]; rows: string[][]; summary: string; zip: boolean };
+// rows are the first rows of a table, enough to say what each column
+// holds; total is how many the file has when all of it was read.
+type Upload = { name: string; size: number; bytes: Uint8Array; columns: string[]; rows: string[][]; total?: number; summary: string; zip: boolean };
+
+// How much of a table is read in the browser to look at its columns.
+const PeekBytes = 512 * 1024;
+const PeekRows = 2000;
 
 // The batch size the server picks for a table of rows examples when it is
 // left unset (training.SettingsFor): larger for large tables.
@@ -77,14 +85,6 @@ function tableBatch(rows: number) {
   let b = 32;
   while (b < 512 && b * 2 * 1000 <= rows) b *= 2;
   return b;
-}
-
-// Reads the header and first rows of a CSV without a parser; enough to pick a
-// column and show a preview. The server does the real checking.
-function peek(text: string) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-  const split = (l: string) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-  return { columns: split(lines[0] ?? ""), rows: lines.slice(1, 6).map(split), count: Math.max(lines.length - 1, 0) };
 }
 
 function Teach() {
@@ -175,6 +175,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const [description, setDescription] = useState(tpl?.question ?? "");
   const [preset, setPreset] = useState("normal");
   const [expert, { toggle }] = useDisclosure(false);
+  // The other kinds of model wait behind a button, so the step is one
+  // clear choice.
+  const [moreKinds, { toggle: toggleKinds }] = useDisclosure(false);
   const [epochs, setEpochs] = useState<number | string>(10);
   const [batch, setBatch] = useState<number | string>(32);
   const [rate, setRate] = useState<number | string>(0.005);
@@ -192,10 +195,10 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const folder = useRef<HTMLInputElement>(null);
   const workers = useWorkerChoices(me.permissions.includes("models.write"));
   const tested = useMutation(DatasetService.method.testQuery, {
-    onSuccess: (res) => setTarget(guessTarget(res.columns, role)),
+    onSuccess: (res) => setTarget(guessTarget(res.columns, res.sample.map((r) => r.values), role)),
   });
   const looked = useMutation(DatasetService.method.testBucket, {
-    onSuccess: (res) => setTarget(guessTarget(res.columns, role)),
+    onSuccess: (res) => setTarget(guessTarget(res.columns, res.sample.map((r) => r.values), role)),
   });
   const kindToMake = tpl ? datasetKindOf(tpl) : dataType === "photos" ? DatasetKind.PHOTOS : dataType === "photo_table" ? DatasetKind.PHOTO_TABLE : dataType === "sounds" ? DatasetKind.SOUNDS : dataType === "boxes" ? DatasetKind.BOXES : DatasetKind.TABLE;
   const editBucket = (b: Partial<Bucket>) => { setBucket((cur) => ({ ...cur, ...b })); looked.reset(); reset(); };
@@ -265,10 +268,12 @@ function Wizard({ data: dataType }: { data: DataType }) {
       const file = files[0]!;
       if (file.size > MaxCSV) return setFileError(`That file is ${bytes(file.size)}. The limit is ${bytes(MaxCSV)}.`);
       const buf = new Uint8Array(await file.arrayBuffer());
-      const p = peek(new TextDecoder().decode(buf.subarray(0, 64 * 1024)));
+      const whole = buf.length <= PeekBytes;
+      const p = parse(new TextDecoder().decode(buf.subarray(0, PeekBytes)), { maxRows: PeekRows, cut: !whole });
       if (p.columns.length < 2) return setFileError("The first row should name at least two columns, separated by commas.");
-      setUpload({ name: file.name, size: file.size, bytes: buf, columns: p.columns, rows: p.rows, summary: `${bytes(file.size)} · ${p.columns.length} columns`, zip: false });
-      setTarget(guessTarget(p.columns, role));
+      if (p.rows.length === 0) return setFileError("There are no rows under the header. Each row is one example.");
+      setUpload({ name: file.name, size: file.size, bytes: buf, columns: p.columns, rows: p.rows, total: whole ? p.rows.length : undefined, summary: `${bytes(file.size)} · ${p.columns.length} columns${whole ? ` · ${p.rows.length.toLocaleString()} rows` : ""}`, zip: false });
+      setTarget(guessTarget(p.columns, p.rows, role));
       return;
     }
     // A ZIP as it is, or a dropped folder packed into one.
@@ -326,14 +331,21 @@ function Wizard({ data: dataType }: { data: DataType }) {
   // Models that read the answer column as something else are offered
   // only when asked for.
   const allowed = archs.architectures.filter((a) => dataset?.architectures.includes(a.name) && (role ? a.name === search.arch : !a.target));
+  // The kind to suggest, first in the list: trying several and keeping
+  // the best, else what the server offers first.
+  const suggested = (allowed.find((a) => a.name.endsWith("-auto")) ?? allowed[0])?.name ?? "";
+  const ordered = [...allowed].sort((a, b) => Number(b.name === suggested) - Number(a.name === suggested));
+  const why = (a: typeof allowed[number]) => a.name !== suggested ? undefined
+    : a.name.endsWith("-auto") ? "Tries several kinds on your rows and keeps the one that scores best. The safe choice when you're not sure; it takes a little longer."
+    : allowed.length > 1 ? "The usual choice for this kind of data." : undefined;
   const chosenArch = archs.architectures.find((a) => a.name === arch);
   const earlier = models.models.filter((m) => m.architecture === arch);
   const picked = !!tpl && !!dataset && dataset.architectures.includes(tpl.architecture);
   const busy = createDataset.isPending || checkDataset.isPending;
   const ready0 = !!dataset
     ? check?.verdict !== "bad"
-    : source === "digits" || source === "example" || (source === "existing" && !!existing) || (source === "upload" && !!upload && (archive || !!target || !!tpl)) || (source === "database" && !!dsn.trim() && !!query.trim() && (!!tpl || (!!tested.data && !!target)))
-      || (source === "storage" && bucketFilled(bucket) && (archive || !!tpl || (!!looked.data && !!target)));
+    : source === "digits" || source === "example" || (source === "existing" && !!existing) || (source === "upload" && !!upload && (archive || !!tpl || canAnswer(upload.columns, upload.rows, target, role))) || (source === "database" && !!dsn.trim() && !!query.trim() && (!!tpl || (!!tested.data && canAnswer(tested.data.columns, tested.data.sample.map((r) => r.values), target, role))))
+      || (source === "storage" && bucketFilled(bucket) && (archive || !!tpl || (!!looked.data && canAnswer(looked.data.columns, looked.data.sample.map((r) => r.values), target, role))));
   const fromQuery = !!dataset?.query || !!dataset?.storage;
   const inputs = Number((dataset?.inputShape ?? []).reduce((n, d) => n * d, 1n));
   const answers = dataset?.numberTarget
@@ -410,17 +422,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
                         </>
                       )}
                       {fileError && <Alert color="red" icon={<IconAlertCircle />}>{fileError}</Alert>}
-                      {upload && !archive && (
-                        <>
-                          {!tpl && <AnswerPicker role={role} columns={upload.columns} value={target} onChange={(v) => { if (v) { setTarget(v); reset(); } }} />}
-                          <Table.ScrollContainer minWidth={300}>
-                            <Table fz="xs" withTableBorder>
-                              <Table.Thead><Table.Tr>{upload.columns.map((c) => <Table.Th key={c} c={c === target && !tpl ? "teal" : undefined}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
-                              <Table.Tbody>{upload.rows.map((r, i) => <Table.Tr key={i}>{r.map((v, k) => <Table.Td key={k}>{v}</Table.Td>)}</Table.Tr>)}</Table.Tbody>
-                            </Table>
-                          </Table.ScrollContainer>
-                        </>
-                      )}
+                      {upload && !archive && (tpl
+                        ? <Preview columns={upload.columns} rows={upload.rows.slice(0, 5)} />
+                        : <ColumnPicker columns={upload.columns} rows={upload.rows} total={upload.total} role={role} value={target} onChange={(v) => { setTarget(v); reset(); }} />)}
                     </Stack>
                   )}
                 </Choice>
@@ -438,13 +442,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
                         {tested.data && (
                           <>
                             <Alert color="teal" icon={<IconCheck />}>{tested.data.rows.toLocaleString()} rows, {tested.data.columns.length} columns.</Alert>
-                            {!tpl && <AnswerPicker role={role} columns={tested.data.columns} value={target} onChange={(v) => v && setTarget(v)} />}
-                            <Table.ScrollContainer minWidth={300}>
-                              <Table fz="xs" withTableBorder>
-                                <Table.Thead><Table.Tr>{tested.data.columns.map((c) => <Table.Th key={c} c={c === target && !tpl ? "teal" : undefined}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
-                                <Table.Tbody>{tested.data.sample.map((r, i) => <Table.Tr key={i}>{r.values.map((v, k) => <Table.Td key={k}>{v}</Table.Td>)}</Table.Tr>)}</Table.Tbody>
-                              </Table>
-                            </Table.ScrollContainer>
+                            {tpl
+                              ? <Preview columns={tested.data.columns} rows={tested.data.sample.map((r) => r.values)} />
+                              : <ColumnPicker columns={tested.data.columns} rows={tested.data.sample.map((r) => r.values)} total={Number(tested.data.rows)} role={role} value={target} onChange={setTarget} />}
                             <TextInput label="Name these examples" placeholder="Harvest from the shop database" maxLength={100} value={examplesName} onChange={(e) => setExamplesName(e.currentTarget.value)} />
                           </>
                         )}
@@ -486,13 +486,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
                             </Alert>
                             {looked.data.columns.length > 0 && (
                               <>
-                                {!tpl && <AnswerPicker role={role} columns={looked.data.columns} value={target} onChange={(v) => v && setTarget(v)} />}
-                                <Table.ScrollContainer minWidth={300}>
-                                  <Table fz="xs" withTableBorder>
-                                    <Table.Thead><Table.Tr>{looked.data.columns.map((c) => <Table.Th key={c} c={c === target && !tpl ? "teal" : undefined}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
-                                    <Table.Tbody>{looked.data.sample.map((r, i) => <Table.Tr key={i}>{r.values.map((v, k) => <Table.Td key={k}>{v}</Table.Td>)}</Table.Tr>)}</Table.Tbody>
-                                  </Table>
-                                </Table.ScrollContainer>
+                                {tpl
+                                  ? <Preview columns={looked.data.columns} rows={looked.data.sample.map((r) => r.values)} />
+                                  : <ColumnPicker columns={looked.data.columns} rows={looked.data.sample.map((r) => r.values)} total={Number(looked.data.rows)} role={role} value={target} onChange={setTarget} />}
                               </>
                             )}
                             <TextInput label="Name these examples" placeholder={`${bucket.bucket || "bucket"}/${bucketPath}`.replace(/\/+$/, "")} maxLength={100} value={examplesName} onChange={(e) => setExamplesName(e.currentTarget.value)} />
@@ -529,16 +525,25 @@ function Wizard({ data: dataType }: { data: DataType }) {
                 <Text size="sm">The template picked the kind of model for you: <b>{chosenArch?.title}</b>. {chosenArch?.description}</Text>
               </Card>
             ) : (
-              <Radio.Group value={arch} onChange={setArch} label="What kind of model?" mt="md">
+              <Radio.Group value={arch} onChange={setArch} label="What kind of model?" description={allowed.length > 1 ? "The recommended one suits most tables. The others are for when you know what you want, or want to see why it answers as it does." : undefined} mt="md">
                 <Stack gap="sm" mt="sm">
-                  {allowed.map((a) => (
+                  {ordered.filter((a) => moreKinds || allowed.length <= 2 || a.name === suggested || a.name === arch).map((a) => (
                     <Radio.Card key={a.name} value={a.name} radius="md" p="md">
                       <Group wrap="nowrap" align="flex-start">
                         <Radio.Indicator />
-                        <div><Group gap="xs"><Text fw={600}>{a.title}</Text>{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group><Text size="sm" c="dimmed">{a.description}</Text></div>
+                        <div>
+                          <Group gap="xs"><Text fw={600}>{a.title}</Text>{a.name === suggested && allowed.length > 1 && <Badge size="sm">Recommended</Badge>}{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group>
+                          {why(a) && <Text size="sm" fw={500} c="teal.8">{why(a)}</Text>}
+                          <Text size="sm" c="dimmed">{a.description}</Text>
+                        </div>
                       </Group>
                     </Radio.Card>
                   ))}
+                  {allowed.length > 2 && (
+                    <Button variant="subtle" size="compact-sm" className="self-start" onClick={toggleKinds}>
+                      {moreKinds ? "Show fewer kinds" : `Choose another kind (${allowed.length - 1} more)`}
+                    </Button>
+                  )}
                 </Stack>
               </Radio.Group>
             )}
@@ -665,35 +670,33 @@ function Wizard({ data: dataType }: { data: DataType }) {
   );
 }
 
-// Role is what the answer column is to the model type asked for (see
-// Architecture.target).
-type Role = "" | "none" | "item" | "value" | "action";
-
-const itemWords = /item|product|sku|title|movie|film|song|track|book|article|course|dish|recipe/i;
-const actionWords = /offer|action|treatment|variant|choice|campaign|\barm\b|promo/i;
-
-// guessTarget picks the answer column to start with: for a recommender
-// the column that looks like the item, for a decision model the one that
-// looks like the action, otherwise the last.
-function guessTarget(columns: string[], role: Role) {
-  if (role === "item" || role === "action") {
-    const c = columns.find((c) => (role === "item" ? itemWords : actionWords).test(c));
-    if (c) return c;
-  }
-  return columns[columns.length - 1] ?? "";
+// guessTarget picks the answer column to start with, from what the first
+// rows hold: for a recommender the column that looks like the item, for a
+// decision model the one that looks like the action, otherwise the last
+// column that can be an answer.
+function guessTarget(columns: string[], rows: string[][], role: Role) {
+  return guess(profile({ columns, rows }), role);
 }
 
-// AnswerPicker asks which column is the answer, in the words of what it
-// is to the model; a model that needs none asks nothing.
-function AnswerPicker({ role, columns, value, onChange }: { role: Role; columns: string[]; value: string; onChange: (v: string | null) => void }) {
-  if (role === "none") return <Text size="sm" c="dimmed">No answer column is needed: the model reads every column.</Text>;
-  const words = {
-    "": { label: "Which column is the answer?", hint: "The model learns to predict this from the other columns." },
-    item: { label: "Which column is the item?", hint: "What each person picked, bought or rated. Another column, such as customer, says who." },
-    value: { label: "Which column holds the value to forecast?", hint: "A number in every row, like units sold. A date column says when, and a column like store says which series." },
-    action: { label: "Which column is the action taken?", hint: "What was tried each time, like the offer shown. A column like reward, revenue or converted says how it turned out." },
-  }[role];
-  return <Select label={words.label} description={words.hint} data={columns} value={value} onChange={onChange} allowDeselect={false} />;
+// canAnswer reports whether target can be the answer column, from what
+// the first rows hold: not an ID, a date or an empty column. A model that
+// reads every column needs none.
+function canAnswer(columns: string[], rows: string[][], target: string, role: Role) {
+  if (role === "none") return true;
+  const c = profile({ columns, rows }).find((c) => c.name === target);
+  return !!c && answer(c, role).level !== "bad";
+}
+
+// Preview shows the first rows of a table a template will match.
+function Preview({ columns, rows }: { columns: string[]; rows: string[][] }) {
+  return (
+    <Table.ScrollContainer minWidth={300}>
+      <Table fz="xs" withTableBorder>
+        <Table.Thead><Table.Tr>{columns.map((c) => <Table.Th key={c}>{c}</Table.Th>)}</Table.Tr></Table.Thead>
+        <Table.Tbody>{rows.map((r, i) => <Table.Tr key={i}>{r.map((v, k) => <Table.Td key={k}>{v}</Table.Td>)}</Table.Tr>)}</Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
+  );
 }
 
 function archiveKind(k: DatasetKind) {

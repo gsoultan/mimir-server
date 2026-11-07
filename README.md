@@ -477,6 +477,15 @@ with `data.csv` and photos) and a starting SQL query. **Use this
 template** opens the wizard with the template filled in; **Try it with
 the example data** teaches from the example in a few clicks.
 
+Before anything is uploaded, the wizard reads the first rows of a table in
+the browser and shows what each column holds (numbers and their range, yes
+or no, one of a few values, free text, dates, or an ID that is different in
+every row), how full it is and a few example values. The answer column is
+picked from that list, and the wizard says what the model would answer with
+it ("yes or no; 23 of 100 rows say yes") or why it can't be the answer: an
+ID, a date, free text, an empty column or one with a single value. The same
+look is given to the rows a database query or a storage bucket returns.
+
 When a table has a date column, such as `order_date`, the rows held out
 to score a model are the latest ones, not random ones, so its accuracy is
 what to expect when it learns from the past and answers the future. The
@@ -486,8 +495,20 @@ When data comes in, the server checks it against the template before
 anything runs: which columns were found, the answer column and how its
 answers are spread, empty or unreadable cells, too few rows, missing
 photos. A column under another name can be matched to the template's
-from a list. The same check is in the API as `CheckDataset`, and the
-catalog as `TemplateService` (`proto/mimir/v1/template.proto`).
+from a list. Someone's own table also gets a list of how each column is
+read, and a note on any column that looks like an ID, never changes, or
+gives the answer away (every value of it goes with exactly one answer, so
+it is the answer under another name or only known once the answer is).
+The same check is in the API as `CheckDataset`, and the catalog as
+`TemplateService` (`proto/mimir/v1/template.proto`).
+
+On the next step the kind of model that suits most tables is marked
+recommended, with the others behind a button. When a run finishes, its
+report opens with what the scores mean: how the model compares with
+always guessing the most common answer, the answer it misses most and
+what would help, and a warning when a perfect score points to a column
+that gives the answer away. Models fit in one go (boosted trees, the
+automatic pick and the rest) get the same report as trained networks.
 
 Runs queue up and train one at a time in the server process. The run page
 shows the pass and step, a chart of right answers and loss per pass, and
