@@ -80,6 +80,7 @@ function WorkerPage() {
   return (
     <Page
       title={w.name}
+      crumbs={[{ label: "Settings", to: "/settings" }, { label: "Workers" }, { label: w.name }]}
       intro={
         <span className="inline-flex items-baseline gap-2">
           <span className="self-center"><StatusDot online={w.online} busy={full} /></span>

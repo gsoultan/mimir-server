@@ -11,12 +11,13 @@ import { TrainingService, JobStatus, type Job } from "../../../api/gen/mimir/v1/
 import { allModelQueries, allTrainingQueries, getJob, listArchitectures, listJobs } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
+import { StatusPill } from "../../../components/ui";
 import { useWorkerChoices } from "../../../components/Placement";
 import { RunReport } from "../../../components/RunReport";
 import { TrainingChart } from "../../../components/TrainingChart";
 import { maxCompare } from "../../../lib/compare";
 import { ago } from "../../../lib/format";
-import { active, keepWord, progress, repeatChoicesFor, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
+import { active, jobTone, keepWord, progress, repeatChoicesFor, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
 
 export const Route = createFileRoute("/_app/training/$id")({
   loader: ({ context, params }) => Promise.all([
@@ -68,6 +69,8 @@ function Run() {
   return (
     <Page
       title={j.name}
+      crumbs={[{ label: "Training", to: "/training" }, { label: j.name }]}
+      badge={<StatusPill tone={jobTone[j.status]}>{statusWord[j.status]}</StatusPill>}
       intro={<>{arch?.title ?? j.architecture} learning from {j.datasetName || "deleted examples"}{j.worker && ` on worker ${j.worker}`} · started by {j.createdBy} {ago(j.createTime)}</>}
       actions={
         <Group gap="xs">
@@ -110,7 +113,7 @@ function Run() {
       <Card withBorder radius="lg" padding="lg" aria-live="polite">
         <Group justify="space-between" mb="xs">
           <Group gap="xs">
-            <Badge color={statusColor[j.status]} variant="light" size="lg">{statusWord[j.status]}</Badge>
+            <StatusPill tone={jobTone[j.status]}>{statusWord[j.status]}</StatusPill>
             {j.status === JobStatus.RUNNING && <Text size="sm" c="dimmed">Pass {Math.min(j.epoch + 1, epochs)} of {epochs}{j.stepsPerEpoch > 0 && `, step ${j.step} of ${j.stepsPerEpoch}`}</Text>}
             {j.status === JobStatus.QUEUED && <Text size="sm" c="dimmed">{waitingFor ? (waitingFor.online ? `It starts on ${waitingFor.name} when that worker has room.` : `It waits for ${waitingFor.name}, which is offline. It starts as soon as that worker connects.`) : "Another run is ahead of it, or it's about to begin."}</Text>}
             {j.status === JobStatus.CANCELLED && <Text size="sm" c="dimmed">Stopped after {j.epoch} of {epochs} passes. Resume to carry on from there.</Text>}

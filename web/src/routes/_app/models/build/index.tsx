@@ -31,7 +31,7 @@ function Build() {
   };
 
   return (
-    <Page title="Build a model" intro="Tell us what you want to know. We show the easiest way to get there, step by step.">
+    <Page title="Build a model" crumbs={[{ label: "Models", to: "/models" }, { label: "Build a model" }]} intro="Tell us what you want to know. We show the easiest way to get there, step by step.">
       <Stack gap="sm">
         <Title order={2} fz="lg">1. What should the model do?</Title>
         <SimpleGrid cols={{ base: 2, md: 4 }} spacing={{ base: "sm", md: "md" }}>

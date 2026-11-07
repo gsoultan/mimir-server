@@ -1,6 +1,6 @@
 import { useMutation } from "@connectrpc/connect-query";
 import { Alert, Anchor, Card, SegmentedControl, Select, Stack, Text } from "@mantine/core";
-import { IconDeviceLaptop, IconDownload } from "@tabler/icons-react";
+import { IconDeviceLaptop, IconDownload, IconListCheck } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
@@ -83,7 +83,8 @@ function Try() {
     return { number: r.number, value: r.value, guesses: r.guesses, values: arch?.target === "action" ? r.output?.values : undefined, boxes: r.boxes, ms: Number(r.durationMicros) / 1000 };
   };
   return (
-    <Page title="Try a model" intro={askIntro(arch)}>
+    <Page title="Try a model" intro={askIntro(arch)}
+      actions={me.permissions.includes("models.write") && <ButtonLink variant="default" leftSection={<IconListCheck size={18} />} to="/scoring" search={{ model: model.id }}>Score a whole list</ButtonLink>}>
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-full sm:w-80">{pickModel}</div>
         {canDevice && (

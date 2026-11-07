@@ -51,6 +51,7 @@ function Leaderboard() {
   return (
     <Page
       title={b.name}
+      crumbs={[{ label: "Benchmarks", to: "/benchmarks" }, { label: b.name }]}
       intro={<>{b.rows.toLocaleString()} rows kept aside from {b.datasetName || "deleted examples"}, answering {b.target} · made by {b.createdBy} {ago(b.createTime)}</>}
       actions={
         <Group gap="xs">

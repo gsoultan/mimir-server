@@ -153,9 +153,13 @@ if [ -z "${MIMIR_DATABASE_URL:-}" ] && [[ "$extra" != *"-database-url"* ]]; then
 fi
 
 mkdir -p "$data" bin
-if [ ! -d web/node_modules ]; then
+# Install the web packages the first time, and again whenever bun.lock or
+# package.json changed since (after a pull that adds a package, say).
+installed=web/node_modules/.dev-installed
+if [ ! -f "$installed" ] || [ web/bun.lock -nt "$installed" ] || [ web/package.json -nt "$installed" ]; then
 	echo "dev: installing web packages"
 	(cd web && bun install --frozen-lockfile)
+	touch "$installed"
 fi
 
 pids=()

@@ -39,7 +39,7 @@ function Compare() {
   const ids = parseIds(Route.useSearch().ids);
   if (ids.length < 2) {
     return (
-      <Page title="Compare runs" intro="See how runs did side by side.">
+      <Page title="Compare runs" crumbs={[{ label: "Training", to: "/training" }, { label: "Compare" }]} intro="See how runs did side by side.">
         <Card withBorder radius="lg" padding="xl" className="text-center">
           <Text fw={600}>Pick two or more runs first</Text>
           <Text c="dimmed" mb="md">Tick the runs you want on the training page, then choose Compare.</Text>
@@ -99,6 +99,7 @@ function Runs({ ids }: { ids: string[] }) {
   return (
     <Page
       title="Compare runs"
+      crumbs={[{ label: "Training", to: "/training" }, { label: "Compare" }]}
       intro={best ? <>{best.name} scored best: it {score(best.accuracy, isNumber(best))}.{differs.size > 0 && " Highlighted rows are the settings that differ."}</> : "None of these runs has finished yet."}
       actions={<ButtonLink variant="default" to="/training">Back to training</ButtonLink>}
     >

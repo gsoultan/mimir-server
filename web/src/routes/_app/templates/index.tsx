@@ -1,5 +1,5 @@
-import { Badge, Button, Card, Group, SimpleGrid, Stack, Text, TextInput, Title, UnstyledButton } from "@mantine/core";
-import { IconSearch } from "@tabler/icons-react";
+import { Badge, Button, Card, CloseButton, Group, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core";
+import { IconArrowRight, IconSearch } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
@@ -40,67 +40,46 @@ function Gallery() {
     .map((c) => ({ ...c, items: shown.filter((t) => t.category === c.id) }))
     .filter((g) => g.items.length > 0);
 
+  const kind = kinds.find((k) => k.id === s.kind);
   return (
-    <Page title="Start from a template" intro="Each template is a real business problem a model can help with. It shows exactly what data to bring, a table or photos, with made-up examples you can download and try right away.">
-      <SimpleGrid cols={{ base: 1, sm: 3 }}>
-        {[
-          ["Pick a problem", "Like “which customers will leave?”"],
-          ["Bring data shaped like the example", "A spreadsheet, photos or a database query."],
-          ["We check it, then teach", "We tell you what to fix before anything runs."],
-        ].map(([title, hint], i) => (
-          <Card key={title} withBorder radius="lg" padding="md">
-            <Group wrap="nowrap" align="flex-start" gap="sm">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--mantine-color-teal-light)] font-bold text-[var(--mantine-color-teal-8)]">{i + 1}</div>
-              <div><Text fw={700}>{title}</Text><Text size="sm" c="dimmed">{hint}</Text></div>
-            </Group>
-          </Card>
-        ))}
-      </SimpleGrid>
-
-      <Stack gap="xs">
-        <Group justify="space-between">
-          <Title order={2} fz="lg">Not sure where to start? What do you want to know?</Title>
-          {s.kind && <Button variant="subtle" size="compact-sm" onClick={() => set({ kind: undefined })}>Show every kind</Button>}
-        </Group>
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-          {kinds.map((k) => (
-            <UnstyledButton
-              key={k.id}
-              onClick={() => set({ kind: s.kind === k.id ? undefined : k.id })}
-              aria-pressed={s.kind === k.id}
-              className={`rounded-xl border-2 bg-[var(--mantine-color-body)] p-4 text-left ${s.kind === k.id ? "border-[var(--mantine-color-teal-7)] ring-4 ring-[var(--mantine-color-teal-light)]" : "border-[var(--mantine-color-default-border)]"}`}
-            >
-              <Text fw={700}>{k.title}</Text>
-              <Text size="sm" c="dimmed">{k.hint}</Text>
-            </UnstyledButton>
-          ))}
-        </SimpleGrid>
+    <Page
+      title="Start from a template"
+      intro="Real problems with example data. Bring data shaped like the example and we teach it."
+      crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Templates" }]}
+      actions={<ButtonLink to="/models/teach" variant="default">Start from scratch</ButtonLink>}
+    >
+      <Stack gap="sm">
+        <TextInput
+          size="md"
+          leftSection={<IconSearch size={18} />}
+          placeholder='What do you want to know? For example "who will cancel" or "spot bad parts"'
+          aria-label="Search templates"
+          value={s.q ?? ""}
+          onChange={(e) => set({ q: e.currentTarget.value || undefined })}
+        />
+        <Chips
+          label="Your data"
+          items={[{ id: undefined, label: "Any" }, ...dataTypes.map((d) => ({ id: d.id, label: d.chip }))].map((d) => ({
+            ...d, count: data.templates.filter((t) => fits(t, "data") && (!d.id || t.data === d.id)).length,
+          }))}
+          value={s.data}
+          onChange={(v) => set({ data: v as z.infer<typeof search>["data"] })}
+        />
+        <Chips
+          label="Your work"
+          items={[{ id: undefined, label: "All" }, ...data.categories.map((c) => ({ id: c.id, label: c.label }))].map((c) => ({
+            ...c, count: data.templates.filter((t) => fits(t, "cat") && (!c.id || t.category === c.id)).length,
+          }))}
+          value={s.cat}
+          onChange={(v) => set({ cat: v })}
+        />
+        {kind && (
+          <Group gap="xs">
+            <Text size="sm" c="dimmed">Only templates that answer</Text>
+            <Badge size="lg" variant="light" color={kindColor(kind.id)} rightSection={<CloseButton size="xs" aria-label="Show every kind" onClick={() => set({ kind: undefined })} />}>{kind.label}</Badge>
+          </Group>
+        )}
       </Stack>
-
-      <TextInput
-        leftSection={<IconSearch size={18} />}
-        placeholder="Search, for example churn, fraud or machine"
-        aria-label="Search templates"
-        value={s.q ?? ""}
-        onChange={(e) => set({ q: e.currentTarget.value || undefined })}
-        className="max-w-md"
-      />
-      <Chips
-        label="What data do you have?"
-        items={[{ id: undefined, label: "Any data" }, ...dataTypes.map((d) => ({ id: d.id, label: d.chip }))].map((d) => ({
-          ...d, count: data.templates.filter((t) => fits(t, "data") && (!d.id || t.data === d.id)).length,
-        }))}
-        value={s.data}
-        onChange={(v) => set({ data: v as z.infer<typeof search>["data"] })}
-      />
-      <Chips
-        label="Line of business"
-        items={[{ id: undefined, label: "All" }, ...data.categories.map((c) => ({ id: c.id, label: c.label }))].map((c) => ({
-          ...c, count: data.templates.filter((t) => fits(t, "cat") && (!c.id || t.category === c.id)).length,
-        }))}
-        value={s.cat}
-        onChange={(v) => set({ cat: v })}
-      />
 
       {groups.length === 0 && (
         <Card withBorder radius="lg" padding="lg"><Text c="dimmed">No template fits all of that. Clear a filter, or start from scratch below.</Text></Card>
@@ -110,19 +89,19 @@ function Gallery() {
         return (
           <Stack key={g.id} gap="sm">
             <Group wrap="nowrap" gap="sm">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl" style={{ background: bg, color: fg }}>
-                <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={g.icon} /></svg>
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg" style={{ background: bg, color: fg }}>
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={g.icon} /></svg>
               </div>
-              <div><Title order={2} fz="xl">{g.label}</Title><Text size="sm" c="dimmed">{g.blurb}</Text></div>
+              <div><Title order={2}>{g.label}</Title><Text size="sm" c="dimmed">{g.blurb}</Text></div>
             </Group>
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
               {g.items.map((t) => <TemplateCard key={t.id} t={t} />)}
             </SimpleGrid>
           </Stack>
         );
       })}
 
-      <Card withBorder radius="lg" padding="lg">
+      <Card withBorder padding="lg">
         <Group justify="space-between" gap="md">
           <div className="max-w-xl">
             <Text fw={700}>Your problem isn&apos;t here?</Text>
@@ -137,20 +116,21 @@ function Gallery() {
 
 function Chips({ label, items, value, onChange }: { label: string; items: { id?: string; label: string; count: number }[]; value?: string; onChange: (v?: string) => void }) {
   return (
-    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
-      <Text size="sm" fw={600} mr={4}>{label}</Text>
-      {items.map((c) => {
+    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-1.5">
+      <Text size="sm" c="dimmed" w={88} className="shrink-0">{label}</Text>
+      {items.filter((c) => c.count > 0 || value === c.id).map((c) => {
         const on = value === c.id;
         return (
           <Button
             key={c.id ?? "all"}
             radius="xl"
-            size="sm"
+            size="compact-sm"
+            fw={600}
             variant={on ? "filled" : "default"}
             color={on ? "dark" : undefined}
             aria-pressed={on}
-            onClick={() => onChange(c.id)}
-            rightSection={<Badge size="sm" variant={on ? "white" : "light"} color={on ? "dark" : "gray"}>{c.count}</Badge>}
+            onClick={() => onChange(on ? undefined : c.id)}
+            rightSection={<Text span size="xs" opacity={0.7}>{c.count}</Text>}
           >
             {c.label}
           </Button>
@@ -166,17 +146,20 @@ export function TemplateCard({ t }: { t: Template }) {
     <Link
       to="/templates/$id"
       params={{ id: t.id }}
-      className="flex flex-col gap-2 rounded-xl text-inherit no-underline border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-body)] p-4 text-left transition hover:border-[var(--mantine-color-teal-6)] hover:shadow-sm"
+      className="group flex flex-col gap-1.5 rounded-xl border border-[var(--mimir-line)] bg-[var(--mimir-surface)] p-5 text-left text-inherit no-underline shadow-[var(--mimir-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--mantine-primary-color-filled)]"
     >
-      <Group gap={6}>
-        <Badge variant="light" color={kindColor(t.kind)} radius="xl">{kindLabel(t.kind)}</Badge>
-        {t.data !== "table" && <Badge variant="light" color="yellow" radius="xl">{dataTypeOf(t.data).chip}</Badge>}
+      <Group gap={8}>
+        <Text size="sm" fw={650} c={`var(--mantine-color-${kindColor(t.kind)}-light-color)`}>{kindLabel(t.kind)}</Text>
+        {t.data !== "table" && <Badge variant="light" color="yellow" size="sm">{dataTypeOf(t.data).chip}</Badge>}
       </Group>
       <Text fw={700} fz="lg" lh={1.25}>{t.name}</Text>
       <Text size="sm" c="dimmed" className="flex-1">{t.question}</Text>
-      <Text size="xs" c="dimmed">
-        {photos ? count(t.folders.length, "answer") : count(t.columns.length, "column")} · {photos ? `${t.rowsMin.toLocaleString()}+ photos each` : `${t.rowsMin.toLocaleString()}+ rows`} · From {t.sourceShort}
-      </Text>
+      <Group justify="space-between" wrap="nowrap" mt={6}>
+        <Text size="xs" c="dimmed">
+          {photos ? count(t.folders.length, "answer") : count(t.columns.length, "column")} · {photos ? `${t.rowsMin.toLocaleString()}+ photos each` : `${t.rowsMin.toLocaleString()}+ rows`} · From {t.sourceShort}
+        </Text>
+        <IconArrowRight size={16} className="shrink-0 opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+      </Group>
     </Link>
   );
 }
