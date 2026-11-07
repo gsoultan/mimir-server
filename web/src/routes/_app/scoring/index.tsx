@@ -1,10 +1,10 @@
 import { useMutation } from "@connectrpc/connect-query";
 import {
-  Alert, Badge, Button, Card, Group, Modal, PasswordInput, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, Textarea, TextInput,
+  Alert, Badge, Button, Card, Group, Modal, PasswordInput, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, Textarea, TextInput, ThemeIcon,
 } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconListCheck } from "@tabler/icons-react";
+import { IconAlertCircle, IconDownload, IconListCheck } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -12,12 +12,13 @@ import { z } from "zod";
 
 import { message } from "../../../api/client";
 import { ScoringService } from "../../../api/gen/mimir/v1/scoring_pb";
-import { DatasetKind } from "../../../api/gen/mimir/v1/training_pb";
+import { DatasetKind, JobStatus } from "../../../api/gen/mimir/v1/training_pb";
 import { allScoringQueries, listArchitectures, listDatasets, listModels, listScorings, whoAmI } from "../../../api/queries";
 import { AnchorLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
+import { Row, RowList } from "../../../components/ui";
 import { ago, bytes } from "../../../lib/format";
-import { progress, repeats, scores, statusText, waiting } from "../../../lib/scoring";
+import { progress, repeats, resultsURL, scores, statusText, waiting } from "../../../lib/scoring";
 
 export const Route = createFileRoute("/_app/scoring/")({
   validateSearch: z.object({ model: z.string().optional() }),
@@ -42,37 +43,38 @@ function Scorings() {
     <Page
       title="Score a list"
       crumbs={[{ label: "Try a model", to: "/try" }, { label: "Score a list" }]}
-      intro="Answer every row of a table at once: upload a file, run a query on your database, read files from storage or use a table of examples. You get the rows back with each answer next to them, and a list from a database or storage can be scored again on a schedule."
-      actions={<Button leftSection={<IconListCheck size={18} />} disabled={fit.length === 0} onClick={() => setAdding(true)}>Score a list</Button>}
+      intro="Answer every row of a list at once, from a file, your database or storage. You get each row back with its answer, and a list from a database can be scored again on a schedule."
+      actions={data.scorings.length > 0 && <Button leftSection={<IconListCheck size={18} />} disabled={fit.length === 0} onClick={() => setAdding(true)}>Score a list</Button>}
     >
       {data.scorings.length === 0 ? (
-        <Card withBorder radius="lg" padding="xl" className="text-center">
-          <Text fw={600}>Nothing scored yet</Text>
+        <Card withBorder padding="xl" className="text-center">
+          <ThemeIcon size={44} radius="xl" variant="light" mx="auto" mb="sm"><IconListCheck size={22} /></ThemeIcon>
+          <Text fw={650}>Nothing scored yet</Text>
           <Text c="dimmed" mb="md">
             {fit.length === 0
               ? "Teach a model from a table first. Models that read a row of a table can score a whole list."
               : "Pick a model and a list of rows, like this month's customers, and get each one's answer in a file to download."}
           </Text>
-          {fit.length > 0 && <Group justify="center"><Button onClick={() => setAdding(true)}>Score a list</Button></Group>}
+          {fit.length > 0 && <Group justify="center"><Button leftSection={<IconListCheck size={18} />} onClick={() => setAdding(true)}>Score a list</Button></Group>}
         </Card>
       ) : (
-        <Stack gap="sm">
+        <RowList>
           {data.scorings.map((s) => (
-            <Card key={s.id} withBorder radius="lg" padding="md">
-              <Group justify="space-between" wrap="nowrap" align="flex-start">
-                <div className="min-w-0 flex-1">
-                  <Group gap="xs" wrap="nowrap">
-                    <AnchorLink fw={700} truncate to="/scoring/$id" params={{ id: s.id }} c="inherit">{s.name}</AnchorLink>
-                    {s.repeatSeconds > 0n && <Badge variant="light">{repeats.find((r) => r.value === s.repeatSeconds.toString())?.label ?? "On a schedule"}</Badge>}
-                  </Group>
-                  <Text size="sm" c="dimmed" truncate>{s.modelName} · {s.sourceDetail} · {s.endTime ? `last run ${ago(s.endTime)}` : `made ${ago(s.createTime)}`}</Text>
-                  <Text size="sm" mt={4} c={s.error ? "red" : undefined}>{s.error || statusText(s)}{s.resultBytes > 0n && !waiting(s) ? ` · ${bytes(s.resultBytes)}` : ""}</Text>
-                  {waiting(s) && <Progress value={progress(s)} mt={6} animated />}
-                </div>
-              </Group>
-            </Card>
+            <Row
+              key={s.id}
+              tone={s.error || s.status === JobStatus.FAILED ? "bad" : waiting(s) ? "busy" : "ok"}
+              icon={<IconListCheck size={20} />}
+              title={<Group gap="xs" wrap="nowrap">
+                <AnchorLink fw={650} truncate to="/scoring/$id" params={{ id: s.id }} c="inherit">{s.name}</AnchorLink>
+                {s.repeatSeconds > 0n && <Badge variant="light" color="gray">{repeats.find((r) => r.value === s.repeatSeconds.toString())?.label ?? "On a schedule"}</Badge>}
+              </Group>}
+              detail={<>{s.modelName} · {s.sourceDetail} · {s.endTime ? `last run ${ago(s.endTime)}` : `made ${ago(s.createTime)}`}<br /><Text span c={s.error ? "red" : undefined} size="sm">{s.error || statusText(s)}{s.resultBytes > 0n && !waiting(s) ? ` · ${bytes(s.resultBytes)}` : ""}</Text></>}
+              extra={waiting(s) && <Progress value={progress(s)} color="violet" size="sm" mt={8} maw={380} animated aria-label="Progress" />}
+            >
+              {s.resultBytes > 0n && !waiting(s) && <Button size="xs" variant="default" component="a" href={resultsURL(s.id)} download leftSection={<IconDownload size={14} />}>Download</Button>}
+            </Row>
           ))}
-        </Stack>
+        </RowList>
       )}
       <NewScoring open={adding} onClose={() => setAdding(false)} modelId={model} models={fit.map((m) => ({ value: m.id, label: m.name }))} />
     </Page>

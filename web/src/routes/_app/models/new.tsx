@@ -118,7 +118,7 @@ function AddModel() {
             <Radio.Group value={arch} onChange={(v) => { setArch(v); setPicked(undefined); }} label="What does this model do?" mt="md">
               <Stack gap="sm" mt="sm">
                 {[...wholeKinds, ...(more ? weightKinds : [])].map((a) => (
-                  <Radio.Card key={a.name} value={a.name} radius="md" p="md" className="data-[checked]:border-[var(--mantine-primary-color-filled)]">
+                  <Radio.Card key={a.name} value={a.name} radius="md" p="md">
                     <Group wrap="nowrap" align="flex-start">
                       <Radio.Indicator />
                       <div>

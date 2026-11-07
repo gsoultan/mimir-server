@@ -1,7 +1,7 @@
 import { Code, ConnectError, createClient } from "@connectrpc/connect";
 import { useMutation } from "@connectrpc/connect-query";
 import {
-  ActionIcon, Alert, Badge, Button, Card, Grid, Group, Loader, Modal, Popover, ScrollArea, Select, Stack, Text, Textarea, TextInput, Tooltip,
+  ActionIcon, Alert, Badge, Button, Card, Group, Loader, Modal, Popover, ScrollArea, Select, Stack, Text, Textarea, TextInput, Tooltip,
 } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
 import { notifications } from "@mantine/notifications";
@@ -84,13 +84,13 @@ function CollectionPage() {
       )}
     >
       {(remove.error ?? removeDoc.error) && <Alert color="red" icon={<IconAlertCircle />}>{message(remove.error ?? removeDoc.error)}</Alert>}
-      <Grid gap="md">
-        <Grid.Col span={{ base: 12, md: 7 }}>
-          <Ask collection={c} empty={c.passages === 0n} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 5 }}>
-          <Card withBorder radius="lg" padding="lg">
-            <Text fw={700} mb="xs">Documents</Text>
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <Ask collection={c} empty={c.passages === 0n} />
+        <Card withBorder padding="lg">
+            <Group justify="space-between" mb="xs">
+              <Text fw={650}>Documents</Text>
+              <Text size="sm" c="dimmed">{data.documents.length}</Text>
+            </Group>
             {canWrite && (
               <Dropzone mb="sm" maxSize={maxDocumentBytes} loading={uploading > 0}
                 accept={{ "text/plain": documentTypes, "text/markdown": [".md"], "text/html": [".html", ".htm"], "application/pdf": [".pdf"], "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"] }}
@@ -106,10 +106,11 @@ function CollectionPage() {
             {data.documents.length === 0 ? (
               <Text size="sm" c="dimmed">No documents yet.</Text>
             ) : (
-              <Stack gap={6}>
+              <div className="row-list">
                 {data.documents.map((d) => (
-                  <Group key={d.id} justify="space-between" wrap="nowrap" gap="xs">
-                    <div className="min-w-0">
+                  <Group key={d.id} justify="space-between" wrap="nowrap" gap="sm" py={8}>
+                    <IconFileText size={18} stroke={1.6} className="shrink-0 opacity-60" />
+                    <div className="min-w-0 flex-1">
                       <Text size="sm" fw={500} truncate>{d.name}</Text>
                       <Text size="xs" c={d.error ? "red" : "dimmed"} lineClamp={2}>
                         {d.error || `${documentStatus(d)} · ${bytes(d.bytes)} · added ${ago(d.createTime)}`}
@@ -124,11 +125,10 @@ function CollectionPage() {
                       )}
                   </Group>
                 ))}
-              </Stack>
+              </div>
             )}
-          </Card>
-        </Grid.Col>
-      </Grid>
+        </Card>
+      </div>
       <Settings collection={c} open={editing} onClose={() => setEditing(false)} />
     </Page>
   );
@@ -182,30 +182,33 @@ function Ask({ collection, empty }: { collection: Collection; empty: boolean }) 
   };
 
   return (
-    <Card withBorder radius="lg" padding={0} className="flex flex-col" h="min(640px, calc(100dvh - 260px))" mih={420}>
-      <Group justify="space-between" px="lg" py="sm" className="border-b" style={{ borderColor: "var(--mantine-color-default-border)" }}>
-        <Text fw={700}>Ask</Text>
+    <Card withBorder padding={0} className="flex flex-col" h="min(640px, calc(100dvh - 260px))" mih={420}>
+      <Group justify="space-between" px="lg" py="sm" className="border-b" style={{ borderColor: "var(--mimir-line)" }}>
+        <Text fw={650}>Ask</Text>
         {turns.length > 0 && (
           <Button variant="subtle" size="xs" leftSection={<IconMessagePlus size={16} />} onClick={() => { stop.current?.abort(); setTurns([]); setError(undefined); }}>New chat</Button>
         )}
       </Group>
       <ScrollArea className="flex-1" px="lg" py="md">
         {turns.length === 0 && (
-          <Text c="dimmed" ta="center" mt="xl">
+          <Stack align="center" gap={6} mt={48} c="dimmed">
+            <IconMessagePlus size={28} stroke={1.5} />
+            <Text c="dimmed" ta="center" maw={360}>
             {empty ? "Add documents, then ask about them here." : "Ask anything your documents answer. Each answer shows the passages it came from."}
-          </Text>
+            </Text>
+          </Stack>
         )}
         <Stack gap="md">
           {turns.map((t, i) => t.role === "user"
-            ? <Card key={i} radius="lg" padding="sm" bg="var(--mantine-color-default-hover)" ml="auto" maw="85%"><Text style={{ whiteSpace: "pre-wrap" }}>{t.content}</Text></Card>
+            ? <Card key={i} radius="lg" padding="sm" bg="var(--mantine-primary-color-light)" ml="auto" maw="85%"><Text style={{ whiteSpace: "pre-wrap" }}>{t.content}</Text></Card>
             : <AnswerView key={i} turn={t} writing={writing && i === turns.length - 1} />)}
         </Stack>
         <div ref={bottom} />
       </ScrollArea>
-      <Stack gap="xs" p="md" className="border-t" style={{ borderColor: "var(--mantine-color-default-border)" }}>
+      <Stack gap="xs" p="md" className="border-t" style={{ borderColor: "var(--mimir-line)" }}>
         {error && <Alert color="red" icon={<IconAlertCircle />} py="xs">{error}</Alert>}
         <Group gap="xs" wrap="nowrap" align="flex-end">
-          <Textarea className="flex-1" placeholder="Ask a question" autosize minRows={1} maxRows={6} value={draft} disabled={empty}
+          <Textarea className="flex-1" placeholder="Ask a question, like “How many days of leave do we get?”" autosize minRows={1} maxRows={6} value={draft} disabled={empty}
             onChange={(e) => setDraft(e.currentTarget.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
           {writing

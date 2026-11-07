@@ -15,7 +15,7 @@ import { allModelQueries, allWorkerQueries, getWorker, listArchitectures } from 
 import { AreaChart } from "../../../components/AreaChart";
 import { AnchorLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
-import { StatusDot } from "../../../components/Placement";
+import { StatusPill } from "../../../components/ui";
 import { TokenModal } from "../../../components/Workers";
 import { ago, bytes, duration, loadColor, share } from "../../../lib/format";
 
@@ -81,19 +81,13 @@ function WorkerPage() {
     <Page
       title={w.name}
       crumbs={[{ label: "Settings", to: "/settings" }, { label: "Workers" }, { label: w.name }]}
-      intro={
-        <span className="inline-flex items-baseline gap-2">
-          <span className="self-center"><StatusDot online={w.online} busy={full} /></span>
-          <span>
-            {w.online
-              ? `${full ? "Busy" : "Online"}${w.connectTime ? ` for ${duration((Date.now() - timestampDate(w.connectTime).getTime()) / 1000)}` : ""} · ${w.device}${w.gpus > 1 ? ` · ${w.gpus} GPUs, each run on all of them` : ""}${w.version ? ` · version ${w.version}` : ""}`
-              : w.lastSeen ? `Offline since ${ago(w.lastSeen)}` : "Hasn't connected yet"}
-          </span>
-        </span>
-      }
+      badge={<StatusPill tone={!w.online ? "idle" : full ? "busy" : "ok"}>{!w.online ? "Offline" : full ? "Busy" : "Online"}</StatusPill>}
+      intro={w.online
+        ? `Connected${w.connectTime ? ` for ${duration((Date.now() - timestampDate(w.connectTime).getTime()) / 1000)}` : ""} · ${w.device}${w.gpus > 1 ? ` · ${w.gpus} GPUs, each run on all of them` : ""}${w.version ? ` · version ${w.version}` : ""}`
+        : w.lastSeen ? `Offline since ${ago(w.lastSeen)}` : "Hasn't connected yet"}
       actions={
         <Group>
-          <Button variant="default" leftSection={<IconArrowLeft size={16} />} onClick={() => navigate({ to: "/settings", search: { tab: "workers" } })}>All workers</Button>
+          <Button variant="subtle" color="gray" leftSection={<IconArrowLeft size={16} />} onClick={() => navigate({ to: "/settings", search: { tab: "workers" } })}>All workers</Button>
           <Button variant="default" leftSection={<IconKey size={16} />} onClick={replace.open}>New token</Button>
           <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={confirm.open}>Remove</Button>
         </Group>
@@ -115,8 +109,8 @@ function WorkerPage() {
       <History data={data} hours={hours} onHours={(v) => navigate({ to: ".", search: { hours: v as "1" }, replace: true })} />
 
       <SimpleGrid cols={{ base: 1, md: 2 }}>
-        <Card withBorder radius="lg" padding="lg">
-          <Title order={3} fz="md" mb="sm">Running now</Title>
+        <Card withBorder padding="lg">
+          <Title order={2} mb="sm">Running now</Title>
           {data.tasks.length === 0 ? <Text size="sm" c="dimmed">{w.online ? "Nothing right now. It's ready for work." : "Nothing, it's offline."}</Text> : (
             <Stack gap="xs">
               {data.tasks.map((t) => (
@@ -136,8 +130,8 @@ function WorkerPage() {
           )}
         </Card>
 
-        <Card withBorder radius="lg" padding="lg">
-          <Title order={3} fz="md" mb="sm">What it takes</Title>
+        <Card withBorder padding="lg">
+          <Title order={2} mb="sm">What it takes</Title>
           <Text size="sm" c="dimmed" mb="sm">Keep training off the machines that answer: a worker that only teaches gets no predictions, and one that only answers gets no training runs. The change applies at once; work already on it finishes.</Text>
           <Select
             label="Work for this worker"
@@ -156,8 +150,8 @@ function WorkerPage() {
           {setTasks.error && <Alert color="red" icon={<IconAlertCircle />} mt="sm">{message(setTasks.error)}</Alert>}
         </Card>
 
-        <Card withBorder radius="lg" padding="lg">
-          <Title order={3} fz="md" mb="sm">Placed here</Title>
+        <Card withBorder padding="lg">
+          <Title order={2} mb="sm">Placed here</Title>
           {data.models.length === 0 && data.runs.length === 0 && (
             <Text size="sm" c="dimmed">No models or runs are set to use only this worker. It takes work for any model set to Automatic.</Text>
           )}
@@ -218,7 +212,7 @@ const runColor: Record<string, string> = { queued: "gray", running: "blue", succ
 function Gauge({ label, pct, detail, off, center }: { label: string; pct: number; detail: string; off?: boolean; center?: string }) {
   const color = off ? "gray" : loadColor(pct);
   return (
-    <Card withBorder radius="lg" padding="md">
+    <Card withBorder padding="md">
       <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:gap-3 sm:text-left">
         <RingProgress
           size={84} thickness={9} roundCaps className="shrink-0"
@@ -246,10 +240,10 @@ function History({ data, hours, onHours }: { data: GetWorkerResponse; hours: num
   };
   const pct = (v: number) => `${Math.round(v)}%`;
   return (
-    <Card withBorder radius="lg" padding="lg">
+    <Card withBorder padding="lg">
       <Group justify="space-between" mb="md">
         <div>
-          <Title order={3} fz="md">Over time</Title>
+          <Title order={2}>Over time</Title>
           <Text size="xs" c="dimmed">One reading a minute, kept for a week. Hover a chart to read it.</Text>
         </div>
         <SegmentedControl size="xs" value={String(hours)} onChange={onHours} data={ranges} />
@@ -286,8 +280,8 @@ const security: Record<string, { label: string; good: boolean; hint: string }> =
 function Connection({ w, data }: { w: Worker; data: GetWorkerResponse }) {
   const sec = security[w.security];
   return (
-    <Card withBorder radius="lg" padding="lg">
-      <Title order={3} fz="md" mb="sm">Connection</Title>
+    <Card withBorder padding="lg">
+      <Title order={2} mb="sm">Connection</Title>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
         <Table withRowBorders={false} verticalSpacing={6} horizontalSpacing={0}>
           <Table.Tbody>

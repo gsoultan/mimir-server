@@ -1,8 +1,8 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Button, Card, Code, CopyButton, Group, Modal, SimpleGrid, Stack, Tabs, Text, Textarea, TextInput, Tooltip, ActionIcon } from "@mantine/core";
+import { Alert, Button, Card, Group, Modal, SimpleGrid, Stack, Tabs, Text, Textarea, TextInput } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconCheck, IconCopy, IconListCheck, IconPlayerPlay, IconSparkles, IconTrash } from "@tabler/icons-react";
+import { IconAlertCircle, IconListCheck, IconPlayerPlay, IconSparkles, IconTrash } from "@tabler/icons-react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -12,6 +12,7 @@ import { message } from "../../../api/client";
 import { ModelService } from "../../../api/gen/mimir/v1/model_pb";
 import { allModelQueries, getModel, listArchitectures, modelQuality, whoAmI } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
+import { CodeBlock } from "../../../components/CodeBlock";
 import { Page } from "../../../components/Page";
 import { LanguageDefaults } from "../../../components/LanguageDefaults";
 import { OnDevice } from "../../../components/OnDevice";
@@ -232,19 +233,3 @@ function ModelDetails() {
 }
 
 // CodeBlock is a request to copy, with a copy button in its corner.
-export function CodeBlock({ code }: { code: string }) {
-  return (
-    <div className="relative">
-      <Code block className="pr-12">{code}</Code>
-      <CopyButton value={code}>
-        {({ copied, copy }) => (
-          <Tooltip label={copied ? "Copied" : "Copy"} withArrow position="left">
-            <ActionIcon variant="default" onClick={copy} className="!absolute right-2 top-2" aria-label="Copy">
-              {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-            </ActionIcon>
-          </Tooltip>
-        )}
-      </CopyButton>
-    </div>
-  );
-}
