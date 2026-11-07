@@ -21,6 +21,7 @@ import (
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/auth"
+	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
@@ -123,7 +124,8 @@ func (e *explainer) value(ctx context.Context, fields map[string]string, k int) 
 		return 0, nil, err
 	}
 	load := func() ([]byte, error) { return e.s.store.Weights(e.m.ID) }
-	r, err := e.s.answer(ctx, e.m, e.a, e.spec, load, input)
+	open := func() (runtime.Weights, error) { return e.s.store.OpenWeights(e.m.ID) }
+	r, err := e.s.answer(ctx, e.m, e.a, e.spec, load, open, input)
 	if err != nil {
 		return 0, nil, err
 	}

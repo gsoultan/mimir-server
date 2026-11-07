@@ -252,7 +252,7 @@ func (s *Service) Embed(ctx context.Context, m store.Model, texts []string) (Emb
 // base model, both of which its version follows.
 func (s *Service) languageFiles(ctx context.Context, m store.Model) (runtime.LanguageFiles, string, error) {
 	if !m.FineTune() {
-		return runtime.LanguageFiles{Model: func() ([]byte, error) { return s.store.Weights(m.ID) }}, m.WeightsVersion(), nil
+		return runtime.LanguageFiles{Model: func() (runtime.Weights, error) { return s.store.OpenWeights(m.ID) }}, m.WeightsVersion(), nil
 	}
 	base, err := s.store.Get(ctx, m.BaseModelID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -261,8 +261,8 @@ func (s *Service) languageFiles(ctx context.Context, m store.Model) (runtime.Lan
 		return runtime.LanguageFiles{}, "", s.internal(ctx, err)
 	}
 	return runtime.LanguageFiles{
-		Model:      func() ([]byte, error) { return s.store.Weights(base.ID) },
-		Adapter:    func() ([]byte, error) { return s.store.Weights(m.ID) },
+		Model:      func() (runtime.Weights, error) { return s.store.OpenWeights(base.ID) },
+		Adapter:    func() (runtime.Weights, error) { return s.store.OpenWeights(m.ID) },
 		BaseSHA256: base.SHA256,
 	}, m.WeightsVersion() + "+" + base.WeightsVersion(), nil
 }

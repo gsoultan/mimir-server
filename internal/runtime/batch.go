@@ -60,7 +60,8 @@ type batcher struct {
 	most    int // the most rows run accepts at once, 0 for any number
 	opts    func() Batching
 	obs     func() Observer
-	runners int // the most batches running at once
+	hold    func() func() // keeps the model while a runner runs; the result lets it go
+	runners int           // the most batches running at once
 
 	mu      sync.Mutex
 	queue   []*question
@@ -80,8 +81,11 @@ type answer struct {
 	err error
 }
 
-func newBatcher(run rowsFunc, engine string, most int, opts func() Batching, obs func() Observer) *batcher {
-	return &batcher{run: run, engine: engine, most: most, opts: opts, obs: obs, runners: max(1, runtime.GOMAXPROCS(0))}
+func newBatcher(run rowsFunc, engine string, most int, opts func() Batching, obs func() Observer, hold func() func()) *batcher {
+	if hold == nil {
+		hold = func() func() { return func() {} }
+	}
+	return &batcher{run: run, engine: engine, most: most, opts: opts, obs: obs, hold: hold, runners: max(1, runtime.GOMAXPROCS(0))}
 }
 
 // ask queues x and returns its outputs once a batch with it has run, or
@@ -92,7 +96,9 @@ func (b *batcher) ask(ctx context.Context, x []float32) ([]float32, error) {
 	b.queue = append(b.queue, q)
 	if b.running < b.runners {
 		b.running++
-		go b.work()
+		// The asker holds the model now, so the runner can take its own
+		// hold here; it lets go when it stops.
+		go b.work(b.hold())
 	}
 	b.mu.Unlock()
 	select {
@@ -103,10 +109,11 @@ func (b *batcher) ask(ctx context.Context, x []float32) ([]float32, error) {
 	}
 }
 
-// work runs batches until the queue is empty, then stops; ask starts a
-// runner again when questions come. A model nobody asks keeps no
-// goroutine.
-func (b *batcher) work() {
+// work runs batches until the queue is empty, then stops, calling release;
+// ask starts a runner again when questions come. A model nobody asks keeps
+// no goroutine.
+func (b *batcher) work(release func()) {
+	defer release()
 	for {
 		batch := b.take()
 		if batch == nil {

@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"slices"
 	"sync"
@@ -418,9 +419,46 @@ type entry struct {
 	lm    *LanguageModel // for a language model, instead of batch
 	kind  string         // "language", "file" or "built", for metrics
 	err   error
-	size  int64         // bytes of the file it was loaded from
-	elem  *list.Element // its place in lru, once loaded; guarded by Cache.mu
+	size  int64 // bytes of the file it was loaded from
+	// weights are the files the model was loaded from and closer the
+	// model itself, closed together once the entry has gone from the
+	// cache and nothing runs it any more (see release).
+	weights []Weights
+	closer  io.Closer
+	// The rest is guarded by Cache.mu.
+	elem  *list.Element // its place in lru, once loaded
+	users int           // requests and batches running the model now
+	gone  bool          // dropped from the cache, or never installed; closed once users is 0
 }
+
+// Weights are a model's weights file in memory: its bytes and, for a file
+// mapped into memory, the way to unmap it. The cache closes them once the
+// model has gone from it and nothing runs it any more, so the mapping
+// lives exactly as long as the model does.
+type Weights interface {
+	Bytes() []byte
+	Close() error
+}
+
+// A Loader reads a model's weights when the cache first needs them.
+type Loader func() (Weights, error)
+
+// InMemory makes a Loader of plain bytes, which Close leaves to the
+// collector: a model received over the network, or a test's.
+func InMemory(load func() ([]byte, error)) Loader {
+	return func() (Weights, error) {
+		b, err := load()
+		if err != nil {
+			return nil, err
+		}
+		return bytesWeights(b), nil
+	}
+}
+
+type bytesWeights []byte
+
+func (b bytesWeights) Bytes() []byte { return b }
+func (bytesWeights) Close() error    { return nil }
 
 // load builds the model of architecture a from weights, a weights file
 // or, for a File architecture, a Mimir Model file.
@@ -442,7 +480,8 @@ func (e *entry) load(c *Cache, a arch.Architecture, spec arch.Spec, weights []by
 			e.err = fmt.Errorf("%w: the file reads shape %v, the model %v", ErrBadWeights, f.Spec.InputShape, spec.InputShape)
 			return
 		}
-		e.batch = newBatcher(f.Run, f.Engine(), f.batch, c.batchingNow, c.observerNow)
+		e.closer = f
+		e.batch = newBatcher(f.Run, f.Engine(), f.batch, c.batchingNow, c.observerNow, c.holder(e))
 		return
 	}
 	e.kind = "built"
@@ -451,7 +490,52 @@ func (e *entry) load(c *Cache, a arch.Architecture, spec arch.Spec, weights []by
 		e.err = err
 		return
 	}
-	e.batch = newBatcher(newReplayer(mod, spec.InputShape).run, "mimir", 0, c.batchingNow, c.observerNow)
+	e.batch = newBatcher(newReplayer(mod, spec.InputShape).run, "mimir", 0, c.batchingNow, c.observerNow, c.holder(e))
+}
+
+// holder returns what a batcher calls to keep e's model while a runner
+// runs batches of it: the runner may still be running a question whose
+// asker has gone, so the asker's hold is not enough.
+func (c *Cache) holder(e *entry) func() func() {
+	return func() func() {
+		c.mu.Lock()
+		e.users++
+		c.mu.Unlock()
+		return func() { c.release(e) }
+	}
+}
+
+// release lets go of a hold on e, closing its model and weights once it
+// has gone from the cache and no one else holds it.
+func (c *Cache) release(e *entry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	e.users--
+	if e.gone && e.users == 0 {
+		c.closeLocked(e)
+	}
+}
+
+// drop marks e gone from the cache, closing it now when nothing holds it
+// or once the last holder lets go. c.mu must be held.
+func (c *Cache) drop(e *entry) {
+	e.gone = true
+	if e.users == 0 {
+		c.closeLocked(e)
+	}
+}
+
+// closeLocked closes e's model, then the files it was loaded from, once.
+// c.mu must be held. A model built from bytes has nothing to close.
+func (c *Cache) closeLocked(e *entry) {
+	if e.closer != nil {
+		e.closer.Close()
+		e.closer = nil
+	}
+	for _, w := range e.weights {
+		w.Close()
+	}
+	e.weights = nil
 }
 
 // NewCache returns an empty cache that holds at most limit bytes of
@@ -478,7 +562,7 @@ func (c *Cache) Used() (bytes int64, models int) {
 
 // Predict runs input, shaped like spec's InputShape, through version ver
 // of the model with id, loading it with load on first use.
-func (c *Cache) Predict(ctx context.Context, id, ver string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (Result, error) {
+func (c *Cache) Predict(ctx context.Context, id, ver string, a arch.Architecture, spec arch.Spec, load Loader, input []float32) (Result, error) {
 	want := 1
 	for _, d := range spec.InputShape {
 		want *= d
@@ -490,6 +574,7 @@ func (c *Cache) Predict(ctx context.Context, id, ver string, a arch.Architecture
 	if err != nil {
 		return Result{}, err
 	}
+	defer c.release(e)
 	if e.batch == nil {
 		return Result{}, fmt.Errorf("%w: a language model writes text; send it a prompt", ErrBadInput)
 	}
@@ -521,19 +606,23 @@ func softmax(v []float32) []float32 {
 
 // Load loads version ver of the model with id ahead of its first
 // prediction, so the caller can let the weights go.
-func (c *Cache) Load(id, ver string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error)) error {
-	_, err := c.ready(id, ver, a, spec, load)
-	return err
+func (c *Cache) Load(id, ver string, a arch.Architecture, spec arch.Spec, load Loader) error {
+	e, err := c.ready(id, ver, a, spec, load)
+	if err != nil {
+		return err
+	}
+	c.release(e)
+	return nil
 }
 
 // LanguageFiles reads the files of a language model, for the cache to
 // load it on first use.
 type LanguageFiles struct {
 	// Model reads the model's file; a fine-tune's is its base model's.
-	Model func() ([]byte, error)
+	Model Loader
 	// Adapter, for a fine-tune, reads its LoRA adapter file; nil for a
 	// model of its own.
-	Adapter func() ([]byte, error)
+	Adapter Loader
 	// BaseSHA256 is the hex SHA-256 of a fine-tune's base model file.
 	BaseSHA256 string
 }
@@ -541,63 +630,72 @@ type LanguageFiles struct {
 // Generate continues prompt with version ver of the language model with
 // id, loading it from files on first use.
 func (c *Cache) Generate(ctx context.Context, id, ver string, files LanguageFiles, prompt string, s Sampling) (Generation, error) {
-	lm, err := c.language(id, ver, files)
+	e, lm, err := c.language(id, ver, files)
 	if err != nil {
 		return Generation{}, err
 	}
+	defer c.release(e)
 	return lm.Generate(ctx, prompt, s)
 }
 
 // Chat writes the next turn of a chat with version ver of the language
 // model with id, loading it from files on first use.
 func (c *Cache) Chat(ctx context.Context, id, ver string, files LanguageFiles, msgs []Message, s Sampling) (Generation, error) {
-	lm, err := c.language(id, ver, files)
+	e, lm, err := c.language(id, ver, files)
 	if err != nil {
 		return Generation{}, err
 	}
+	defer c.release(e)
 	return lm.Chat(ctx, msgs, s)
 }
 
 // Embed returns embeddings of texts from version ver of the language model
 // with id, loading it from files on first use (see LanguageModel.Embed).
 func (c *Cache) Embed(ctx context.Context, id, ver string, files LanguageFiles, texts []string) ([][]float32, int, error) {
-	lm, err := c.language(id, ver, files)
+	e, lm, err := c.language(id, ver, files)
 	if err != nil {
 		return nil, 0, err
 	}
+	defer c.release(e)
 	return lm.Embed(ctx, texts)
 }
 
-// language returns version ver of the language model with id, loading it
-// from files on first use.
-func (c *Cache) language(id, ver string, files LanguageFiles) (*LanguageModel, error) {
+// language returns version ver of the language model with id, held for
+// the caller, loading it from files on first use. The caller releases the
+// entry once done with the model.
+func (c *Cache) language(id, ver string, files LanguageFiles) (*entry, *LanguageModel, error) {
 	e, err := c.get(id, ver, files.Model, func(e *entry, w []byte) {
 		start := time.Now()
 		e.kind = "language"
 		if files.Adapter == nil {
 			e.lm, e.err = OpenLanguageModel(w)
 		} else {
-			var a []byte
+			var a Weights
 			if a, e.err = files.Adapter(); e.err == nil {
-				e.lm, e.err = OpenFineTune(w, a, files.BaseSHA256)
+				e.weights = append(e.weights, a)
+				e.lm, e.err = OpenFineTune(w, a.Bytes(), files.BaseSHA256)
 			}
+		}
+		if e.err == nil {
+			e.closer = e.lm
 		}
 		if o := c.observerNow(); o != nil {
 			o.ObserveLoad(e.kind, time.Since(start), e.err != nil)
 		}
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if e.lm == nil {
-		return nil, fmt.Errorf("%w: only a language model writes text", ErrBadInput)
+		c.release(e)
+		return nil, nil, fmt.Errorf("%w: only a language model writes text", ErrBadInput)
 	}
-	return e.lm, nil
+	return e, e.lm, nil
 }
 
-// ready returns the entry of version ver of the model with id, loading it
-// with load on first use.
-func (c *Cache) ready(id, ver string, a arch.Architecture, spec arch.Spec, load func() ([]byte, error)) (*entry, error) {
+// ready returns the entry of version ver of the model with id, held for
+// the caller, loading it with load on first use.
+func (c *Cache) ready(id, ver string, a arch.Architecture, spec arch.Spec, load Loader) (*entry, error) {
 	return c.get(id, ver, load, func(e *entry, w []byte) {
 		start := time.Now()
 		e.load(c, a, spec, w)
@@ -609,8 +707,10 @@ func (c *Cache) ready(id, ver string, a arch.Architecture, spec arch.Spec, load 
 
 // get returns the entry of version ver of the model with id, building it
 // from the bytes load returns on first use, and marks it most recently
-// used.
-func (c *Cache) get(id, ver string, load func() ([]byte, error), build func(e *entry, w []byte)) (*entry, error) {
+// used. The entry is held for the caller, who releases it once done with
+// the model: an entry the cache has let go of meanwhile serves that
+// request and closes then.
+func (c *Cache) get(id, ver string, load Loader, build func(e *entry, w []byte)) (*entry, error) {
 	e := c.entry(id, ver)
 	e.once.Do(func() {
 		if g := c.gate.Load(); g != nil {
@@ -618,22 +718,31 @@ func (c *Cache) get(id, ver string, load func() ([]byte, error), build func(e *e
 				return
 			}
 		}
-		var w []byte
+		var w Weights
 		if w, e.err = load(); e.err == nil {
+			e.weights = append(e.weights, w)
 			// A file that makes the loader panic fails its own requests,
 			// not the server.
-			if err := safe.Run(nil, "loading model "+id, func() { build(e, w) }); err != nil {
+			if err := safe.Run(nil, "loading model "+id, func() { build(e, w.Bytes()) }); err != nil {
 				e.err, e.batch, e.lm = err, nil, nil
 			}
-			e.size = int64(len(w))
+			e.size = int64(len(w.Bytes()))
 		}
 	})
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if e.err != nil {
-		c.forget(id, e) // let the next request try again
+		c.forgetLocked(id, e) // let the next request try again
 		return nil, e.err
 	}
-	c.install(e)
-	c.touch(e)
+	c.installLocked(e)
+	c.touchLocked(e)
+	if c.loaded[e.id] != e {
+		// Overtaken by another version or dropped while it loaded: it
+		// serves this request and goes.
+		e.gone = true
+	}
+	e.users++
 	return e, nil
 }
 
@@ -655,12 +764,10 @@ func (c *Cache) entry(id, ver string) *entry {
 	return e
 }
 
-// install makes a loaded entry the one that answers for its model,
+// installLocked makes a loaded entry the one that answers for its model,
 // letting the version before it go. An entry another version overtook
-// while it loaded serves its request and goes.
-func (c *Cache) install(e *entry) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+// while it loaded serves its request and goes. c.mu must be held.
+func (c *Cache) installLocked(e *entry) {
 	if c.pending[e.id] != e {
 		return
 	}
@@ -671,12 +778,11 @@ func (c *Cache) install(e *entry) {
 	c.loaded[e.id] = e
 }
 
-// touch marks a loaded entry most recently used, counting its bytes the
-// first time, and drops others to keep under the limit. An entry that was
-// replaced or forgotten while it loaded serves its request and goes.
-func (c *Cache) touch(e *entry) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+// touchLocked marks a loaded entry most recently used, counting its bytes
+// the first time, and drops others to keep under the limit. An entry that
+// was replaced or forgotten while it loaded serves its request and goes.
+// c.mu must be held.
+func (c *Cache) touchLocked(e *entry) {
 	if c.loaded[e.id] != e {
 		return
 	}
@@ -708,31 +814,32 @@ func (c *Cache) trim(keep *entry) {
 	}
 }
 
-// unlist takes e out of the LRU list and its bytes off the total. c.mu
-// must be held.
+// unlist takes e out of the LRU list and its bytes off the total, and
+// lets it go: it closes once nothing runs it. c.mu must be held.
 func (c *Cache) unlist(e *entry) {
-	if e.elem == nil {
-		return
+	if e.elem != nil {
+		c.lru.Remove(e.elem)
+		e.elem = nil
+		c.used -= e.size
 	}
-	c.lru.Remove(e.elem)
-	e.elem = nil
-	c.used -= e.size
+	c.drop(e)
 }
 
-// forget drops e if it is still the entry, loaded or loading, for id.
-func (c *Cache) forget(id string, e *entry) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+// forgetLocked drops e if it is still the entry, loaded or loading, for
+// id. c.mu must be held.
+func (c *Cache) forgetLocked(id string, e *entry) {
 	if c.loaded[id] == e {
 		delete(c.loaded, id)
 		c.unlist(e)
 	}
 	if c.pending[id] == e {
 		delete(c.pending, id)
+		c.drop(e)
 	}
 }
 
-// Forget drops a model from memory, for example after it is deleted.
+// Forget drops a model from memory, for example after it is deleted. A
+// request running it finishes first; its weights go once the last has.
 func (c *Cache) Forget(id string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -740,5 +847,8 @@ func (c *Cache) Forget(id string) {
 		delete(c.loaded, id)
 		c.unlist(e)
 	}
-	delete(c.pending, id)
+	if e, ok := c.pending[id]; ok {
+		delete(c.pending, id)
+		c.drop(e)
+	}
 }
