@@ -1168,3 +1168,8 @@ a text column becoming an array or jsonb) is declared on the column with
 `ConvertFrom(storm.JSONText)`, and automigrate writes the conversion. The
 server lets automigrate replace indexes and CHECK constraints, which hold
 no data, and still refuses any plan that drops a table or column.
+
+## License
+
+Dual-licensed under the [GNU AGPL v3](LICENSE) or a commercial license. See
+[LICENSING.md](LICENSING.md) for details.
