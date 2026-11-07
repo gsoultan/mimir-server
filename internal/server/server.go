@@ -181,13 +181,18 @@ func harden(next http.Handler, proxies func() auth.Proxies) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		// No other site gets a handle on the UI's window, or embeds what
+		// it serves.
+		h.Set("Cross-Origin-Opener-Policy", "same-origin")
+		h.Set("Cross-Origin-Resource-Policy", "same-origin")
 		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
-		if proxies().HTTPS(r) {
+		https := proxies().HTTPS(r)
+		if https {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 		// Coming back from a sign-in provider is a cross-site navigation by
 		// design; the callback checks its own state cookie instead.
-		if auth.SessionToken(r.Header) != "" && !auth.SameOrigin(r.Header, r.Host) && !ssoCallback(r) {
+		if auth.SessionTokenFor(r.Header, https) != "" && !auth.SameOrigin(r.Header, r.Host) && !ssoCallback(r) {
 			http.Error(w, "Cross-site requests can't use your sign-in.", http.StatusForbidden)
 			return
 		}

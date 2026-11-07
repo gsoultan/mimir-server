@@ -365,7 +365,8 @@ func (s *Service) WithConn(next http.Handler) http.Handler {
 			forwarded: s.Proxies.ForwardedHTTPS(r.Header, r.RemoteAddr),
 			proxied:   s.Proxies.Forwarded(r.Header, r.RemoteAddr),
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), connKey{}, c)))
+		ctx := auth.WithHTTPS(context.WithValue(r.Context(), connKey{}, c), c.https())
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

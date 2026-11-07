@@ -23,16 +23,26 @@ const (
 	saltLen      = 16
 )
 
-// MinPassword is the shortest password accepted.
-const MinPassword = 10
+// MinPassword is the shortest password accepted; MaxPassword the
+// longest, so a request can't make the server hash megabytes.
+const (
+	MinPassword = 10
+	MaxPassword = 1024
+)
 
 // ErrWeakPassword reports a password shorter than MinPassword.
 var ErrWeakPassword = fmt.Errorf("auth: password must be at least %d characters", MinPassword)
+
+// ErrLongPassword reports a password longer than MaxPassword.
+var ErrLongPassword = fmt.Errorf("auth: password must be at most %d characters", MaxPassword)
 
 // HashPassword returns an encoded argon2id hash of password.
 func HashPassword(password string) (string, error) {
 	if len(password) < MinPassword {
 		return "", ErrWeakPassword
+	}
+	if len(password) > MaxPassword {
+		return "", ErrLongPassword
 	}
 	salt := make([]byte, saltLen)
 	if _, err := rand.Read(salt); err != nil {
@@ -45,6 +55,9 @@ func HashPassword(password string) (string, error) {
 
 // CheckPassword reports whether password matches the encoded hash.
 func CheckPassword(encoded, password string) bool {
+	if len(password) > MaxPassword {
+		return false // never stored, so never matches; and not worth hashing
+	}
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" {
 		return false

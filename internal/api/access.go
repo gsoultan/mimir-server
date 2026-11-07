@@ -143,12 +143,9 @@ func NewOwner(email, name, password string) (hash, cleanEmail, cleanName string,
 	if err != nil {
 		return "", "", "", err
 	}
-	hash, err = auth.HashPassword(password)
-	if errors.Is(err, auth.ErrWeakPassword) {
-		return "", "", "", invalid("Passwords need at least %d characters.", auth.MinPassword)
-	}
+	hash, err = hashPassword(password)
 	if err != nil {
-		return "", "", "", connect.NewError(connect.CodeInternal, errors.New("Couldn't hash the password."))
+		return "", "", "", err
 	}
 	return hash, cleanEmail, cleanName, nil
 }
@@ -247,12 +244,9 @@ func (s *Service) ChangePassword(ctx context.Context, req *connect.Request[mimir
 	if err := s.proveIdentity(ctx, req.Header(), req.Peer().Addr, p, req.Msg.GetCurrentPassword()); err != nil {
 		return nil, err
 	}
-	hash, err := auth.HashPassword(req.Msg.GetNewPassword())
-	if errors.Is(err, auth.ErrWeakPassword) {
-		return nil, invalid("Passwords need at least %d characters.", auth.MinPassword)
-	}
+	hash, err := hashPassword(req.Msg.GetNewPassword())
 	if err != nil {
-		return nil, s.internal(ctx, err)
+		return nil, err
 	}
 	if err := s.store.SetPassword(ctx, p.User.ID, hash, false); err != nil {
 		return nil, s.internal(ctx, err)
@@ -305,12 +299,9 @@ func (s *Service) CreateUser(ctx context.Context, req *connect.Request[mimirv1.C
 	if err != nil {
 		return nil, err
 	}
-	hash, err := auth.HashPassword(req.Msg.GetPassword())
-	if errors.Is(err, auth.ErrWeakPassword) {
-		return nil, invalid("Passwords need at least %d characters.", auth.MinPassword)
-	}
+	hash, err := hashPassword(req.Msg.GetPassword())
 	if err != nil {
-		return nil, s.internal(ctx, err)
+		return nil, err
 	}
 	u, err := s.store.CreateUser(ctx, store.User{Email: email, Name: name, PasswordHash: hash, Access: access, TeamID: team})
 	if errors.Is(err, store.ErrEmailTaken) {
@@ -390,12 +381,9 @@ func (s *Service) UpdateUser(ctx context.Context, req *connect.Request[mimirv1.U
 		s.audit(ctx, p.Actor(), "user.two_factor_reset", u.Email, "")
 	}
 	if pw := req.Msg.GetNewPassword(); pw != "" {
-		hash, err := auth.HashPassword(pw)
-		if errors.Is(err, auth.ErrWeakPassword) {
-			return nil, invalid("Passwords need at least %d characters.", auth.MinPassword)
-		}
+		hash, err := hashPassword(pw)
 		if err != nil {
-			return nil, s.internal(ctx, err)
+			return nil, err
 		}
 		// Someone else resetting the password suggests the account was in
 		// the wrong hands, so its API keys go too. A routine change of
@@ -693,6 +681,21 @@ func cleanUser(email, name string) (string, string, error) {
 	}
 	name, err := cleanName("person", name)
 	return email, name, err
+}
+
+// hashPassword hashes a new password, with a Connect error fit to show
+// when it's too short or too long.
+func hashPassword(password string) (string, error) {
+	hash, err := auth.HashPassword(password)
+	switch {
+	case errors.Is(err, auth.ErrWeakPassword):
+		return "", invalid("Passwords need at least %d characters.", auth.MinPassword)
+	case errors.Is(err, auth.ErrLongPassword):
+		return "", invalid("Passwords can have at most %d characters.", auth.MaxPassword)
+	case err != nil:
+		return "", connect.NewError(connect.CodeInternal, errors.New("Couldn't hash the password."))
+	}
+	return hash, nil
 }
 
 func badSignIn() error {
