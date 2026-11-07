@@ -84,7 +84,7 @@ function CodeGuide() {
           ? <AnchorLink to="/models/build/$goal" params={{ goal: goal.id }} size="sm" c="teal.8" className="inline-flex items-center gap-1"><IconArrowLeft size={16} /> {goal.title}</AnchorLink>
           : <AnchorLink to="/models/build" size="sm" c="teal.8" className="inline-flex items-center gap-1"><IconArrowLeft size={16} /> Build a model</AnchorLink>}
       </div>
-      <Page title="Write your own model" intro="For anything mimir can't teach by itself. You write the model in Go; mimir serves it like any other.">
+      <Page title="Write your own model" crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Write your own" }]} intro="For anything mimir can't teach by itself. You write the model in Go; mimir serves it like any other.">
         <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
           <Card withBorder radius="lg" padding="lg" className="md:col-span-2">
             <Stepper active={step} orientation="vertical" size="sm" iconSize={30}>

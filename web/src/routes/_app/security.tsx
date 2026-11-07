@@ -173,6 +173,10 @@ function Sessions({ currentId }: { currentId: string }) {
     onSuccess: async (res) => { await refresh(); notifications.show({ message: res.revoked === 1 ? "Signed out on that device." : `Signed out on ${res.revoked} devices.` }); },
   });
   const others = data.sessions.filter((s) => s.id !== currentId);
+  const [all, setAll] = useState(false);
+  // This device first, then the most recent; the rest behind a button.
+  const sorted = [...data.sessions].sort((a, b) => Number(b.id === currentId) - Number(a.id === currentId));
+  const shown = all ? sorted : sorted.slice(0, 5);
   return (
     <Card withBorder radius="lg" padding="lg">
       <Group justify="space-between" align="flex-start" mb="sm">
@@ -183,18 +187,21 @@ function Sessions({ currentId }: { currentId: string }) {
         {others.length > 0 && <Button variant="default" loading={revoke.isPending} onClick={() => revoke.mutate({})}>Sign out everywhere else</Button>}
       </Group>
       {revoke.error && <Alert color="red" icon={<IconAlertCircle />} mb="sm">{message(revoke.error)}</Alert>}
-      <Stack gap="xs">
-        {data.sessions.map((s) => <SessionRow key={s.id} session={s} current={s.id === currentId} onRevoke={() => revoke.mutate({ id: s.id })} />)}
-      </Stack>
+      <div className="row-list">
+        {shown.map((s) => <SessionRow key={s.id} session={s} current={s.id === currentId} onRevoke={() => revoke.mutate({ id: s.id })} />)}
+      </div>
+      {sorted.length > 5 && (
+        <Button variant="subtle" size="compact-sm" mt="sm" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${sorted.length}`}</Button>
+      )}
     </Card>
   );
 }
 
 function SessionRow({ session: s, current, onRevoke }: { session: Session; current: boolean; onRevoke: () => void }) {
   return (
-    <Group justify="space-between" wrap="nowrap" className="rounded-md border border-gray-200 px-3 py-2">
+    <Group justify="space-between" wrap="nowrap" className="py-2.5">
       <Group gap="sm" wrap="nowrap" className="min-w-0">
-        {/iphone|ipad|android/i.test(s.device) ? <IconDeviceMobile size={22} stroke={1.6} className="shrink-0 text-gray-500" /> : <IconDeviceLaptop size={22} stroke={1.6} className="shrink-0 text-gray-500" />}
+        {/iphone|ipad|android/i.test(s.device) ? <IconDeviceMobile size={22} stroke={1.6} className="shrink-0 opacity-60" /> : <IconDeviceLaptop size={22} stroke={1.6} className="shrink-0 opacity-60" />}
         <div className="min-w-0">
           <Group gap="xs">
             <Text fw={600} size="sm">{s.device}</Text>

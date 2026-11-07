@@ -1,6 +1,6 @@
 import { ConnectError } from "@connectrpc/connect";
 import { Alert, Autocomplete, Button, Card, FileInput, Group, NumberInput, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, Textarea, TextInput, Title } from "@mantine/core";
-import { IconAlertCircle, IconMusic, IconPhoto } from "@tabler/icons-react";
+import { IconAlertCircle, IconDice5, IconMusic, IconPhoto, IconPlayerPlay } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -97,14 +97,32 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
     predict.mutate({ fields, photo: photo ? new Uint8Array(await photo.arrayBuffer()) : undefined, topK });
   };
   const change = (name: string, v: number | string) => { predict.reset(); setValues({ ...values, [name]: v }); };
+  // A typical row: each number at the value an empty cell reads as, each
+  // category at its most common value.
+  const example = () => {
+    predict.reset();
+    const v: Record<string, number | string> = {};
+    for (const c of columns) {
+      if (c.kind === "number") v[c.name] = Math.abs(c.fill) >= 10 ? Math.round(c.fill) : Math.round(c.fill * 10) / 10;
+      else if (c.kind === "yesno") v[c.name] = "no";
+      else if (c.values.length > 0) v[c.name] = c.values[0]!;
+    }
+    setValues(v);
+  };
+  const clear = () => { predict.reset(); setValues({}); setPhoto(null); setSound(null); };
   const took = predict.data && <Text size="xs" c="dimmed" mt="md">Answered in {predict.data.ms < 0.1 ? "under 0.1" : predict.data.ms.toFixed(1)} ms{where ? <> {where}</> : null}.</Text>;
 
   return (
-    <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       {table ? (
-        <Stack>
-          <Card withBorder radius="lg" padding="lg">
-            <Stack gap="sm">
+        <Card withBorder padding="lg">
+          {columns.length > 1 && (
+            <Group justify="space-between" mb="sm">
+              <Text fw={650}>One example</Text>
+              <Button variant="subtle" size="compact-sm" leftSection={<IconDice5 size={16} />} onClick={example}>Fill with an example</Button>
+            </Group>
+          )}
+          <Stack gap="sm">
               {wantsSound && (
                 <FileInput
                   label="Sound"
@@ -131,7 +149,13 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
                 />
               )}
               {preview && !finds && <img src={preview} alt="The photo you picked" className="max-h-48 self-start rounded-lg object-contain" />}
-              {columns.map((c) => <Field key={c.name} column={c} value={values[c.name] ?? ""} onChange={(v) => change(c.name, v)} />)}
+              <SimpleGrid cols={{ base: 1, sm: columns.length > 3 ? 2 : 1 }} spacing="md" verticalSpacing="sm">
+                {columns.map((c) => (
+                  <div key={c.name} className={c.kind === "text" ? "sm:col-span-2" : undefined}>
+                    <Field column={c} value={values[c.name] ?? ""} onChange={(v) => change(c.name, v)} />
+                  </div>
+                ))}
+              </SimpleGrid>
               {raw && (
                 <Textarea
                   label={`The ${want === 1 ? "number" : `${want} numbers`} it reads`}
@@ -143,10 +167,12 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
                   error={rawValues.length > want ? `That's ${rawValues.length}; it reads ${want}.` : undefined}
                 />
               )}
-            </Stack>
-          </Card>
-          <Button size="lg" loading={predict.isPending} disabled={!filled} onClick={() => void ask()}>What is it?</Button>
-        </Stack>
+          </Stack>
+          <Group gap="sm" mt="lg">
+            <Button leftSection={<IconPlayerPlay size={18} />} loading={predict.isPending} disabled={!filled} onClick={() => void ask()}>Ask</Button>
+            <Button variant="subtle" color="gray" onClick={clear}>Clear</Button>
+          </Group>
+        </Card>
       ) : (
         <Stack>
           <DrawPad ref={pad} onStroke={() => predict.reset()} />
@@ -186,8 +212,8 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
           </Card>
         ) : predict.data?.number ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
-            <Text c="dimmed" size="sm">The model&apos;s answer</Text>
-            <Title order={2} fz={40} className="font-[family-name:var(--font-display)]">{(predict.data.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Title>
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: ".06em" }}>Answer</Text>
+            <Title order={2} fz={44} mt={4} c="var(--mantine-primary-color-light-color)">{(predict.data.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Title>
             {arch?.name === "odd-one" && (
               <Text c="dimmed">{(predict.data.value ?? 0) >= 0.6 ? "Unusual: unlike most of what it learned from." : "Usual: like what it learned from."} Scores run from 0 to 1.</Text>
             )}
@@ -196,14 +222,10 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
           </Card>
         ) : best && predict.data ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
-            <Group wrap="nowrap" gap="lg">
-              <div className={`flex ${table ? "min-w-20 px-4 text-2xl" : "size-20 text-5xl"} h-20 shrink-0 items-center justify-center rounded-2xl bg-[var(--mantine-color-teal-light)] font-[family-name:var(--font-display)] font-bold`}>
-                {best.label}
-              </div>
-              <div>
-                <Title order={2} fz={22}>{ranked ? `First pick: ${best.label}` : table ? best.label : `It's a ${best.label}`}</Title>
-                <Text c="dimmed">{predict.data.values ? `Expected to bring about ${reward(expected(best.label))}, the most of any action.` : `${sureness(best.probability)}: ${Math.round(best.probability * 100)} out of 100.`}</Text>
-              </div>
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: ".06em" }}>{ranked ? "First pick" : "Answer"}</Text>
+            <Group align="baseline" gap="md" mt={4} wrap="wrap">
+              <Text component="p" ff="var(--font-display)" fw={750} fz={table ? 40 : 56} lh={1.05} c="var(--mantine-primary-color-light-color)" className="break-words">{best.label}</Text>
+              <Text c="dimmed">{predict.data.values ? `Expected to bring about ${reward(expected(best.label))}, the most of any action.` : `${sureness(best.probability)}: ${Math.round(best.probability * 100)} out of 100.`}</Text>
             </Group>
             <Stack gap="xs" mt="lg">
               <Text size="sm" fw={600}>{ranked ? `Top ${predict.data.guesses!.length}, best first` : "Top guesses"}</Text>
@@ -226,33 +248,39 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
           </Card>
         ) : (
           <Card withBorder radius="lg" padding="lg" className="border-dashed">
-            <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : wantsSound ? "Pick a sound" : "Fill in the details"}, then press "What is it?". ${finds ? `The answer draws a box around each ${model.labels.slice(0, 12).join(", ")} it finds.` : arch?.output === "number" ? "The answer will be a number." : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
+            <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : wantsSound ? "Pick a sound" : "Fill in the details"}, then press Ask. ${finds ? `The answer draws a box around each ${model.labels.slice(0, 12).join(", ")} it finds.` : arch?.output === "number" ? "The answer will be a number." : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
           </Card>
         )}
       </Stack>
-    </SimpleGrid>
+    </div>
   );
+}
+
+// label turns a column name like air_temp_c into "Air temp c".
+function label(name: string) {
+  const s = name.replace(/[_-]+/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 // Field is one column's input, shaped by what the column holds.
 function Field({ column: c, value, onChange }: { column: Column; value: number | string; onChange: (v: number | string) => void }) {
   switch (c.kind) {
     case "category":
-      return <Select label={c.name} data={c.values} value={value === "" ? null : String(value)} onChange={(v) => onChange(v ?? "")} searchable clearable placeholder="Pick one" />;
+      return <Select label={label(c.name)} data={c.values} value={value === "" ? null : String(value)} onChange={(v) => onChange(v ?? "")} searchable clearable placeholder="Pick one" />;
     case "key":
       // One of many, like a customer: any value, with the known ones to pick from.
-      return <Autocomplete label={c.name} data={c.values} limit={50} value={String(value)} onChange={onChange} placeholder="Type or pick one" />;
+      return <Autocomplete label={label(c.name)} data={c.values} limit={50} value={String(value)} onChange={onChange} placeholder="Type or pick one" />;
     case "yesno":
       return (
         <Stack gap={4}>
-          <Text size="sm" fw={500}>{c.name}</Text>
+          <Text size="sm" fw={500}>{label(c.name)}</Text>
           <SegmentedControl className="self-start" data={[{ value: "yes", label: "Yes" }, { value: "no", label: "No" }]} value={String(value || "no")} onChange={onChange} />
         </Stack>
       );
     case "text":
-      return <Textarea label={c.name} autosize minRows={2} value={String(value)} onChange={(e) => onChange(e.currentTarget.value)} />;
+      return <Textarea label={label(c.name)} autosize minRows={2} value={String(value)} onChange={(e) => onChange(e.currentTarget.value)} />;
     case "number":
-      return <NumberInput label={c.name} value={value} onChange={onChange} decimalScale={6} />;
+      return <NumberInput label={label(c.name)} value={value} onChange={onChange} decimalScale={6} />;
   }
-  return <TextInput label={c.name} value={String(value)} onChange={(e) => onChange(e.currentTarget.value)} />;
+  return <TextInput label={label(c.name)} value={String(value)} onChange={(e) => onChange(e.currentTarget.value)} />;
 }

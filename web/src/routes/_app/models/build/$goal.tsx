@@ -99,7 +99,7 @@ function NoCode({ goal, kind }: { goal: Goal; kind: "yes_no" | "group" | "number
   );
 
   return (
-    <Page title={goal.title} intro={goal.intro}>
+    <Page title={goal.title} crumbs={[{ label: "Build a model", to: "/models/build" }, { label: goal.title }]} intro={goal.intro}>
       <Card withBorder radius="lg" padding="md">
         <Text fw={700} mb="xs">Two quick questions so we can point you the right way</Text>
         <SimpleGrid cols={{ base: 1, md: 2 }}>
@@ -140,7 +140,7 @@ function Learn({ goal }: { goal: Goal }) {
   const data = goal.data ?? "table";
   const boxes = data === "boxes";
   return (
-    <Page title={goal.title} intro={goal.intro}>
+    <Page title={goal.title} crumbs={[{ label: "Build a model", to: "/models/build" }, { label: goal.title }]} intro={goal.intro}>
       <PathOption
         best
         title={boxes ? "Start from your own photos" : "Start from your own table"}
@@ -179,7 +179,7 @@ function Learn({ goal }: { goal: Goal }) {
 // Write is the guide for language models, which are brought, not taught.
 function Write({ goal }: { goal: Goal }) {
   return (
-    <Page title={goal.title} intro={goal.intro}>
+    <Page title={goal.title} crumbs={[{ label: "Build a model", to: "/models/build" }, { label: goal.title }]} intro={goal.intro}>
       <PathOption
         best
         title="Bring a language model"
@@ -216,7 +216,7 @@ function Write({ goal }: { goal: Goal }) {
 function Code({ goal }: { goal: Goal }) {
   const sample = goal.sample!;
   return (
-    <Page title={goal.title} intro={goal.intro}>
+    <Page title={goal.title} crumbs={[{ label: "Build a model", to: "/models/build" }, { label: goal.title }]} intro={goal.intro}>
       <Alert color="grape" variant="light" title="mimir can't teach this one by itself yet">
         You can still run it here. A developer writes the model in Go and connects it as a worker. mimir then handles the rest: keys, limits, the Try page, usage and retraining on new data.
       </Alert>
