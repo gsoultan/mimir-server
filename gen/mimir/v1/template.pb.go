@@ -101,7 +101,10 @@ type TemplateColumn struct {
 	// meaning says in plain words what goes in it.
 	Meaning string `protobuf:"bytes,3,opt,name=meaning,proto3" json:"meaning,omitempty"`
 	// examples are a few typical values.
-	Examples      []string `protobuf:"bytes,4,rep,name=examples,proto3" json:"examples,omitempty"`
+	Examples []string `protobuf:"bytes,4,rep,name=examples,proto3" json:"examples,omitempty"`
+	// optional marks a column that makes answers more specific when the
+	// data has it, but isn't needed.
+	Optional      bool `protobuf:"varint,5,opt,name=optional,proto3" json:"optional,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -162,6 +165,13 @@ func (x *TemplateColumn) GetExamples() []string {
 		return x.Examples
 	}
 	return nil
+}
+
+func (x *TemplateColumn) GetOptional() bool {
+	if x != nil {
+		return x.Optional
+	}
+	return false
 }
 
 // TemplateFolder is one answer of a photo template: a folder of photos.
@@ -820,7 +830,9 @@ type ColumnCheck struct {
 	// "kind" (found, but it reads differently than the template expects).
 	Status string `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
 	// answer marks the answer column.
-	Answer        bool `protobuf:"varint,9,opt,name=answer,proto3" json:"answer,omitempty"`
+	Answer bool `protobuf:"varint,9,opt,name=answer,proto3" json:"answer,omitempty"`
+	// optional marks a template column that isn't needed.
+	Optional      bool `protobuf:"varint,10,opt,name=optional,proto3" json:"optional,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -914,6 +926,13 @@ func (x *ColumnCheck) GetStatus() string {
 func (x *ColumnCheck) GetAnswer() bool {
 	if x != nil {
 		return x.Answer
+	}
+	return false
+}
+
+func (x *ColumnCheck) GetOptional() bool {
+	if x != nil {
+		return x.Optional
 	}
 	return false
 }
@@ -1101,12 +1120,13 @@ const file_mimir_v1_template_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
 	"\x05blurb\x18\x03 \x01(\tR\x05blurb\x12\x12\n" +
-	"\x04icon\x18\x04 \x01(\tR\x04icon\"n\n" +
+	"\x04icon\x18\x04 \x01(\tR\x04icon\"\x8a\x01\n" +
 	"\x0eTemplateColumn\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x18\n" +
 	"\ameaning\x18\x03 \x01(\tR\ameaning\x12\x1a\n" +
-	"\bexamples\x18\x04 \x03(\tR\bexamples\"T\n" +
+	"\bexamples\x18\x04 \x03(\tR\bexamples\x12\x1a\n" +
+	"\boptional\x18\x05 \x01(\bR\boptional\"T\n" +
 	"\x0eTemplateFolder\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\ameaning\x18\x02 \x01(\tR\ameaning\x12\x14\n" +
@@ -1164,7 +1184,7 @@ const file_mimir_v1_template_proto_rawDesc = "" +
 	"\brows_min\x18\r \x01(\x03R\arowsMin\x12\x1b\n" +
 	"\trows_good\x18\x0e \x01(\x03R\browsGood\x12\x1d\n" +
 	"\n" +
-	"rows_great\x18\x0f \x01(\x03R\trowsGreat\"\xe6\x01\n" +
+	"rows_great\x18\x0f \x01(\x03R\trowsGreat\"\x82\x02\n" +
 	"\vColumnCheck\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x14\n" +
@@ -1177,7 +1197,9 @@ const file_mimir_v1_template_proto_rawDesc = "" +
 	"unreadable\x12\x14\n" +
 	"\x05words\x18\a \x01(\x01R\x05words\x12\x16\n" +
 	"\x06status\x18\b \x01(\tR\x06status\x12\x16\n" +
-	"\x06answer\x18\t \x01(\bR\x06answer\"U\n" +
+	"\x06answer\x18\t \x01(\bR\x06answer\x12\x1a\n" +
+	"\boptional\x18\n" +
+	" \x01(\bR\boptional\"U\n" +
 	"\vFolderCheck\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
 	"\x06photos\x18\x02 \x01(\x03R\x06photos\x12\x1a\n" +

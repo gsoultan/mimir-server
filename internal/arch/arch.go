@@ -48,6 +48,10 @@ const (
 	// Ranked lists the labels that fit best, most likely first: the
 	// items a recommender suggests, say. It is answered like Class.
 	Ranked Output = "ranked"
+	// Several are named numbers, one per label: the chance of each of
+	// several answers, or the low, likely and high ends of a range. The
+	// first is the main one.
+	Several Output = "numbers"
 	// Boxes are the things found in a photo, each a label, a score and
 	// where it is (see FoundIn).
 	Boxes Output = "boxes"
@@ -225,6 +229,9 @@ type Architecture struct {
 	// teach its models; Items is how many a Ranked answer lists.
 	Custom bool
 	Items  int
+	// NumberTarget says the answer column holds numbers, for a model
+	// that doesn't answer with one number.
+	NumberTarget bool
 }
 
 // Answers returns what the architecture answers.

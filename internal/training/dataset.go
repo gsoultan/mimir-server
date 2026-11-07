@@ -792,7 +792,7 @@ func Architectures(d store.Dataset) []string {
 				if d.NumberTarget {
 					out = append(out, a.Name)
 				}
-			case a.Answers() == arch.Number:
+			case a.Answers() == arch.Number || a.NumberTarget:
 				if d.NumberTarget {
 					out = append(out, a.Name)
 				}

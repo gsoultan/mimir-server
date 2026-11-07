@@ -47,8 +47,8 @@ type Answer struct {
 	Number  bool    `json:"number,omitempty"`
 	Value   float64 `json:"value,omitempty"`
 	Guesses []Guess `json:"guesses,omitempty"`
-	// Values is a decision model's expected reward of each action, in the
-	// order of its labels.
+	// Values is a decision model's expected reward of each action, or a
+	// model of several numbers' every number, in the order of its labels.
 	Values []float32 `json:"values,omitempty"`
 	// Boxes are what a model that finds things found, surest first.
 	Boxes []Box `json:"boxes,omitempty"`
@@ -132,10 +132,13 @@ func (r *Runner) Predict(ctx context.Context, id string, q Question) (Answer, er
 	if err != nil {
 		return Answer{}, err
 	}
-	if l.a.Answers() == arch.Number {
+	if l.a.Answers() == arch.Number || l.a.Answers() == arch.Several {
 		a := Answer{Number: true}
 		if len(res.Output) > 0 {
 			a.Value = float64(res.Output[0])
+		}
+		if l.a.Answers() == arch.Several {
+			a.Values = res.Output
 		}
 		return a, nil
 	}

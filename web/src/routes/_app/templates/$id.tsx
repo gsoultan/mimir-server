@@ -1,13 +1,13 @@
 import { useMutation } from "@connectrpc/connect-query";
 import { Alert, Badge, Button, Card, Code, CopyButton, Group, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { IconAlertCircle, IconCheck, IconCopy, IconDownload, IconPhoto } from "@tabler/icons-react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { message } from "../../../api/client";
 import { TemplateService, type Template } from "../../../api/gen/mimir/v1/template_pb";
-import { listTemplates } from "../../../api/queries";
+import { listArchitectures, listTemplates } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { categoryColor, columnKinds, download, kindColor, kindLabel } from "../../../lib/templates";
@@ -32,6 +32,7 @@ function Detail() {
     onSuccess: (res) => download(res.fileName, res.contentType, res.data),
   });
   const unit = photos ? "photos per answer" : "rows";
+  const algo = useQuery(listArchitectures).data?.architectures.find((a) => a.name === t.architecture);
 
   return (
     <Page
@@ -76,6 +77,15 @@ function Detail() {
             </Stack>
             <Text size="sm" c="dimmed" mt="sm">{t.balance}</Text>
           </Card>
+          {algo && (
+            <Card withBorder radius="lg" padding="lg">
+              <Title order={2} fz="lg">How it learns</Title>
+              <Text fw={600} size="sm" mt="sm">{algo.title}</Text>
+              {algo.algorithm && <Text size="sm" mt={4}>{algo.algorithm}</Text>}
+              <Text size="sm" c="dimmed" mt="xs">{algo.description}</Text>
+              <Text size="xs" c="dimmed" mt="xs">You can pick another model type when you teach.</Text>
+            </Card>
+          )}
           <Card withBorder radius="lg" padding="lg">
             <Title order={2} fz="lg">Ready to try it?</Title>
             <Stack gap="sm" mt="sm">
@@ -165,14 +175,14 @@ function TableNeeds({ t, onExample, loading }: { t: Template; onExample: () => v
   return (
     <>
       <Card withBorder radius="lg" padding="lg">
-        <Head title="The data you need" hint="One column per line below. Names can differ in your file; we help you match them later. The highlighted column is the answer the model learns to give." />
+        <Head title="The data you need" hint="One column per line below. Names can differ in your file; we help you match them later. The highlighted column is the answer the model learns to give. Optional columns and any others you have make answers more specific." />
         <Table.ScrollContainer minWidth={560} mt="sm">
           <Table verticalSpacing="sm">
             <Table.Thead><Table.Tr><Table.Th>Column</Table.Th><Table.Th>What it means</Table.Th><Table.Th>Kind of value</Table.Th><Table.Th>Example</Table.Th></Table.Tr></Table.Thead>
             <Table.Tbody>
               {t.columns.map((c, i) => (
                 <Table.Tr key={c.name} bg={i === last ? "var(--mantine-color-teal-light)" : undefined}>
-                  <Table.Td><Text ff="monospace" size="sm" fw={600}>{c.name}</Text>{i === last && <Text size="xs" c="teal.8" fw={700}>The answer</Text>}</Table.Td>
+                  <Table.Td><Text ff="monospace" size="sm" fw={600}>{c.name}</Text>{i === last && <Text size="xs" c="teal.8" fw={700}>The answer</Text>}{c.optional && <Text size="xs" c="dimmed">Optional, makes answers more specific</Text>}</Table.Td>
                   <Table.Td><Text size="sm">{c.meaning}</Text></Table.Td>
                   <Table.Td><Badge variant="light" color={columnKinds[c.kind]?.color} radius="xl">{columnKinds[c.kind]?.label ?? c.kind}</Badge></Table.Td>
                   <Table.Td><Text size="sm" ff="monospace">{c.examples[0]}</Text></Table.Td>

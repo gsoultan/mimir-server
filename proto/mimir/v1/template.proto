@@ -36,6 +36,9 @@ message TemplateColumn {
   string meaning = 3;
   // examples are a few typical values.
   repeated string examples = 4;
+  // optional marks a column that makes answers more specific when the
+  // data has it, but isn't needed.
+  bool optional = 5;
 }
 
 // TemplateFolder is one answer of a photo template: a folder of photos.
@@ -154,6 +157,8 @@ message ColumnCheck {
   string status = 8;
   // answer marks the answer column.
   bool answer = 9;
+  // optional marks a template column that isn't needed.
+  bool optional = 10;
 }
 
 message FolderCheck {

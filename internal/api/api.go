@@ -230,6 +230,7 @@ func archProto(a arch.Architecture) *mimirv1.Architecture {
 		Designable:  a.Designable,
 		Learned:     a.Learner != nil,
 		Target:      string(a.Target),
+		Algorithm:   a.Algorithm(),
 	}
 }
 
@@ -663,10 +664,17 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		DurationMicros: time.Since(start).Microseconds(),
 	}
 	kept := store.Answer{ModelID: m.ID, VersionID: m.VersionID, Time: time.Now(), Fields: keptFields(msg.GetFields())}
-	if a.Answers() == arch.Number {
+	if a.Answers() == arch.Number || a.Answers() == arch.Several {
 		res.Number = true
 		if len(r.Output) > 0 {
 			res.Value = float64(r.Output[0])
+		}
+		if a.Answers() == arch.Several {
+			for i, v := range r.Output {
+				if i < len(spec.Labels) {
+					res.Values = append(res.Values, &mimirv1.NamedValue{Label: spec.Labels[i], Value: float64(v)})
+				}
+			}
 		}
 		kept.Number, kept.Value = true, res.Value
 		res.PredictionId = s.keepAnswer(kept)

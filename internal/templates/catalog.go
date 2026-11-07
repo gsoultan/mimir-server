@@ -30,6 +30,9 @@ type Column struct {
 	Kind     schema.Kind `json:"kind"`
 	Meaning  string      `json:"meaning"`
 	Examples []string    `json:"examples"`
+	// Optional marks a column that makes answers more specific when the
+	// data has it, but isn't needed: a model learns from what is there.
+	Optional bool `json:"optional,omitempty"`
 }
 
 // Folder is one answer of a photo template.

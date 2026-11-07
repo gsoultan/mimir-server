@@ -27,7 +27,7 @@ func TestTemplates(t *testing.T) {
 	tpls := mimirv1connect.NewTemplateServiceClient(srv.Client(), srv.URL, connect.WithInterceptors(own.jar))
 
 	ls, err := tpls.ListTemplates(ctx, connect.NewRequest(&mimirv1.ListTemplatesRequest{}))
-	if err != nil || len(ls.Msg.GetTemplates()) != 53 || len(ls.Msg.GetCategories()) != 8 {
+	if err != nil || len(ls.Msg.GetTemplates()) != 58 || len(ls.Msg.GetCategories()) != 8 {
 		t.Fatalf("ListTemplates = %d, %v", len(ls.Msg.GetTemplates()), err)
 	}
 	ex, err := tpls.GetTemplateExample(ctx, connect.NewRequest(&mimirv1.GetTemplateExampleRequest{TemplateId: "energy-use"}))
@@ -45,7 +45,7 @@ func TestTemplates(t *testing.T) {
 		t.Fatalf("energy dataset %v, check %v", d, ds.Msg.GetCheck())
 	}
 	m := teach(t, own, d.GetId(), "number-mlp", 6)
-	if len(m.GetColumns()) != 5 || m.GetColumns()[0].GetKind() != "category" {
+	if len(m.GetColumns()) != 10 || m.GetColumns()[0].GetKind() != "category" {
 		t.Fatalf("model columns %v", m.GetColumns())
 	}
 	p, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: m.GetId(), Fields: map[string]string{
@@ -63,6 +63,17 @@ func TestTemplates(t *testing.T) {
 	// No fields at all read as every column empty.
 	if p, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: m.GetId()})); err != nil || !p.Msg.GetNumber() {
 		t.Fatalf("Predict with no fields = %v, %v", p, err)
+	}
+
+	// A range for the same number: the likeliest value, then the low and
+	// high ends.
+	r := teach(t, own, d.GetId(), "number-range", 1)
+	p, err = own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: r.GetId(), Fields: map[string]string{
+		"line": "A", "planned_units": "4200", "outside_temp_c": "31", "hours": "8", "product": "P10",
+	}}))
+	if err != nil || !p.Msg.GetNumber() || len(p.Msg.GetValues()) != 3 || p.Msg.GetValues()[0].GetLabel() != "likely" ||
+		p.Msg.GetValue() != p.Msg.GetValues()[0].GetValue() || !(p.Msg.GetValues()[1].GetValue() < p.Msg.GetValue() && p.Msg.GetValue() < p.Msg.GetValues()[2].GetValue()) {
+		t.Fatalf("Predict range = %v, %v", p, err)
 	}
 
 	// A table with differently named columns: the answer is matched by

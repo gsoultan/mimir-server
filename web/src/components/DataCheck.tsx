@@ -49,7 +49,7 @@ export function DataCheck({ check, template, photos, sounds, onMatch, busy }: {
   const lost = check.columns.filter((c) => c.status === "missing");
   const found = check.columns.filter((c) => c.status !== "missing").length;
   // Notes the rows below already say in their own way.
-  const notes = check.notes.filter((n) => !(template && (n.title === "Which column is the answer?" || /(isn't|aren't) there/.test(n.title) && !photos)));
+  const notes = check.notes.filter((n) => !(template && (n.title === "Which column is the answer?" || (/(isn't|aren't) there/.test(n.title) || n.title.startsWith("More columns make answers")) && !photos)));
   const fixes = check.notes.filter((n) => n.level === "bad").length;
   const tips = check.notes.filter((n) => n.level === "warn").length;
   const pill = check.verdict === "bad"
@@ -83,13 +83,13 @@ export function DataCheck({ check, template, photos, sounds, onMatch, busy }: {
           </>
         ) : (
           <>
-            {template && <Row level={lost.length ? "warn" : "ok"}><b>{found} of {check.columns.length} columns found</b>{lost.length || check.columns.some((c) => c.status === "renamed") ? "." : " by name."}</Row>}
+            {template && <Row level={lost.some((c) => !c.optional) ? "warn" : "ok"}><b>{found} of {check.columns.length} columns found</b>{lost.length || check.columns.some((c) => c.status === "renamed") ? "." : " by name."}</Row>}
             {template && check.columns.filter((c) => c.status === "renamed" && !c.answer).map((c) => (
               <Row key={c.name} level="ok"><b>{c.found}</b> is used as <code>{c.name}</code>.</Row>
             ))}
             {template && lost.filter((c) => c.name !== check.columns[check.columns.length - 1]?.name).map((c) => (
-              <Row key={c.name} level="warn">
-                <div><b><code>{c.name}</code> isn&apos;t in your file by that name.</b> Is it there under another one?</div>
+              <Row key={c.name} level={c.optional ? "info" : "warn"}>
+                <div><b><code>{c.name}</code> isn&apos;t in your file by that name.</b> {c.optional ? "It's optional and makes answers more specific. Is it there under another one?" : "Is it there under another one?"}</div>
                 <Select
                   mt={6}
                   className="max-w-xs"

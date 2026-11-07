@@ -52,6 +52,10 @@ func Example(t Template) (name, contentType string, data []byte, err error) {
 		err = g.nearby(&buf, ExampleRows)
 	case survivalArch:
 		err = g.survival(&buf, ExampleRows)
+	case multiLabelArch:
+		err = g.lines(&buf, ExampleRows)
+	case duplicatesArch:
+		err = g.accounts(&buf, ExampleRows/4)
 	default:
 		err = g.table(&buf, ExampleRows, nil)
 	}
@@ -72,6 +76,9 @@ const (
 	bestActionArch = "best-action"
 	nearbyArch     = "recommend-nearby"
 	survivalArch   = "time-to-event"
+	multiLabelArch = "multi-label"
+	duplicatesArch = "find-duplicates"
+	discountArch   = "discount-response"
 )
 
 type gen struct {
@@ -123,6 +130,9 @@ func (g *gen) table(w *bytes.Buffer, rows int, photo func(i, answer int) string)
 		weights[c] = make([]float64, len(inputs))
 		for j := range inputs {
 			weights[c][j] = (0.5 + g.r.Float64()) * float64(1-2*g.r.IntN(2))
+			if g.t.Arch == discountArch && strings.Contains(inputs[j].Name, "discount") {
+				weights[c][j] = 1.5 // a bigger discount closes more deals
+			}
 		}
 	}
 	answer := g.t.Answer()
@@ -657,4 +667,123 @@ func yesNo(v string) (bool, bool) {
 		return false, true
 	}
 	return false, false
+}
+
+// lines writes made-up rows for a multi-label template, whose answer
+// lists several values separated by semicolons. Each value has its own
+// mix of the inputs, so which ones a row gets can be learned, and a row
+// may get none, one or several.
+func (g *gen) lines(w *bytes.Buffer, rows int) error {
+	inputs := g.t.Inputs()
+	var labels []string
+	for _, e := range g.t.Answer().Examples {
+		for _, v := range strings.Split(e, ";") {
+			if v = strings.TrimSpace(v); v != "" && !slices.Contains(labels, v) {
+				labels = append(labels, v)
+			}
+		}
+	}
+	weights := make([][]float64, len(labels))
+	for l := range weights {
+		weights[l] = make([]float64, len(inputs))
+		for j := range inputs {
+			weights[l][j] = (0.5 + g.r.Float64()) * float64(1-2*g.r.IntN(2))
+		}
+	}
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	for i := range rows {
+		z := make([]float64, len(inputs))
+		for j := range z {
+			z[j] = g.r.NormFloat64()
+		}
+		var got []string
+		for l, name := range labels {
+			s := 0.0
+			for j, in := range inputs {
+				if in.Kind != schema.Text {
+					s += weights[l][j] * z[j]
+				}
+			}
+			s = s/math.Sqrt(float64(max(1, len(inputs)))) + 0.4*g.r.NormFloat64()
+			if s > 0.2 {
+				got = append(got, name)
+			}
+		}
+		rec := make([]string, 0, len(g.t.Columns))
+		for j, in := range inputs {
+			rec = append(rec, g.cell(in, z[j], "", i, 0, nil))
+		}
+		cw.Write(append(rec, strings.Join(got, "; ")))
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// accounts writes a made-up customer master for a duplicate finder: each
+// business once, and about one in six again under another spelling, such
+// as with the legal form moved, other case, or a phone written another
+// way.
+func (g *gen) accounts(w *bytes.Buffer, rows int) error {
+	first := []string{"Maju", "Sinar", "Sumber", "Cahaya", "Mitra", "Karya", "Berkah", "Indah", "Jaya", "Abadi", "Makmur", "Sentosa", "Mulia", "Prima", "Agung", "Lestari"}
+	second := []string{"Jaya", "Abadi", "Rejeki", "Makmur", "Sejahtera", "Bersama", "Utama", "Mandiri", "Sentosa", "Perkasa", "Gemilang", "Lancar"}
+	forms := []string{"PT", "CV", "Toko", "UD"}
+	streets := []string{"Sudirman", "Ahmad Yani", "Diponegoro", "Gatot Subroto", "Merdeka", "Pahlawan", "Veteran", "Asia Afrika"}
+	cities := []string{"Jakarta", "Surabaya", "Bandung", "Medan", "Semarang", "Makassar"}
+	ids := names(g.t.Answer().Examples, "C-", rows)
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	type biz struct{ name, form, street, city, phone, mail string }
+	var made []biz
+	for i := range rows {
+		var b biz
+		twin := len(made) > 10 && g.r.IntN(6) == 0
+		if twin {
+			b = made[g.r.IntN(len(made))]
+			switch g.r.IntN(3) {
+			case 0: // the legal form at the end
+				b.name = b.name + ", " + b.form
+			case 1:
+				b.name = strings.ToUpper(b.form + " " + b.name)
+			default:
+				b.name = strings.ToLower(b.form + ". " + b.name)
+			}
+			b.phone = strings.ReplaceAll(b.phone, " ", "-")
+			b.street = strings.Replace(b.street, "Jl. ", "Jalan ", 1)
+		} else {
+			b = biz{
+				name:   first[g.r.IntN(len(first))] + " " + second[g.r.IntN(len(second))] + fmt.Sprintf(" %d", 1+g.r.IntN(99)),
+				form:   forms[g.r.IntN(len(forms))],
+				street: fmt.Sprintf("Jl. %s %d", streets[g.r.IntN(len(streets))], 1+g.r.IntN(200)),
+				city:   cities[g.r.IntN(len(cities))],
+				phone:  fmt.Sprintf("0%d %03d %04d", 21+g.r.IntN(70), g.r.IntN(1000), g.r.IntN(10000)),
+			}
+			b.mail = strings.ToLower(strings.ReplaceAll(b.name, " ", "")) + "@mail.co.id"
+			made = append(made, b)
+		}
+		name := b.name
+		if !twin {
+			name = b.form + " " + b.name
+		}
+		rec := []string{}
+		for _, in := range g.t.Inputs() {
+			switch in.Name {
+			case "customer_name":
+				rec = append(rec, name)
+			case "address":
+				rec = append(rec, b.street)
+			case "city":
+				rec = append(rec, b.city)
+			case "phone":
+				rec = append(rec, b.phone)
+			case "email":
+				rec = append(rec, b.mail)
+			default:
+				rec = append(rec, "")
+			}
+		}
+		cw.Write(append(rec, ids[i]))
+	}
+	cw.Flush()
+	return cw.Error()
 }
