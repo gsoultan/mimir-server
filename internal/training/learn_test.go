@@ -87,6 +87,16 @@ func TestLearnersFitAndServe(t *testing.T) {
 			} else if !(ep.Accuracy >= tc.min) {
 				t.Errorf("accuracy %v, want at least %v", ep.Accuracy, tc.min)
 			}
+			// A report, as a network's run gets, scored on the held-out rows.
+			if r := res.Report; r == nil || r.OnTraining || r.Examples == 0 || r.SizeBytes == 0 {
+				t.Errorf("report %+v", r)
+			} else if a.Answers() == arch.Number {
+				if r.Kind != "number" || math.Abs(r.MAE-ep.MAE) > 1e-3 {
+					t.Errorf("report kind %q, MAE %v for epoch MAE %v", r.Kind, r.MAE, ep.MAE)
+				}
+			} else if r.Kind != "class" || len(r.Classes) < 2 || math.Abs(r.Accuracy-ep.Accuracy) > 1e-3 {
+				t.Errorf("report kind %q, %d classes, accuracy %v for epoch accuracy %v", r.Kind, len(r.Classes), r.Accuracy, ep.Accuracy)
+			}
 
 			// The saved weights rebuild into a model that answers alike.
 			mod, err := runtime.Build(a, res.Spec, res.Weights)

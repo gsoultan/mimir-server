@@ -1,17 +1,31 @@
-import { Group, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Group, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
+import { IconAlertTriangle, IconBulb, IconCheck } from "@tabler/icons-react";
 import { useState } from "react";
 
 import type { RunReport as Report } from "../api/gen/mimir/v1/training_pb";
 import { bytes } from "../lib/format";
 import { balanced, number, short } from "../lib/report";
+import { verdict } from "../lib/verdict";
 
 // RunReport shows how a finished run's model did on the examples kept
 // aside: one plain headline, the expert numbers, and one picture for its
 // kind of answer.
 export function RunReport({ report: r }: { report: Report }) {
   const on = r.onTraining ? "the examples it learned from, since none were kept aside" : `${r.examples.toLocaleString()} examples it never saw while learning`;
+  const v = verdict(r);
   return (
     <Stack gap="md">
+      {v && (
+        <Alert
+          color={v.level === "good" ? "teal" : v.level === "weak" ? "orange" : "red"}
+          variant="light"
+          icon={v.level === "good" ? <IconCheck /> : <IconAlertTriangle />}
+          title={v.title}
+        >
+          {v.body && <Text size="sm">{v.body}</Text>}
+          {v.next && <Text size="sm" mt={v.body ? 6 : 0}><IconBulb size={14} className="mr-1 inline-block align-[-2px]" aria-hidden="true" /><b>What would help:</b> {v.next}</Text>}
+        </Alert>
+      )}
       <Text size="sm" c="dimmed">Scored on {on}.</Text>
       {r.kind === "number" && <Numbers r={r} />}
       {(r.kind === "class" || r.kind === "ranked") && <Labels r={r} />}

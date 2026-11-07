@@ -497,6 +497,14 @@ it is the answer under another name or only known once the answer is).
 The same check is in the API as `CheckDataset`, and the catalog as
 `TemplateService` (`proto/mimir/v1/template.proto`).
 
+On the next step the kind of model that suits most tables is marked
+recommended, with the others behind a button. When a run finishes, its
+report opens with what the scores mean: how the model compares with
+always guessing the most common answer, the answer it misses most and
+what would help, and a warning when a perfect score points to a column
+that gives the answer away. Models fit in one go (boosted trees, the
+automatic pick and the rest) get the same report as trained networks.
+
 Runs queue up and train one at a time in the server process. The run page
 shows the pass and step, a chart of right answers and loss per pass, and
 the score on examples the model never saw while learning. A run can be

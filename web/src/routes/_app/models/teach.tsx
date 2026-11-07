@@ -175,6 +175,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const [description, setDescription] = useState(tpl?.question ?? "");
   const [preset, setPreset] = useState("normal");
   const [expert, { toggle }] = useDisclosure(false);
+  // The other kinds of model wait behind a button, so the step is one
+  // clear choice.
+  const [moreKinds, { toggle: toggleKinds }] = useDisclosure(false);
   const [epochs, setEpochs] = useState<number | string>(10);
   const [batch, setBatch] = useState<number | string>(32);
   const [rate, setRate] = useState<number | string>(0.005);
@@ -328,6 +331,13 @@ function Wizard({ data: dataType }: { data: DataType }) {
   // Models that read the answer column as something else are offered
   // only when asked for.
   const allowed = archs.architectures.filter((a) => dataset?.architectures.includes(a.name) && (role ? a.name === search.arch : !a.target));
+  // The kind to suggest, first in the list: trying several and keeping
+  // the best, else what the server offers first.
+  const suggested = (allowed.find((a) => a.name.endsWith("-auto")) ?? allowed[0])?.name ?? "";
+  const ordered = [...allowed].sort((a, b) => Number(b.name === suggested) - Number(a.name === suggested));
+  const why = (a: typeof allowed[number]) => a.name !== suggested ? undefined
+    : a.name.endsWith("-auto") ? "Tries several kinds on your rows and keeps the one that scores best. The safe choice when you're not sure; it takes a little longer."
+    : allowed.length > 1 ? "The usual choice for this kind of data." : undefined;
   const chosenArch = archs.architectures.find((a) => a.name === arch);
   const earlier = models.models.filter((m) => m.architecture === arch);
   const picked = !!tpl && !!dataset && dataset.architectures.includes(tpl.architecture);
@@ -515,16 +525,25 @@ function Wizard({ data: dataType }: { data: DataType }) {
                 <Text size="sm">The template picked the kind of model for you: <b>{chosenArch?.title}</b>. {chosenArch?.description}</Text>
               </Card>
             ) : (
-              <Radio.Group value={arch} onChange={setArch} label="What kind of model?" mt="md">
+              <Radio.Group value={arch} onChange={setArch} label="What kind of model?" description={allowed.length > 1 ? "The recommended one suits most tables. The others are for when you know what you want, or want to see why it answers as it does." : undefined} mt="md">
                 <Stack gap="sm" mt="sm">
-                  {allowed.map((a) => (
+                  {ordered.filter((a) => moreKinds || allowed.length <= 2 || a.name === suggested || a.name === arch).map((a) => (
                     <Radio.Card key={a.name} value={a.name} radius="md" p="md">
                       <Group wrap="nowrap" align="flex-start">
                         <Radio.Indicator />
-                        <div><Group gap="xs"><Text fw={600}>{a.title}</Text>{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group><Text size="sm" c="dimmed">{a.description}</Text></div>
+                        <div>
+                          <Group gap="xs"><Text fw={600}>{a.title}</Text>{a.name === suggested && allowed.length > 1 && <Badge size="sm">Recommended</Badge>}{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group>
+                          {why(a) && <Text size="sm" fw={500} c="teal.8">{why(a)}</Text>}
+                          <Text size="sm" c="dimmed">{a.description}</Text>
+                        </div>
                       </Group>
                     </Radio.Card>
                   ))}
+                  {allowed.length > 2 && (
+                    <Button variant="subtle" size="compact-sm" className="self-start" onClick={toggleKinds}>
+                      {moreKinds ? "Show fewer kinds" : `Choose another kind (${allowed.length - 1} more)`}
+                    </Button>
+                  )}
                 </Stack>
               </Radio.Group>
             )}

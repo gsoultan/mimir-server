@@ -68,11 +68,23 @@ func learn(ctx context.Context, t Task, l Loaded, spec arch.Spec, progress Progr
 	history := []store.Epoch{ep}
 	progress(1, 0, 1, history)
 
+	// The report, as Fit makes one: the run page explains the scores
+	// from it. One that can't be made leaves the run without one.
+	report, err := Score(ctx, mod, scored, t.Arch, spec.Labels)
+	if err == nil {
+		report.OnTraining = l.Test == nil
+	} else if ctx.Err() != nil {
+		return Result{}, context.Cause(ctx)
+	}
+
 	var buf bytes.Buffer
 	if err := mim.Save(ctx, &buf, mod, &mim.SaveOptions{Metadata: map[string]any{arch.ShapeKey: shape}}); err != nil {
 		return Result{}, fmt.Errorf("couldn't save the model: %w", err)
 	}
-	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: l.Features, Columns: l.Columns}, nil
+	if report != nil {
+		report.SizeBytes = int64(buf.Len())
+	}
+	return Result{Weights: buf.Bytes(), History: history, Spec: spec, Features: l.Features, Columns: l.Columns, Report: report}, nil
 }
 
 // collect reads every batch of s into one table.

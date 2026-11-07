@@ -76,6 +76,9 @@ export type Column = {
   words?: number;
   // samples are a few different values, in the order they appear.
   samples: string[];
+  // alike groups values that are the same but for case or spacing, such
+  // as "Yes" and "yes": each group is one answer spelled several ways.
+  alike: string[][];
 };
 
 const yes = new Set(["yes", "y", "true", "t", "1"]);
@@ -138,7 +141,13 @@ export function profile({ columns, rows }: Parsed): Column[] {
     else if (yesno) kind = "yesno";
     else if (distinct <= 200 && length / filled <= 30 && !(sentences * 2 > filled)) kind = "category";
     else kind = "text";
-    const col: Column = { name, kind, filled, distinct, top, samples };
+    const byKey = new Map<string, string[]>();
+    for (const v of count.keys()) {
+      const k = v.toLowerCase().replace(/[\s_-]+/g, " ");
+      byKey.set(k, [...(byKey.get(k) ?? []), v]);
+    }
+    const alike = [...byKey.values()].filter((g) => g.length > 1).slice(0, 5);
+    const col: Column = { name, kind, filled, distinct, top, samples, alike };
     if (kind === "number" && filled > 0) { col.min = min; col.max = max; col.mean = sum / filled; }
     if (kind === "text") col.words = words / filled;
     return col;
@@ -175,6 +184,10 @@ export function answer(c: Column, role: Role = ""): Answer {
   if (role === "action") return { what: "the best action and what each one brings", detail: `${c.distinct.toLocaleString()} different actions in these rows.`, ...(c.distinct < 2 ? { level: "bad" as const, problem: "Only one action was tried, so there is nothing to compare. The action column holds what was tried, like the offer shown." } : {}) };
   // Long group names read as text but are still a few answers to pick from.
   const kind = c.kind === "text" && c.distinct <= 50 ? "category" : c.kind;
+  if ((kind === "category" || kind === "yesno") && c.alike.length > 0 && c.distinct >= 2) {
+    const g = c.alike[0]!;
+    return { what: `one of ${c.distinct} answers`, detail: `${g.map((v) => `“${v}”`).join(" and ")} count as different answers.`, level: "warn", problem: `They look like the same answer spelled differently. Make them the same in the file, or the model learns them as separate answers.` };
+  }
   switch (kind) {
     case "id":
       return { what: "one of thousands of values", detail: `${c.name} is different in every row.`, level: "bad", problem: "It looks like an ID. Every row has its own value, so there is nothing to learn. Pick the column that holds what you want to know." };

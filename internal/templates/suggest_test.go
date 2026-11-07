@@ -123,3 +123,15 @@ func TestColumnNotes(t *testing.T) {
 		t.Errorf("a number column gives the answer away:\n%s", got)
 	}
 }
+
+func TestAlikeAnswers(t *testing.T) {
+	var csv strings.Builder
+	csv.WriteString("x,answer\n")
+	for i := range 60 {
+		fmt.Fprintf(&csv, "%d,%s\n", i%5, []string{"yes", "Yes", "no", "no"}[i%4])
+	}
+	got := notes(t, csv.String())
+	if !strings.Contains(got, `"Yes" and "yes" look like the same answer.`) {
+		t.Errorf("no note on alike answers in\n%s", got)
+	}
+}

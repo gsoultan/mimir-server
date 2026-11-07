@@ -51,6 +51,12 @@ group("profile", () => {
     const many = profile(parse("x,y\n" + Array.from({ length: 200 }, (_, i) => `${i % 2},v${i % 80}`).join("\n")));
     expect(answer(many[1]!).level).toBe("warn");
   });
+  test("spots one answer spelled several ways", () => {
+    const cols = profile(parse("x,y\n" + Array.from({ length: 60 }, (_, i) => `${i % 3},${["yes", "Yes", "no", "no "][i % 4]}`).join("\n")));
+    expect(cols[1]!.alike).toEqual([["yes", "Yes"]]);
+    expect(answer(cols[1]!).level).toBe("warn");
+    expect(answer(cols[1]!).detail).toContain("“yes” and “Yes”");
+  });
   test("tips on columns that tell the model nothing", () => {
     expect(tips(cols, "left").map((t) => t.column)).toEqual(["customer_id"]);
     const flat = profile(parse("a,b,c\n" + Array.from({ length: 30 }, (_, i) => `x,,${i % 2}`).join("\n")));
