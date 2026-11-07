@@ -16,6 +16,7 @@ import (
 var (
 	whoName      = regexp.MustCompile(`customer|client|account|buyer|member|user|shop|store|outlet|company|lead`)
 	itemName     = regexp.MustCompile(`product|item|sku|article|service|menu|part|material`)
+	orderName    = regexp.MustCompile(`order|invoice|transaction|receipt|basket|cart|ticket|checkout`)
 	latName      = regexp.MustCompile(`^lat$|latitude|^lat_|_lat$`)
 	lonName      = regexp.MustCompile(`^lon$|^lng$|longitude|^lon_|^lng_|_lon$|_lng$`)
 	categoryName = regexp.MustCompile(`categor|segment|type|class|industry|tier|channel|group|kind`)
@@ -81,6 +82,9 @@ func suggest(c check, t *Template, tab *training.Table) {
 		idea(fmt.Sprintf("A number for %s on a new row, with how far off it usually is. Pick %s.", tab.Target, title("number-auto")))
 	case tab.Classes != nil && len(tab.Classes) <= schema.MaxValues:
 		idea(fmt.Sprintf("Which of the %d values of %s fits a new row, with how likely each is.", len(tab.Classes), tab.Target))
+	}
+	if order := find(orderName, func(n string) bool { return words(n) && n != who && n != item }); order != "" && item != "" {
+		idea(fmt.Sprintf("Which %s are bought in the same %s as any other, far more often than chance. Pick %s and make %s the answer.", plural2(item), readable(order), title("goes-together"), item))
 	}
 	if who != "" && item != "" {
 		idea(fmt.Sprintf("The 10 %s each %s is likeliest to want next. Pick %s and make %s the answer.", plural2(item), readable(who), title("recommend"), item))
