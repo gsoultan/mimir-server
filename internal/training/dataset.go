@@ -3,6 +3,7 @@ package training
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/csv"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -62,7 +64,17 @@ type Table struct {
 	Answers map[string]int
 	// Skipped counts rows left out because their answer was empty.
 	Skipped int
+	// DateColumn names the input column that says when each row
+	// happened, when there is one; When is that time per row, in Unix
+	// seconds, and 0 where a cell holds no date. A model is then scored
+	// on the latest rows, as it will be used: learning from the past to
+	// answer the future.
+	DateColumn string
+	When       []int64
 }
+
+// timeWords name a column that may say when a row happened.
+var timeWords = regexp.MustCompile(`date|time|^day$|^week$|^month$|period|created|closed|ordered|_at$|tanggal|tgl`)
 
 // Profile describes one input column's cells.
 type Profile struct {
@@ -261,7 +273,24 @@ func ParseTable(r io.Reader, target string, hints map[string]schema.Kind) (*Tabl
 		t.Photos = make([]string, 0, t.Rows)
 	}
 	t.Skipped = 0
+	date := -1
+	for j, c := range t.Columns {
+		if date < 0 && c.Kind != schema.Number && timeWords.MatchString(strings.ToLower(c.Name)) {
+			date = j
+		}
+	}
+	dated, filled := 0, 0
 	err = rows(func(cells []string, _ string) error {
+		if date >= 0 {
+			var at int64
+			if v := strings.TrimSpace(cells[date]); v != "" {
+				filled++
+				if d, ok := arch.ParseDate(v); ok {
+					at, dated = d.Unix(), dated+1
+				}
+			}
+			t.When = append(t.When, at)
+		}
 		for j, v := range cells {
 			switch {
 			case v == "":
@@ -284,6 +313,11 @@ func ParseTable(r io.Reader, target string, hints map[string]schema.Kind) (*Tabl
 			t.Profile[j].Words = float64(words[j]) / float64(n)
 		}
 	}
+	if date >= 0 && filled > 0 && dated*10 >= filled*9 && dated*2 >= t.Rows {
+		t.DateColumn = t.Columns[date].Name
+	} else {
+		t.When = nil
+	}
 	return t, nil
 }
 
@@ -294,7 +328,11 @@ func (t *Table) keep(rows []int) {
 	var y []int32
 	var v []float32
 	var photos []string
+	var when []int64
 	for _, i := range rows {
+		if t.When != nil {
+			when = append(when, t.When[i])
+		}
 		x = append(x, t.X[i*f:(i+1)*f]...)
 		if t.Y != nil {
 			y = append(y, t.Y[i])
@@ -306,7 +344,7 @@ func (t *Table) keep(rows []int) {
 			photos = append(photos, t.Photos[i])
 		}
 	}
-	t.X, t.Y, t.V, t.Photos, t.Rows = x, y, v, photos, len(rows)
+	t.X, t.Y, t.V, t.Photos, t.When, t.Rows = x, y, v, photos, when, len(rows)
 }
 
 // Sample returns the header and the first n rows of a CSV, as text.
@@ -459,7 +497,20 @@ func (e *examples) only(ctx context.Context, keep func(b int) bool) iter.Seq2[da
 // split shuffles n examples and keeps holdOut of them aside for scoring.
 // test is nil when nothing is held out.
 func split(n int, holdOut float64, seed uint64, batch int, proto *examples) (train, test Set, err error) {
+	return splitBy(nil, n, holdOut, seed, batch, proto)
+}
+
+// splitBy is split, but when when is set it keeps the latest examples
+// aside, not random ones, so a model is scored on what came after all it
+// learned from; an example with no time counts as the earliest.
+func splitBy(when []int64, n int, holdOut float64, seed uint64, batch int, proto *examples) (train, test Set, err error) {
 	perm := rand.New(rand.NewPCG(seed, seed)).Perm(n)
+	if len(when) == n {
+		slices.SortStableFunc(perm, func(a, b int) int { return cmp.Compare(when[a], when[b]) })
+		nTrain := n - int(float64(n)*holdOut)
+		// The rows learned from are still taught in a shuffled order.
+		rand.New(rand.NewPCG(seed, seed+1)).Shuffle(max(nTrain, 0), func(i, j int) { perm[i], perm[j] = perm[j], perm[i] })
+	}
 	nTest := int(float64(n) * holdOut)
 	nTrain := n - nTest
 	if nTrain < 1 {
@@ -543,6 +594,9 @@ type Loaded struct {
 	// Skipped counts examples left out: an empty answer, or a photo
 	// missing or unreadable.
 	Skipped int
+	// HeldOutBy names the date column whose latest rows were held out
+	// for scoring; empty when they were picked at random.
+	HeldOutBy string
 }
 
 // Load returns a source's training and scoring batches for architecture
@@ -647,7 +701,10 @@ func fromTable(t *Table, a arch.Architecture, s store.Settings, seed uint64, sha
 		proto.cls = t.Y
 	}
 	var err error
-	l.Train, l.Test, err = split(t.Rows, s.HoldOut, seed, s.BatchSize, proto)
+	l.Train, l.Test, err = splitBy(t.When, t.Rows, s.HoldOut, seed, s.BatchSize, proto)
+	if l.Test != nil && t.DateColumn != "" {
+		l.HeldOutBy = t.DateColumn
+	}
 	return l, err
 }
 

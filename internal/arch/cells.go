@@ -442,6 +442,10 @@ func parseDate(v string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
+// ParseDate reads a date or time cell, in any of the ways a table may
+// write one.
+func ParseDate(v string) (time.Time, bool) { return parseDate(strings.TrimSpace(v)) }
+
 // dates reports whether nine in ten filled cells, and at least one, are
 // dates.
 func dates(cells []string) bool {
