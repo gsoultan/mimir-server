@@ -44,7 +44,12 @@ function AddModel() {
   const { queryClient } = Route.useRouteContext();
   const [step, setStep] = useState(0);
   const { kind } = Route.useSearch();
-  const [arch, setArch] = useState(data.architectures.find((a) => a.name === kind)?.name ?? data.architectures[0]?.name ?? "");
+  // Whole model files (Mimir Model, ONNX, GGUF) are what most people
+  // upload; weights for a kind mimir teaches come after, folded away.
+  const wholeKinds = data.architectures.filter((a) => !a.trainable);
+  const weightKinds = data.architectures.filter((a) => a.trainable);
+  const [arch, setArch] = useState(data.architectures.find((a) => a.name === kind)?.name ?? wholeKinds[0]?.name ?? data.architectures[0]?.name ?? "");
+  const [more, setMore] = useState(weightKinds.some((a) => a.name === kind));
   const [picked, setPicked] = useState<Picked>();
   const [fileError, setFileError] = useState<string>();
   const [reading, setReading] = useState(false);
@@ -106,14 +111,14 @@ function AddModel() {
   const busy = sent !== undefined || create.isPending;
 
   return (
-    <Page title="Add a model" intro="Three short steps. Nothing is saved until the end.">
+    <Page title="Add a model" crumbs={[{ label: "Models", to: "/models" }, { label: "Upload a file" }]} intro="Three short steps. Nothing is saved until the end.">
       <Card withBorder radius="lg" padding="xl">
         <Stepper active={step} onStepClick={(s) => s < step && setStep(s)} size="sm">
           <Stepper.Step label="What kind" description="Pick the model type">
             <Radio.Group value={arch} onChange={(v) => { setArch(v); setPicked(undefined); }} label="What does this model do?" mt="md">
               <Stack gap="sm" mt="sm">
-                {data.architectures.map((a) => (
-                  <Radio.Card key={a.name} value={a.name} radius="md" p="md" className="data-[checked]:border-[var(--mantine-color-teal-7)]">
+                {[...wholeKinds, ...(more ? weightKinds : [])].map((a) => (
+                  <Radio.Card key={a.name} value={a.name} radius="md" p="md" className="data-[checked]:border-[var(--mantine-primary-color-filled)]">
                     <Group wrap="nowrap" align="flex-start">
                       <Radio.Indicator />
                       <div>
@@ -123,6 +128,11 @@ function AddModel() {
                     </Group>
                   </Radio.Card>
                 ))}
+                {weightKinds.length > 0 && (
+                  <Button variant="subtle" size="compact-sm" className="self-start" onClick={() => setMore(!more)}>
+                    {more ? "Show fewer" : `Only the weights of a model kind mimir teaches? Show ${weightKinds.length} more`}
+                  </Button>
+                )}
               </Stack>
             </Radio.Group>
           </Stepper.Step>

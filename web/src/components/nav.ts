@@ -10,40 +10,37 @@ export type NavTo = "/" | "/models" | "/try" | "/device" | "/training" | "/scori
 export type NavItem = { to: NavTo; label: string; short: string; icon: Icon; needs?: string; also?: string[] };
 export type NavGroup = { label?: string; items: NavItem[] };
 
-// The menu in three groups: using models, building them, and running the
-// server. People see only what they may open.
+// The menu: six places, no headings. Everything else opens from the page
+// it belongs to (Build and Benchmarks from Models, Score a list from Try,
+// People from Settings) and from search. People see only what they may open.
 export const groups: NavGroup[] = [
   {
     items: [
       { to: "/", label: "Home", short: "Home", icon: IconHome },
-      { to: "/models", label: "Models", short: "Models", icon: IconBox },
-      { to: "/try", label: "Try a model", short: "Try", icon: IconMessageCircle },
-      { to: "/documents", label: "Ask your documents", short: "Docs", icon: IconFileText },
-    ],
-  },
-  {
-    label: "Build",
-    items: [
-      { to: "/models/build", label: "Build a model", short: "Build", icon: IconSparkles, needs: "models.write", also: ["/templates", "/models/teach", "/models/new", "/models/finetune"] },
+      { to: "/models", label: "Models", short: "Models", icon: IconBox, also: ["/templates", "/benchmarks"] },
+      { to: "/try", label: "Try a model", short: "Try", icon: IconMessageCircle, also: ["/scoring"] },
+      { to: "/documents", label: "Documents", short: "Docs", icon: IconFileText },
       { to: "/training", label: "Training", short: "Train", icon: IconSchool, needs: "models.write" },
-      { to: "/scoring", label: "Score a list", short: "Score", icon: IconListCheck, needs: "models.write" },
-      { to: "/benchmarks", label: "Benchmarks", short: "Tests", icon: IconTrophy, needs: "models.write" },
+      { to: "/apps", label: "Connect apps", short: "Apps", icon: IconPlugConnected },
     ],
   },
-  {
-    label: "Manage",
-    items: [
-      { to: "/apps", label: "Connect your apps", short: "Apps", icon: IconPlugConnected },
-      { to: "/users", label: "People", short: "People", icon: IconUsers, needs: "users.read" },
-      { to: "/settings", label: "Settings", short: "Settings", icon: IconSettings, needs: "audit.read", also: ["/workers"] },
-    ],
-  },
+];
+
+// Pinned at the bottom of the menu, above the account.
+export const settingsItem: NavItem = { to: "/settings", label: "Settings", short: "Settings", icon: IconSettings, also: ["/users", "/workers"] };
+
+// Pages search finds that the menu leaves out.
+const extra: NavItem[] = [
+  { to: "/models/build", label: "Build a model", short: "Build", icon: IconSparkles, needs: "models.write" },
+  { to: "/scoring", label: "Score a list", short: "Score", icon: IconListCheck, needs: "models.write" },
+  { to: "/benchmarks", label: "Benchmarks", short: "Tests", icon: IconTrophy, needs: "models.write" },
+  { to: "/users", label: "People", short: "People", icon: IconUsers, needs: "users.read" },
 ];
 
 export const deviceItem: NavItem = { to: "/device", label: "On this device", short: "Device", icon: IconDeviceLaptop };
 
 // The flat list, for search.
-export const nav: NavItem[] = [...groups.flatMap((g) => g.items), deviceItem];
+export const nav: NavItem[] = [...groups.flatMap((g) => g.items), ...extra, settingsItem, deviceItem];
 
 export function isActive(path: string, item: NavItem) {
   const match = (to: string) => (to === "/" ? path === "/" : path === to || path.startsWith(to + "/"));

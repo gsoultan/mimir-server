@@ -111,7 +111,7 @@ function FineTune() {
 
   if (languageModels.length === 0) {
     return (
-      <Page title="Fine-tune a language model" intro="Teach a language model how you write and answer.">
+      <Page title="Fine-tune a language model" crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Fine-tune" }]} intro="Teach a language model how you write and answer.">
         <Alert color="blue">Add a language model first: upload a GGUF file under <Link to="/models/new">Add a model</Link>.</Alert>
       </Page>
     );
@@ -120,6 +120,7 @@ function FineTune() {
   return (
     <Page
       title="Fine-tune a language model"
+      crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Fine-tune" }]}
       intro="Teach a language model your documents, or how you answer, from your own examples. It learns small adapters next to the model, a few megabytes, so the model itself stays as it is and you can keep several fine-tunes of it."
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">

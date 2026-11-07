@@ -104,7 +104,7 @@ function PickData() {
   const fits = templates.templates.filter((t) => t.data === picked);
   const label = (id: string) => templates.categories.find((c) => c.id === id)?.label ?? id;
   return (
-    <Page title="Teach a new model" intro="First, what does your data look like? Pick the closest one. You can change it later.">
+    <Page title="Teach a new model" crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Teach" }]} intro="First, what does your data look like? Pick the closest one. You can change it later.">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           {dataTypes.map((t) => (
@@ -361,7 +361,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   }[dataType];
 
   return (
-    <Page title="Teach a new model" intro={tpl ? undefined : `${dt.title}. Give it examples, pick what kind of model, and watch it learn.`}>
+    <Page title="Teach a new model" crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Teach" }]} intro={tpl ? undefined : `${dt.title}. Give it examples, pick what kind of model, and watch it learn.`}>
       {tpl ? (
         <Alert color="teal" variant="light" icon={<IconSparkles />}>
           <Group justify="space-between" gap="sm">

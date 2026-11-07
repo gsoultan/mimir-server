@@ -73,6 +73,7 @@ function CollectionPage() {
   return (
     <Page
       title={c.name}
+      crumbs={[{ label: "Documents", to: "/documents" }, { label: c.name }]}
       intro={<>{c.documents} {c.documents === 1 ? "document" : "documents"} · answered by {c.languageModelName || "a deleted model"} · apps ask it as <Text span ff="monospace" fz="inherit">{c.apiName}</Text></>}
       actions={canWrite && (
         <Group gap="xs">

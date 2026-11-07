@@ -1,6 +1,6 @@
 import { useMutation } from "@connectrpc/connect-query";
 import { Alert, Badge, Button, Card, Code, CopyButton, Group, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
-import { IconAlertCircle, IconArrowLeft, IconCheck, IconCopy, IconDownload, IconPhoto } from "@tabler/icons-react";
+import { IconAlertCircle, IconCheck, IconCopy, IconDownload, IconPhoto } from "@tabler/icons-react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useState } from "react";
@@ -8,7 +8,8 @@ import { useState } from "react";
 import { message } from "../../../api/client";
 import { TemplateService, type Template } from "../../../api/gen/mimir/v1/template_pb";
 import { listArchitectures, listTemplates } from "../../../api/queries";
-import { AnchorLink, ButtonLink } from "../../../components/links";
+import { ButtonLink } from "../../../components/links";
+import { Page } from "../../../components/Page";
 import { categoryColor, columnKinds, download, kindColor, kindLabel } from "../../../lib/templates";
 
 export const Route = createFileRoute("/_app/templates/$id")({
@@ -34,16 +35,16 @@ function Detail() {
   const algo = useQuery(listArchitectures).data?.architectures.find((a) => a.name === t.architecture);
 
   return (
-    <Stack gap="lg" className="mx-auto w-full max-w-6xl">
-      <div>
-        <AnchorLink to="/templates" size="sm" className="inline-flex items-center gap-1"><IconArrowLeft size={16} /> All templates</AnchorLink>
-        <Group gap={6} mt="sm">
-          <Badge radius="xl" style={{ background: bg, color: fg }}>{cat?.label}</Badge>
-          <Badge radius="xl" variant="light" color={kindColor(t.kind)}>{kindLabel(t.kind)}</Badge>
-        </Group>
-        <Title order={1} fz={{ base: 28, sm: 34 }} mt={6}>{t.name}</Title>
-        <Text c="dimmed" fz="lg" mt={4} className="max-w-3xl">{t.question}</Text>
-      </div>
+    <Page
+      title={t.name}
+      intro={t.question}
+      crumbs={[{ label: "Templates", to: "/templates" }, { label: t.name }]}
+      badge={<Badge variant="light" color={kindColor(t.kind)}>{kindLabel(t.kind)}</Badge>}
+      actions={<ButtonLink to="/models/teach" search={{ template: t.id }}>Use this template</ButtonLink>}
+    >
+      <Group gap={6} mt={-8}>
+        <Badge style={{ background: bg, color: fg }}>{cat?.label}</Badge>
+      </Group>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Stack gap="lg">
@@ -106,7 +107,7 @@ function Detail() {
           </Card>
         </Stack>
       </div>
-    </Stack>
+    </Page>
   );
 }
 

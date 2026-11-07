@@ -55,6 +55,7 @@ function ScoringPage() {
   return (
     <Page
       title={s.name}
+      crumbs={[{ label: "Score a list", to: "/scoring" }, { label: s.name }]}
       intro={<>Rows from {s.sourceDetail}, answered by <AnchorLink to="/models/$id" params={{ id: s.modelId }}>{s.modelName}</AnchorLink> · made by {s.createdBy} {ago(s.createTime)}</>}
       actions={
         <Group gap="xs">

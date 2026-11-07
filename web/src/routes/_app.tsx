@@ -11,7 +11,7 @@ import { useMemo } from "react";
 import { message } from "../api/client";
 import { AuthService } from "../api/gen/mimir/v1/access_pb";
 import { listModels, setupState, whoAmI } from "../api/queries";
-import { deviceItem, groups, isActive, type NavItem } from "../components/nav";
+import { deviceItem, groups, isActive, nav, settingsItem, type NavItem } from "../components/nav";
 import { ChangePasswordModal } from "../components/ChangePasswordModal";
 import { roleLabel } from "../lib/roles";
 
@@ -88,6 +88,9 @@ function Layout() {
   const can = (p: string) => me.permissions.includes(p);
   const shown = groups.map((g) => ({ ...g, items: g.items.filter((n) => !n.needs || can(n.needs)) })).filter((g) => g.items.length > 0);
   const canBuild = can("models.write");
+  // Settings holds People too, so people who may see either get it.
+  const settings: NavItem | undefined = can("audit.read") ? settingsItem
+    : can("users.read") ? { ...settingsItem, to: "/users", label: "People" } : undefined;
   const signOut = useMutation(AuthService.method.signOut, {
     onSuccess: () => { queryClient.clear(); location.assign("/sign-in"); },
   });
@@ -95,7 +98,7 @@ function Layout() {
 
   // Search finds pages and models, and offers the common next steps.
   const actions = useMemo<SpotlightActionData[]>(() => [
-    ...shown.flatMap((g) => g.items).concat(deviceItem).map((n) => ({
+    ...nav.filter((n) => !n.needs || can(n.needs)).filter((n) => n.to !== "/settings" || settings?.to === "/settings").map((n) => ({
       id: "page:" + n.to, label: n.label, group: "Pages", leftSection: <n.icon size={18} stroke={1.8} />,
       onClick: () => void navigate({ to: n.to }),
     })),
@@ -103,7 +106,7 @@ function Layout() {
       { id: "model:" + m.id, label: m.name, description: m.description || "Model", group: "Models", leftSection: <IconBox size={18} stroke={1.8} />, onClick: () => void navigate({ to: "/models/$id", params: { id: m.id } }) },
       { id: "try:" + m.id, label: `Try ${m.name}`, group: "Actions", keywords: [m.name], leftSection: <IconSearch size={18} stroke={1.8} />, onClick: () => void navigate({ to: "/try", search: { model: m.id } }) },
     ]),
-  ], [shown, models, navigate]);
+  ], [me, models, navigate]);
 
   const account = (
     <AccountMenu
@@ -112,14 +115,11 @@ function Layout() {
     />
   );
 
-  const links = (onPick?: () => void) => shown.map((g, gi) => (
-    <div key={gi}>
-      {g.label && <div className="side-group">{g.label}</div>}
-      <Stack gap={2}>
-        {g.items.map((n) => <SideLink key={n.to} item={n} active={isActive(path, n)} onClick={onPick} />)}
-      </Stack>
-    </div>
-  ));
+  const links = (onPick?: () => void) => (
+    <Stack gap={2}>
+      {shown.flatMap((g) => g.items).map((n) => <SideLink key={n.to} item={n} active={isActive(path, n)} onClick={onPick} />)}
+    </Stack>
+  );
 
   // The phone bar holds the four things people do most and More.
   const first = groups[0]!.items;
@@ -164,7 +164,10 @@ function Layout() {
           </button>
         </AppShell.Section>
         <AppShell.Section grow component={ScrollArea} mt="sm">{links()}</AppShell.Section>
-        <AppShell.Section pt="sm" style={{ borderTop: "1px solid var(--mimir-line)" }}>{account}</AppShell.Section>
+        <AppShell.Section pt="sm" style={{ borderTop: "1px solid var(--mimir-line)" }}>
+          {settings && <SideLink item={settings} active={isActive(path, settings)} />}
+          {account}
+        </AppShell.Section>
       </AppShell.Navbar>
 
       <AppShell.Main>
@@ -194,8 +197,11 @@ function Layout() {
       <Drawer opened={menuOpen} onClose={menu.close} position="bottom" size="auto" radius="lg" title="Menu" hiddenFrom="sm"
         styles={{ content: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }, body: { paddingBottom: 24 } }}>
         {links(menu.close)}
-        <div className="side-group">You</div>
-        <SideLink item={deviceItem} active={isActive(path, deviceItem)} onClick={menu.close} />
+        <Stack gap={2} mt="sm" pt="sm" style={{ borderTop: "1px solid var(--mimir-line)" }}>
+          {canBuild && <SideLink item={{ to: "/models/build", label: "Build a model", short: "Build", icon: IconPlus }} active={false} onClick={menu.close} />}
+          {settings && <SideLink item={settings} active={isActive(path, settings)} onClick={menu.close} />}
+          <SideLink item={deviceItem} active={isActive(path, deviceItem)} onClick={menu.close} />
+        </Stack>
       </Drawer>
 
       <Spotlight

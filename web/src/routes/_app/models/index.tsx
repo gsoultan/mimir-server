@@ -1,5 +1,5 @@
 import { Card, Chip, Group, Menu, ActionIcon, SegmentedControl, SimpleGrid, Table, Text, TextInput } from "@mantine/core";
-import { IconDots, IconLayoutGrid, IconList, IconListCheck, IconPlayerPlay, IconPlus, IconSearch, IconUpload } from "@tabler/icons-react";
+import { IconDots, IconLayoutGrid, IconList, IconListCheck, IconPlayerPlay, IconPlus, IconSearch, IconTrophy, IconUpload } from "@tabler/icons-react";
 import { useQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useDeferredValue, useState } from "react";
@@ -52,6 +52,7 @@ function Models() {
       intro="Everything this server can answer with."
       actions={canWrite &&
         <Group gap="sm">
+          <ButtonLink variant="subtle" leftSection={<IconTrophy size={18} />} to="/benchmarks">Benchmarks</ButtonLink>
           <ButtonLink variant="default" leftSection={<IconUpload size={18} />} to="/models/new">Upload a file</ButtonLink>
           <ButtonLink to="/models/build" leftSection={<IconPlus size={18} />}>Build a model</ButtonLink>
         </Group>
