@@ -111,7 +111,9 @@ func buffer(v []float32, shape ...int) *tensor.Param {
 	return tensor.NewBuffer(tensor.FromSlice(v, shape...))
 }
 
-func zeros(shape ...int) *tensor.Param { return tensor.NewBuffer(tensor.Zeros(tensor.Float32, shape...)) }
+func zeros(shape ...int) *tensor.Param {
+	return tensor.NewBuffer(tensor.Zeros(tensor.Float32, shape...))
+}
 
 func scalar(v float64) *tensor.Tensor { return tensor.Scalar[float32](float32(v)) }
 
