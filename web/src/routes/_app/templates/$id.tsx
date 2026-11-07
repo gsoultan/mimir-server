@@ -164,14 +164,14 @@ function TableNeeds({ t, onExample, loading }: { t: Template; onExample: () => v
   return (
     <>
       <Card withBorder radius="lg" padding="lg">
-        <Head title="The data you need" hint="One column per line below. Names can differ in your file; we help you match them later. The highlighted column is the answer the model learns to give." />
+        <Head title="The data you need" hint="One column per line below. Names can differ in your file; we help you match them later. The highlighted column is the answer the model learns to give. Optional columns and any others you have make answers more specific." />
         <Table.ScrollContainer minWidth={560} mt="sm">
           <Table verticalSpacing="sm">
             <Table.Thead><Table.Tr><Table.Th>Column</Table.Th><Table.Th>What it means</Table.Th><Table.Th>Kind of value</Table.Th><Table.Th>Example</Table.Th></Table.Tr></Table.Thead>
             <Table.Tbody>
               {t.columns.map((c, i) => (
                 <Table.Tr key={c.name} bg={i === last ? "var(--mantine-color-teal-light)" : undefined}>
-                  <Table.Td><Text ff="monospace" size="sm" fw={600}>{c.name}</Text>{i === last && <Text size="xs" c="teal.8" fw={700}>The answer</Text>}</Table.Td>
+                  <Table.Td><Text ff="monospace" size="sm" fw={600}>{c.name}</Text>{i === last && <Text size="xs" c="teal.8" fw={700}>The answer</Text>}{c.optional && <Text size="xs" c="dimmed">Optional, makes answers more specific</Text>}</Table.Td>
                   <Table.Td><Text size="sm">{c.meaning}</Text></Table.Td>
                   <Table.Td><Badge variant="light" color={columnKinds[c.kind]?.color} radius="xl">{columnKinds[c.kind]?.label ?? c.kind}</Badge></Table.Td>
                   <Table.Td><Text size="sm" ff="monospace">{c.examples[0]}</Text></Table.Td>

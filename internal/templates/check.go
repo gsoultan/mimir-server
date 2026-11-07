@@ -19,6 +19,10 @@ const (
 	info = "info"
 )
 
+// cellsOnly are the model types that read only the columns their
+// template names, not others the data has.
+var cellsOnly = map[string]bool{"recommend": true, "recommend-nearby": true, "forecast": true}
+
 // MaxMissingPhotos bounds the list of rows whose photo is missing.
 const MaxMissingPhotos = 1000
 
@@ -80,12 +84,18 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 	if t != nil {
 		c.RowsMin, c.RowsGood, c.RowsGreat = t.RowsMin, t.RowsGood, t.RowsGreat
 		used := map[string]bool{}
-		var lost []string
+		var lost, more []string
 		for _, tc := range t.Columns {
 			found := match[tc.Name]
 			used[found] = true
-			c.Columns = append(c.Columns, column(tc.Name, tc.Kind, found))
-			if found == "" && tc.Name != t.Answer().Name {
+			cc := column(tc.Name, tc.Kind, found)
+			cc.Optional = tc.Optional
+			c.Columns = append(c.Columns, cc)
+			switch {
+			case found != "" || tc.Name == t.Answer().Name:
+			case tc.Optional:
+				more = append(more, tc.Name)
+			default:
 				lost = append(lost, tc.Name)
 			}
 		}
@@ -102,6 +112,19 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 		if len(lost) > 0 {
 			c.note(warn, plural(len(lost), "column isn't there", "columns aren't there")+": "+strings.Join(lost, ", ")+".",
 				"If they're under other names, pick them. Otherwise it learns from the columns you have, and may guess less well.")
+		}
+		if len(more) > 0 {
+			c.note(info, "More columns make answers more specific:", strings.Join(more, ", ")+
+				". You don't need them, but each one you add that tells rows apart lets the model answer more precisely for each row.")
+		}
+		if len(c.ExtraColumns) > 0 {
+			if cellsOnly[t.Architecture()] {
+				c.note(info, "Your own columns aren't used by this model type:", strings.Join(c.ExtraColumns, ", ")+
+					". It learns only from the columns the template names. A yes-or-no or group template can learn from all of them.")
+			} else {
+				c.note(info, "Your own columns are used too:", strings.Join(c.ExtraColumns, ", ")+
+					". Any column known before the answer, and that tells rows apart, can make answers more specific. After teaching, the model's page shows which columns mattered most.")
+			}
 		}
 		for _, cc := range c.Columns {
 			if cc.Status == "kind" {

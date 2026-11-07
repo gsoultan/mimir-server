@@ -58,3 +58,46 @@ func TestSuggest(t *testing.T) {
 		t.Errorf("no answer share or template in\n%s", got)
 	}
 }
+
+// A table with only a template's needed columns, plus one of its own,
+// hears which optional columns would help and that its own one is used.
+func TestOptionalAndOwnColumns(t *testing.T) {
+	tp, _ := Get("account-churn")
+	var keep []Column
+	for _, c := range tp.Inputs() {
+		if !c.Optional {
+			keep = append(keep, c)
+		}
+	}
+	if len(keep) == len(tp.Inputs()) {
+		t.Fatal("account-churn has no optional columns")
+	}
+	var csv strings.Builder
+	for _, c := range keep {
+		csv.WriteString(c.Name + ",")
+	}
+	csv.WriteString("region," + tp.Answer().Name + "\n")
+	for i := range 80 {
+		for _, c := range keep {
+			csv.WriteString(c.Examples[i%len(c.Examples)] + ",")
+		}
+		fmt.Fprintf(&csv, "%s,%s\n", []string{"north", "south"}[i%2], []string{"yes", "no"}[i%3/2])
+	}
+	tab, err := training.ParseTable(strings.NewReader(csv.String()), tp.Answer().Name, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ck := CheckTable(&tp, tab, tp.Match(tab.Header, nil), nil)
+	var got strings.Builder
+	for _, n := range ck.Notes {
+		fmt.Fprintf(&got, "%s %s\n", n.Title, n.Body)
+	}
+	for _, want := range []string{"More columns make answers more specific: months_customer", "Your own columns are used too: region"} {
+		if !strings.Contains(got.String(), want) {
+			t.Errorf("no %q in\n%s", want, got.String())
+		}
+	}
+	if strings.Contains(got.String(), "columns aren't there") || ck.Verdict == "bad" {
+		t.Errorf("optional columns count as lost, verdict %s:\n%s", ck.Verdict, got.String())
+	}
+}

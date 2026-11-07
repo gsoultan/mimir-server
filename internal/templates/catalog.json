@@ -143,6 +143,61 @@
      ]
     },
     {
+     "name": "vibration_mm_s",
+     "kind": "number",
+     "meaning": "Vibration, in mm/s.",
+     "examples": [
+      "2.1",
+      "3.4",
+      "6.8"
+     ],
+     "optional": true
+    },
+    {
+     "name": "hours_run_week",
+     "kind": "number",
+     "meaning": "Hours it ran in the last 7 days.",
+     "examples": [
+      "96",
+      "120",
+      "150"
+     ],
+     "optional": true
+    },
+    {
+     "name": "alarms_7d",
+     "kind": "number",
+     "meaning": "Alarms it raised in the last 7 days.",
+     "examples": [
+      "0",
+      "2",
+      "7"
+     ],
+     "optional": true
+    },
+    {
+     "name": "age_years",
+     "kind": "number",
+     "meaning": "How old the machine is, in years.",
+     "examples": [
+      "2",
+      "8",
+      "15"
+     ],
+     "optional": true
+    },
+    {
+     "name": "load",
+     "kind": "category",
+     "meaning": "How hard it is worked.",
+     "examples": [
+      "light",
+      "normal",
+      "heavy"
+     ],
+     "optional": true
+    },
+    {
      "name": "fails_within_7_days",
      "kind": "yesno",
      "meaning": "Did it fail in the 7 days after this day?",
@@ -246,6 +301,61 @@
      ]
     },
     {
+     "name": "product",
+     "kind": "category",
+     "meaning": "What is being made.",
+     "examples": [
+      "P-100",
+      "P-220",
+      "P-310"
+     ],
+     "optional": true
+    },
+    {
+     "name": "material_lot_age_days",
+     "kind": "number",
+     "meaning": "Days since the material lot arrived.",
+     "examples": [
+      "3",
+      "12",
+      "40"
+     ],
+     "optional": true
+    },
+    {
+     "name": "operator_years",
+     "kind": "number",
+     "meaning": "The operator's years of experience.",
+     "examples": [
+      "0.5",
+      "3",
+      "10"
+     ],
+     "optional": true
+    },
+    {
+     "name": "minutes_since_changeover",
+     "kind": "number",
+     "meaning": "Minutes since the line last changed product.",
+     "examples": [
+      "15",
+      "120",
+      "400"
+     ],
+     "optional": true
+    },
+    {
+     "name": "defects_last_hour",
+     "kind": "number",
+     "meaning": "Defects found on the line in the hour before.",
+     "examples": [
+      "0",
+      "1",
+      "5"
+     ],
+     "optional": true
+    },
+    {
      "name": "qc_result",
      "kind": "category",
      "meaning": "What inspection said.",
@@ -326,6 +436,61 @@
       "P22",
       "P10"
      ]
+    },
+    {
+     "name": "shift",
+     "kind": "category",
+     "meaning": "Which shift ran.",
+     "examples": [
+      "morning",
+      "afternoon",
+      "night"
+     ],
+     "optional": true
+    },
+    {
+     "name": "machines_running",
+     "kind": "number",
+     "meaning": "Machines switched on.",
+     "examples": [
+      "8",
+      "12",
+      "15"
+     ],
+     "optional": true
+    },
+    {
+     "name": "humidity_pct",
+     "kind": "number",
+     "meaning": "Humidity outside, in %.",
+     "examples": [
+      "55",
+      "70",
+      "85"
+     ],
+     "optional": true
+    },
+    {
+     "name": "weekend",
+     "kind": "yesno",
+     "meaning": "Yes on a Saturday or Sunday.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "changeovers",
+     "kind": "number",
+     "meaning": "Product changes during the shift.",
+     "examples": [
+      "0",
+      "2",
+      "4"
+     ],
+     "optional": true
     },
     {
      "name": "kwh",
@@ -421,6 +586,61 @@
      ]
     },
     {
+     "name": "product",
+     "kind": "category",
+     "meaning": "What was being made.",
+     "examples": [
+      "P-100",
+      "P-220",
+      "P-310"
+     ],
+     "optional": true
+    },
+    {
+     "name": "operator_years",
+     "kind": "number",
+     "meaning": "The operator's years of experience.",
+     "examples": [
+      "0.5",
+      "3",
+      "10"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_since_service",
+     "kind": "number",
+     "meaning": "Days since the machine was last serviced.",
+     "examples": [
+      "5",
+      "30",
+      "90"
+     ],
+     "optional": true
+    },
+    {
+     "name": "stops_7d",
+     "kind": "number",
+     "meaning": "Stops in the 7 days before.",
+     "examples": [
+      "0",
+      "3",
+      "9"
+     ],
+     "optional": true
+    },
+    {
+     "name": "material_changed",
+     "kind": "yesno",
+     "meaning": "Yes if a new material lot was loaded that shift.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
      "name": "cause",
      "kind": "category",
      "meaning": "What the technician found.",
@@ -513,6 +733,61 @@
      ]
     },
     {
+     "name": "shift",
+     "kind": "category",
+     "meaning": "Which shift ran the batch.",
+     "examples": [
+      "morning",
+      "afternoon",
+      "night"
+     ],
+     "optional": true
+    },
+    {
+     "name": "supplier",
+     "kind": "category",
+     "meaning": "Who supplied the main material.",
+     "examples": [
+      "Alpha",
+      "Beta",
+      "Gamma"
+     ],
+     "optional": true
+    },
+    {
+     "name": "humidity_pct",
+     "kind": "number",
+     "meaning": "Humidity in the room, in %.",
+     "examples": [
+      "40",
+      "55",
+      "70"
+     ],
+     "optional": true
+    },
+    {
+     "name": "batch_size",
+     "kind": "number",
+     "meaning": "Units planned in the batch.",
+     "examples": [
+      "500",
+      "1200",
+      "3000"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_since_service",
+     "kind": "number",
+     "meaning": "Days since the line was last serviced.",
+     "examples": [
+      "5",
+      "30",
+      "90"
+     ],
+     "optional": true
+    },
+    {
      "name": "yield_pct",
      "kind": "number",
      "meaning": "Good units as a % of the batch.",
@@ -593,6 +868,50 @@
       "1.2",
       "6.9"
      ]
+    },
+    {
+     "name": "machine",
+     "kind": "category",
+     "meaning": "Which machine holds the tool.",
+     "examples": [
+      "CNC-1",
+      "CNC-2",
+      "CNC-3"
+     ],
+     "optional": true
+    },
+    {
+     "name": "coolant_temp_c",
+     "kind": "number",
+     "meaning": "Coolant temperature, in °C.",
+     "examples": [
+      "18",
+      "22",
+      "28"
+     ],
+     "optional": true
+    },
+    {
+     "name": "feed_rate",
+     "kind": "number",
+     "meaning": "How fast the tool moves through material, in mm/min.",
+     "examples": [
+      "200",
+      "450",
+      "800"
+     ],
+     "optional": true
+    },
+    {
+     "name": "minutes_since_change",
+     "kind": "number",
+     "meaning": "Minutes the tool has cut since it was fitted.",
+     "examples": [
+      "30",
+      "240",
+      "900"
+     ],
+     "optional": true
     },
     {
      "name": "change_needed",
@@ -892,6 +1211,50 @@
      ]
     },
     {
+     "name": "operator",
+     "kind": "category",
+     "meaning": "Who ran the machine.",
+     "examples": [
+      "OP-1",
+      "OP-2",
+      "OP-3"
+     ],
+     "optional": true
+    },
+    {
+     "name": "material_lot",
+     "kind": "category",
+     "meaning": "The material lot.",
+     "examples": [
+      "L-11",
+      "L-12",
+      "L-13"
+     ],
+     "optional": true
+    },
+    {
+     "name": "vibration_mm_s",
+     "kind": "number",
+     "meaning": "Vibration, in mm/s.",
+     "examples": [
+      "1.2",
+      "2.5",
+      "5.0"
+     ],
+     "optional": true
+    },
+    {
+     "name": "minutes_since_calibration",
+     "kind": "number",
+     "meaning": "Minutes since the machine was last calibrated.",
+     "examples": [
+      "60",
+      "600",
+      "3000"
+     ],
+     "optional": true
+    },
+    {
      "name": "out_of_tolerance",
      "kind": "yesno",
      "meaning": "Did the CMM fail it?",
@@ -995,6 +1358,72 @@
      ]
     },
     {
+     "name": "annual_revenue_musd",
+     "kind": "number",
+     "meaning": "The company's yearly revenue, in millions of dollars.",
+     "examples": [
+      "2",
+      "40",
+      "900"
+     ],
+     "optional": true
+    },
+    {
+     "name": "job_level",
+     "kind": "category",
+     "meaning": "How senior the contact is.",
+     "examples": [
+      "staff",
+      "manager",
+      "director"
+     ],
+     "optional": true
+    },
+    {
+     "name": "site_visits_30d",
+     "kind": "number",
+     "meaning": "Visits to your website in the last 30 days.",
+     "examples": [
+      "0",
+      "4",
+      "15"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_since_first_touch",
+     "kind": "number",
+     "meaning": "Days since the lead first came in.",
+     "examples": [
+      "3",
+      "30",
+      "120"
+     ],
+     "optional": true
+    },
+    {
+     "name": "uses_competitor",
+     "kind": "yesno",
+     "meaning": "Yes if they already use a competitor's product.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "budget_known",
+     "kind": "number",
+     "meaning": "How much budget they said they have, in thousands; 0 if not said.",
+     "examples": [
+      "0",
+      "25",
+      "150"
+     ],
+     "optional": true
+    },
+    {
      "name": "became_customer",
      "kind": "yesno",
      "meaning": "Did they buy?",
@@ -1087,6 +1516,72 @@
      ]
     },
     {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "The buyer's industry.",
+     "examples": [
+      "retail",
+      "manufacturing",
+      "finance"
+     ],
+     "optional": true
+    },
+    {
+     "name": "lead_source",
+     "kind": "category",
+     "meaning": "Where the deal came from.",
+     "examples": [
+      "inbound",
+      "outbound",
+      "partner"
+     ],
+     "optional": true
+    },
+    {
+     "name": "decision_maker_met",
+     "kind": "yesno",
+     "meaning": "Yes if you have met the person who signs.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "discount_pct",
+     "kind": "number",
+     "meaning": "The discount offered, in %.",
+     "examples": [
+      "0",
+      "10",
+      "20"
+     ],
+     "optional": true
+    },
+    {
+     "name": "meetings",
+     "kind": "number",
+     "meaning": "Meetings held so far.",
+     "examples": [
+      "1",
+      "4",
+      "9"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_since_last_contact",
+     "kind": "number",
+     "meaning": "Days since you last heard from the buyer.",
+     "examples": [
+      "1",
+      "7",
+      "30"
+     ],
+     "optional": true
+    },
+    {
      "name": "won",
      "kind": "yesno",
      "meaning": "Was the deal won?",
@@ -1167,6 +1662,72 @@
       "starter",
       "business"
      ]
+    },
+    {
+     "name": "months_customer",
+     "kind": "number",
+     "meaning": "How long they have been a customer, in months.",
+     "examples": [
+      "4",
+      "18",
+      "60"
+     ],
+     "optional": true
+    },
+    {
+     "name": "seat_usage_pct",
+     "kind": "number",
+     "meaning": "Seats in use, in %.",
+     "examples": [
+      "35",
+      "70",
+      "95"
+     ],
+     "optional": true
+    },
+    {
+     "name": "nps",
+     "kind": "number",
+     "meaning": "Their latest recommend score, from -100 to 100.",
+     "examples": [
+      "-20",
+      "20",
+      "60"
+     ],
+     "optional": true
+    },
+    {
+     "name": "late_payments_12m",
+     "kind": "number",
+     "meaning": "Invoices paid late in the last 12 months.",
+     "examples": [
+      "0",
+      "1",
+      "4"
+     ],
+     "optional": true
+    },
+    {
+     "name": "champion_left",
+     "kind": "yesno",
+     "meaning": "Yes if your main contact there has left.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "Their industry.",
+     "examples": [
+      "retail",
+      "manufacturing",
+      "finance"
+     ],
+     "optional": true
     },
     {
      "name": "renewed",
@@ -1261,6 +1822,61 @@
      ]
     },
     {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "Their industry.",
+     "examples": [
+      "retail",
+      "manufacturing",
+      "finance"
+     ],
+     "optional": true
+    },
+    {
+     "name": "tickets_90d",
+     "kind": "number",
+     "meaning": "Support tickets in the last 90 days.",
+     "examples": [
+      "0",
+      "3",
+      "12"
+     ],
+     "optional": true
+    },
+    {
+     "name": "monthly_spend",
+     "kind": "number",
+     "meaning": "What they pay each month.",
+     "examples": [
+      "500",
+      "2500",
+      "12000"
+     ],
+     "optional": true
+    },
+    {
+     "name": "hit_plan_limit",
+     "kind": "yesno",
+     "meaning": "Yes if they reached a limit of their plan.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "active_users_30d",
+     "kind": "number",
+     "meaning": "People who used it in the last 30 days.",
+     "examples": [
+      "8",
+      "40",
+      "180"
+     ],
+     "optional": true
+    },
+    {
      "name": "upgraded_within_90d",
      "kind": "yesno",
      "meaning": "Did they upgrade within 90 days?",
@@ -1353,6 +1969,61 @@
      ]
     },
     {
+     "name": "company_size",
+     "kind": "category",
+     "meaning": "Employees, in bands.",
+     "examples": [
+      "1-50",
+      "51-500",
+      "500+"
+     ],
+     "optional": true
+    },
+    {
+     "name": "country",
+     "kind": "category",
+     "meaning": "Where they are.",
+     "examples": [
+      "ID",
+      "SG",
+      "MY"
+     ],
+     "optional": true
+    },
+    {
+     "name": "past_responses",
+     "kind": "number",
+     "meaning": "Times they answered an earlier campaign.",
+     "examples": [
+      "0",
+      "1",
+      "4"
+     ],
+     "optional": true
+    },
+    {
+     "name": "existing_customer",
+     "kind": "yesno",
+     "meaning": "Yes if they already buy from you.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "site_visits_30d",
+     "kind": "number",
+     "meaning": "Visits to your website in the last 30 days.",
+     "examples": [
+      "0",
+      "3",
+      "12"
+     ],
+     "optional": true
+    },
+    {
      "name": "responded",
      "kind": "yesno",
      "meaning": "Did they respond?",
@@ -1435,6 +2106,61 @@
      ]
     },
     {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "Their industry.",
+     "examples": [
+      "retail",
+      "manufacturing",
+      "finance"
+     ],
+     "optional": true
+    },
+    {
+     "name": "country",
+     "kind": "category",
+     "meaning": "Where they are.",
+     "examples": [
+      "ID",
+      "SG",
+      "MY"
+     ],
+     "optional": true
+    },
+    {
+     "name": "calls_answered_90d",
+     "kind": "number",
+     "meaning": "Calls of yours they picked up in the last 90 days.",
+     "examples": [
+      "0",
+      "2",
+      "6"
+     ],
+     "optional": true
+    },
+    {
+     "name": "whatsapp_replies_90d",
+     "kind": "number",
+     "meaning": "WhatsApp messages they answered in the last 90 days.",
+     "examples": [
+      "0",
+      "3",
+      "10"
+     ],
+     "optional": true
+    },
+    {
+     "name": "age_band",
+     "kind": "category",
+     "meaning": "The contact's age, in bands.",
+     "examples": [
+      "20-29",
+      "30-44",
+      "45+"
+     ],
+     "optional": true
+    },
+    {
      "name": "best_channel",
      "kind": "category",
      "meaning": "Channel that first got a reply.",
@@ -1515,6 +2241,72 @@
       "1",
       "87"
      ]
+    },
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "Their industry.",
+     "examples": [
+      "retail",
+      "manufacturing",
+      "finance"
+     ],
+     "optional": true
+    },
+    {
+     "name": "plan",
+     "kind": "category",
+     "meaning": "Their plan.",
+     "examples": [
+      "basic",
+      "pro",
+      "enterprise"
+     ],
+     "optional": true
+    },
+    {
+     "name": "months_customer",
+     "kind": "number",
+     "meaning": "How long they have been a customer, in months.",
+     "examples": [
+      "4",
+      "18",
+      "60"
+     ],
+     "optional": true
+    },
+    {
+     "name": "tickets_90d",
+     "kind": "number",
+     "meaning": "Support tickets in the last 90 days.",
+     "examples": [
+      "0",
+      "3",
+      "12"
+     ],
+     "optional": true
+    },
+    {
+     "name": "price_change_pct",
+     "kind": "number",
+     "meaning": "Change in their price this quarter, in %.",
+     "examples": [
+      "0",
+      "5",
+      "-10"
+     ],
+     "optional": true
+    },
+    {
+     "name": "renewal_this_q",
+     "kind": "yesno",
+     "meaning": "Yes if their contract renews this quarter.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
     },
     {
      "name": "revenue_next_q",
@@ -1662,6 +2454,39 @@
      ]
     },
     {
+     "name": "credit_used_pct",
+     "kind": "number",
+     "meaning": "Credit limit in use, in %.",
+     "examples": [
+      "10",
+      "55",
+      "95"
+     ],
+     "optional": true
+    },
+    {
+     "name": "complaints_90d",
+     "kind": "number",
+     "meaning": "Complaints in the last 90 days.",
+     "examples": [
+      "0",
+      "1",
+      "4"
+     ],
+     "optional": true
+    },
+    {
+     "name": "distance_km",
+     "kind": "number",
+     "meaning": "How far it is from the sales office, in km.",
+     "examples": [
+      "2",
+      "15",
+      "60"
+     ],
+     "optional": true
+    },
+    {
      "name": "buys_in_window",
      "kind": "yesno",
      "meaning": "Did they order, or did the lead's deal move forward, within that many days after the planning day?",
@@ -1763,6 +2588,61 @@
       "60",
       "7"
      ]
+    },
+    {
+     "name": "territory",
+     "kind": "category",
+     "meaning": "The sales area.",
+     "examples": [
+      "north",
+      "south",
+      "east"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_since_last_order",
+     "kind": "number",
+     "meaning": "Days since the order before this one.",
+     "examples": [
+      "5",
+      "25",
+      "70"
+     ],
+     "optional": true
+    },
+    {
+     "name": "credit_used_pct",
+     "kind": "number",
+     "meaning": "Credit limit in use, in %.",
+     "examples": [
+      "10",
+      "55",
+      "95"
+     ],
+     "optional": true
+    },
+    {
+     "name": "on_promo",
+     "kind": "yesno",
+     "meaning": "Yes if a promotion was running when they ordered.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "stock_weeks_left",
+     "kind": "number",
+     "meaning": "Weeks of stock they said they had left; blank if not known.",
+     "examples": [
+      "1",
+      "3",
+      "6"
+     ],
+     "optional": true
     },
     {
      "name": "days_to_next_order",
@@ -1878,6 +2758,39 @@
       "90",
       "6"
      ]
+    },
+    {
+     "name": "territory",
+     "kind": "category",
+     "meaning": "The sales area.",
+     "examples": [
+      "north",
+      "south",
+      "east"
+     ],
+     "optional": true
+    },
+    {
+     "name": "credit_used_pct",
+     "kind": "number",
+     "meaning": "Credit limit in use, in %.",
+     "examples": [
+      "10",
+      "55",
+      "95"
+     ],
+     "optional": true
+    },
+    {
+     "name": "complaints_90d",
+     "kind": "number",
+     "meaning": "Complaints in the last 90 days.",
+     "examples": [
+      "0",
+      "1",
+      "4"
+     ],
+     "optional": true
     },
     {
      "name": "reordered",
@@ -2246,6 +3159,61 @@
      ]
     },
     {
+     "name": "employees",
+     "kind": "number",
+     "meaning": "How many people work there.",
+     "examples": [
+      "15",
+      "240",
+      "3000"
+     ],
+     "optional": true
+    },
+    {
+     "name": "job_level",
+     "kind": "category",
+     "meaning": "How senior the contact is.",
+     "examples": [
+      "staff",
+      "manager",
+      "director"
+     ],
+     "optional": true
+    },
+    {
+     "name": "current_supplier",
+     "kind": "category",
+     "meaning": "Who they buy from now.",
+     "examples": [
+      "none",
+      "competitor A",
+      "competitor B"
+     ],
+     "optional": true
+    },
+    {
+     "name": "site_visits_30d",
+     "kind": "number",
+     "meaning": "Visits to your website in the last 30 days.",
+     "examples": [
+      "0",
+      "4",
+      "15"
+     ],
+     "optional": true
+    },
+    {
+     "name": "pages_most_read",
+     "kind": "category",
+     "meaning": "The product section they read most on your site.",
+     "examples": [
+      "pricing",
+      "packaging",
+      "machines"
+     ],
+     "optional": true
+    },
+    {
      "name": "product_line",
      "kind": "category",
      "meaning": "Product line of their first order.",
@@ -2340,6 +3308,61 @@
      ]
     },
     {
+     "name": "signup_channel",
+     "kind": "category",
+     "meaning": "Where they signed up.",
+     "examples": [
+      "app",
+      "web",
+      "store"
+     ],
+     "optional": true
+    },
+    {
+     "name": "age",
+     "kind": "number",
+     "meaning": "The subscriber's age.",
+     "examples": [
+      "22",
+      "35",
+      "58"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_since_last_login",
+     "kind": "number",
+     "meaning": "Days since they last logged in.",
+     "examples": [
+      "0",
+      "6",
+      "40"
+     ],
+     "optional": true
+    },
+    {
+     "name": "used_discount",
+     "kind": "yesno",
+     "meaning": "Yes if they joined with a discount.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "price_rise_pct",
+     "kind": "number",
+     "meaning": "The last price rise they saw, in %.",
+     "examples": [
+      "0",
+      "5",
+      "15"
+     ],
+     "optional": true
+    },
+    {
      "name": "cancelled_next_month",
      "kind": "yesno",
      "meaning": "Did they cancel in the next month?",
@@ -2420,6 +3443,61 @@
       "web",
       "app"
      ]
+    },
+    {
+     "name": "returns_last_year",
+     "kind": "number",
+     "meaning": "Orders they sent back in the last year.",
+     "examples": [
+      "0",
+      "1",
+      "4"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_as_customer",
+     "kind": "number",
+     "meaning": "Days since their first order.",
+     "examples": [
+      "30",
+      "400",
+      "1500"
+     ],
+     "optional": true
+    },
+    {
+     "name": "favourite_category",
+     "kind": "category",
+     "meaning": "What they buy most.",
+     "examples": [
+      "fashion",
+      "home",
+      "beauty"
+     ],
+     "optional": true
+    },
+    {
+     "name": "in_loyalty_programme",
+     "kind": "yesno",
+     "meaning": "Yes if they joined your loyalty programme.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "review_stars",
+     "kind": "number",
+     "meaning": "Their average review, 1 to 5; blank if none.",
+     "examples": [
+      "3",
+      "4",
+      "5"
+     ],
+     "optional": true
     },
     {
      "name": "ordered_within_30d",
@@ -2512,6 +3590,50 @@
       "furniture",
       "phones"
      ]
+    },
+    {
+     "name": "listings_by_seller",
+     "kind": "number",
+     "meaning": "Listings the seller has up.",
+     "examples": [
+      "1",
+      "12",
+      "300"
+     ],
+     "optional": true
+    },
+    {
+     "name": "new_bank_account",
+     "kind": "yesno",
+     "meaning": "Yes if the seller's payout account changed in the last 7 days.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "reports",
+     "kind": "number",
+     "meaning": "Times buyers reported the listing.",
+     "examples": [
+      "0",
+      "1",
+      "5"
+     ],
+     "optional": true
+    },
+    {
+     "name": "contact_in_text",
+     "kind": "yesno",
+     "meaning": "Yes if the description asks buyers to pay or talk outside the site.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
     },
     {
      "name": "is_fake",
@@ -2616,6 +3738,72 @@
      ]
     },
     {
+     "name": "age",
+     "kind": "number",
+     "meaning": "The borrower's age.",
+     "examples": [
+      "24",
+      "38",
+      "55"
+     ],
+     "optional": true
+    },
+    {
+     "name": "home",
+     "kind": "category",
+     "meaning": "Where they live.",
+     "examples": [
+      "rent",
+      "mortgage",
+      "own"
+     ],
+     "optional": true
+    },
+    {
+     "name": "credit_lines_open",
+     "kind": "number",
+     "meaning": "Loans and cards they already have.",
+     "examples": [
+      "1",
+      "4",
+      "9"
+     ],
+     "optional": true
+    },
+    {
+     "name": "credit_used_pct",
+     "kind": "number",
+     "meaning": "Credit limit in use across their cards, in %.",
+     "examples": [
+      "10",
+      "45",
+      "90"
+     ],
+     "optional": true
+    },
+    {
+     "name": "employment",
+     "kind": "category",
+     "meaning": "How they work.",
+     "examples": [
+      "employee",
+      "self-employed",
+      "contract"
+     ],
+     "optional": true
+    },
+    {
+     "name": "savings_months",
+     "kind": "number",
+     "meaning": "Months of spending their savings would cover.",
+     "examples": [
+      "0",
+      "3",
+      "12"
+     ],
+     "optional": true
+    },
+    {
      "name": "defaulted",
      "kind": "yesno",
      "meaning": "Did they default?",
@@ -2708,6 +3896,61 @@
      ]
     },
     {
+     "name": "country_match",
+     "kind": "category",
+     "meaning": "Whether the shop's country matches the card's.",
+     "examples": [
+      "same",
+      "different",
+      "same"
+     ],
+     "optional": true
+    },
+    {
+     "name": "card_age_days",
+     "kind": "number",
+     "meaning": "Days since the card was issued.",
+     "examples": [
+      "20",
+      "400",
+      "1800"
+     ],
+     "optional": true
+    },
+    {
+     "name": "online",
+     "kind": "yesno",
+     "meaning": "Yes if paid online.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "amount_vs_usual",
+     "kind": "number",
+     "meaning": "The amount compared with the cardholder's usual, as a multiple.",
+     "examples": [
+      "0.5",
+      "1",
+      "6"
+     ],
+     "optional": true
+    },
+    {
+     "name": "pin_used",
+     "kind": "yesno",
+     "meaning": "Yes if a PIN was entered.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
      "name": "is_fraud",
      "kind": "yesno",
      "meaning": "Confirmed fraud?",
@@ -2788,6 +4031,61 @@
       "yes",
       "no"
      ]
+    },
+    {
+     "name": "customer_months",
+     "kind": "number",
+     "meaning": "How long they have been a customer, in months.",
+     "examples": [
+      "3",
+      "24",
+      "90"
+     ],
+     "optional": true
+    },
+    {
+     "name": "open_invoices",
+     "kind": "number",
+     "meaning": "Other invoices of theirs not yet paid.",
+     "examples": [
+      "0",
+      "2",
+      "6"
+     ],
+     "optional": true
+    },
+    {
+     "name": "credit_used_pct",
+     "kind": "number",
+     "meaning": "Credit limit in use, in %.",
+     "examples": [
+      "10",
+      "55",
+      "95"
+     ],
+     "optional": true
+    },
+    {
+     "name": "payment_method",
+     "kind": "category",
+     "meaning": "How they pay.",
+     "examples": [
+      "transfer",
+      "giro",
+      "card"
+     ],
+     "optional": true
+    },
+    {
+     "name": "disputed",
+     "kind": "yesno",
+     "meaning": "Yes if they questioned the invoice.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
     },
     {
      "name": "paid_late",
@@ -2883,6 +4181,72 @@
      ]
     },
     {
+     "name": "age",
+     "kind": "number",
+     "meaning": "The employee's age.",
+     "examples": [
+      "24",
+      "35",
+      "52"
+     ],
+     "optional": true
+    },
+    {
+     "name": "commute_km",
+     "kind": "number",
+     "meaning": "Distance from home to work, in km.",
+     "examples": [
+      "3",
+      "15",
+      "45"
+     ],
+     "optional": true
+    },
+    {
+     "name": "salary_vs_market_pct",
+     "kind": "number",
+     "meaning": "Their pay compared with the market, in %.",
+     "examples": [
+      "85",
+      "100",
+      "115"
+     ],
+     "optional": true
+    },
+    {
+     "name": "trainings_12m",
+     "kind": "number",
+     "meaning": "Courses they took in the last 12 months.",
+     "examples": [
+      "0",
+      "2",
+      "6"
+     ],
+     "optional": true
+    },
+    {
+     "name": "manager_changes_2y",
+     "kind": "number",
+     "meaning": "Times their manager changed in 2 years.",
+     "examples": [
+      "0",
+      "1",
+      "3"
+     ],
+     "optional": true
+    },
+    {
+     "name": "remote",
+     "kind": "yesno",
+     "meaning": "Yes if they can work from home.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
      "name": "left_within_12m",
      "kind": "yesno",
      "meaning": "Did they leave within 12 months?",
@@ -2963,6 +4327,61 @@
       "8",
       "2"
      ]
+    },
+    {
+     "name": "level",
+     "kind": "category",
+     "meaning": "The job's level.",
+     "examples": [
+      "junior",
+      "mid",
+      "senior"
+     ],
+     "optional": true
+    },
+    {
+     "name": "job_family",
+     "kind": "category",
+     "meaning": "The kind of job.",
+     "examples": [
+      "sales",
+      "engineering",
+      "finance"
+     ],
+     "optional": true
+    },
+    {
+     "name": "commute_km",
+     "kind": "number",
+     "meaning": "Distance from their home to work, in km.",
+     "examples": [
+      "3",
+      "15",
+      "45"
+     ],
+     "optional": true
+    },
+    {
+     "name": "counter_offer",
+     "kind": "yesno",
+     "meaning": "Yes if their employer made a counter offer.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "other_offers",
+     "kind": "number",
+     "meaning": "Other offers they said they have.",
+     "examples": [
+      "0",
+      "1",
+      "3"
+     ],
+     "optional": true
     },
     {
      "name": "accepted",
@@ -3047,6 +4466,50 @@
      ]
     },
     {
+     "name": "remote",
+     "kind": "yesno",
+     "meaning": "Yes if the job can be done from home.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "openings",
+     "kind": "number",
+     "meaning": "How many people are hired for it.",
+     "examples": [
+      "1",
+      "2",
+      "6"
+     ],
+     "optional": true
+    },
+    {
+     "name": "required_years",
+     "kind": "number",
+     "meaning": "Years of experience asked for.",
+     "examples": [
+      "0",
+      "3",
+      "8"
+     ],
+     "optional": true
+    },
+    {
+     "name": "source",
+     "kind": "category",
+     "meaning": "Where most applicants come from.",
+     "examples": [
+      "job board",
+      "referral",
+      "agency"
+     ],
+     "optional": true
+    },
+    {
      "name": "days_to_fill",
      "kind": "number",
      "meaning": "Days until an offer was accepted.",
@@ -3127,6 +4590,50 @@
       "40",
       "100"
      ]
+    },
+    {
+     "name": "level",
+     "kind": "category",
+     "meaning": "The employee's level.",
+     "examples": [
+      "junior",
+      "mid",
+      "senior"
+     ],
+     "optional": true
+    },
+    {
+     "name": "overtime_hours_month",
+     "kind": "number",
+     "meaning": "Overtime last month, in hours.",
+     "examples": [
+      "0",
+      "10",
+      "35"
+     ],
+     "optional": true
+    },
+    {
+     "name": "format",
+     "kind": "category",
+     "meaning": "How it is taught.",
+     "examples": [
+      "online",
+      "classroom",
+      "blended"
+     ],
+     "optional": true
+    },
+    {
+     "name": "manager_reminded",
+     "kind": "yesno",
+     "meaning": "Yes if their manager sent a reminder.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
     },
     {
      "name": "completed_on_time",
@@ -3219,6 +4726,50 @@
       "0",
       "7"
      ]
+    },
+    {
+     "name": "avg_staff_age",
+     "kind": "number",
+     "meaning": "The average age of the staff on that site and shift.",
+     "examples": [
+      "28",
+      "36",
+      "45"
+     ],
+     "optional": true
+    },
+    {
+     "name": "machines_overdue_service",
+     "kind": "number",
+     "meaning": "Machines past their service date.",
+     "examples": [
+      "0",
+      "2",
+      "6"
+     ],
+     "optional": true
+    },
+    {
+     "name": "heat_index_c",
+     "kind": "number",
+     "meaning": "The heat index on site, in °C.",
+     "examples": [
+      "26",
+      "32",
+      "39"
+     ],
+     "optional": true
+    },
+    {
+     "name": "inspections_90d",
+     "kind": "number",
+     "meaning": "Safety inspections in the last 90 days.",
+     "examples": [
+      "0",
+      "2",
+      "5"
+     ],
+     "optional": true
     },
     {
      "name": "incident_next_90d",
@@ -3350,6 +4901,61 @@
      ]
     },
     {
+     "name": "service",
+     "kind": "category",
+     "meaning": "How it was sent.",
+     "examples": [
+      "standard",
+      "express",
+      "economy"
+     ],
+     "optional": true
+    },
+    {
+     "name": "destination_area",
+     "kind": "category",
+     "meaning": "Where it goes.",
+     "examples": [
+      "city",
+      "suburb",
+      "remote"
+     ],
+     "optional": true
+    },
+    {
+     "name": "parcels_that_day",
+     "kind": "number",
+     "meaning": "Parcels the warehouse shipped that day.",
+     "examples": [
+      "800",
+      "2500",
+      "6000"
+     ],
+     "optional": true
+    },
+    {
+     "name": "rain",
+     "kind": "yesno",
+     "meaning": "Yes if heavy rain was forecast on the route.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "address_checked",
+     "kind": "yesno",
+     "meaning": "Yes if the address was matched to a map.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
      "name": "arrived_late",
      "kind": "yesno",
      "meaning": "Did it arrive after the promise?",
@@ -3442,6 +5048,61 @@
      ]
     },
     {
+     "name": "price",
+     "kind": "number",
+     "meaning": "The shelf price that week.",
+     "examples": [
+      "9.5",
+      "12",
+      "15"
+     ],
+     "optional": true
+    },
+    {
+     "name": "discount_pct",
+     "kind": "number",
+     "meaning": "The promotion's discount, in %.",
+     "examples": [
+      "0",
+      "10",
+      "25"
+     ],
+     "optional": true
+    },
+    {
+     "name": "units_last_4_weeks",
+     "kind": "number",
+     "meaning": "Units sold in the 4 weeks before.",
+     "examples": [
+      "150",
+      "400",
+      "900"
+     ],
+     "optional": true
+    },
+    {
+     "name": "store_size",
+     "kind": "category",
+     "meaning": "How big the store is.",
+     "examples": [
+      "small",
+      "medium",
+      "large"
+     ],
+     "optional": true
+    },
+    {
+     "name": "competitor_promo",
+     "kind": "yesno",
+     "meaning": "Yes if a nearby rival ran a promotion that week.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
      "name": "units_next_week",
      "kind": "number",
      "meaning": "Units sold the following week.",
@@ -3524,6 +5185,50 @@
      ]
     },
     {
+     "name": "words_in_first_message",
+     "kind": "number",
+     "meaning": "Words in the customer's first message.",
+     "examples": [
+      "20",
+      "80",
+      "250"
+     ],
+     "optional": true
+    },
+    {
+     "name": "angry_words",
+     "kind": "yesno",
+     "meaning": "Yes if the first message has angry words in it.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "hours_open",
+     "kind": "number",
+     "meaning": "Hours the ticket has been open.",
+     "examples": [
+      "1",
+      "8",
+      "48"
+     ],
+     "optional": true
+    },
+    {
+     "name": "replies",
+     "kind": "number",
+     "meaning": "Replies so far, both ways.",
+     "examples": [
+      "1",
+      "3",
+      "8"
+     ],
+     "optional": true
+    },
+    {
      "name": "escalated",
      "kind": "yesno",
      "meaning": "Was it escalated?",
@@ -3604,6 +5309,39 @@
       "free",
       "paid"
      ]
+    },
+    {
+     "name": "words_in_message",
+     "kind": "number",
+     "meaning": "Words in the customer's message.",
+     "examples": [
+      "20",
+      "80",
+      "250"
+     ],
+     "optional": true
+    },
+    {
+     "name": "language",
+     "kind": "category",
+     "meaning": "The language it was written in.",
+     "examples": [
+      "id",
+      "en",
+      "ms"
+     ],
+     "optional": true
+    },
+    {
+     "name": "previous_tickets_90d",
+     "kind": "number",
+     "meaning": "The customer's tickets in the last 90 days.",
+     "examples": [
+      "0",
+      "2",
+      "6"
+     ],
+     "optional": true
     },
     {
      "name": "team",
@@ -3785,6 +5523,28 @@
      ]
     },
     {
+     "name": "stars",
+     "kind": "number",
+     "meaning": "The star rating given, 1 to 5.",
+     "examples": [
+      "1",
+      "3",
+      "5"
+     ],
+     "optional": true
+    },
+    {
+     "name": "verified_buyer",
+     "kind": "yesno",
+     "meaning": "Yes if the reviewer bought it with you.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
      "name": "mood",
      "kind": "category",
      "meaning": "How the review reads.",
@@ -3868,6 +5628,28 @@
      ]
     },
     {
+     "name": "reports",
+     "kind": "number",
+     "meaning": "Times buyers reported the listing.",
+     "examples": [
+      "0",
+      "1",
+      "5"
+     ],
+     "optional": true
+    },
+    {
+     "name": "listings_by_seller",
+     "kind": "number",
+     "meaning": "Listings the seller has up.",
+     "examples": [
+      "1",
+      "12",
+      "300"
+     ],
+     "optional": true
+    },
+    {
      "name": "is_fake",
      "kind": "yesno",
      "meaning": "Confirmed fake by moderators?",
@@ -3930,6 +5712,39 @@
      ]
     },
     {
+     "name": "lead_source",
+     "kind": "category",
+     "meaning": "Where the lead came from.",
+     "examples": [
+      "inbound",
+      "outbound",
+      "partner"
+     ],
+     "optional": true
+    },
+    {
+     "name": "calls",
+     "kind": "number",
+     "meaning": "Calls held so far.",
+     "examples": [
+      "1",
+      "2",
+      "5"
+     ],
+     "optional": true
+    },
+    {
+     "name": "job_level",
+     "kind": "category",
+     "meaning": "How senior the contact is.",
+     "examples": [
+      "staff",
+      "manager",
+      "director"
+     ],
+     "optional": true
+    },
+    {
      "name": "became_customer",
      "kind": "yesno",
      "meaning": "Did they buy?",
@@ -3983,6 +5798,28 @@
      ]
     },
     {
+     "name": "level",
+     "kind": "category",
+     "meaning": "The employee's level.",
+     "examples": [
+      "junior",
+      "mid",
+      "senior"
+     ],
+     "optional": true
+    },
+    {
+     "name": "years_at_company",
+     "kind": "number",
+     "meaning": "Years at the company.",
+     "examples": [
+      "0.5",
+      "3",
+      "10"
+     ],
+     "optional": true
+    },
+    {
      "name": "topic",
      "kind": "category",
      "meaning": "What the comment is about.",
@@ -4033,6 +5870,39 @@
       "press-02",
       "press-02"
      ]
+    },
+    {
+     "name": "line",
+     "kind": "category",
+     "meaning": "Which line it is on.",
+     "examples": [
+      "A",
+      "B",
+      "C"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_since_service",
+     "kind": "number",
+     "meaning": "Days since the machine was last serviced.",
+     "examples": [
+      "5",
+      "30",
+      "90"
+     ],
+     "optional": true
+    },
+    {
+     "name": "alarms_7d",
+     "kind": "number",
+     "meaning": "Alarms it raised in the last 7 days.",
+     "examples": [
+      "0",
+      "2",
+      "7"
+     ],
+     "optional": true
     },
     {
      "name": "fault_type",
@@ -4118,6 +5988,28 @@
      ]
     },
     {
+     "name": "product",
+     "kind": "category",
+     "meaning": "What was being made.",
+     "examples": [
+      "P-100",
+      "P-220",
+      "P-310"
+     ],
+     "optional": true
+    },
+    {
+     "name": "humidity_pct",
+     "kind": "number",
+     "meaning": "Humidity in the room, in %.",
+     "examples": [
+      "40",
+      "55",
+      "70"
+     ],
+     "optional": true
+    },
+    {
      "name": "result",
      "kind": "category",
      "meaning": "What inspection decided.",
@@ -4201,6 +6093,28 @@
      ]
     },
     {
+     "name": "claims_by_customer",
+     "kind": "number",
+     "meaning": "Claims this customer made before.",
+     "examples": [
+      "0",
+      "1",
+      "4"
+     ],
+     "optional": true
+    },
+    {
+     "name": "channel",
+     "kind": "category",
+     "meaning": "Where it was bought.",
+     "examples": [
+      "store",
+      "online",
+      "dealer"
+     ],
+     "optional": true
+    },
+    {
      "name": "needs_review",
      "kind": "yesno",
      "meaning": "Did it turn out to need a closer look?",
@@ -4262,6 +6176,28 @@
       "chat",
       "chat"
      ]
+    },
+    {
+     "name": "customer_tier",
+     "kind": "category",
+     "meaning": "The customer's plan.",
+     "examples": [
+      "free",
+      "pro",
+      "enterprise"
+     ],
+     "optional": true
+    },
+    {
+     "name": "previous_tickets_90d",
+     "kind": "number",
+     "meaning": "The customer's tickets in the last 90 days.",
+     "examples": [
+      "0",
+      "2",
+      "6"
+     ],
+     "optional": true
     },
     {
      "name": "team",

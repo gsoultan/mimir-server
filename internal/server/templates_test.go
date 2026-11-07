@@ -45,7 +45,7 @@ func TestTemplates(t *testing.T) {
 		t.Fatalf("energy dataset %v, check %v", d, ds.Msg.GetCheck())
 	}
 	m := teach(t, own, d.GetId(), "number-mlp", 6)
-	if len(m.GetColumns()) != 5 || m.GetColumns()[0].GetKind() != "category" {
+	if len(m.GetColumns()) != 10 || m.GetColumns()[0].GetKind() != "category" {
 		t.Fatalf("model columns %v", m.GetColumns())
 	}
 	p, err := own.predict.Predict(ctx, connect.NewRequest(&mimirv1.PredictRequest{ModelId: m.GetId(), Fields: map[string]string{

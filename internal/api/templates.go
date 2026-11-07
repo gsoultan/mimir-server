@@ -290,7 +290,7 @@ func templateProto(t templates.Template) *mimirv1.Template {
 		Tips: t.Tips, Architecture: t.Architecture(), Query: t.Query(),
 	}
 	for _, c := range t.Columns {
-		out.Columns = append(out.Columns, &mimirv1.TemplateColumn{Name: c.Name, Kind: string(c.Kind), Meaning: c.Meaning, Examples: c.Examples})
+		out.Columns = append(out.Columns, &mimirv1.TemplateColumn{Name: c.Name, Kind: string(c.Kind), Meaning: c.Meaning, Examples: c.Examples, Optional: c.Optional})
 	}
 	for _, f := range t.Folders {
 		out.Folders = append(out.Folders, &mimirv1.TemplateFolder{Name: f.Name, Meaning: f.Meaning, Count: f.Count})
