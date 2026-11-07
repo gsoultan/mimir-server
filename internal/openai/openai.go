@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package openai serves the server's language models over the HTTP API
 // OpenAI's clients speak, under /v1: chat completions, completions,
 // embeddings and the model list, with answers streamed as server-sent events on request. Apps

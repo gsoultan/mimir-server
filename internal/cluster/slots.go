@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 package cluster
 
 // TrainSlots reports how many training tasks the connected workers take at

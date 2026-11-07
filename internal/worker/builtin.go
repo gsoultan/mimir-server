@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package worker runs the server's built-in architectures as a worker,
 // using the public SDK, so the same binary serves as a worker.
 package worker

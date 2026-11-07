@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package backup lays out a backup of a mimir server on disk and reads it
 // back: a folder holding a pg_dump of the main database, one of the log
 // database when the audit log has its own, an archive of the data folder

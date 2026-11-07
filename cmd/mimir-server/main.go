@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Command mimir-server serves mimir models over Connect, gRPC and a web UI.
 package main
 

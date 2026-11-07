@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package sso signs people in with an outside account: Google and
 // company identity providers through OpenID Connect, and GitHub through
 // its OAuth apps, which have no ID tokens. It turns a provider's answer

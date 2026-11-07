@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package ask turns a question asked by column name, and a photo, into the
 // numbers a model reads. The server and the browser build (cmd/mimir-wasm)
 // share it, so a model answers the same question the same way in both.

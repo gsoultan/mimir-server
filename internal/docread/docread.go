@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package docread reads the text out of the files people keep their
 // knowledge in (plain text, Markdown, HTML, Word and PDF) and cuts it
 // into passages a few paragraphs long, for embedding and search.

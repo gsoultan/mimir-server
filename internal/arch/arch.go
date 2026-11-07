@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package arch lists the model architectures the server can build.
 //
 // A mimir model is Go code, and a weights file alone cannot be run. Each

@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package gpucloud rents a GPU for training by the minute. When a
 // training run waits that no connected worker can take, the console starts
 // a machine with the GPU chosen under Settings → Workers, on the provider

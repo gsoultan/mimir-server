@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package s3source reads examples from S3-compatible storage: AWS S3,
 // Cloudflare R2, MinIO and the like. It only lists and downloads; nothing
 // is ever written to the bucket.

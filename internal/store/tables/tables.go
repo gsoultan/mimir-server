@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package tables is the schema of the server's own PostgreSQL database,
 // declared as storm models: one struct per table, one table per file, with a
 // Schema method for what the Go type cannot say.

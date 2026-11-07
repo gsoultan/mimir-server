@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package mapfile maps a file read-only into memory, so a large model can
 // be read in place: the pages come from the file as they are touched and
 // stay out of the Go heap, and the system can drop them again whenever it

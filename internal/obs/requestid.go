@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package obs carries what operators need to see a request through the
 // server: a request id on every response and log line, and RED metrics
 // (rate, errors, duration) in the Prometheus format.

@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package visit plans salespeople's visits: which stops each one makes on
 // which day, in what order, and when they arrive, so the most valuable
 // stops fit into the working days with the least driving.

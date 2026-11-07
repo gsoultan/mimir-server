@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package store keeps the server's records in PostgreSQL, through storm's
 // generated packages under internal/store/db, and model weights, datasets
 // and training checkpoints on disk under the data folder.

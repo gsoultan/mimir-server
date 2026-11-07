@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package dbsource fetches a table of examples from a database query, so
 // a model can learn from live data and keep learning as it changes.
 package dbsource

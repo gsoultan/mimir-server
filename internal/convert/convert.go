@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package convert turns ONNX and GGUF model files into Mimir Model (.mim)
 // files, so the server only ever stores and runs its own format.
 //

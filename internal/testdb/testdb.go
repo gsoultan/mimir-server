@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package testdb gives each test its own empty PostgreSQL database.
 //
 // Set MIMIR_TEST_DATABASE_URL to a server whose role may create databases,

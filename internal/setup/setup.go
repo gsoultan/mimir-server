@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package setup is first-run setup for a console started with no database:
 // it takes the main database, an optional log database, the secret key,
 // how long history is kept and the first owner, applies them and writes

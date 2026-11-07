@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Command mimir-load puts a running server under realistic traffic and
 // reports how it held up: requests a second, latency percentiles, errors,
 // and the server's memory and goroutines from /metrics while it ran.

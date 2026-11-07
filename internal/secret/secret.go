@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package secret seals the server's stored secrets (webhook signing
 // secrets, dataset connection strings, alert credentials) with AES-256-GCM,
 // so a copy of the database or a pg_dump of it does not give them away.

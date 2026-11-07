@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package config reads and writes the console's configuration file: the
 // databases it keeps its records in and where its secret key lives.
 // First-run setup writes it; flags and environment variables still come

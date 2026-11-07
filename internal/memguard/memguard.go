@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package memguard keeps a process inside a memory budget, so it slows
 // down and sheds work as memory runs short instead of being killed for
 // running out.

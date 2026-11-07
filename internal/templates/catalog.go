@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package templates holds ready-made starting points for common
 // questions: what data a model needs, how it is shaped, made-up example
 // data to try, and a check of real data against it.

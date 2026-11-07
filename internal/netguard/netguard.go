@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package netguard decides which addresses the server's own outbound
 // connections may reach, judged by the address actually dialled, after
 // names are resolved, so a DNS name can't point a connection somewhere it

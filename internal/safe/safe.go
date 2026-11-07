@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Gembit Soultan Shirazi
+//
+// This file is part of mimir-server, a server that trains, serves and manages mimir models,
+// created and owned by Gembit Soultan Shirazi.
+
 // Package safe keeps a panic in one request, job or task from taking the
 // whole process down: it becomes an error for that one piece of work, is
 // logged with its stack, and counted.
