@@ -137,7 +137,7 @@ export type Template = Message<"mimir.v1.Template"> & {
   category: string;
 
   /**
-   * kind is what is answered: "yes_no", "group" or "number".
+   * kind is what is answered: "yes_no", "group", "number", or "ranked" for a list, best first.
    *
    * @generated from field: string kind = 3;
    */

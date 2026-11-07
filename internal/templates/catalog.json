@@ -1529,6 +1529,737 @@
    ]
   },
   {
+   "id": "visit-plan",
+   "category": "b2b",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Who to visit next",
+   "question": "Which customers and leads should a salesperson visit tomorrow, this week or in the next N days, because they are likeliest to order or move forward?",
+   "predicts": "Will this customer or lead order, or move a deal forward, within the next N days: yes or no, and how likely. Sort the accounts by that chance to plan the visits.",
+   "row_means": "One customer or lead on one planning day, for one window of days ahead.",
+   "source": "CRM accounts and visit log, joined with orders from your ERP or billing system",
+   "source_short": "CRM and orders",
+   "rows_min": 1000,
+   "rows_good": 10000,
+   "rows_great": 100000,
+   "balance": "Most accounts don't order in a short window; 100 or more yes rows is a good start.",
+   "table": "account_days",
+   "tips": [
+    "Make a row for each account on each past planning day, for each window you plan with, such as 1, 7 and 30 days. Then one model answers for tomorrow, next week and next month.",
+    "Only use what was known on the planning day: orders, visits and quotes up to that day, and whether they ordered within the window after it.",
+    "To plan, use Score a list on every customer and lead in the territory, with today's values and the window you want, and visit the likeliest first. Scoring from a database can run every day, so the list is ready each morning.",
+    "Leave days_since_last_order and the order columns empty for leads; account_type tells the model they are leads."
+   ],
+   "columns": [
+    {
+     "name": "account_type",
+     "kind": "category",
+     "meaning": "Customer or lead.",
+     "examples": [
+      "customer",
+      "lead",
+      "customer"
+     ]
+    },
+    {
+     "name": "segment",
+     "kind": "category",
+     "meaning": "Size band of the business.",
+     "examples": [
+      "smb",
+      "mid-market",
+      "enterprise"
+     ]
+    },
+    {
+     "name": "territory",
+     "kind": "category",
+     "meaning": "Sales territory or region.",
+     "examples": [
+      "north",
+      "south",
+      "west"
+     ]
+    },
+    {
+     "name": "days_since_last_order",
+     "kind": "number",
+     "meaning": "Days since their last order, on the planning day.",
+     "examples": [
+      "12",
+      "45",
+      "3"
+     ]
+    },
+    {
+     "name": "avg_days_between_orders",
+     "kind": "number",
+     "meaning": "Their usual gap between orders, in days.",
+     "examples": [
+      "14",
+      "30",
+      "7"
+     ]
+    },
+    {
+     "name": "orders_last_90d",
+     "kind": "number",
+     "meaning": "Orders in the 90 days before.",
+     "examples": [
+      "6",
+      "1",
+      "12"
+     ]
+    },
+    {
+     "name": "order_total_last_90d",
+     "kind": "number",
+     "meaning": "Money ordered in the 90 days before.",
+     "examples": [
+      "18400",
+      "2100",
+      "56000"
+     ]
+    },
+    {
+     "name": "days_since_last_visit",
+     "kind": "number",
+     "meaning": "Days since someone last visited.",
+     "examples": [
+      "21",
+      "60",
+      "7"
+     ]
+    },
+    {
+     "name": "open_quotes",
+     "kind": "number",
+     "meaning": "Quotes sent and not yet answered.",
+     "examples": [
+      "1",
+      "0",
+      "3"
+     ]
+    },
+    {
+     "name": "open_deal_amount",
+     "kind": "number",
+     "meaning": "Money in open deals.",
+     "examples": [
+      "25000",
+      "0",
+      "120000"
+     ]
+    },
+    {
+     "name": "visit_window_days",
+     "kind": "number",
+     "meaning": "How many days ahead the row looks: 1 for tomorrow, 7 for the next week, up to 30.",
+     "examples": [
+      "1",
+      "7",
+      "30"
+     ]
+    },
+    {
+     "name": "buys_in_window",
+     "kind": "yesno",
+     "meaning": "Did they order, or did the lead's deal move forward, within that many days after the planning day?",
+     "examples": [
+      "no",
+      "yes",
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "reorder-days",
+   "category": "b2b",
+   "kind": "number",
+   "data": "table",
+   "name": "Days until the next order",
+   "question": "How many days until each customer orders again, so the visit lands just before they need to reorder?",
+   "predicts": "The number of days until the customer's next order. Visit those due within your planning window.",
+   "row_means": "One customer on the day of one of their orders.",
+   "source": "Order history from your ERP or billing system",
+   "source_short": "order history",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Include customers who order often and rarely, so it learns both.",
+   "table": "customer_orders",
+   "tips": [
+    "Make a row for each order, with what was known that day and the days until the customer's next order.",
+    "Leave out each customer's latest order: its next order hasn't happened yet."
+   ],
+   "columns": [
+    {
+     "name": "segment",
+     "kind": "category",
+     "meaning": "Size band of the business.",
+     "examples": [
+      "smb",
+      "mid-market",
+      "enterprise"
+     ]
+    },
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "What the customer does.",
+     "examples": [
+      "construction",
+      "retail",
+      "food"
+     ]
+    },
+    {
+     "name": "avg_days_between_orders",
+     "kind": "number",
+     "meaning": "Their usual gap between orders, in days.",
+     "examples": [
+      "14",
+      "30",
+      "7"
+     ]
+    },
+    {
+     "name": "orders_last_12m",
+     "kind": "number",
+     "meaning": "Orders in the 12 months before.",
+     "examples": [
+      "24",
+      "6",
+      "48"
+     ]
+    },
+    {
+     "name": "order_total",
+     "kind": "number",
+     "meaning": "Money in this order.",
+     "examples": [
+      "3200",
+      "900",
+      "12500"
+     ]
+    },
+    {
+     "name": "items_in_order",
+     "kind": "number",
+     "meaning": "Order lines in this order.",
+     "examples": [
+      "8",
+      "2",
+      "15"
+     ]
+    },
+    {
+     "name": "days_since_last_visit",
+     "kind": "number",
+     "meaning": "Days since someone last visited.",
+     "examples": [
+      "21",
+      "60",
+      "7"
+     ]
+    },
+    {
+     "name": "days_to_next_order",
+     "kind": "number",
+     "meaning": "Days from this order to their next one.",
+     "examples": [
+      "13",
+      "35",
+      "6"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "reorder-within",
+   "category": "b2b",
+   "kind": "yes_no",
+   "data": "table",
+   "architecture": "time-to-event",
+   "name": "Chance they order within N days",
+   "question": "How likely is each customer to order again within the next N days, so salespeople visit the ones about to reorder, for tomorrow, this week or this month?",
+   "predicts": "The chance the customer orders within the number of days you ask, from 0 to 100%. Ask with within_days set to 1, 7, 30 or any other number.",
+   "row_means": "One customer since one of their orders: what was known that day, how many days were watched after it, and whether they ordered again in that time.",
+   "source": "Order history from your ERP or billing system, with customer details from your CRM",
+   "source_short": "order history",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Include customers who haven't reordered yet, with no and the days since their last order; leaving them out makes everyone look faster than they are.",
+   "table": "customer_orders",
+   "tips": [
+    "Make a row for each order. days_watched is the days until the next order when there was one (reordered yes), or the days until today when there wasn't (reordered no).",
+    "Unlike a yes or no model, one model answers for any window: ask with within_days 1 for tomorrow, 7 for the next week.",
+    "To plan visits, use Score a list on every customer with today's values and the window you want, and visit the likeliest first."
+   ],
+   "columns": [
+    {
+     "name": "segment",
+     "kind": "category",
+     "meaning": "Size band of the business.",
+     "examples": [
+      "smb",
+      "mid-market",
+      "enterprise"
+     ]
+    },
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "What the customer does.",
+     "examples": [
+      "construction",
+      "retail",
+      "food"
+     ]
+    },
+    {
+     "name": "avg_days_between_orders",
+     "kind": "number",
+     "meaning": "Their usual gap between orders, in days.",
+     "examples": [
+      "14",
+      "30",
+      "7"
+     ]
+    },
+    {
+     "name": "orders_last_12m",
+     "kind": "number",
+     "meaning": "Orders in the 12 months before.",
+     "examples": [
+      "24",
+      "6",
+      "48"
+     ]
+    },
+    {
+     "name": "order_total",
+     "kind": "number",
+     "meaning": "Money in this order.",
+     "examples": [
+      "3200",
+      "900",
+      "12500"
+     ]
+    },
+    {
+     "name": "days_since_last_visit",
+     "kind": "number",
+     "meaning": "Days since someone last visited.",
+     "examples": [
+      "21",
+      "60",
+      "7"
+     ]
+    },
+    {
+     "name": "open_quotes",
+     "kind": "number",
+     "meaning": "Quotes sent and not yet answered.",
+     "examples": [
+      "1",
+      "0",
+      "3"
+     ]
+    },
+    {
+     "name": "days_watched",
+     "kind": "number",
+     "meaning": "Days from this order to the next one, or to today if there is none yet.",
+     "examples": [
+      "13",
+      "90",
+      "6"
+     ]
+    },
+    {
+     "name": "reordered",
+     "kind": "yesno",
+     "meaning": "Did they order again within days_watched?",
+     "examples": [
+      "yes",
+      "no",
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "product-recommend",
+   "category": "b2b",
+   "kind": "ranked",
+   "data": "table",
+   "architecture": "recommend",
+   "name": "Products to offer each customer",
+   "question": "Which products should a salesperson offer each customer, from what they and customers like them already buy?",
+   "predicts": "The 10 products each customer is likeliest to want, best first. A new customer or a lead gets the products most customers buy.",
+   "row_means": "One order line: a customer and a product they bought.",
+   "source": "Order lines from your ERP or billing system",
+   "source_short": "order lines",
+   "rows_min": 1000,
+   "rows_good": 20000,
+   "rows_great": 500000,
+   "balance": "Customers with a few orders each help most; products bought only once or twice are rarely suggested.",
+   "table": "order_lines",
+   "tips": [
+    "Ask with a customer_id to get their list. Leave out products they buy every time if you only want new ideas to offer.",
+    "Use quantity, or leave it out to count each order line once.",
+    "Teach it again every week or month as new orders come in, so it keeps up with what customers buy."
+   ],
+   "columns": [
+    {
+     "name": "customer_id",
+     "kind": "category",
+     "meaning": "Who bought: the customer's number in your system.",
+     "examples": [
+      "C-1042",
+      "C-2318",
+      "C-1042"
+     ]
+    },
+    {
+     "name": "quantity",
+     "kind": "number",
+     "meaning": "How many they bought on this line.",
+     "examples": [
+      "12",
+      "3",
+      "40"
+     ]
+    },
+    {
+     "name": "product",
+     "kind": "category",
+     "meaning": "The product they bought: its code or name.",
+     "examples": [
+      "SKU-2041",
+      "SKU-1187",
+      "SKU-3305"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "nearby-products",
+   "category": "b2b",
+   "kind": "ranked",
+   "data": "table",
+   "architecture": "recommend-nearby",
+   "name": "Products nearby customers like them buy",
+   "question": "Which products should a salesperson offer a customer or lead, from what businesses of the same kind within N km already buy?",
+   "predicts": "The 10 products that customers of the same category within the distance you ask buy most, best first, leaving out what this customer already buys.",
+   "row_means": "One order line: a customer, its category and place, and a product it bought.",
+   "source": "Order lines from your ERP joined with customer addresses and categories from your CRM",
+   "source_short": "orders and CRM",
+   "rows_min": 500,
+   "rows_good": 10000,
+   "rows_great": 200000,
+   "balance": "Have at least 20 customers in each category; a category with fewer gets the products all customers buy.",
+   "table": "order_lines",
+   "tips": [
+    "Ask with a customer_id and a radius_km, such as 5 for a city district or 50 for a region. Leave radius_km out and it uses a distance that reaches about 10 customers of the same kind.",
+    "For a lead, leave customer_id out and give its customer_category, latitude and longitude.",
+    "Latitude and longitude are in degrees, as maps show them. Geocode addresses once and keep them in your CRM.",
+    "Use Score a list with a salesperson's route for the day to get suggestions for every stop at once."
+   ],
+   "columns": [
+    {
+     "name": "customer_id",
+     "kind": "category",
+     "meaning": "Who bought: the customer's number in your system.",
+     "examples": [
+      "C-1042",
+      "C-2318",
+      "C-3307"
+     ]
+    },
+    {
+     "name": "customer_category",
+     "kind": "category",
+     "meaning": "What kind of business the customer is.",
+     "examples": [
+      "bakery",
+      "restaurant",
+      "hotel",
+      "cafe"
+     ]
+    },
+    {
+     "name": "latitude",
+     "kind": "number",
+     "meaning": "Where the customer is: latitude in degrees.",
+     "examples": [
+      "-6.2000",
+      "-7.2575",
+      "-6.9175"
+     ]
+    },
+    {
+     "name": "longitude",
+     "kind": "number",
+     "meaning": "Where the customer is: longitude in degrees.",
+     "examples": [
+      "106.8166",
+      "112.7521",
+      "107.6191"
+     ]
+    },
+    {
+     "name": "quantity",
+     "kind": "number",
+     "meaning": "How many they bought on this line.",
+     "examples": [
+      "12",
+      "3",
+      "40"
+     ]
+    },
+    {
+     "name": "product",
+     "kind": "category",
+     "meaning": "The product they bought: its code or name.",
+     "examples": [
+      "wheat flour 25 kg",
+      "instant yeast 500 g",
+      "butter 5 kg",
+      "granulated sugar 50 kg",
+      "cooking oil 18 L",
+      "rice 25 kg",
+      "chicken 10 kg",
+      "coffee beans 1 kg",
+      "fresh milk 1 L",
+      "paper cups 1000",
+      "bottled water 24",
+      "detergent 5 L",
+      "napkins 500",
+      "frying oil 20 L",
+      "chili sauce 5 kg",
+      "soy sauce 5 L"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "lead-next-step",
+   "category": "b2b",
+   "kind": "ranked",
+   "data": "table",
+   "architecture": "best-action",
+   "name": "Best next step for a lead",
+   "question": "For each lead or open deal, what should the salesperson do next: call, email, visit, demo, send a quote or offer a discount?",
+   "predicts": "The next steps ranked from likeliest to move the lead forward to least, with the chance each gives.",
+   "row_means": "One step a salesperson took with a lead or deal, and whether it moved forward.",
+   "source": "CRM activity log",
+   "source_short": "CRM activities",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Have at least 50 rows for each step; a step tried rarely can't be judged well.",
+   "table": "sales_activities",
+   "tips": [
+    "Log every step, the ones that worked and the ones that didn't; it compares them in similar situations.",
+    "It learns best when salespeople sometimes try different steps in similar situations, not always the same one.",
+    "Count a step as a success when the lead or deal moved to the next stage within 14 days."
+   ],
+   "columns": [
+    {
+     "name": "account_type",
+     "kind": "category",
+     "meaning": "New lead, or an existing customer with a new deal.",
+     "examples": [
+      "lead",
+      "customer",
+      "lead"
+     ]
+    },
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "What the business does.",
+     "examples": [
+      "construction",
+      "retail",
+      "food"
+     ]
+    },
+    {
+     "name": "company_size",
+     "kind": "category",
+     "meaning": "Employees, in bands.",
+     "examples": [
+      "11-50",
+      "201-500",
+      "1000+"
+     ]
+    },
+    {
+     "name": "stage",
+     "kind": "category",
+     "meaning": "Where the lead or deal is.",
+     "examples": [
+      "new",
+      "qualified",
+      "proposal"
+     ]
+    },
+    {
+     "name": "days_in_stage",
+     "kind": "number",
+     "meaning": "Days it has sat in that stage.",
+     "examples": [
+      "4",
+      "21",
+      "9"
+     ]
+    },
+    {
+     "name": "days_since_last_contact",
+     "kind": "number",
+     "meaning": "Days since anyone talked to them.",
+     "examples": [
+      "2",
+      "15",
+      "30"
+     ]
+    },
+    {
+     "name": "deal_size",
+     "kind": "number",
+     "meaning": "Expected money from the deal.",
+     "examples": [
+      "15000",
+      "4000",
+      "90000"
+     ]
+    },
+    {
+     "name": "emails_opened_30d",
+     "kind": "number",
+     "meaning": "Your emails they opened in 30 days.",
+     "examples": [
+      "3",
+      "0",
+      "7"
+     ]
+    },
+    {
+     "name": "step_success",
+     "kind": "yesno",
+     "meaning": "Did the lead or deal move to the next stage within 14 days?",
+     "examples": [
+      "yes",
+      "no",
+      "no"
+     ]
+    },
+    {
+     "name": "next_step",
+     "kind": "category",
+     "meaning": "The step taken.",
+     "examples": [
+      "call",
+      "email",
+      "visit",
+      "demo",
+      "send quote",
+      "offer discount"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "lead-first-product",
+   "category": "b2b",
+   "kind": "group",
+   "data": "table",
+   "name": "First product for a lead",
+   "question": "Which product line should a salesperson pitch first to a new lead, from customers like them?",
+   "predicts": "One product line, with how likely each is.",
+   "row_means": "One customer, with the product line they bought first.",
+   "source": "CRM accounts joined with each customer's first order",
+   "source_short": "CRM and first orders",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 30000,
+   "balance": "Try to have at least 100 customers for each product line.",
+   "table": "customers",
+   "tips": [
+    "Use what you knew about each customer before their first order, as you would for a new lead.",
+    "For customers with order history, Products to offer each customer usually suggests better."
+   ],
+   "columns": [
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "What the business does.",
+     "examples": [
+      "construction",
+      "retail",
+      "food"
+     ]
+    },
+    {
+     "name": "company_size",
+     "kind": "category",
+     "meaning": "Employees, in bands.",
+     "examples": [
+      "11-50",
+      "201-500",
+      "1000+"
+     ]
+    },
+    {
+     "name": "territory",
+     "kind": "category",
+     "meaning": "Sales territory or region.",
+     "examples": [
+      "north",
+      "south",
+      "west"
+     ]
+    },
+    {
+     "name": "lead_source",
+     "kind": "category",
+     "meaning": "How the lead found you.",
+     "examples": [
+      "referral",
+      "trade show",
+      "website"
+     ]
+    },
+    {
+     "name": "sites",
+     "kind": "number",
+     "meaning": "How many sites or branches they run.",
+     "examples": [
+      "1",
+      "4",
+      "12"
+     ]
+    },
+    {
+     "name": "product_line",
+     "kind": "category",
+     "meaning": "Product line of their first order.",
+     "examples": [
+      "tools",
+      "safety",
+      "consumables",
+      "machines",
+      "spare parts"
+     ]
+    }
+   ]
+  },
+  {
    "id": "sub-churn",
    "category": "b2c",
    "kind": "yes_no",

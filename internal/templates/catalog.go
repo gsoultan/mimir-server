@@ -44,6 +44,10 @@ const (
 	YesNo  = "yes_no"
 	Group  = "group"
 	Number = "number"
+	// Ranked answers with a list, best first: the products to offer a
+	// customer, or the next steps to take. Its model type is the
+	// template's Arch.
+	Ranked = "ranked"
 )
 
 // What a template's data looks like.
@@ -74,6 +78,11 @@ type Template struct {
 	Tips        []string `json:"tips"`
 	Columns     []Column `json:"columns"`
 	Folders     []Folder `json:"folders"`
+	// Arch, when set, names the model type the template teaches in place
+	// of the one its kind and data suggest. A Ranked template sets it to
+	// "recommend", whose answer column is the item each person picked,
+	// or "best-action", whose answer column is the action taken.
+	Arch string `json:"architecture"`
 }
 
 var catalog struct {
@@ -120,6 +129,8 @@ func (t Template) Inputs() []Column {
 // Architecture returns the model type the template teaches.
 func (t Template) Architecture() string {
 	switch {
+	case t.Arch != "":
+		return t.Arch
 	case t.Data == Photos:
 		return "photo-cnn"
 	case t.Data == PhotoTable:

@@ -43,7 +43,19 @@ func Example(t Template) (name, contentType string, data []byte, err error) {
 		return t.ID + "-example.zip", "application/zip", data, err
 	}
 	var buf bytes.Buffer
-	if err := g.table(&buf, ExampleRows, nil); err != nil {
+	switch t.Arch {
+	case recommendArch:
+		err = g.picks(&buf, ExampleRows)
+	case bestActionArch:
+		err = g.actions(&buf, ExampleRows)
+	case nearbyArch:
+		err = g.nearby(&buf, ExampleRows)
+	case survivalArch:
+		err = g.survival(&buf, ExampleRows)
+	default:
+		err = g.table(&buf, ExampleRows, nil)
+	}
+	if err != nil {
 		return "", "", nil, err
 	}
 	name = t.Table
@@ -52,6 +64,15 @@ func Example(t Template) (name, contentType string, data []byte, err error) {
 	}
 	return name + "-example.csv", "text/csv", buf.Bytes(), nil
 }
+
+// The model types of Ranked templates whose examples are made their own
+// way.
+const (
+	recommendArch  = "recommend"
+	bestActionArch = "best-action"
+	nearbyArch     = "recommend-nearby"
+	survivalArch   = "time-to-event"
+)
 
 type gen struct {
 	t Template
@@ -88,11 +109,7 @@ func (g *gen) answers() []string {
 // row i and is told its answer index.
 func (g *gen) table(w *bytes.Buffer, rows int, photo func(i, answer int) string) error {
 	cw := csv.NewWriter(w)
-	header := make([]string, len(g.t.Columns))
-	for i, c := range g.t.Columns {
-		header[i] = c.Name
-	}
-	cw.Write(header)
+	g.header(cw)
 	inputs := g.t.Inputs()
 	answers := g.answers()
 	// Each input column gets a hidden score per row; the answer is a
@@ -144,7 +161,7 @@ func (g *gen) table(w *bytes.Buffer, rows int, photo func(i, answer int) string)
 			}
 			value = answers[at]
 		}
-		rec := make([]string, 0, len(header))
+		rec := make([]string, 0, len(g.t.Columns))
 		for j, in := range inputs {
 			rec = append(rec, g.cell(in, z[j], value, i, at, photo))
 		}
@@ -152,6 +169,245 @@ func (g *gen) table(w *bytes.Buffer, rows int, photo func(i, answer int) string)
 	}
 	cw.Flush()
 	return cw.Error()
+}
+
+// header writes the template's column names.
+func (g *gen) header(cw *csv.Writer) {
+	header := make([]string, len(g.t.Columns))
+	for i, c := range g.t.Columns {
+		header[i] = c.Name
+	}
+	cw.Write(header)
+}
+
+// picks writes made-up order lines for a recommend template, whose first
+// column says who picked and whose answer is the item. Customers fall
+// into a few groups of similar taste, and each works through a list of
+// products of their own, mostly their group's favourites in an order of
+// their own, so what a customer buys next can be told from what customers
+// like them bought. A customer who reaches the end of the list orders it
+// again. Some customers order far more often than others, as in real
+// order books.
+func (g *gen) picks(w *bytes.Buffer, rows int) error {
+	const customers, products, tastes, favourites = 200, 60, 6, 12
+	inputs := g.t.Inputs()
+	people := names(inputs[0].Examples, "C-", customers)
+	items := names(g.t.Answer().Examples, "P-", products)
+	fav := make([][]int, tastes)
+	for k := range fav {
+		fav[k] = g.r.Perm(products)[:favourites]
+	}
+	lists := make([][]int, customers)
+	for c := range lists {
+		k := g.r.IntN(tastes)
+		for _, i := range g.r.Perm(favourites) {
+			lists[c] = append(lists[c], fav[k][i])
+			if g.r.Float64() < 0.15 { // now and then, something else
+				lists[c] = append(lists[c], g.r.IntN(products))
+			}
+		}
+	}
+	next := make([]int, customers)
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	for range rows {
+		c := int(float64(customers) * math.Pow(g.r.Float64(), 1.3))
+		p := lists[c][next[c]%len(lists[c])]
+		next[c]++
+		rec := []string{people[c]}
+		for _, in := range inputs[1:] {
+			// Inside the examples' range, so an amount is never zero.
+			rec = append(rec, g.cell(in, 2*g.r.Float64()-1, items[p], 0, 0, nil))
+		}
+		cw.Write(append(rec, items[p]))
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// actions writes a made-up log for a best-action template, whose answer
+// is the action taken and whose last input says how it turned out. Each
+// row is a situation and an action picked at random, as when people try
+// different steps; whether it worked depends on how well the action
+// suits the situation, so the best one differs from row to row.
+func (g *gen) actions(w *bytes.Buffer, rows int) error {
+	inputs := g.t.Inputs()
+	situation, reward := inputs[:len(inputs)-1], inputs[len(inputs)-1]
+	acts := g.answers()
+	weights := make([][]float64, len(acts))
+	bias := make([]float64, len(acts))
+	for a := range weights {
+		bias[a] = 0.6 * g.r.NormFloat64()
+		weights[a] = make([]float64, len(situation))
+		for j := range situation {
+			weights[a][j] = (0.5 + g.r.Float64()) * float64(1-2*g.r.IntN(2))
+		}
+	}
+	lo, hi, whole, positive := numberRange(reward.Examples)
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	for i := range rows {
+		a := g.r.IntN(len(acts))
+		s := bias[a]
+		rec := make([]string, 0, len(g.t.Columns))
+		for j, in := range situation {
+			z := g.r.NormFloat64()
+			if in.Kind != schema.Text && in.Kind != schema.Photo {
+				s += 1.5 * weights[a][j] * z / math.Sqrt(float64(max(1, len(situation))))
+			}
+			rec = append(rec, g.cell(in, z, acts[a], i, a, nil))
+		}
+		chance := 1 / (1 + math.Exp(0.8-s))
+		var out string
+		switch {
+		case reward.Kind == schema.Number:
+			out = formatNumber(lo+chance*(hi-lo), whole, positive)
+		case g.r.Float64() < chance:
+			out = "yes"
+		default:
+			out = "no"
+		}
+		cw.Write(append(rec, out, acts[a]))
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// nearby writes made-up order lines for a recommend-nearby template,
+// whose inputs are the customer, its category, latitude and longitude,
+// then any amounts, and whose answer is the product. Customers sit around
+// the example places, a few kilometres from the centre, and buy mostly
+// what their category buys plus a few products local to their place, so
+// what customers of the same kind nearby buy says what a customer will
+// want. The catalogue is the example products and more, up to 60.
+func (g *gen) nearby(w *bytes.Buffer, rows int) error {
+	inputs := g.t.Inputs()
+	distinct := func(c Column) []string {
+		var out []string
+		for _, e := range c.Examples {
+			if e != "" && !slices.Contains(out, e) {
+				out = append(out, e)
+			}
+		}
+		return out
+	}
+	cats := distinct(inputs[1])
+	if len(cats) == 0 {
+		cats = []string{"retail"}
+	}
+	type place struct{ lat, lon float64 }
+	var places []place
+	for i := range min(len(inputs[2].Examples), len(inputs[3].Examples)) {
+		lat, ok1 := schema.ParseNumber(inputs[2].Examples[i])
+		lon, ok2 := schema.ParseNumber(inputs[3].Examples[i])
+		if ok1 && ok2 && !slices.Contains(places, place{lat, lon}) {
+			places = append(places, place{lat, lon})
+		}
+	}
+	if len(places) == 0 {
+		places = []place{{0, 0}}
+	}
+	// The example products, and more like a real catalogue.
+	products := distinct(g.t.Answer())
+	products = append(products, names(nil, "SKU-", max(0, 60-len(products)))...)
+	// Each category has a core of products; each place adds its own.
+	core := make([][]int, len(cats))
+	for k := range core {
+		core[k] = g.r.Perm(len(products))[:min(5, len(products))]
+	}
+	local := make([][][]int, len(places))
+	for c := range local {
+		local[c] = make([][]int, len(cats))
+		for k := range local[c] {
+			local[c][k] = g.r.Perm(len(products))[:min(3, len(products))]
+		}
+	}
+	customers := max(rows/5, 10)
+	people := names(inputs[0].Examples, "C-", customers)
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	for u := range customers {
+		c, k := g.r.IntN(len(places)), g.r.IntN(len(cats))
+		// About 10 km around the centre.
+		lat := places[c].lat + 0.06*g.r.NormFloat64()
+		lon := places[c].lon + 0.06*g.r.NormFloat64()
+		likes := append(slices.Clone(core[k]), local[c][k]...)
+		picked := map[int]bool{}
+		for range 3 + g.r.IntN(5) {
+			p := likes[g.r.IntN(len(likes))]
+			if g.r.Float64() < 0.1 {
+				p = g.r.IntN(len(products))
+			}
+			if picked[p] {
+				continue
+			}
+			picked[p] = true
+			rec := []string{people[u], cats[k], strconv.FormatFloat(lat, 'f', 5, 64), strconv.FormatFloat(lon, 'f', 5, 64)}
+			for _, in := range inputs[4:] {
+				rec = append(rec, g.cell(in, 2*g.r.Float64()-1, products[p], 0, 0, nil))
+			}
+			cw.Write(append(rec, products[p]))
+		}
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// survival writes made-up rows for a time-to-event template, whose last
+// input is how many days each row was watched and whose answer says
+// whether it happened. How soon it happens follows the other inputs;
+// each row is watched for a while, so for some it hasn't happened yet.
+func (g *gen) survival(w *bytes.Buffer, rows int) error {
+	inputs := g.t.Inputs()
+	situation := inputs[:len(inputs)-1]
+	lo, hi, _, _ := numberRange(inputs[len(inputs)-1].Examples)
+	// The usual time is a third of the way into the watch.
+	typical := lo + (hi-lo)/3
+	weights := make([]float64, len(situation))
+	for j := range weights {
+		weights[j] = (0.5 + g.r.Float64()) * float64(1-2*g.r.IntN(2))
+	}
+	yes, no := "yes", "no"
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	for i := range rows {
+		rec := make([]string, 0, len(g.t.Columns))
+		score := 0.0
+		for j, in := range situation {
+			z := g.r.NormFloat64()
+			if in.Kind != schema.Text && in.Kind != schema.Photo {
+				score += weights[j] * z / math.Sqrt(float64(max(1, len(situation))))
+			}
+			rec = append(rec, g.cell(in, z, "", i, 0, nil))
+		}
+		when := g.r.ExpFloat64() * typical * math.Exp(-1.2*score)
+		watch := lo + g.r.Float64()*(hi-lo)
+		out := no
+		if when <= watch {
+			watch, out = when, yes
+		}
+		cw.Write(append(rec, formatNumber(max(watch, 0.5), false, true), out))
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// names makes n names like the examples: their letters before the
+// number, such as C- of C-1042, then 1001, 1002 and on. fallback is the
+// letters when no example has any.
+func names(examples []string, fallback string, n int) []string {
+	prefix := fallback
+	for _, e := range examples {
+		if p := strings.TrimRight(e, "0123456789"); p != "" && p != e {
+			prefix = p
+			break
+		}
+	}
+	out := make([]string, n)
+	for i := range out {
+		out[i] = prefix + strconv.Itoa(1001+i)
+	}
+	return out
 }
 
 // cell makes one input cell from its hidden score z.

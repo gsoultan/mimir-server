@@ -6,6 +6,7 @@ export const kinds = [
   { id: "yes_no", label: "Yes or no", title: "Will something happen?", hint: "Yes or no. Will a customer leave, a machine fail, a payment be fraud." },
   { id: "group", label: "Pick a group", title: "Which group does it belong to?", hint: "One of a few answers. Which team, which grade, which reason." },
   { id: "number", label: "A number", title: "How much or how many?", hint: "A number. Units next week, energy per shift." },
+  { id: "ranked", label: "A ranked list", title: "What should come first?", hint: "A list, best first. Products to offer a customer, the next step for a lead." },
 ] as const;
 
 export type DataType = "table" | "text" | "photos" | "photo_table" | "sounds" | "boxes";
@@ -84,7 +85,7 @@ export const columnKinds: Record<string, { label: string; color: string; hint: s
   photo: { label: "Photo", color: "yellow", hint: "the photo's file name, like photos/1001.jpg" },
 };
 
-export const kindColor = (kind: string) => (kind === "yes_no" ? "teal" : kind === "number" ? "orange" : "indigo");
+export const kindColor = (kind: string) => (kind === "yes_no" ? "teal" : kind === "number" ? "orange" : kind === "ranked" ? "violet" : "indigo");
 
 // The dataset kind a template's data makes.
 export function datasetKindOf(t: Template | undefined): DatasetKind {

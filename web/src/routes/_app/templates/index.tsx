@@ -11,7 +11,7 @@ import { Page } from "../../../components/Page";
 import { categoryColor, count, dataTypeOf, dataTypes, kindColor, kindLabel, kinds, matches } from "../../../lib/templates";
 
 const search = z.object({
-  kind: z.enum(["yes_no", "group", "number"]).optional(),
+  kind: z.enum(["yes_no", "group", "number", "ranked"]).optional(),
   data: z.enum(["table", "text", "photos", "photo_table", "sounds", "boxes"]).optional(),
   cat: z.string().optional(),
   q: z.string().optional(),
@@ -62,7 +62,7 @@ function Gallery() {
           <Title order={2} fz="lg">Not sure where to start? What do you want to know?</Title>
           {s.kind && <Button variant="subtle" size="compact-sm" onClick={() => set({ kind: undefined })}>Show every kind</Button>}
         </Group>
-        <SimpleGrid cols={{ base: 1, sm: 3 }}>
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
           {kinds.map((k) => (
             <UnstyledButton
               key={k.id}

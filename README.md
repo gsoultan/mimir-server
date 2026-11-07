@@ -448,10 +448,18 @@ usually is.
 
 ### Templates
 
-**Templates** lists 46 business problems across manufacturing, quality
+**Templates** lists 52 business problems across manufacturing, quality
 control, sales, shops, finance, people, logistics and support: "which
 customers won't renew", "is this weld OK", "how much energy will the
-next shift use". Each says exactly what data to bring, with a
+next shift use". Some answer with a ranked list instead of one answer:
+which products to offer each customer (the **Recommend** model type),
+what businesses of the same kind within N km buy (**Recommend from
+nearby customers**, asked with a customer or a lead's place and
+category, and `radius_km`) and the best next step for a lead (**Pick the
+best action**). Sales
+teams also get **Who to visit next**, the chance that each customer or
+lead orders within the next 1 to 30 days, which ranks the accounts to
+visit when scored as a list. Each says exactly what data to bring, with a
 downloadable made-up example (a CSV, a ZIP of photo folders, or a ZIP
 with `data.csv` and photos) and a starting SQL query. **Use this
 template** opens the wizard with the template filled in; **Try it with
@@ -539,6 +547,21 @@ or an API key that may add models, and the rest is in the API
 (`ScoringService` in `proto/mimir/v1/scoring.proto`). Webhooks can listen
 for `scoring.finished` and `scoring.failed`. Rows scored this way don't
 count toward the prediction limits under Settings.
+
+### Plan visit routes
+
+`PlanVisits` (`VisitService` in `proto/mimir/v1/visit.proto`) turns a
+list of customers to visit into each salesperson's days: who they see on
+which day, in what order, and when they arrive. Give each stop its place,
+how long the visit takes, when it is open, and a priority, such as the
+chance from **Chance they order within N days** or **Who to visit next**
+scored as a list. Give each salesperson where their day starts and ends
+and their hours. The plan fits must-visit stops and then the most
+valuable ones, earliest days first, with the least driving, keeps every
+opening time and day end, and lists the stops that didn't fit. Distances
+are straight lines times a road factor (1.3 unless set) at an average
+speed (30 km/h unless set). It plans up to 2,000 stops over up to 31
+days, and needs the permission to ask models.
 
 ### Ask your documents
 

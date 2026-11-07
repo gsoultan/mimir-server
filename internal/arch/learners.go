@@ -406,10 +406,22 @@ var learned = []Architecture{
 		Input:       Table, AnyText: true, Output: Ranked, Items: recommendTop, Target: ItemTarget, Learner: recommender,
 	},
 	{
+		Name:        "recommend-nearby",
+		Title:       "Recommend from nearby customers",
+		Description: "Learns which products customers buy, where they are and what kind of business they are, and lists what customers of the same kind within a distance buy that this one doesn't yet. Ask with a customer, or a place and a category for a lead, and how many kilometres to look.",
+		Input:       Table, AnyText: true, Output: Ranked, Items: recommendTop, Target: ItemTarget, Learner: nearbyRecommender,
+	},
+	{
 		Name:        "best-action",
 		Title:       "Pick the best action",
 		Description: "Learns from a log of what was done in each situation and how it turned out, such as which offer each customer saw and whether they bought, and says which action should turn out best in a new situation, with the result each would likely bring.",
 		Input:       Table, AnyText: true, Output: Ranked, Items: decideTop, Target: ActionTarget, Learner: decider,
+	},
+	{
+		Name:        "time-to-event",
+		Title:       "Time until it happens",
+		Description: "Learns how soon something happens, such as a customer's next order or its leaving, from a yes or no answer and a column of how many days each row was watched, counting the rows where it hasn't happened yet. Says how likely it is within any number of days you ask. It is scored by how often it puts which of two rows happens first in the right order: 0.5 is guessing and 1 is always right.",
+		Input:       Table, AnyText: true, Learner: survival,
 	},
 	{
 		Name:        "forecast",

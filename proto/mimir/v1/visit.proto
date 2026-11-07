@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// VisitService plans salespeople's visits: which customers each one sees
+// on which day, in what order, and when they arrive. Give each stop a
+// priority, such as a model's chance that the customer orders soon from
+// Score a list, and the plan visits the most valuable stops it can fit.
+service VisitService {
+  rpc PlanVisits(PlanVisitsRequest) returns (PlanVisitsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// VisitStop is a customer or lead to visit.
+message VisitStop {
+  // id names the stop in the answer, such as the customer's number.
+  string id = 1;
+  string name = 2;
+  // latitude and longitude are in degrees.
+  double latitude = 3;
+  double longitude = 4;
+  // priority is how much the visit is worth; higher first. Stops that
+  // don't fit are left out lowest first. 0 counts as 1.
+  double priority = 5;
+  // visit_minutes is how long the visit takes; 0 means 30.
+  int32 visit_minutes = 6;
+  // open_minute and close_minute bound when a visit can start, in
+  // minutes after midnight; both 0 means any time in the working day.
+  int32 open_minute = 7;
+  int32 close_minute = 8;
+  // salesperson_id, when set, is the only salesperson who may visit.
+  string salesperson_id = 9;
+  // must_visit plans the stop before any optional one.
+  bool must_visit = 10;
+}
+
+// Salesperson is someone who visits.
+message Salesperson {
+  string id = 1;
+  string name = 2;
+  // start_latitude and start_longitude are where each day starts and
+  // ends, such as the office or home.
+  double start_latitude = 3;
+  double start_longitude = 4;
+  // day_start_minute and day_end_minute bound the working day, in minutes
+  // after midnight; both 0 means 08:00 to 17:00. The day ends back at the
+  // start.
+  int32 day_start_minute = 5;
+  int32 day_end_minute = 6;
+  // max_visits bounds visits per day; 0 means no limit beyond time.
+  int32 max_visits = 7;
+}
+
+message PlanVisitsRequest {
+  repeated VisitStop stops = 1;
+  repeated Salesperson salespeople = 2;
+  // days is how many working days to plan, from 1 (tomorrow) up to 31;
+  // 0 means 1.
+  int32 days = 3;
+  // speed_kmh is the average travel speed; 0 means 30.
+  double speed_kmh = 4;
+  // road_factor is how much longer roads are than a straight line; 0
+  // means 1.3.
+  double road_factor = 5;
+}
+
+// PlannedVisit is one stop on a route.
+message PlannedVisit {
+  string stop_id = 1;
+  // arrive_minute and leave_minute are minutes after midnight; a
+  // salesperson who arrives before a stop opens waits.
+  int32 arrive_minute = 2;
+  int32 leave_minute = 3;
+  // km_from_previous is the road distance from the stop before, or from
+  // the start.
+  double km_from_previous = 4;
+}
+
+// Route is one salesperson's day.
+message Route {
+  string salesperson_id = 1;
+  // day counts working days from 1.
+  int32 day = 2;
+  repeated PlannedVisit visits = 3;
+  // km is the day's road distance, back to the start included.
+  double km = 4;
+  // end_minute is when they are back at the start.
+  int32 end_minute = 5;
+}
+
+message PlanVisitsResponse {
+  // routes are every salesperson's days that have visits, by day then
+  // salesperson.
+  repeated Route routes = 1;
+  // unplanned are the stops that didn't fit, most valuable first.
+  repeated string unplanned_stop_ids = 2;
+  double total_km = 3;
+  // planned_priority is the sum of the planned stops' priorities, and
+  // total_priority of every stop's.
+  double planned_priority = 4;
+  double total_priority = 5;
+}

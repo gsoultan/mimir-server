@@ -73,6 +73,7 @@ var Required = map[string]Permission{
 	"/mimir.v1.ModelService/GetModelQuality":       ModelsRead,
 	"/mimir.v1.PredictService/SendFeedback":        ModelsPredict,
 	"/mimir.v1.PredictService/Predict":             ModelsPredict,
+	"/mimir.v1.VisitService/PlanVisits":            ModelsPredict,
 	"/mimir.v1.PredictService/Generate":            ModelsPredict,
 	"/mimir.v1.PredictService/GenerateStream":      ModelsPredict,
 	"/mimir.v1.PredictService/Chat":                ModelsPredict,

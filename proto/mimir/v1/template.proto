@@ -50,7 +50,7 @@ message Template {
   string id = 1;
   // category is a TemplateCategory id.
   string category = 2;
-  // kind is what is answered: "yes_no", "group" or "number".
+  // kind is what is answered: "yes_no", "group", "number", or "ranked" for a list, best first.
   string kind = 3;
   // data is what the examples look like: "table", "text", "photos" or
   // "photo_table".
