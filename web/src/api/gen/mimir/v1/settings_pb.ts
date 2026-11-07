@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/settings.proto.
  */
 export const file_mimir_v1_settings: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW1pci92MS9zZXR0aW5ncy5wcm90bxIIbWltaXIudjEijgEKC0VtYWlsQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSDAoEaG9zdBgCIAEoCRIMCgRwb3J0GAMgASgFEhAKCHVzZXJuYW1lGAQgASgJEhAKCHBhc3N3b3JkGAUgASgJEhQKDHBhc3N3b3JkX3NldBgGIAEoCBIMCgRmcm9tGAcgASgJEgoKAnRvGAggAygJIlgKDlRlbGVncmFtQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSEQoJYm90X3Rva2VuGAIgASgJEhEKCXRva2VuX3NldBgDIAEoCBIPCgdjaGF0X2lkGAQgASgJIjYKCVJldGVudGlvbhISCgphdWRpdF9kYXlzGAEgASgFEhUKDWRlbGl2ZXJ5X2RheXMYAiABKAUiFAoSR2V0U2V0dGluZ3NSZXF1ZXN0Iv0BChNHZXRTZXR0aW5nc1Jlc3BvbnNlEiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cxImCglyZXRlbnRpb24YAyABKAsyEy5taW1pci52MS5SZXRlbnRpb24SJAoIc2VjdXJpdHkYBCABKAsyEi5taW1pci52MS5TZWN1cml0eRIgCgZsaW1pdHMYBSABKAsyEC5taW1pci52MS5MaW1pdHMSJAoIdHJhaW5pbmcYBiABKAsyEi5taW1pci52MS5UcmFpbmluZyJNCghUcmFpbmluZxISCgp0cmFpbl9oZXJlGAEgASgIEhYKDmNhbl90cmFpbl9oZXJlGAIgASgIEhUKDWdyb3VwX3dvcmtlcnMYAyABKAUiWQoVVXBkYXRlVHJhaW5pbmdSZXF1ZXN0EhIKCnRyYWluX2hlcmUYASABKAgSGgoNZ3JvdXBfd29ya2VycxgCIAEoBUgAiAEBQhAKDl9ncm91cF93b3JrZXJzIj4KFlVwZGF0ZVRyYWluaW5nUmVzcG9uc2USJAoIdHJhaW5pbmcYASABKAsyEi5taW1pci52MS5UcmFpbmluZyJpCgZMaW1pdHMSHgoWcHJlZGljdGlvbnNfcGVyX21pbnV0ZRgBIAEoBRIdChVwcmVkaWN0aW9uc19wZXJfbW9udGgYAiABKAMSIAoYdHJhaW5pbmdfcnVuc19wZXJfcGVyc29uGAMgASgFIjcKE1VwZGF0ZUxpbWl0c1JlcXVlc3QSIAoGbGltaXRzGAEgASgLMhAubWltaXIudjEuTGltaXRzIjgKFFVwZGF0ZUxpbWl0c1Jlc3BvbnNlEiAKBmxpbWl0cxgBIAEoCzIQLm1pbWlyLnYxLkxpbWl0cyIgCg9HZXRVc2FnZVJlcXVlc3QSDQoFbW9udGgYASABKAkiZAoIVXNhZ2VSb3cSDwoHdXNlcl9pZBgBIAEoCRIRCgl1c2VyX25hbWUYAiABKAkSDQoFZW1haWwYAyABKAkSEAoIa2V5X25hbWUYBCABKAkSEwoLcHJlZGljdGlvbnMYBSABKAMiYQoQR2V0VXNhZ2VSZXNwb25zZRINCgVtb250aBgBIAEoCRIgCgRyb3dzGAIgAygLMhIubWltaXIudjEuVXNhZ2VSb3cSDQoFdG90YWwYAyABKAMSDQoFbGltaXQYBCABKAMiOQoIU2VjdXJpdHkSLQoKdHdvX2ZhY3RvchgBIAEoDjIZLm1pbWlyLnYxLlR3b0ZhY3RvclBvbGljeSI9ChVVcGRhdGVTZWN1cml0eVJlcXVlc3QSJAoIc2VjdXJpdHkYASABKAsyEi5taW1pci52MS5TZWN1cml0eSI+ChZVcGRhdGVTZWN1cml0eVJlc3BvbnNlEiQKCHNlY3VyaXR5GAEgASgLMhIubWltaXIudjEuU2VjdXJpdHkiZwoTVXBkYXRlQWxlcnRzUmVxdWVzdBIkCgVlbWFpbBgBIAEoCzIVLm1pbWlyLnYxLkVtYWlsQWxlcnRzEioKCHRlbGVncmFtGAIgASgLMhgubWltaXIudjEuVGVsZWdyYW1BbGVydHMiaAoUVXBkYXRlQWxlcnRzUmVzcG9uc2USJAoFZW1haWwYASABKAsyFS5taW1pci52MS5FbWFpbEFsZXJ0cxIqCgh0ZWxlZ3JhbRgCIAEoCzIYLm1pbWlyLnYxLlRlbGVncmFtQWxlcnRzIicKFFNlbmRUZXN0QWxlcnRSZXF1ZXN0Eg8KB2NoYW5uZWwYASABKAkiFwoVU2VuZFRlc3RBbGVydFJlc3BvbnNlIkAKFlVwZGF0ZVJldGVudGlvblJlcXVlc3QSJgoJcmV0ZW50aW9uGAEgASgLMhMubWltaXIudjEuUmV0ZW50aW9uIkEKF1VwZGF0ZVJldGVudGlvblJlc3BvbnNlEiYKCXJldGVudGlvbhgBIAEoCzITLm1pbWlyLnYxLlJldGVudGlvbiIYChZHZXREYXRhYmFzZUluZm9SZXF1ZXN0IqcCChdHZXREYXRhYmFzZUluZm9SZXNwb25zZRIMCgRraW5kGAEgASgJEgwKBHBhdGgYAiABKAkSEgoKc2l6ZV9ieXRlcxgDIAEoAxIWCg5zY2hlbWFfdmVyc2lvbhgEIAEoBRIdChVsYXRlc3Rfc2NoZW1hX3ZlcnNpb24YBSABKAUSDgoGbW9kZWxzGAYgASgFEg0KBXVzZXJzGAcgASgFEhQKDGF1ZGl0X2V2ZW50cxgIIAEoBRISCgpkZWxpdmVyaWVzGAkgASgFEjIKDmxhc3RfdHJpbV90aW1lGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIWCg5sYXN0X3RyaW1fcm93cxgLIAEoAxIQCghsb2dfcGF0aBgMIAEoCSqSAQoPVHdvRmFjdG9yUG9saWN5EiEKHVRXT19GQUNUT1JfUE9MSUNZX1VOU1BFQ0lGSUVEEAASHgoaVFdPX0ZBQ1RPUl9QT0xJQ1lfT1BUSU9OQUwQARIcChhUV09fRkFDVE9SX1BPTElDWV9BRE1JTlMQAhIeChpUV09fRkFDVE9SX1BPTElDWV9FVkVSWU9ORRADMvkFCg9TZXR0aW5nc1NlcnZpY2USTwoLR2V0U2V0dGluZ3MSHC5taW1pci52MS5HZXRTZXR0aW5nc1JlcXVlc3QaHS5taW1pci52MS5HZXRTZXR0aW5nc1Jlc3BvbnNlIgOQAgESTQoMVXBkYXRlQWxlcnRzEh0ubWltaXIudjEuVXBkYXRlQWxlcnRzUmVxdWVzdBoeLm1pbWlyLnYxLlVwZGF0ZUFsZXJ0c1Jlc3BvbnNlElAKDVNlbmRUZXN0QWxlcnQSHi5taW1pci52MS5TZW5kVGVzdEFsZXJ0UmVxdWVzdBofLm1pbWlyLnYxLlNlbmRUZXN0QWxlcnRSZXNwb25zZRJWCg9VcGRhdGVSZXRlbnRpb24SIC5taW1pci52MS5VcGRhdGVSZXRlbnRpb25SZXF1ZXN0GiEubWltaXIudjEuVXBkYXRlUmV0ZW50aW9uUmVzcG9uc2USUwoOVXBkYXRlU2VjdXJpdHkSHy5taW1pci52MS5VcGRhdGVTZWN1cml0eVJlcXVlc3QaIC5taW1pci52MS5VcGRhdGVTZWN1cml0eVJlc3BvbnNlEk0KDFVwZGF0ZUxpbWl0cxIdLm1pbWlyLnYxLlVwZGF0ZUxpbWl0c1JlcXVlc3QaHi5taW1pci52MS5VcGRhdGVMaW1pdHNSZXNwb25zZRJTCg5VcGRhdGVUcmFpbmluZxIfLm1pbWlyLnYxLlVwZGF0ZVRyYWluaW5nUmVxdWVzdBogLm1pbWlyLnYxLlVwZGF0ZVRyYWluaW5nUmVzcG9uc2USRgoIR2V0VXNhZ2USGS5taW1pci52MS5HZXRVc2FnZVJlcXVlc3QaGi5taW1pci52MS5HZXRVc2FnZVJlc3BvbnNlIgOQAgESWwoPR2V0RGF0YWJhc2VJbmZvEiAubWltaXIudjEuR2V0RGF0YWJhc2VJbmZvUmVxdWVzdBohLm1pbWlyLnYxLkdldERhdGFiYXNlSW5mb1Jlc3BvbnNlIgOQAgFCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChdtaW1pci92MS9zZXR0aW5ncy5wcm90bxIIbWltaXIudjEijgEKC0VtYWlsQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSDAoEaG9zdBgCIAEoCRIMCgRwb3J0GAMgASgFEhAKCHVzZXJuYW1lGAQgASgJEhAKCHBhc3N3b3JkGAUgASgJEhQKDHBhc3N3b3JkX3NldBgGIAEoCBIMCgRmcm9tGAcgASgJEgoKAnRvGAggAygJIlgKDlRlbGVncmFtQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSEQoJYm90X3Rva2VuGAIgASgJEhEKCXRva2VuX3NldBgDIAEoCBIPCgdjaGF0X2lkGAQgASgJIjYKCVJldGVudGlvbhISCgphdWRpdF9kYXlzGAEgASgFEhUKDWRlbGl2ZXJ5X2RheXMYAiABKAUiFAoSR2V0U2V0dGluZ3NSZXF1ZXN0Iv0BChNHZXRTZXR0aW5nc1Jlc3BvbnNlEiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cxImCglyZXRlbnRpb24YAyABKAsyEy5taW1pci52MS5SZXRlbnRpb24SJAoIc2VjdXJpdHkYBCABKAsyEi5taW1pci52MS5TZWN1cml0eRIgCgZsaW1pdHMYBSABKAsyEC5taW1pci52MS5MaW1pdHMSJAoIdHJhaW5pbmcYBiABKAsyEi5taW1pci52MS5UcmFpbmluZyJNCghUcmFpbmluZxISCgp0cmFpbl9oZXJlGAEgASgIEhYKDmNhbl90cmFpbl9oZXJlGAIgASgIEhUKDWdyb3VwX3dvcmtlcnMYAyABKAUiWQoVVXBkYXRlVHJhaW5pbmdSZXF1ZXN0EhIKCnRyYWluX2hlcmUYASABKAgSGgoNZ3JvdXBfd29ya2VycxgCIAEoBUgAiAEBQhAKDl9ncm91cF93b3JrZXJzIj4KFlVwZGF0ZVRyYWluaW5nUmVzcG9uc2USJAoIdHJhaW5pbmcYASABKAsyEi5taW1pci52MS5UcmFpbmluZyJpCgZMaW1pdHMSHgoWcHJlZGljdGlvbnNfcGVyX21pbnV0ZRgBIAEoBRIdChVwcmVkaWN0aW9uc19wZXJfbW9udGgYAiABKAMSIAoYdHJhaW5pbmdfcnVuc19wZXJfcGVyc29uGAMgASgFIjcKE1VwZGF0ZUxpbWl0c1JlcXVlc3QSIAoGbGltaXRzGAEgASgLMhAubWltaXIudjEuTGltaXRzIjgKFFVwZGF0ZUxpbWl0c1Jlc3BvbnNlEiAKBmxpbWl0cxgBIAEoCzIQLm1pbWlyLnYxLkxpbWl0cyIgCg9HZXRVc2FnZVJlcXVlc3QSDQoFbW9udGgYASABKAkiZAoIVXNhZ2VSb3cSDwoHdXNlcl9pZBgBIAEoCRIRCgl1c2VyX25hbWUYAiABKAkSDQoFZW1haWwYAyABKAkSEAoIa2V5X25hbWUYBCABKAkSEwoLcHJlZGljdGlvbnMYBSABKAMiYQoQR2V0VXNhZ2VSZXNwb25zZRINCgVtb250aBgBIAEoCRIgCgRyb3dzGAIgAygLMhIubWltaXIudjEuVXNhZ2VSb3cSDQoFdG90YWwYAyABKAMSDQoFbGltaXQYBCABKAMiOQoIU2VjdXJpdHkSLQoKdHdvX2ZhY3RvchgBIAEoDjIZLm1pbWlyLnYxLlR3b0ZhY3RvclBvbGljeSI9ChVVcGRhdGVTZWN1cml0eVJlcXVlc3QSJAoIc2VjdXJpdHkYASABKAsyEi5taW1pci52MS5TZWN1cml0eSI+ChZVcGRhdGVTZWN1cml0eVJlc3BvbnNlEiQKCHNlY3VyaXR5GAEgASgLMhIubWltaXIudjEuU2VjdXJpdHkiZwoTVXBkYXRlQWxlcnRzUmVxdWVzdBIkCgVlbWFpbBgBIAEoCzIVLm1pbWlyLnYxLkVtYWlsQWxlcnRzEioKCHRlbGVncmFtGAIgASgLMhgubWltaXIudjEuVGVsZWdyYW1BbGVydHMiaAoUVXBkYXRlQWxlcnRzUmVzcG9uc2USJAoFZW1haWwYASABKAsyFS5taW1pci52MS5FbWFpbEFsZXJ0cxIqCgh0ZWxlZ3JhbRgCIAEoCzIYLm1pbWlyLnYxLlRlbGVncmFtQWxlcnRzIicKFFNlbmRUZXN0QWxlcnRSZXF1ZXN0Eg8KB2NoYW5uZWwYASABKAkiFwoVU2VuZFRlc3RBbGVydFJlc3BvbnNlIkAKFlVwZGF0ZVJldGVudGlvblJlcXVlc3QSJgoJcmV0ZW50aW9uGAEgASgLMhMubWltaXIudjEuUmV0ZW50aW9uIkEKF1VwZGF0ZVJldGVudGlvblJlc3BvbnNlEiYKCXJldGVudGlvbhgBIAEoCzITLm1pbWlyLnYxLlJldGVudGlvbiIYChZHZXREYXRhYmFzZUluZm9SZXF1ZXN0IqcCChdHZXREYXRhYmFzZUluZm9SZXNwb25zZRIMCgRraW5kGAEgASgJEgwKBHBhdGgYAiABKAkSEgoKc2l6ZV9ieXRlcxgDIAEoAxIWCg5zY2hlbWFfdmVyc2lvbhgEIAEoBRIdChVsYXRlc3Rfc2NoZW1hX3ZlcnNpb24YBSABKAUSDgoGbW9kZWxzGAYgASgFEg0KBXVzZXJzGAcgASgFEhQKDGF1ZGl0X2V2ZW50cxgIIAEoBRISCgpkZWxpdmVyaWVzGAkgASgFEjIKDmxhc3RfdHJpbV90aW1lGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIWCg5sYXN0X3RyaW1fcm93cxgLIAEoAxIQCghsb2dfcGF0aBgMIAEoCSIRCg9HZXRBYm91dFJlcXVlc3QitQIKEEdldEFib3V0UmVzcG9uc2USDwoHdmVyc2lvbhgBIAEoCRIOCgZjb21taXQYAiABKAkSEAoIbW9kaWZpZWQYAyABKAgSKQoFYnVpbHQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCmdvX3ZlcnNpb24YBSABKAkSKwoHc3RhcnRlZBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoOc2NoZW1hX3ZlcnNpb24YByABKAUSFwoPd29ya2VyX3ZlcnNpb25zGAggAygJEiQKBXBhcnRzGAkgAygLMhUubWltaXIudjEuQWJvdXRNb2R1bGUSKwoMZGVwZW5kZW5jaWVzGAogAygLMhUubWltaXIudjEuQWJvdXRNb2R1bGUiLAoLQWJvdXRNb2R1bGUSDAoEcGF0aBgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJKpIBCg9Ud29GYWN0b3JQb2xpY3kSIQodVFdPX0ZBQ1RPUl9QT0xJQ1lfVU5TUEVDSUZJRUQQABIeChpUV09fRkFDVE9SX1BPTElDWV9PUFRJT05BTBABEhwKGFRXT19GQUNUT1JfUE9MSUNZX0FETUlOUxACEh4KGlRXT19GQUNUT1JfUE9MSUNZX0VWRVJZT05FEAMywQYKD1NldHRpbmdzU2VydmljZRJPCgtHZXRTZXR0aW5ncxIcLm1pbWlyLnYxLkdldFNldHRpbmdzUmVxdWVzdBodLm1pbWlyLnYxLkdldFNldHRpbmdzUmVzcG9uc2UiA5ACARJNCgxVcGRhdGVBbGVydHMSHS5taW1pci52MS5VcGRhdGVBbGVydHNSZXF1ZXN0Gh4ubWltaXIudjEuVXBkYXRlQWxlcnRzUmVzcG9uc2USUAoNU2VuZFRlc3RBbGVydBIeLm1pbWlyLnYxLlNlbmRUZXN0QWxlcnRSZXF1ZXN0Gh8ubWltaXIudjEuU2VuZFRlc3RBbGVydFJlc3BvbnNlElYKD1VwZGF0ZVJldGVudGlvbhIgLm1pbWlyLnYxLlVwZGF0ZVJldGVudGlvblJlcXVlc3QaIS5taW1pci52MS5VcGRhdGVSZXRlbnRpb25SZXNwb25zZRJTCg5VcGRhdGVTZWN1cml0eRIfLm1pbWlyLnYxLlVwZGF0ZVNlY3VyaXR5UmVxdWVzdBogLm1pbWlyLnYxLlVwZGF0ZVNlY3VyaXR5UmVzcG9uc2USTQoMVXBkYXRlTGltaXRzEh0ubWltaXIudjEuVXBkYXRlTGltaXRzUmVxdWVzdBoeLm1pbWlyLnYxLlVwZGF0ZUxpbWl0c1Jlc3BvbnNlElMKDlVwZGF0ZVRyYWluaW5nEh8ubWltaXIudjEuVXBkYXRlVHJhaW5pbmdSZXF1ZXN0GiAubWltaXIudjEuVXBkYXRlVHJhaW5pbmdSZXNwb25zZRJGCghHZXRVc2FnZRIZLm1pbWlyLnYxLkdldFVzYWdlUmVxdWVzdBoaLm1pbWlyLnYxLkdldFVzYWdlUmVzcG9uc2UiA5ACARJbCg9HZXREYXRhYmFzZUluZm8SIC5taW1pci52MS5HZXREYXRhYmFzZUluZm9SZXF1ZXN0GiEubWltaXIudjEuR2V0RGF0YWJhc2VJbmZvUmVzcG9uc2UiA5ACARJGCghHZXRBYm91dBIZLm1pbWlyLnYxLkdldEFib3V0UmVxdWVzdBoaLm1pbWlyLnYxLkdldEFib3V0UmVzcG9uc2UiA5ACAUI3WjVnaXRodWIuY29tL2dzb3VsdGFuL21pbWlyLXNlcnZlci9nZW4vbWltaXIvdjE7bWltaXJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * EmailAlerts sends alerts through an SMTP server. The password is never
@@ -689,6 +689,120 @@ export const GetDatabaseInfoResponseSchema: GenMessage<GetDatabaseInfoResponse> 
   messageDesc(file_mimir_v1_settings, 24);
 
 /**
+ * @generated from message mimir.v1.GetAboutRequest
+ */
+export type GetAboutRequest = Message<"mimir.v1.GetAboutRequest"> & {
+};
+
+/**
+ * Describes the message mimir.v1.GetAboutRequest.
+ * Use `create(GetAboutRequestSchema)` to create a new message.
+ */
+export const GetAboutRequestSchema: GenMessage<GetAboutRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 25);
+
+/**
+ * @generated from message mimir.v1.GetAboutResponse
+ */
+export type GetAboutResponse = Message<"mimir.v1.GetAboutResponse"> & {
+  /**
+   * Version is the release, "dev" for a build without one.
+   *
+   * @generated from field: string version = 1;
+   */
+  version: string;
+
+  /**
+   * Commit is the source revision the binary was built from, empty when
+   * unknown; modified says the build had uncommitted changes.
+   *
+   * @generated from field: string commit = 2;
+   */
+  commit: string;
+
+  /**
+   * @generated from field: bool modified = 3;
+   */
+  modified: boolean;
+
+  /**
+   * Built is when that revision was committed, unset when unknown.
+   *
+   * @generated from field: google.protobuf.Timestamp built = 4;
+   */
+  built?: Timestamp | undefined;
+
+  /**
+   * @generated from field: string go_version = 5;
+   */
+  goVersion: string;
+
+  /**
+   * Started is when this server process started.
+   *
+   * @generated from field: google.protobuf.Timestamp started = 6;
+   */
+  started?: Timestamp | undefined;
+
+  /**
+   * @generated from field: int32 schema_version = 7;
+   */
+  schemaVersion: number;
+
+  /**
+   * WorkerVersions has one entry per connected worker link: the version
+   * it reported when it joined.
+   *
+   * @generated from field: repeated string worker_versions = 8;
+   */
+  workerVersions: string[];
+
+  /**
+   * Parts are the mimir projects the server is built on; dependencies are
+   * every other module compiled in.
+   *
+   * @generated from field: repeated mimir.v1.AboutModule parts = 9;
+   */
+  parts: AboutModule[];
+
+  /**
+   * @generated from field: repeated mimir.v1.AboutModule dependencies = 10;
+   */
+  dependencies: AboutModule[];
+};
+
+/**
+ * Describes the message mimir.v1.GetAboutResponse.
+ * Use `create(GetAboutResponseSchema)` to create a new message.
+ */
+export const GetAboutResponseSchema: GenMessage<GetAboutResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 26);
+
+/**
+ * AboutModule is one Go module compiled into the server.
+ *
+ * @generated from message mimir.v1.AboutModule
+ */
+export type AboutModule = Message<"mimir.v1.AboutModule"> & {
+  /**
+   * @generated from field: string path = 1;
+   */
+  path: string;
+
+  /**
+   * @generated from field: string version = 2;
+   */
+  version: string;
+};
+
+/**
+ * Describes the message mimir.v1.AboutModule.
+ * Use `create(AboutModuleSchema)` to create a new message.
+ */
+export const AboutModuleSchema: GenMessage<AboutModule> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 27);
+
+/**
  * @generated from enum mimir.v1.TwoFactorPolicy
  */
 export enum TwoFactorPolicy {
@@ -811,6 +925,17 @@ export const SettingsService: GenService<{
     methodKind: "unary";
     input: typeof GetDatabaseInfoRequestSchema;
     output: typeof GetDatabaseInfoResponseSchema;
+  },
+  /**
+   * GetAbout says which version of mimir-server runs and what it is built
+   * on, for the About page. Anyone signed in may call it.
+   *
+   * @generated from rpc mimir.v1.SettingsService.GetAbout
+   */
+  getAbout: {
+    methodKind: "unary";
+    input: typeof GetAboutRequestSchema;
+    output: typeof GetAboutResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_mimir_v1_settings, 0);

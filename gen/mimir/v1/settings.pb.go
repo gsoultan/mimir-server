@@ -1514,6 +1514,220 @@ func (x *GetDatabaseInfoResponse) GetLogPath() string {
 	return ""
 }
 
+type GetAboutRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAboutRequest) Reset() {
+	*x = GetAboutRequest{}
+	mi := &file_mimir_v1_settings_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAboutRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAboutRequest) ProtoMessage() {}
+
+func (x *GetAboutRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_settings_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAboutRequest.ProtoReflect.Descriptor instead.
+func (*GetAboutRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{25}
+}
+
+type GetAboutResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Version is the release, "dev" for a build without one.
+	Version string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	// Commit is the source revision the binary was built from, empty when
+	// unknown; modified says the build had uncommitted changes.
+	Commit   string `protobuf:"bytes,2,opt,name=commit,proto3" json:"commit,omitempty"`
+	Modified bool   `protobuf:"varint,3,opt,name=modified,proto3" json:"modified,omitempty"`
+	// Built is when that revision was committed, unset when unknown.
+	Built     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=built,proto3" json:"built,omitempty"`
+	GoVersion string                 `protobuf:"bytes,5,opt,name=go_version,json=goVersion,proto3" json:"go_version,omitempty"`
+	// Started is when this server process started.
+	Started       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=started,proto3" json:"started,omitempty"`
+	SchemaVersion int32                  `protobuf:"varint,7,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	// WorkerVersions has one entry per connected worker link: the version
+	// it reported when it joined.
+	WorkerVersions []string `protobuf:"bytes,8,rep,name=worker_versions,json=workerVersions,proto3" json:"worker_versions,omitempty"`
+	// Parts are the mimir projects the server is built on; dependencies are
+	// every other module compiled in.
+	Parts         []*AboutModule `protobuf:"bytes,9,rep,name=parts,proto3" json:"parts,omitempty"`
+	Dependencies  []*AboutModule `protobuf:"bytes,10,rep,name=dependencies,proto3" json:"dependencies,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAboutResponse) Reset() {
+	*x = GetAboutResponse{}
+	mi := &file_mimir_v1_settings_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAboutResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAboutResponse) ProtoMessage() {}
+
+func (x *GetAboutResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_settings_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAboutResponse.ProtoReflect.Descriptor instead.
+func (*GetAboutResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *GetAboutResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *GetAboutResponse) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
+func (x *GetAboutResponse) GetModified() bool {
+	if x != nil {
+		return x.Modified
+	}
+	return false
+}
+
+func (x *GetAboutResponse) GetBuilt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Built
+	}
+	return nil
+}
+
+func (x *GetAboutResponse) GetGoVersion() string {
+	if x != nil {
+		return x.GoVersion
+	}
+	return ""
+}
+
+func (x *GetAboutResponse) GetStarted() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Started
+	}
+	return nil
+}
+
+func (x *GetAboutResponse) GetSchemaVersion() int32 {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return 0
+}
+
+func (x *GetAboutResponse) GetWorkerVersions() []string {
+	if x != nil {
+		return x.WorkerVersions
+	}
+	return nil
+}
+
+func (x *GetAboutResponse) GetParts() []*AboutModule {
+	if x != nil {
+		return x.Parts
+	}
+	return nil
+}
+
+func (x *GetAboutResponse) GetDependencies() []*AboutModule {
+	if x != nil {
+		return x.Dependencies
+	}
+	return nil
+}
+
+// AboutModule is one Go module compiled into the server.
+type AboutModule struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AboutModule) Reset() {
+	*x = AboutModule{}
+	mi := &file_mimir_v1_settings_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AboutModule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AboutModule) ProtoMessage() {}
+
+func (x *AboutModule) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_settings_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AboutModule.ProtoReflect.Descriptor instead.
+func (*AboutModule) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_settings_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *AboutModule) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *AboutModule) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
 var File_mimir_v1_settings_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_settings_proto_rawDesc = "" +
@@ -1615,12 +1829,29 @@ const file_mimir_v1_settings_proto_rawDesc = "" +
 	"\x0elast_trim_time\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\flastTrimTime\x12$\n" +
 	"\x0elast_trim_rows\x18\v \x01(\x03R\flastTrimRows\x12\x19\n" +
-	"\blog_path\x18\f \x01(\tR\alogPath*\x92\x01\n" +
+	"\blog_path\x18\f \x01(\tR\alogPath\"\x11\n" +
+	"\x0fGetAboutRequest\"\x9f\x03\n" +
+	"\x10GetAboutResponse\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\tR\aversion\x12\x16\n" +
+	"\x06commit\x18\x02 \x01(\tR\x06commit\x12\x1a\n" +
+	"\bmodified\x18\x03 \x01(\bR\bmodified\x120\n" +
+	"\x05built\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x05built\x12\x1d\n" +
+	"\n" +
+	"go_version\x18\x05 \x01(\tR\tgoVersion\x124\n" +
+	"\astarted\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\astarted\x12%\n" +
+	"\x0eschema_version\x18\a \x01(\x05R\rschemaVersion\x12'\n" +
+	"\x0fworker_versions\x18\b \x03(\tR\x0eworkerVersions\x12+\n" +
+	"\x05parts\x18\t \x03(\v2\x15.mimir.v1.AboutModuleR\x05parts\x129\n" +
+	"\fdependencies\x18\n" +
+	" \x03(\v2\x15.mimir.v1.AboutModuleR\fdependencies\";\n" +
+	"\vAboutModule\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion*\x92\x01\n" +
 	"\x0fTwoFactorPolicy\x12!\n" +
 	"\x1dTWO_FACTOR_POLICY_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTWO_FACTOR_POLICY_OPTIONAL\x10\x01\x12\x1c\n" +
 	"\x18TWO_FACTOR_POLICY_ADMINS\x10\x02\x12\x1e\n" +
-	"\x1aTWO_FACTOR_POLICY_EVERYONE\x10\x032\xf9\x05\n" +
+	"\x1aTWO_FACTOR_POLICY_EVERYONE\x10\x032\xc1\x06\n" +
 	"\x0fSettingsService\x12O\n" +
 	"\vGetSettings\x12\x1c.mimir.v1.GetSettingsRequest\x1a\x1d.mimir.v1.GetSettingsResponse\"\x03\x90\x02\x01\x12M\n" +
 	"\fUpdateAlerts\x12\x1d.mimir.v1.UpdateAlertsRequest\x1a\x1e.mimir.v1.UpdateAlertsResponse\x12P\n" +
@@ -1630,7 +1861,8 @@ const file_mimir_v1_settings_proto_rawDesc = "" +
 	"\fUpdateLimits\x12\x1d.mimir.v1.UpdateLimitsRequest\x1a\x1e.mimir.v1.UpdateLimitsResponse\x12S\n" +
 	"\x0eUpdateTraining\x12\x1f.mimir.v1.UpdateTrainingRequest\x1a .mimir.v1.UpdateTrainingResponse\x12F\n" +
 	"\bGetUsage\x12\x19.mimir.v1.GetUsageRequest\x1a\x1a.mimir.v1.GetUsageResponse\"\x03\x90\x02\x01\x12[\n" +
-	"\x0fGetDatabaseInfo\x12 .mimir.v1.GetDatabaseInfoRequest\x1a!.mimir.v1.GetDatabaseInfoResponse\"\x03\x90\x02\x01B7Z5github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1b\x06proto3"
+	"\x0fGetDatabaseInfo\x12 .mimir.v1.GetDatabaseInfoRequest\x1a!.mimir.v1.GetDatabaseInfoResponse\"\x03\x90\x02\x01\x12F\n" +
+	"\bGetAbout\x12\x19.mimir.v1.GetAboutRequest\x1a\x1a.mimir.v1.GetAboutResponse\"\x03\x90\x02\x01B7Z5github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1b\x06proto3"
 
 var (
 	file_mimir_v1_settings_proto_rawDescOnce sync.Once
@@ -1645,7 +1877,7 @@ func file_mimir_v1_settings_proto_rawDescGZIP() []byte {
 }
 
 var file_mimir_v1_settings_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_mimir_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_mimir_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_mimir_v1_settings_proto_goTypes = []any{
 	(TwoFactorPolicy)(0),            // 0: mimir.v1.TwoFactorPolicy
 	(*EmailAlerts)(nil),             // 1: mimir.v1.EmailAlerts
@@ -1673,7 +1905,10 @@ var file_mimir_v1_settings_proto_goTypes = []any{
 	(*UpdateRetentionResponse)(nil), // 23: mimir.v1.UpdateRetentionResponse
 	(*GetDatabaseInfoRequest)(nil),  // 24: mimir.v1.GetDatabaseInfoRequest
 	(*GetDatabaseInfoResponse)(nil), // 25: mimir.v1.GetDatabaseInfoResponse
-	(*timestamppb.Timestamp)(nil),   // 26: google.protobuf.Timestamp
+	(*GetAboutRequest)(nil),         // 26: mimir.v1.GetAboutRequest
+	(*GetAboutResponse)(nil),        // 27: mimir.v1.GetAboutResponse
+	(*AboutModule)(nil),             // 28: mimir.v1.AboutModule
+	(*timestamppb.Timestamp)(nil),   // 29: google.protobuf.Timestamp
 }
 var file_mimir_v1_settings_proto_depIdxs = []int32{
 	1,  // 0: mimir.v1.GetSettingsResponse.email:type_name -> mimir.v1.EmailAlerts
@@ -1695,30 +1930,36 @@ var file_mimir_v1_settings_proto_depIdxs = []int32{
 	2,  // 16: mimir.v1.UpdateAlertsResponse.telegram:type_name -> mimir.v1.TelegramAlerts
 	3,  // 17: mimir.v1.UpdateRetentionRequest.retention:type_name -> mimir.v1.Retention
 	3,  // 18: mimir.v1.UpdateRetentionResponse.retention:type_name -> mimir.v1.Retention
-	26, // 19: mimir.v1.GetDatabaseInfoResponse.last_trim_time:type_name -> google.protobuf.Timestamp
-	4,  // 20: mimir.v1.SettingsService.GetSettings:input_type -> mimir.v1.GetSettingsRequest
-	18, // 21: mimir.v1.SettingsService.UpdateAlerts:input_type -> mimir.v1.UpdateAlertsRequest
-	20, // 22: mimir.v1.SettingsService.SendTestAlert:input_type -> mimir.v1.SendTestAlertRequest
-	22, // 23: mimir.v1.SettingsService.UpdateRetention:input_type -> mimir.v1.UpdateRetentionRequest
-	16, // 24: mimir.v1.SettingsService.UpdateSecurity:input_type -> mimir.v1.UpdateSecurityRequest
-	10, // 25: mimir.v1.SettingsService.UpdateLimits:input_type -> mimir.v1.UpdateLimitsRequest
-	7,  // 26: mimir.v1.SettingsService.UpdateTraining:input_type -> mimir.v1.UpdateTrainingRequest
-	12, // 27: mimir.v1.SettingsService.GetUsage:input_type -> mimir.v1.GetUsageRequest
-	24, // 28: mimir.v1.SettingsService.GetDatabaseInfo:input_type -> mimir.v1.GetDatabaseInfoRequest
-	5,  // 29: mimir.v1.SettingsService.GetSettings:output_type -> mimir.v1.GetSettingsResponse
-	19, // 30: mimir.v1.SettingsService.UpdateAlerts:output_type -> mimir.v1.UpdateAlertsResponse
-	21, // 31: mimir.v1.SettingsService.SendTestAlert:output_type -> mimir.v1.SendTestAlertResponse
-	23, // 32: mimir.v1.SettingsService.UpdateRetention:output_type -> mimir.v1.UpdateRetentionResponse
-	17, // 33: mimir.v1.SettingsService.UpdateSecurity:output_type -> mimir.v1.UpdateSecurityResponse
-	11, // 34: mimir.v1.SettingsService.UpdateLimits:output_type -> mimir.v1.UpdateLimitsResponse
-	8,  // 35: mimir.v1.SettingsService.UpdateTraining:output_type -> mimir.v1.UpdateTrainingResponse
-	14, // 36: mimir.v1.SettingsService.GetUsage:output_type -> mimir.v1.GetUsageResponse
-	25, // 37: mimir.v1.SettingsService.GetDatabaseInfo:output_type -> mimir.v1.GetDatabaseInfoResponse
-	29, // [29:38] is the sub-list for method output_type
-	20, // [20:29] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	29, // 19: mimir.v1.GetDatabaseInfoResponse.last_trim_time:type_name -> google.protobuf.Timestamp
+	29, // 20: mimir.v1.GetAboutResponse.built:type_name -> google.protobuf.Timestamp
+	29, // 21: mimir.v1.GetAboutResponse.started:type_name -> google.protobuf.Timestamp
+	28, // 22: mimir.v1.GetAboutResponse.parts:type_name -> mimir.v1.AboutModule
+	28, // 23: mimir.v1.GetAboutResponse.dependencies:type_name -> mimir.v1.AboutModule
+	4,  // 24: mimir.v1.SettingsService.GetSettings:input_type -> mimir.v1.GetSettingsRequest
+	18, // 25: mimir.v1.SettingsService.UpdateAlerts:input_type -> mimir.v1.UpdateAlertsRequest
+	20, // 26: mimir.v1.SettingsService.SendTestAlert:input_type -> mimir.v1.SendTestAlertRequest
+	22, // 27: mimir.v1.SettingsService.UpdateRetention:input_type -> mimir.v1.UpdateRetentionRequest
+	16, // 28: mimir.v1.SettingsService.UpdateSecurity:input_type -> mimir.v1.UpdateSecurityRequest
+	10, // 29: mimir.v1.SettingsService.UpdateLimits:input_type -> mimir.v1.UpdateLimitsRequest
+	7,  // 30: mimir.v1.SettingsService.UpdateTraining:input_type -> mimir.v1.UpdateTrainingRequest
+	12, // 31: mimir.v1.SettingsService.GetUsage:input_type -> mimir.v1.GetUsageRequest
+	24, // 32: mimir.v1.SettingsService.GetDatabaseInfo:input_type -> mimir.v1.GetDatabaseInfoRequest
+	26, // 33: mimir.v1.SettingsService.GetAbout:input_type -> mimir.v1.GetAboutRequest
+	5,  // 34: mimir.v1.SettingsService.GetSettings:output_type -> mimir.v1.GetSettingsResponse
+	19, // 35: mimir.v1.SettingsService.UpdateAlerts:output_type -> mimir.v1.UpdateAlertsResponse
+	21, // 36: mimir.v1.SettingsService.SendTestAlert:output_type -> mimir.v1.SendTestAlertResponse
+	23, // 37: mimir.v1.SettingsService.UpdateRetention:output_type -> mimir.v1.UpdateRetentionResponse
+	17, // 38: mimir.v1.SettingsService.UpdateSecurity:output_type -> mimir.v1.UpdateSecurityResponse
+	11, // 39: mimir.v1.SettingsService.UpdateLimits:output_type -> mimir.v1.UpdateLimitsResponse
+	8,  // 40: mimir.v1.SettingsService.UpdateTraining:output_type -> mimir.v1.UpdateTrainingResponse
+	14, // 41: mimir.v1.SettingsService.GetUsage:output_type -> mimir.v1.GetUsageResponse
+	25, // 42: mimir.v1.SettingsService.GetDatabaseInfo:output_type -> mimir.v1.GetDatabaseInfoResponse
+	27, // 43: mimir.v1.SettingsService.GetAbout:output_type -> mimir.v1.GetAboutResponse
+	34, // [34:44] is the sub-list for method output_type
+	24, // [24:34] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_settings_proto_init() }
@@ -1733,7 +1974,7 @@ func file_mimir_v1_settings_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_settings_proto_rawDesc), len(file_mimir_v1_settings_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   25,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

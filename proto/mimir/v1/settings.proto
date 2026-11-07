@@ -29,6 +29,11 @@ service SettingsService {
   rpc GetDatabaseInfo(GetDatabaseInfoRequest) returns (GetDatabaseInfoResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+  // GetAbout says which version of mimir-server runs and what it is built
+  // on, for the About page. Anyone signed in may call it.
+  rpc GetAbout(GetAboutRequest) returns (GetAboutResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 }
 
 // EmailAlerts sends alerts through an SMTP server. The password is never
@@ -207,4 +212,34 @@ message GetDatabaseInfoResponse {
   // LogPath is the separate log database without its password; empty when
   // the audit log is kept in the main database.
   string log_path = 12;
+}
+
+message GetAboutRequest {}
+
+message GetAboutResponse {
+  // Version is the release, "dev" for a build without one.
+  string version = 1;
+  // Commit is the source revision the binary was built from, empty when
+  // unknown; modified says the build had uncommitted changes.
+  string commit = 2;
+  bool modified = 3;
+  // Built is when that revision was committed, unset when unknown.
+  google.protobuf.Timestamp built = 4;
+  string go_version = 5;
+  // Started is when this server process started.
+  google.protobuf.Timestamp started = 6;
+  int32 schema_version = 7;
+  // WorkerVersions has one entry per connected worker link: the version
+  // it reported when it joined.
+  repeated string worker_versions = 8;
+  // Parts are the mimir projects the server is built on; dependencies are
+  // every other module compiled in.
+  repeated AboutModule parts = 9;
+  repeated AboutModule dependencies = 10;
+}
+
+// AboutModule is one Go module compiled into the server.
+message AboutModule {
+  string path = 1;
+  string version = 2;
 }
