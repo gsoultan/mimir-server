@@ -111,7 +111,7 @@ function About() {
               action={<ReadIt href="https://polyformproject.org/licenses/small-business/1.0.0" />} />
             <Row icon={IconBriefcase} title="Permission needed for everyone else"
               text={`Large companies, and anyone selling it as a product or service, may use it only with permission from ${licenseEmail}.`}
-              action={<Button component="a" href={`mailto:${licenseEmail}?subject=${encodeURIComponent("mimir-server commercial license")}`} size="xs" variant="default" leftSection={<IconMail size={16} />}>Ask about it</Button>} />
+              action={<Button component="a" href={`mailto:${licenseEmail}?subject=${encodeURIComponent("Permission to use mimir-server")}`} size="xs" variant="default" leftSection={<IconMail size={16} />}>Ask for permission</Button>} />
             <Row icon={IconPackages} title="Other software it uses"
               text={`${about.dependencies.length} open-source packages, each with its own license.`}
               action={<Button size="xs" variant="default" onClick={list.open} disabled={about.dependencies.length === 0}>See the list</Button>} />
