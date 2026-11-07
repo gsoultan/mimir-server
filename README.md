@@ -477,12 +477,25 @@ with `data.csv` and photos) and a starting SQL query. **Use this
 template** opens the wizard with the template filled in; **Try it with
 the example data** teaches from the example in a few clicks.
 
+Before anything is uploaded, the wizard reads the first rows of a table in
+the browser and shows what each column holds (numbers and their range, yes
+or no, one of a few values, free text, dates, or an ID that is different in
+every row), how full it is and a few example values. The answer column is
+picked from that list, and the wizard says what the model would answer with
+it ("yes or no; 23 of 100 rows say yes") or why it can't be the answer: an
+ID, a date, free text, an empty column or one with a single value. The same
+look is given to the rows a database query or a storage bucket returns.
+
 When data comes in, the server checks it against the template before
 anything runs: which columns were found, the answer column and how its
 answers are spread, empty or unreadable cells, too few rows, missing
 photos. A column under another name can be matched to the template's
-from a list. The same check is in the API as `CheckDataset`, and the
-catalog as `TemplateService` (`proto/mimir/v1/template.proto`).
+from a list. Someone's own table also gets a list of how each column is
+read, and a note on any column that looks like an ID, never changes, or
+gives the answer away (every value of it goes with exactly one answer, so
+it is the answer under another name or only known once the answer is).
+The same check is in the API as `CheckDataset`, and the catalog as
+`TemplateService` (`proto/mimir/v1/template.proto`).
 
 Runs queue up and train one at a time in the server process. The run page
 shows the pass and step, a chart of right answers and loss per pass, and

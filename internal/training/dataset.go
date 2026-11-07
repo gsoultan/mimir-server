@@ -69,7 +69,18 @@ type Profile struct {
 	Empty      int     // cells with nothing in them
 	Unreadable int     // cells of a number column that aren't numbers
 	Words      float64 // words per cell, for a text column
+	// Distinct is how many different values the filled cells hold, up to
+	// MaxDistinct; more reads as MaxDistinct.
+	Distinct int
+	// TellsAnswer is set on a category or yes-or-no column each of whose
+	// values goes with exactly one answer: it gives the answer away, so
+	// it is either the answer under another name or only known once the
+	// answer is.
+	TellsAnswer bool
 }
+
+// MaxDistinct is as far as a column's different values are counted.
+const MaxDistinct = 1001
 
 // ParseTable reads a CSV with a header row. target names the answer
 // column; empty means the last column. hints, when set, give a column's
@@ -261,6 +272,17 @@ func ParseTable(r io.Reader, target string, hints map[string]schema.Kind) (*Tabl
 		t.Photos = make([]string, 0, t.Rows)
 	}
 	t.Skipped = 0
+	// Each column's different values, up to MaxDistinct, and for a column
+	// of a few values which answer each one goes with: -1 once a value
+	// has gone with two.
+	distinct := make([]map[string]int32, len(t.Columns))
+	for j, c := range t.Columns {
+		distinct[j] = map[string]int32{}
+		if t.Y != nil && (c.Kind == schema.Category || c.Kind == schema.YesNo) {
+			t.Profile[j].TellsAnswer = true
+		}
+	}
+	row := 0
 	err = rows(func(cells []string, _ string) error {
 		for j, v := range cells {
 			switch {
@@ -269,7 +291,30 @@ func ParseTable(r io.Reader, target string, hints map[string]schema.Kind) (*Tabl
 			case t.Columns[j].Kind == schema.Text:
 				words[j] += schema.CountWords(v)
 			}
+			if v == "" {
+				continue
+			}
+			seen := distinct[j]
+			if seen == nil {
+				continue
+			}
+			class, ok := seen[v]
+			switch {
+			case !ok && len(seen) >= MaxDistinct:
+				distinct[j], t.Profile[j].TellsAnswer = nil, false
+				continue
+			case !ok:
+				class = -1
+				if t.Profile[j].TellsAnswer {
+					class = t.Y[row]
+				}
+				seen[strings.Clone(v)] = class
+			case t.Profile[j].TellsAnswer && class != t.Y[row]:
+				seen[v] = -1
+				t.Profile[j].TellsAnswer = false
+			}
 		}
+		row++
 		if photos >= 0 {
 			t.Photos = append(t.Photos, strings.Clone(cells[photos]))
 		}
@@ -280,8 +325,20 @@ func ParseTable(r io.Reader, target string, hints map[string]schema.Kind) (*Tabl
 		return nil, err
 	}
 	for j, c := range t.Columns {
-		if n := t.Rows - t.Profile[j].Empty; c.Kind == schema.Text && n > 0 {
+		n := t.Rows - t.Profile[j].Empty
+		if c.Kind == schema.Text && n > 0 {
 			t.Profile[j].Words = float64(words[j]) / float64(n)
+		}
+		if distinct[j] == nil {
+			t.Profile[j].Distinct = MaxDistinct
+		} else {
+			t.Profile[j].Distinct = len(distinct[j])
+		}
+		// A value that is its own answer every time tells nothing: only a
+		// column whose values come up again and again gives the answer
+		// away.
+		if t.Profile[j].TellsAnswer && (t.Profile[j].Distinct < 2 || t.Profile[j].Distinct*2 > n || n < 20) {
+			t.Profile[j].TellsAnswer = false
 		}
 	}
 	return t, nil

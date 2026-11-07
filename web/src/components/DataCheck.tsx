@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Group, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Button, Card, Group, Select, SimpleGrid, Stack, Table, Text } from "@mantine/core";
 import { IconDownload } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
@@ -122,6 +122,7 @@ export function DataCheck({ check, template, photos, sounds, onMatch, busy }: {
               <Row level="ok"><b>The answer column is {check.answerColumn}.</b> {answers(check)}</Row>
             )}
             {!check.notes.some((n) => /, (enough to start|fewer than)/.test(n.title)) && <Row level="ok"><b>{count(check.rows, "row")}.</b></Row>}
+            {!template && <Columns check={check} />}
           </>
         )}
         {notes.map((n, i) => (
@@ -138,5 +139,46 @@ export function DataCheck({ check, template, photos, sounds, onMatch, busy }: {
         ))}
       </Stack>
     </Card>
+  );
+}
+
+// How the server reads a column, in plain words.
+function holds(c: Check["columns"][number], rows: bigint): string {
+  const filled = rows - c.empty;
+  if (filled >= 20n && c.distinct >= (filled < 1001n ? filled : 1001n) && c.foundKind !== "number") return "an ID, different in every row";
+  switch (c.foundKind) {
+    case "number": return "numbers";
+    case "yesno": return "yes or no";
+    case "category": return c.distinct === 1n ? "always the same" : `one of ${c.distinct >= 1001n ? "1,000+" : c.distinct.toLocaleString()} values`;
+    case "text": return `text, about ${Math.round(c.words)} words`;
+    case "photo": return "photo names";
+  }
+  return c.foundKind;
+}
+
+// Columns lists how the server read each column of someone's own table,
+// so what the model learns from is no mystery.
+function Columns({ check }: { check: Check }) {
+  const cols = check.columns.filter((c) => !c.answer);
+  if (cols.length === 0) return null;
+  const empty = (c: Check["columns"][number]) => check.rows > 0n ? Number(c.empty) / Number(check.rows) : 0;
+  return (
+    <Row level="ok">
+      <b>The model learns from {count(cols.length, "column")}.</b>
+      <Table.ScrollContainer minWidth={360} mt={6}>
+        <Table fz="xs" withTableBorder verticalSpacing={4}>
+          <Table.Thead><Table.Tr><Table.Th>Column</Table.Th><Table.Th>Read as</Table.Th><Table.Th>Filled</Table.Th></Table.Tr></Table.Thead>
+          <Table.Tbody>
+            {cols.map((c) => (
+              <Table.Tr key={c.name}>
+                <Table.Td ff="monospace">{c.name}</Table.Td>
+                <Table.Td>{holds(c, check.rows)}{c.tellsAnswer ? <Badge ml={6} size="xs" color="orange" variant="light">gives the answer away</Badge> : null}</Table.Td>
+                <Table.Td c={empty(c) > 0.2 ? "orange.8" : undefined}>{Math.round(100 * (1 - empty(c)))}%</Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+    </Row>
   );
 }

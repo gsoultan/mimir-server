@@ -159,6 +159,11 @@ message ColumnCheck {
   bool answer = 9;
   // optional marks a template column that isn't needed.
   bool optional = 10;
+  // distinct is how many different values the column holds, up to 1001.
+  int64 distinct = 11;
+  // tells_answer marks a column each of whose values goes with exactly one
+  // answer: it gives the answer away.
+  bool tells_answer = 12;
 }
 
 message FolderCheck {

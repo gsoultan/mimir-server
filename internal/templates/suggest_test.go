@@ -101,3 +101,25 @@ func TestOptionalAndOwnColumns(t *testing.T) {
 		t.Errorf("optional columns count as lost, verdict %s:\n%s", ck.Verdict, got.String())
 	}
 }
+
+func TestColumnNotes(t *testing.T) {
+	var csv strings.Builder
+	csv.WriteString("order_id,shop,reason,amount,left\n")
+	for i := range 80 {
+		left := []string{"no", "no", "no", "yes"}[i%4]
+		reason := "none"
+		if left == "yes" {
+			reason = []string{"price", "support"}[i%2]
+		}
+		fmt.Fprintf(&csv, "%d,main,%s,%d,%s\n", 1000+i, reason, 10+i%7, left)
+	}
+	got := notes(t, csv.String())
+	for _, want := range []string{"order_id looks like an ID.", "shop is the same in every row.", "reason gives the answer away."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("no %q in\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "amount") && strings.Contains(got, "away") {
+		t.Errorf("a number column gives the answer away:\n%s", got)
+	}
+}
