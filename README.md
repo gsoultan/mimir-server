@@ -477,6 +477,11 @@ with `data.csv` and photos) and a starting SQL query. **Use this
 template** opens the wizard with the template filled in; **Try it with
 the example data** teaches from the example in a few clicks.
 
+When a table has a date column, such as `order_date`, the rows held out
+to score a model are the latest ones, not random ones, so its accuracy is
+what to expect when it learns from the past and answers the future. The
+data check says so.
+
 When data comes in, the server checks it against the template before
 anything runs: which columns were found, the answer column and how its
 answers are spread, empty or unreadable cells, too few rows, missing
