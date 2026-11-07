@@ -466,7 +466,9 @@ product line a customer will buy, **Chance of closing at each discount**
 gives the chance at each discount level and the one that keeps the most
 revenue, and **A range for a number** gives a low, likely and high value
 that holds about 8 in 10 real values. **Find duplicate accounts** lists
-the accounts likely to be the same business written another way.
+the accounts likely to be the same business written another way, and
+**What goes together** lists, for a product, the ones bought in the same
+orders far more often than chance.
 
 Each template lists the columns it needs and optional ones that make
 answers more specific, and any other column of the data is used too,

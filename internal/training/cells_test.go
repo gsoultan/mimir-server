@@ -375,3 +375,82 @@ func TestTimeToEvent(t *testing.T) {
 		t.Errorf("chances off")
 	}
 }
+
+func TestGoesTogether(t *testing.T) {
+	// Breakfast orders hold bread with butter and jam; dinner orders
+	// pasta with sauce and cheese; milk goes in either.
+	breakfast := []string{"bread", "butter", "jam", "tea"}
+	dinner := []string{"pasta", "sauce", "cheese", "wine"}
+	var csv strings.Builder
+	csv.WriteString("order_id,product,qty\n")
+	r := rand.New(rand.NewPCG(7, 8))
+	for o := range 600 {
+		items := breakfast
+		if o%2 == 1 {
+			items = dinner
+		}
+		for _, k := range r.Perm(len(items))[:2+r.IntN(3)] {
+			fmt.Fprintf(&csv, "o-%d,%s,%d\n", o, items[k], 1+r.IntN(3))
+		}
+		if r.Float64() < 0.6 {
+			fmt.Fprintf(&csv, "o-%d,milk,1\n", o)
+		}
+	}
+	res, ask := fitCells(t, "goes-together", "product", csv.String())
+	if len(res.Columns) != 1 || res.Columns[0].Name != "product" || len(res.Spec.Labels) != 9 {
+		t.Fatalf("columns %v, labels %v", res.Columns, res.Spec.Labels)
+	}
+	if acc := res.History[0].Accuracy; acc < 0.8 {
+		t.Errorf("the held-out item is in the top 10 only %v of the time", acc)
+	}
+	top := func(scores []float32, n int) []string {
+		idx := make([]int, len(scores))
+		for i := range idx {
+			idx[i] = i
+		}
+		slices.SortFunc(idx, func(a, b int) int { return int(math.Copysign(1, float64(scores[b]-scores[a]))) })
+		var out []string
+		for _, i := range idx[:n] {
+			out = append(out, res.Spec.Labels[i])
+		}
+		return out
+	}
+	got := top(ask(map[string]string{"product": "bread"}), 3)
+	for _, g := range got {
+		if !slices.Contains(breakfast[1:], g) {
+			t.Errorf("with bread goes %v", got)
+		}
+	}
+	scores := ask(map[string]string{"product": "pasta"})
+	if scores[slices.Index(res.Spec.Labels, "pasta")] > 0 {
+		t.Errorf("pasta goes with itself")
+	}
+	if got := top(scores, 1)[0]; !slices.Contains(dinner[1:], got) {
+		t.Errorf("with pasta goes %v", got)
+	}
+	// An item it hasn't seen gets what most orders hold: milk is in 6
+	// in 10, each other item in fewer than 4.
+	if got := top(ask(map[string]string{"product": "caviar"}), 1)[0]; got != "milk" {
+		t.Errorf("with something unseen goes %v", got)
+	}
+}
+
+func TestForecastShortSeries(t *testing.T) {
+	// Twenty weeks of steady growth: too short for the trees to learn a
+	// season from, so smoothing carries the trend on.
+	var csv strings.Builder
+	csv.WriteString("week,sales\n")
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)
+	for w := range 20 {
+		fmt.Fprintf(&csv, "%s,%d\n", start.AddDate(0, 0, 7*w).Format("2006-01-02"), 100+10*w)
+	}
+	res, ask := fitCells(t, "forecast", "sales", csv.String())
+	if len(res.Columns) != 1 || res.Columns[0].Name != "weeks ahead" {
+		t.Fatalf("columns %v", res.Columns)
+	}
+	one := ask(map[string]string{"weeks ahead": "1"})[0]
+	four := ask(map[string]string{"weeks ahead": "4"})[0]
+	if math.Abs(float64(one)-300) > 15 || four <= one || math.Abs(float64(four)-330) > 30 {
+		t.Errorf("one week ahead %v, four %v; want about 300 and 330", one, four)
+	}
+}

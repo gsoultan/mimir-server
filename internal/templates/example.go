@@ -56,6 +56,8 @@ func Example(t Template) (name, contentType string, data []byte, err error) {
 		err = g.lines(&buf, ExampleRows)
 	case duplicatesArch:
 		err = g.accounts(&buf, ExampleRows/4)
+	case togetherArch:
+		err = g.baskets(&buf, ExampleRows)
 	default:
 		err = g.table(&buf, ExampleRows, nil)
 	}
@@ -78,6 +80,7 @@ const (
 	survivalArch   = "time-to-event"
 	multiLabelArch = "multi-label"
 	duplicatesArch = "find-duplicates"
+	togetherArch   = "goes-together"
 	discountArch   = "discount-response"
 )
 
@@ -230,6 +233,44 @@ func (g *gen) picks(w *bytes.Buffer, rows int) error {
 			rec = append(rec, g.cell(in, 2*g.r.Float64()-1, items[p], 0, 0, nil))
 		}
 		cw.Write(append(rec, items[p]))
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// baskets writes made-up order lines for a goes-together template, whose
+// first column is the order and whose answer is the product. Products
+// fall into a few sets that are bought together, like a dish and its
+// ingredients: an order takes a set and two to five of its products,
+// and now and then something from outside it, so what goes with a
+// product can be told from the orders it is in.
+func (g *gen) baskets(w *bytes.Buffer, rows int) error {
+	const products, sets, each = 60, 10, 6
+	inputs := g.t.Inputs()
+	items := names(g.t.Answer().Examples, "P-", products)
+	cw := csv.NewWriter(w)
+	g.header(cw)
+	order := 0
+	for rows > 0 {
+		order++
+		set := g.r.IntN(sets)
+		n := 2 + g.r.IntN(4)
+		var lines []int
+		for _, k := range g.r.Perm(each)[:n] {
+			lines = append(lines, set*each+k)
+		}
+		if g.r.Float64() < 0.3 {
+			lines = append(lines, g.r.IntN(products))
+		}
+		id := names(inputs[0].Examples, "O-", order)[order-1]
+		for _, p := range lines {
+			rec := []string{id}
+			for _, in := range inputs[1:] {
+				rec = append(rec, g.cell(in, 2*g.r.Float64()-1, items[p], 0, 0, nil))
+			}
+			cw.Write(append(rec, items[p]))
+			rows--
+		}
 	}
 	cw.Flush()
 	return cw.Error()

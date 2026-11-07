@@ -2860,6 +2860,62 @@
    ]
   },
   {
+   "id": "products-bought-together",
+   "category": "b2b",
+   "kind": "ranked",
+   "data": "table",
+   "architecture": "goes-together",
+   "name": "Products bought together",
+   "question": "Which products are bought in the same order as this one far more often than chance, to offer next to it or place side by side?",
+   "predicts": "For any product, the 10 products that go with it most, best first. A product it hasn't seen gets the products most orders hold.",
+   "row_means": "One order line: an order and a product in it.",
+   "source": "Order lines from your ERP, point of sale or billing system",
+   "source_short": "order lines",
+   "rows_min": 1000,
+   "rows_good": 20000,
+   "rows_great": 500000,
+   "balance": "Orders of two or more lines teach it; a pair bought together in fewer than 3 orders is not counted.",
+   "table": "order_lines",
+   "tips": [
+    "Ask with a product to get what goes with it. Score the whole product list to see every product's companions at once.",
+    "Give it order ids, not customer ids, so it learns what is bought in one go; with customer ids it learns what the same customer buys over time instead.",
+    "Teach it again every month as orders come in, so it keeps up with the range."
+   ],
+   "columns": [
+    {
+     "name": "order_id",
+     "kind": "category",
+     "meaning": "The order the line belongs to: its number in your system.",
+     "examples": [
+      "O-50231",
+      "O-50231",
+      "O-50232"
+     ]
+    },
+    {
+     "name": "quantity",
+     "kind": "number",
+     "meaning": "How many they bought on this line.",
+     "examples": [
+      "12",
+      "3",
+      "40"
+     ],
+     "optional": true
+    },
+    {
+     "name": "product",
+     "kind": "category",
+     "meaning": "The product on the line: its code or name.",
+     "examples": [
+      "SKU-2041",
+      "SKU-1187",
+      "SKU-3305"
+     ]
+    }
+   ]
+  },
+  {
    "id": "nearby-products",
    "category": "b2b",
    "kind": "ranked",

@@ -125,8 +125,13 @@ func (c Cells) all() []int {
 	return out
 }
 
-// groups finds groups of similar rows by k-means, picking the number of
-// groups, 2 to 8, whose rows sit best in them by their silhouette.
+// wardRows is the most rows groups also tries Ward's hierarchy on: it
+// keeps the distance between every pair, 32 MB at this many.
+const wardRows = 4000
+
+// groups finds groups of similar rows by k-means and, on small tables,
+// Ward's hierarchy, picking the number of groups, 2 to 8, and the
+// grouping whose rows sit best in them by their silhouette.
 var groups = &Learner{
 	Cells: func(ctx context.Context, c Cells, progress func(int, int)) (Learned, error) {
 		cols, x := c.encode(c.all())
@@ -138,16 +143,39 @@ var groups = &Learner{
 		most := min(8, n-1)
 		var best *cluster.Means
 		score := math.Inf(-1)
+		consider := func(m *cluster.Means) {
+			if s := m.Silhouette(x, 1); s > score {
+				best, score = m, s
+			}
+		}
+		steps := most - 1
+		if n <= wardRows {
+			steps *= 2
+		}
 		for k := 2; k <= most; k++ {
 			m, err := cluster.KMeans(ctx, x, f, k)
 			if err != nil {
 				return Learned{}, err
 			}
-			if s := m.Silhouette(x, 1); s > score {
-				best, score = m, s
-			}
+			consider(m)
 			if progress != nil {
-				progress(k-1, most-1)
+				progress(k-1, steps)
+			}
+		}
+		// Ward's hierarchy, built once and cut at each number of groups,
+		// finds groups of uneven size that k-means splits or merges. It
+		// holds the distance between every pair of rows, so only tables
+		// small enough.
+		if n <= wardRows {
+			l, err := cluster.Agglomerative(ctx, x, f, 2)
+			if err != nil {
+				return Learned{}, err
+			}
+			for k := 2; k <= most; k++ {
+				consider(l.Centers(x, k))
+				if progress != nil {
+					progress(most-1+k-1, steps)
+				}
 			}
 		}
 		if best == nil {
@@ -573,6 +601,10 @@ var forecaster = &Learner{
 		}
 		lags := max(4, min(max(2*season, 14), longest/3))
 		opts := []forecast.Option{forecast.Lags(lags), forecast.Season(season)}
+		// Boosted trees learn from every series long enough at once, or
+		// are nil when none is; a series is smoothed on its own when
+		// that forecast its last steps better, or it is too short for
+		// the trees.
 		fit := func(series [][]float32) (*forecast.Model, error) {
 			var long [][]float32
 			for _, s := range series {
@@ -581,54 +613,100 @@ var forecaster = &Learner{
 				}
 			}
 			if len(long) == 0 {
-				return nil, cellsError("each series needs at least %d steps of history", lags+2)
+				return nil, nil
 			}
 			return forecast.Fit(ctx, long, opts...)
+		}
+		smooth := func(s []float32) *forecast.Smoothing {
+			season := season
+			if len(s) < 2*season {
+				season = 0
+			}
+			m, err := forecast.Smooth(s, forecast.Season(season))
+			if err != nil {
+				return nil
+			}
+			return m
 		}
 		// Score it on each series' last steps, learning from the rest,
 		// then learn from everything.
 		back := min(cad.horizon, longest/5)
+		smoothed := make([]bool, len(hist))
 		var mae float64
 		if back > 0 {
 			short := make([][]float32, len(hist))
 			for i, h := range hist {
 				short[i] = h[:max(len(h)-back, 0)]
 			}
-			if m, err := fit(short); err == nil {
-				var sum float64
-				n := 0
-				for i, h := range hist {
-					if len(short[i]) < lags+2 {
-						continue
-					}
-					for k, v := range m.Forecast(short[i], len(h)-len(short[i])) {
-						if want := h[len(short[i])+k]; want == want {
-							sum += math.Abs(float64(v - want))
-							n++
+			trees, err := fit(short)
+			if err != nil && ctx.Err() != nil {
+				return Learned{}, err
+			}
+			var sum float64
+			n := 0
+			for i, h := range hist {
+				held := h[len(short[i]):]
+				score := func(f []float32) (float64, int) {
+					var e float64
+					k := 0
+					for j, v := range f {
+						if want := held[j]; want == want {
+							e += math.Abs(float64(v - want))
+							k++
 						}
 					}
+					return e, k
 				}
-				if n > 0 {
-					mae = sum / float64(n)
+				te, tn := 0.0, 0
+				if trees != nil && len(short[i]) >= lags+2 {
+					te, tn = score(trees.Forecast(short[i], len(held)))
 				}
+				se, sn := 0.0, 0
+				if sm := smooth(short[i]); sm != nil {
+					se, sn = score(sm.Forecast(len(held)))
+				}
+				if sn > 0 && (tn == 0 || se/float64(sn) < te/float64(tn)) {
+					smoothed[i] = true
+					sum, n = sum+se, n+sn
+				} else {
+					sum, n = sum+te, n+tn
+				}
+			}
+			if n > 0 {
+				mae = sum / float64(n)
 			}
 		}
 		if progress != nil {
 			progress(1, 2)
 		}
-		m, err := fit(hist)
+		trees, err := fit(hist)
 		if err != nil {
 			return Learned{}, err
 		}
 		h := cad.horizon
 		table := make([]float32, 0, (len(hist)+1)*h)
 		total := make([]float32, h)
-		for _, s := range hist {
-			f := m.Forecast(s, h)
+		forecasts := 0
+		for i, s := range hist {
+			var f []float32
+			sm := smooth(s)
+			switch {
+			case sm != nil && (smoothed[i] || trees == nil || len(s) < lags+2):
+				f = sm.Forecast(h)
+			case trees != nil:
+				f = trees.Forecast(s, h)
+			default:
+				f = make([]float32, h)
+				forecasts--
+			}
+			forecasts++
 			for k, v := range f {
 				total[k] += v
 			}
 			table = append(table, f...)
+		}
+		if forecasts == 0 {
+			return Learned{}, cellsError("each series needs at least 3 steps of history")
 		}
 		var cols []schema.Column
 		if series >= 0 {

@@ -406,6 +406,12 @@ var learned = []Architecture{
 		Input:       Table, AnyText: true, Output: Ranked, Items: recommendTop, Target: ItemTarget, Learner: recommender,
 	},
 	{
+		Name:        "goes-together",
+		Title:       "What goes together",
+		Description: "Learns from which items were in the same orders, and lists for any item the ones bought with it far more often than chance, best first: what to offer next to a basket, or place side by side. An item it hasn't seen gets the items most orders hold.",
+		Input:       Table, AnyText: true, Output: Ranked, Items: recommendTop, Target: ItemTarget, Learner: together,
+	},
+	{
 		Name:        "recommend-nearby",
 		Title:       "Recommend from nearby customers",
 		Description: "Learns which products customers buy, where they are and what kind of business they are, and lists what customers of the same kind within a distance buy that this one doesn't yet. Ask with a customer, or a place and a category for a lead, and how many kilometres to look.",

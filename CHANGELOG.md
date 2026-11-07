@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### More model types
+
+- **What goes together** lists, for any product, the products bought in
+  the same orders far more often than chance, by association rules
+  (Apriori) with lift. The **Products bought together** template shows
+  the order lines to bring.
+- **Forecast over time** smooths a series on its own, by Holt-Winters
+  exponential smoothing, when that forecasts its last steps better than
+  the boosted trees or the series is too short for them, so a few months
+  of weekly numbers forecast too.
+- **Find groups** also tries Ward's hierarchical clustering on tables of
+  up to 4,000 rows, and keeps whichever grouping sits best by silhouette.
+
 ### Linux packages
 
 - Releases have `.deb`, `.rpm`, Arch and Alpine packages for amd64 and
