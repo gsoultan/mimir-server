@@ -48,7 +48,7 @@ func fixed(b Batching) func() Batching { return func() Batching { return b } }
 func TestBatcherBatchesQuestionsThatWait(t *testing.T) {
 	gate := make(chan struct{})
 	rec := &recorder{}
-	b := newBatcher(double(gate), "test", 0, fixed(Batching{Max: 8}), func() Observer { return rec })
+	b := newBatcher(double(gate), "test", 0, fixed(Batching{Max: 8}), func() Observer { return rec }, nil)
 	b.runners = 1
 	ctx := context.Background()
 	var wg sync.WaitGroup
@@ -80,7 +80,7 @@ func TestBatcherBatchesQuestionsThatWait(t *testing.T) {
 func TestBatcherKeepsToTheModelsLimit(t *testing.T) {
 	rec := &recorder{}
 	gate := make(chan struct{})
-	b := newBatcher(double(gate), "test", 1, fixed(Batching{Max: 8}), func() Observer { return rec })
+	b := newBatcher(double(gate), "test", 1, fixed(Batching{Max: 8}), func() Observer { return rec }, nil)
 	b.runners = 1
 	var wg sync.WaitGroup
 	for i := range 4 {
@@ -111,7 +111,7 @@ func TestBatcherIsolatesAFailingQuestion(t *testing.T) {
 		}
 		return split(x, n), nil
 	}
-	b := newBatcher(run, "test", 0, fixed(Batching{Max: 8}), func() Observer { return nil })
+	b := newBatcher(run, "test", 0, fixed(Batching{Max: 8}), func() Observer { return nil }, nil)
 	b.runners = 1
 	var wg sync.WaitGroup
 	errs := make([]error, 4)
@@ -140,7 +140,7 @@ func TestBatcherCancel(t *testing.T) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	b := newBatcher(run, "test", 0, fixed(DefaultBatching), func() Observer { return nil })
+	b := newBatcher(run, "test", 0, fixed(DefaultBatching), func() Observer { return nil }, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error)
 	go func() {
@@ -158,7 +158,7 @@ func TestBatcherCancel(t *testing.T) {
 // With Wait, a runner that finds fewer questions than Max waits for more.
 func TestBatcherWaitFillsBatches(t *testing.T) {
 	rec := &recorder{}
-	b := newBatcher(double(nil), "test", 0, fixed(Batching{Max: 4, Wait: 100 * time.Millisecond}), func() Observer { return rec })
+	b := newBatcher(double(nil), "test", 0, fixed(Batching{Max: 4, Wait: 100 * time.Millisecond}), func() Observer { return rec }, nil)
 	b.runners = 1
 	var wg sync.WaitGroup
 	for i := range 4 {
@@ -201,7 +201,7 @@ func TestBatcherSurvivesAPanic(t *testing.T) {
 		}
 		return ok(ctx, x, n)
 	}
-	b := newBatcher(run, "test", 0, fixed(Batching{Max: 8}), func() Observer { return nil })
+	b := newBatcher(run, "test", 0, fixed(Batching{Max: 8}), func() Observer { return nil }, nil)
 	b.runners = 1
 	ctx := context.Background()
 	var wg sync.WaitGroup

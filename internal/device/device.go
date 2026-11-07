@@ -128,7 +128,7 @@ func (r *Runner) Predict(ctx context.Context, id string, q Question) (Answer, er
 		r.models[id] = l
 		return w, nil
 	}
-	res, err := r.cache.Predict(ctx, id, l.m.Version, l.a, l.spec, load, in)
+	res, err := r.cache.Predict(ctx, id, l.m.Version, l.a, l.spec, runtime.InMemory(load), in)
 	if err != nil {
 		return Answer{}, err
 	}

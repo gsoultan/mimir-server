@@ -1,10 +1,13 @@
 package runtime
 
 import (
+	"context"
 	"errors"
-	"github.com/gsoultan/mimir-server/internal/memguard"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/gsoultan/mimir-server/internal/memguard"
 )
 
 // A model retrained in place keeps its id, so the cache must load it again
@@ -38,10 +41,10 @@ func TestCacheEvictsByBytes(t *testing.T) {
 	loads := map[string]int{}
 	get := func(id string, size int) *entry {
 		t.Helper()
-		e, err := c.get(id, "v1", func() ([]byte, error) {
+		e, err := c.get(id, "v1", InMemory(func() ([]byte, error) {
 			loads[id]++
 			return make([]byte, size), nil
-		}, func(*entry, []byte) {})
+		}), func(*entry, []byte) {})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +87,7 @@ func TestCacheEvictsByBytes(t *testing.T) {
 	// A new version replaces the old one's bytes rather than adding to them.
 	c.SetLimit(0)
 	get("small", 10)
-	if _, err := c.get("small", "v2", func() ([]byte, error) { return make([]byte, 20), nil }, func(*entry, []byte) {}); err != nil {
+	if _, err := c.get("small", "v2", InMemory(func() ([]byte, error) { return make([]byte, 20), nil }), func(*entry, []byte) {}); err != nil {
 		t.Fatal(err)
 	}
 	used(170, 2)
@@ -101,7 +104,7 @@ func TestCacheEvictsByBytes(t *testing.T) {
 // answering, and the next request after it says yes loads.
 func TestCacheGate(t *testing.T) {
 	c := NewCache(0)
-	load := func() ([]byte, error) { return make([]byte, 10), nil }
+	load := InMemory(func() ([]byte, error) { return make([]byte, 10), nil })
 	build := func(*entry, []byte) {}
 	if _, err := c.get("loaded", "v1", load, build); err != nil {
 		t.Fatal(err)
@@ -123,7 +126,7 @@ func TestCacheGate(t *testing.T) {
 // A load that panics fails its request and leaves the cache to try again.
 func TestCacheLoadPanics(t *testing.T) {
 	c := NewCache(0)
-	load := func() ([]byte, error) { return make([]byte, 10), nil }
+	load := InMemory(func() ([]byte, error) { return make([]byte, 10), nil })
 	if _, err := c.get("m", "v1", load, func(*entry, []byte) { panic("bad file") }); err == nil {
 		t.Fatal("a panicking load succeeded")
 	}
@@ -137,7 +140,7 @@ func TestCacheLoadPanics(t *testing.T) {
 func TestCacheShed(t *testing.T) {
 	c := NewCache(0)
 	for _, id := range []string{"a", "b", "c", "d"} {
-		if _, err := c.get(id, "v1", func() ([]byte, error) { return make([]byte, 10), nil }, func(*entry, []byte) {}); err != nil {
+		if _, err := c.get(id, "v1", InMemory(func() ([]byte, error) { return make([]byte, 10), nil }), func(*entry, []byte) {}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -157,8 +160,8 @@ func TestCacheShed(t *testing.T) {
 // answering; the switch happens once the new one is in.
 func TestCacheKeepsOldVersionWhileNewLoads(t *testing.T) {
 	c := NewCache(0)
-	load := func(size int) func() ([]byte, error) {
-		return func() ([]byte, error) { return make([]byte, size), nil }
+	load := func(size int) Loader {
+		return InMemory(func() ([]byte, error) { return make([]byte, size), nil })
 	}
 	v1, err := c.get("m", "v1", load(10), func(*entry, []byte) {})
 	if err != nil {
@@ -169,11 +172,11 @@ func TestCacheKeepsOldVersionWhileNewLoads(t *testing.T) {
 	var wg sync.WaitGroup
 	var v2 *entry
 	wg.Go(func() {
-		v2, _ = c.get("m", "v2", func() ([]byte, error) {
+		v2, _ = c.get("m", "v2", InMemory(func() ([]byte, error) {
 			close(started)
 			<-release
 			return make([]byte, 20), nil
-		}, func(*entry, []byte) {})
+		}), func(*entry, []byte) {})
 	})
 	<-started
 	// v1 still answers while v2 loads, and nobody waits for v2.
@@ -212,5 +215,133 @@ func TestComputeBudgetAt(t *testing.T) {
 		if got := ComputeBudgetAt(c.l, c.normal); got != c.want {
 			t.Errorf("ComputeBudgetAt(%v, %d) = %d, want %d", c.l, c.normal, got, c.want)
 		}
+	}
+}
+
+// forget drops e if it is still the entry, loaded or loading, for id.
+func (c *Cache) forget(id string, e *entry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.forgetLocked(id, e)
+}
+
+// closing counts how often weights were closed.
+type closing struct {
+	bytesWeights
+	closed *int
+}
+
+func (c closing) Close() error { *c.closed++; return nil }
+
+// A model dropped from the cache closes its weights once nothing runs it:
+// not while a request holds it, and not while a batch of it is running,
+// even one whose asker has gone.
+func TestCacheClosesDroppedWeightsAfterLastUse(t *testing.T) {
+	c := NewCache(0)
+	closed := 0
+	load := func() (Weights, error) { return closing{make(bytesWeights, 10), &closed}, nil }
+	e, err := c.get("m", "v1", load, func(*entry, []byte) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Forget("m")
+	if closed != 0 {
+		t.Fatal("closed while a request held the model")
+	}
+	c.release(e)
+	if closed != 1 {
+		t.Fatalf("closed %d times after the last release, want 1", closed)
+	}
+	c.release(e) // a second drop of the same entry must not close it again
+	c.Forget("m")
+	if closed != 1 {
+		t.Fatalf("closed %d times, want 1", closed)
+	}
+
+	// A batch runner holds the model for the batch it runs.
+	closed = 0
+	running := make(chan struct{})
+	finish := make(chan struct{})
+	e, err = c.get("b", "v1", load, func(e *entry, _ []byte) {
+		run := func(context.Context, []float32, int) ([][]float32, error) {
+			close(running)
+			<-finish
+			return [][]float32{{1}}, nil
+		}
+		e.batch = newBatcher(run, "test", 0, func() Batching { return DefaultBatching }, func() Observer { return nil }, c.holder(e))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { _, err := e.batch.ask(ctx, []float32{1}); done <- err }()
+	<-running
+	cancel() // the asker gives up while its question runs
+	if err := <-done; err == nil {
+		t.Fatal("asker did not see its cancel")
+	}
+	c.release(e)
+	c.Forget("b")
+	if closed != 0 {
+		t.Fatal("closed while a batch was running")
+	}
+	close(finish)
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		c.mu.Lock()
+		n := closed
+		c.mu.Unlock()
+		if n == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("closed %d times after the batch finished, want 1", n)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// Forgetting a model while it loads leaves the loader alone: the entry
+// serves the request that was loading it and closes once that lets go.
+func TestCacheForgetWhileLoading(t *testing.T) {
+	c := NewCache(0)
+	closed := 0
+	loading := make(chan struct{})
+	finish := make(chan struct{})
+	load := func() (Weights, error) { return closing{make(bytesWeights, 10), &closed}, nil }
+	build := func(*entry, []byte) {
+		close(loading)
+		<-finish
+	}
+	type got struct {
+		e   *entry
+		err error
+	}
+	done := make(chan got, 1)
+	go func() {
+		e, err := c.get("m", "v1", load, build)
+		done <- got{e, err}
+	}()
+	<-loading
+	c.Forget("m")
+	close(finish)
+	g := <-done
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	if closed != 0 {
+		t.Fatal("closed while the request that loaded it still held it")
+	}
+	c.release(g.e)
+	if closed != 1 {
+		t.Fatalf("closed %d times after the last release, want 1", closed)
+	}
+	c.mu.Lock()
+	_, pending := c.pending["m"]
+	_, loaded := c.loaded["m"]
+	c.mu.Unlock()
+	if pending || loaded {
+		t.Fatal("a forgotten model is still in the cache")
 	}
 }

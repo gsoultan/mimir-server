@@ -311,6 +311,7 @@ func (s *Service) score(ctx context.Context, b store.Benchmark, m store.Model) (
 		return nil, err.Error()
 	}
 	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
+	open := func() (runtime.Weights, error) { return s.store.OpenWeights(m.ID) }
 	fields := map[string]string{}
 	for {
 		row, err := cr.Read()
@@ -334,7 +335,7 @@ func (s *Service) score(ctx context.Context, b store.Benchmark, m store.Model) (
 		if err != nil {
 			return nil, ask.Reason(err)
 		}
-		out, err := s.answer(ctx, m, a, spec, load, input)
+		out, err := s.answer(ctx, m, a, spec, load, open, input)
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil, fmt.Sprintf("Scoring took longer than %v and was stopped.", scoreTimeout)
@@ -363,7 +364,7 @@ func (s *Service) score(ctx context.Context, b store.Benchmark, m store.Model) (
 }
 
 // answer runs a model on one input, on a worker or here, as Predict does.
-func (s *Service) answer(ctx context.Context, m store.Model, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), input []float32) (runtime.Result, error) {
+func (s *Service) answer(ctx context.Context, m store.Model, a arch.Architecture, spec arch.Spec, load func() ([]byte, error), open runtime.Loader, input []float32) (runtime.Result, error) {
 	pin, pinned := m.PinnedWorker()
 	if s.Pool != nil && (!s.Local || pinned || a.Custom) {
 		r, _, ran, err := s.Pool.Predict(ctx, m.ID, m.WeightsVersion(), pin, a, spec, load, input)
@@ -374,7 +375,7 @@ func (s *Service) answer(ctx context.Context, m store.Model, a arch.Architecture
 	if pinned || a.Custom || !s.Local {
 		return runtime.Result{}, errors.New("no worker that can run it is connected")
 	}
-	return s.cache.Predict(ctx, m.ID, m.WeightsVersion(), a, spec, load, input)
+	return s.cache.Predict(ctx, m.ID, m.WeightsVersion(), a, spec, open, input)
 }
 
 // reads reports whether model m reads column name.

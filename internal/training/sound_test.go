@@ -87,7 +87,7 @@ func TestSoundsTrainAndAnswer(t *testing.T) {
 		if len(in) != schema.SoundSamples {
 			t.Fatalf("%d samples", len(in))
 		}
-		out, err := cache.Predict(ctx, "m", "1", a, res.Spec, load, in)
+		out, err := cache.Predict(ctx, "m", "1", a, res.Spec, runtime.InMemory(load), in)
 		if err != nil {
 			t.Fatal(err)
 		}

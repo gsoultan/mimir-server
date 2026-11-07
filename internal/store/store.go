@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gsoultan/mimir-server/internal/mapfile"
 	"github.com/gsoultan/storm"
 	"github.com/gsoultan/storm/migrate"
 	"github.com/gsoultan/storm/runtime"
@@ -679,7 +680,19 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// Weights returns a model's weights file.
+// OpenWeights maps a model's weights file into memory, for a model loaded
+// here: the pages come from the file as the model touches them, stay out
+// of the Go heap, and the system can drop them again whenever it needs
+// the memory. The caller closes it once the model goes.
+func (s *Store) OpenWeights(id string) (*mapfile.File, error) {
+	f, err := mapfile.Open(s.path(id))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, ErrNotFound
+	}
+	return f, err
+}
+
+// Weights returns a model's weights file, read whole, for sending it on.
 func (s *Store) Weights(id string) ([]byte, error) {
 	b, err := os.ReadFile(s.path(id))
 	if errors.Is(err, fs.ErrNotExist) {

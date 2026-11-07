@@ -546,6 +546,9 @@ func (s *Service) DeleteModel(ctx context.Context, req *connect.Request[mimirv1.
 	if len(tunes) > 0 {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("%s has fine-tunes that run on it, such as %s. Delete them first.", m.Name, tunes[0].Name))
 	}
+	// Let the model go first: its weights file is mapped while it is
+	// loaded, and some systems refuse to delete a mapped file.
+	s.cache.Forget(id)
 	err = s.store.Delete(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, notFound(id)
@@ -553,7 +556,6 @@ func (s *Service) DeleteModel(ctx context.Context, req *connect.Request[mimirv1.
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
-	s.cache.Forget(id)
 	if s.Pool != nil {
 		s.Pool.Forget(id, "")
 	}
@@ -606,6 +608,7 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		}
 	}
 	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
+	open := func() (runtime.Weights, error) { return s.store.OpenWeights(m.ID) }
 	timeout := s.PredictTimeout
 	if timeout <= 0 {
 		timeout = DefaultPredictTimeout
@@ -640,7 +643,7 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		if !s.Local {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
 		}
-		r, err2 = s.cache.Predict(pctx, m.ID, m.WeightsVersion(), a, spec, load, input)
+		r, err2 = s.cache.Predict(pctx, m.ID, m.WeightsVersion(), a, spec, open, input)
 	}
 	switch {
 	case err2 != nil && ctx.Err() != nil:
