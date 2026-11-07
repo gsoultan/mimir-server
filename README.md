@@ -486,6 +486,11 @@ it ("yes or no; 23 of 100 rows say yes") or why it can't be the answer: an
 ID, a date, free text, an empty column or one with a single value. The same
 look is given to the rows a database query or a storage bucket returns.
 
+When a table has a date column, such as `order_date`, the rows held out
+to score a model are the latest ones, not random ones, so its accuracy is
+what to expect when it learns from the past and answers the future. The
+data check says so.
+
 When data comes in, the server checks it against the template before
 anything runs: which columns were found, the answer column and how its
 answers are spread, empty or unreadable cells, too few rows, missing

@@ -135,3 +135,14 @@ func TestAlikeAnswers(t *testing.T) {
 		t.Errorf("no note on alike answers in\n%s", got)
 	}
 }
+
+func TestLatestRowsNote(t *testing.T) {
+	var csv strings.Builder
+	csv.WriteString("order_date,segment,won\n")
+	for i := range 60 {
+		fmt.Fprintf(&csv, "2025-03-%02d,%s,%s\n", 1+i%28, []string{"a", "b"}[i%2], []string{"yes", "no"}[i%3/2])
+	}
+	if got := notes(t, csv.String()); !strings.Contains(got, "Scored on the latest rows by order_date.") {
+		t.Errorf("no note on the latest rows in\n%s", got)
+	}
+}

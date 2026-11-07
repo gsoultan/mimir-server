@@ -1,9 +1,9 @@
 import {
-  IconBox, IconDeviceLaptop, IconFileText, IconHome, IconListCheck, IconMessageCircle, IconPlugConnected, IconSchool, IconSettings, IconSparkles, IconTrophy, IconUsers,
+  IconBox, IconDeviceLaptop, IconInfoCircle, IconFileText, IconHome, IconListCheck, IconMessageCircle, IconPlugConnected, IconSchool, IconSettings, IconSparkles, IconTrophy, IconUsers,
   type Icon,
 } from "@tabler/icons-react";
 
-export type NavTo = "/" | "/models" | "/try" | "/device" | "/training" | "/scoring" | "/documents" | "/benchmarks" | "/models/build" | "/apps" | "/users" | "/settings";
+export type NavTo = "/" | "/models" | "/try" | "/device" | "/training" | "/scoring" | "/documents" | "/benchmarks" | "/models/build" | "/apps" | "/users" | "/settings" | "/about";
 
 // needs is the permission a person must have to see the item. also lists
 // other paths that light the item up, like templates under Build.
@@ -39,8 +39,11 @@ const extra: NavItem[] = [
 
 export const deviceItem: NavItem = { to: "/device", label: "On this device", short: "Device", icon: IconDeviceLaptop };
 
+// In the account menu: version, author and license.
+export const aboutItem: NavItem = { to: "/about", label: "About mimir", short: "About", icon: IconInfoCircle };
+
 // The flat list, for search.
-export const nav: NavItem[] = [...groups.flatMap((g) => g.items), ...extra, settingsItem, deviceItem];
+export const nav: NavItem[] = [...groups.flatMap((g) => g.items), ...extra, settingsItem, deviceItem, aboutItem];
 
 export function isActive(path: string, item: NavItem) {
   const match = (to: string) => (to === "/" ? path === "/" : path === to || path.startsWith(to + "/"));

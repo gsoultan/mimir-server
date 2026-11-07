@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
+	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/training"
 )
@@ -145,6 +146,10 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 	}
 
 	rowsNote(c, t, int64(tab.Rows), "rows")
+	if tab.DateColumn != "" && !cellsModel(t) {
+		c.note(info, fmt.Sprintf("Scored on the latest rows by %s.", tab.DateColumn),
+			"The rows held out to score the model are the most recent ones, not random ones, so its accuracy is what to expect when it learns from the past and answers the future.")
+	}
 	if tab.Skipped > 0 {
 		c.note(info, plural(tab.Skipped, "row has", "rows have")+" no answer.", "They are left out.")
 	}
@@ -441,4 +446,14 @@ func quoteJoin(vs []string) string {
 		return q[0]
 	}
 	return strings.Join(q[:len(q)-1], ", ") + " and " + q[len(q)-1]
+}
+
+// cellsModel reports whether t's model type reads the table's cells
+// itself, holding out rows its own way.
+func cellsModel(t *Template) bool {
+	if t == nil {
+		return false
+	}
+	a, ok := arch.Lookup(t.Architecture())
+	return ok && a.Learner != nil && a.Learner.Cells != nil
 }

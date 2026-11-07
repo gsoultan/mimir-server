@@ -20,6 +20,7 @@ export const getModel = (id: string) => createQueryOptions(ModelService.method.g
 export const modelQuality = (modelId: string) => createQueryOptions(ModelService.method.getModelQuality, { modelId }, { transport });
 export const modelVersions = (modelId: string) => createQueryOptions(ModelService.method.listModelVersions, { modelId }, { transport });
 
+export const getAbout = createQueryOptions(SettingsService.method.getAbout, {}, { transport });
 export const setupState = createQueryOptions(AuthService.method.getSetupState, {}, { transport });
 export const whoAmI = createQueryOptions(AuthService.method.whoAmI, {}, { transport });
 export const listSessions = createQueryOptions(AuthService.method.listSessions, {}, { transport });

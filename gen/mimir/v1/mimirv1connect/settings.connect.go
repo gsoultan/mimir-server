@@ -60,6 +60,9 @@ const (
 	// SettingsServiceGetDatabaseInfoProcedure is the fully-qualified name of the SettingsService's
 	// GetDatabaseInfo RPC.
 	SettingsServiceGetDatabaseInfoProcedure = "/mimir.v1.SettingsService/GetDatabaseInfo"
+	// SettingsServiceGetAboutProcedure is the fully-qualified name of the SettingsService's GetAbout
+	// RPC.
+	SettingsServiceGetAboutProcedure = "/mimir.v1.SettingsService/GetAbout"
 )
 
 // SettingsServiceClient is a client for the mimir.v1.SettingsService service.
@@ -78,6 +81,9 @@ type SettingsServiceClient interface {
 	// caller's own for everyone else.
 	GetUsage(context.Context, *connect.Request[v1.GetUsageRequest]) (*connect.Response[v1.GetUsageResponse], error)
 	GetDatabaseInfo(context.Context, *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error)
+	// GetAbout says which version of mimir-server runs and what it is built
+	// on, for the About page. Anyone signed in may call it.
+	GetAbout(context.Context, *connect.Request[v1.GetAboutRequest]) (*connect.Response[v1.GetAboutResponse], error)
 }
 
 // NewSettingsServiceClient constructs a client for the mimir.v1.SettingsService service. By
@@ -148,6 +154,13 @@ func NewSettingsServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getAbout: connect.NewClient[v1.GetAboutRequest, v1.GetAboutResponse](
+			httpClient,
+			baseURL+SettingsServiceGetAboutProcedure,
+			connect.WithSchema(settingsServiceMethods.ByName("GetAbout")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -162,6 +175,7 @@ type settingsServiceClient struct {
 	updateTraining  *connect.Client[v1.UpdateTrainingRequest, v1.UpdateTrainingResponse]
 	getUsage        *connect.Client[v1.GetUsageRequest, v1.GetUsageResponse]
 	getDatabaseInfo *connect.Client[v1.GetDatabaseInfoRequest, v1.GetDatabaseInfoResponse]
+	getAbout        *connect.Client[v1.GetAboutRequest, v1.GetAboutResponse]
 }
 
 // GetSettings calls mimir.v1.SettingsService.GetSettings.
@@ -209,6 +223,11 @@ func (c *settingsServiceClient) GetDatabaseInfo(ctx context.Context, req *connec
 	return c.getDatabaseInfo.CallUnary(ctx, req)
 }
 
+// GetAbout calls mimir.v1.SettingsService.GetAbout.
+func (c *settingsServiceClient) GetAbout(ctx context.Context, req *connect.Request[v1.GetAboutRequest]) (*connect.Response[v1.GetAboutResponse], error) {
+	return c.getAbout.CallUnary(ctx, req)
+}
+
 // SettingsServiceHandler is an implementation of the mimir.v1.SettingsService service.
 type SettingsServiceHandler interface {
 	GetSettings(context.Context, *connect.Request[v1.GetSettingsRequest]) (*connect.Response[v1.GetSettingsResponse], error)
@@ -225,6 +244,9 @@ type SettingsServiceHandler interface {
 	// caller's own for everyone else.
 	GetUsage(context.Context, *connect.Request[v1.GetUsageRequest]) (*connect.Response[v1.GetUsageResponse], error)
 	GetDatabaseInfo(context.Context, *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error)
+	// GetAbout says which version of mimir-server runs and what it is built
+	// on, for the About page. Anyone signed in may call it.
+	GetAbout(context.Context, *connect.Request[v1.GetAboutRequest]) (*connect.Response[v1.GetAboutResponse], error)
 }
 
 // NewSettingsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -291,6 +313,13 @@ func NewSettingsServiceHandler(svc SettingsServiceHandler, opts ...connect.Handl
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	settingsServiceGetAboutHandler := connect.NewUnaryHandler(
+		SettingsServiceGetAboutProcedure,
+		svc.GetAbout,
+		connect.WithSchema(settingsServiceMethods.ByName("GetAbout")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.SettingsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SettingsServiceGetSettingsProcedure:
@@ -311,6 +340,8 @@ func NewSettingsServiceHandler(svc SettingsServiceHandler, opts ...connect.Handl
 			settingsServiceGetUsageHandler.ServeHTTP(w, r)
 		case SettingsServiceGetDatabaseInfoProcedure:
 			settingsServiceGetDatabaseInfoHandler.ServeHTTP(w, r)
+		case SettingsServiceGetAboutProcedure:
+			settingsServiceGetAboutHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -354,4 +385,8 @@ func (UnimplementedSettingsServiceHandler) GetUsage(context.Context, *connect.Re
 
 func (UnimplementedSettingsServiceHandler) GetDatabaseInfo(context.Context, *connect.Request[v1.GetDatabaseInfoRequest]) (*connect.Response[v1.GetDatabaseInfoResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.GetDatabaseInfo is not implemented"))
+}
+
+func (UnimplementedSettingsServiceHandler) GetAbout(context.Context, *connect.Request[v1.GetAboutRequest]) (*connect.Response[v1.GetAboutResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.GetAbout is not implemented"))
 }
