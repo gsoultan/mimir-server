@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gsoultan/mimir-server/internal/store"
@@ -16,6 +17,13 @@ func TestPassword(t *testing.T) {
 	}
 	if _, err := HashPassword("short"); err != ErrWeakPassword {
 		t.Fatalf("weak: %v", err)
+	}
+	long := strings.Repeat("a", MaxPassword+1)
+	if _, err := HashPassword(long); err != ErrLongPassword {
+		t.Fatalf("long: %v", err)
+	}
+	if CheckPassword(h, long) {
+		t.Fatal("CheckPassword took a password past MaxPassword")
 	}
 }
 

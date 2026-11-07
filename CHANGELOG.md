@@ -15,6 +15,15 @@
 - **Find groups** also tries Ward's hierarchical clustering on tables of
   up to 4,000 rows, and keeps whichever grouping sits best by silhouette.
 
+### About page
+
+- A new About page, opened from the account menu ("About mimir") or
+  search, shows the version, commit, build date, Go version, database
+  schema and connected workers, with "Copy version details" for bug
+  reports. It also says what mimir is, who made it, the mimir projects it
+  is built on, how it is licensed, and every package compiled in.
+  `SettingsService.GetAbout` serves it to anyone signed in.
+
 ### Linux packages
 
 - Releases have `.deb`, `.rpm`, Arch and Alpine packages for amd64 and

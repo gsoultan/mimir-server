@@ -14,6 +14,7 @@ import { Route as DeviceRouteImport } from './routes/device'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAboutRouteImport } from './routes/_app/about'
 import { Route as AppAppsRouteImport } from './routes/_app/apps'
 import { Route as AppSecurityRouteImport } from './routes/_app/security'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
@@ -62,6 +63,11 @@ const SignInRoute = SignInRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAboutRoute = AppAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAppsRoute = AppAppsRouteImport.update({
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/device': typeof DeviceRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
+  '/about': typeof AppAboutRoute
   '/apps': typeof AppAppsRoute
   '/security': typeof AppSecurityRoute
   '/settings': typeof AppSettingsRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByTo {
   '/device': typeof DeviceRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
+  '/about': typeof AppAboutRoute
   '/apps': typeof AppAppsRoute
   '/security': typeof AppSecurityRoute
   '/settings': typeof AppSettingsRoute
@@ -258,6 +266,7 @@ export interface FileRoutesById {
   '/device': typeof DeviceRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
+  '/_app/about': typeof AppAboutRoute
   '/_app/apps': typeof AppAppsRoute
   '/_app/security': typeof AppSecurityRoute
   '/_app/settings': typeof AppSettingsRoute
@@ -292,6 +301,7 @@ export interface FileRouteTypes {
     | '/device'
     | '/setup'
     | '/sign-in'
+    | '/about'
     | '/apps'
     | '/security'
     | '/settings'
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/device'
     | '/setup'
     | '/sign-in'
+    | '/about'
     | '/apps'
     | '/security'
     | '/settings'
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/device'
     | '/setup'
     | '/sign-in'
+    | '/_app/about'
     | '/_app/apps'
     | '/_app/security'
     | '/_app/settings'
@@ -424,6 +436,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/about': {
+      id: '/_app/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AppAboutRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/apps': {
@@ -605,6 +624,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAboutRoute: typeof AppAboutRoute
   AppAppsRoute: typeof AppAppsRoute
   AppSecurityRoute: typeof AppSecurityRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -634,6 +654,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAboutRoute: AppAboutRoute,
   AppAppsRoute: AppAppsRoute,
   AppSecurityRoute: AppSecurityRoute,
   AppSettingsRoute: AppSettingsRoute,

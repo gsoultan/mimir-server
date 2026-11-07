@@ -11,7 +11,7 @@ import { useMemo } from "react";
 import { message } from "../api/client";
 import { AuthService } from "../api/gen/mimir/v1/access_pb";
 import { listModels, setupState, whoAmI } from "../api/queries";
-import { deviceItem, groups, isActive, nav, settingsItem, type NavItem } from "../components/nav";
+import { aboutItem, deviceItem, groups, isActive, nav, settingsItem, type NavItem } from "../components/nav";
 import { ChangePasswordModal } from "../components/ChangePasswordModal";
 import { roleLabel } from "../lib/roles";
 
@@ -274,6 +274,8 @@ function AccountItems({ email, team, onPassword, onSignOut }: { email: string; t
         <Menu.Item key={l.value} leftSection={<l.icon size={16} />} onClick={() => setColorScheme(l.value)}
           rightSection={colorScheme === l.value ? <Text size="xs" c="teal" fw={700}>On</Text> : null}>{l.label}</Menu.Item>
       ))}
+      <Menu.Divider />
+      <Menu.Item component={Link} to="/about" leftSection={<aboutItem.icon size={16} />}>About mimir</Menu.Item>
       <Menu.Divider />
       <Menu.Item leftSection={<IconLogout size={16} />} onClick={onSignOut}>Sign out</Menu.Item>
     </Menu.Dropdown>

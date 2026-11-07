@@ -24,7 +24,7 @@ require (
 	github.com/modal-labs/modal-client/go v0.11.1
 	github.com/prometheus/client_golang v1.25.0
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.60.0
+	golang.org/x/net v0.62.0
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/sync v0.24.0
 	google.golang.org/protobuf v1.36.12

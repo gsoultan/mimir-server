@@ -298,7 +298,7 @@ func TestCrossSiteAndHeaders(t *testing.T) {
 		t.Fatal(err)
 	}
 	res.Body.Close()
-	for k, want := range map[string]string{"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff"} {
+	for k, want := range map[string]string{"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Resource-Policy": "same-origin"} {
 		if got := res.Header.Get(k); got != want {
 			t.Fatalf("%s = %q", k, got)
 		}
@@ -347,6 +347,23 @@ func TestCrossSiteAndHeaders(t *testing.T) {
 	}
 	if _, err := tls.auth.WhoAmI(ctx, connect.NewRequest(&mimirv1.WhoAmIRequest{})); err != nil {
 		t.Fatalf("secure cookie: %v", err)
+	}
+
+	// Over HTTPS only the __Host- cookie signs anyone in. A plain-named
+	// one, which a subdomain or a plain-HTTP page could have planted to
+	// sign the browser in to an account of the planter's choosing, reads
+	// as signed out.
+	planted := newClients(srv, withHeader("X-Forwarded-Proto", "https"))
+	planted.jar.cookie = "mimir_session=" + strings.TrimPrefix(tls.jar.cookie, "__Host-mimir_session=")
+	if _, err := planted.auth.WhoAmI(ctx, connect.NewRequest(&mimirv1.WhoAmIRequest{})); code(err) != connect.CodeUnauthenticated {
+		t.Fatalf("plain cookie over https: %v", err)
+	}
+	// Over plain HTTP it still counts, as it did before: no browser sends
+	// a Secure cookie there, so the plain one is the only one there is.
+	plain := newClients(srv)
+	plain.jar.cookie = planted.jar.cookie
+	if _, err := plain.auth.WhoAmI(ctx, connect.NewRequest(&mimirv1.WhoAmIRequest{})); err != nil {
+		t.Fatalf("plain cookie over http: %v", err)
 	}
 }
 
