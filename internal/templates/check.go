@@ -179,7 +179,7 @@ func CheckTable(t *Template, tab *training.Table, match map[string]string, missi
 	}
 	// A ranked answer is a list of many items or actions, each rarer than
 	// a class would be, so only a class answer is checked for balance.
-	if t == nil || t.Kind != Number && t.Kind != Ranked {
+	if t == nil || t.Kind != Number && t.Kind != Ranked && t.Architecture() != "multi-label" {
 		if tab.Classes != nil {
 			low := counts[len(counts)-1]
 			switch {

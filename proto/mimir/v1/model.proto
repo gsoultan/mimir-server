@@ -320,6 +320,9 @@ message Architecture {
   // column says who), or "value" a value over time to forecast (a date
   // column says when).
   string target = 13;
+  // algorithm names the method it learns with, in a data scientist's
+  // words; empty for someone's own model type.
+  string algorithm = 14;
 }
 
 // Column is one column a model reads and how it becomes numbers.
@@ -529,6 +532,15 @@ message PredictResponse {
   string prediction_id = 7;
   // boxes are the things a model that finds things found, surest first.
   repeated Box boxes = 8;
+  // values are every number of a model that answers with several, in
+  // the order of its labels; value is the first.
+  repeated NamedValue values = 9;
+}
+
+// NamedValue is one of several numbers a model answers with.
+message NamedValue {
+  string label = 1;
+  double value = 2;
 }
 
 message GenerateRequest {

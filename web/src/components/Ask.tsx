@@ -82,6 +82,7 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
   // A custom model's own code reads its columns as numbers, in order.
   const inOrder = !!arch?.custom && model.columns.length === 0;
   const ranked = arch?.output === "ranked";
+  const several = arch?.output === "numbers";
   const topK = ranked ? Math.max(Math.min(arch.items, model.labels.length), 1) : 3;
   const filled = wantsSound ? !!sound : raw
     ? rawValues.length === want && rawValues.every(Number.isFinite)
@@ -186,8 +187,18 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
           </Card>
         ) : predict.data?.number ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
-            <Text c="dimmed" size="sm">The model&apos;s answer</Text>
+            <Text c="dimmed" size="sm">{several ? model.labels[0] : "The model\u2019s answer"}</Text>
             <Title order={2} fz={40} className="font-[family-name:var(--font-display)]">{(predict.data.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Title>
+            {several && (predict.data.values?.length ?? 0) > 1 && (
+              <Stack gap={4} mt="xs">
+                {predict.data.values!.map((v, i) => (
+                  <Group key={model.labels[i] ?? i} justify="space-between" wrap="nowrap" gap="sm">
+                    <Text size="sm">{model.labels[i]}</Text>
+                    <Text size="sm" fw={600} ff="monospace">{/^chance/.test(model.labels[i] ?? "") || arch?.name === "multi-label" ? `${Math.round(v * 100)}%` : v.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
+                  </Group>
+                ))}
+              </Stack>
+            )}
             {arch?.name === "odd-one" && (
               <Text c="dimmed">{(predict.data.value ?? 0) >= 0.6 ? "Unusual: unlike most of what it learned from." : "Usual: like what it learned from."} Scores run from 0 to 1.</Text>
             )}
@@ -226,7 +237,7 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
           </Card>
         ) : (
           <Card withBorder radius="lg" padding="lg" className="border-dashed">
-            <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : wantsSound ? "Pick a sound" : "Fill in the details"}, then press "What is it?". ${finds ? `The answer draws a box around each ${model.labels.slice(0, 12).join(", ")} it finds.` : arch?.output === "number" ? "The answer will be a number." : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
+            <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : wantsSound ? "Pick a sound" : "Fill in the details"}, then press "What is it?". ${finds ? `The answer draws a box around each ${model.labels.slice(0, 12).join(", ")} it finds.` : arch?.output === "number" ? "The answer will be a number." : several ? `The answer will be a number for each of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.` : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
           </Card>
         )}
       </Stack>

@@ -424,6 +424,36 @@ var learned = []Architecture{
 		Input:       Table, AnyText: true, Learner: survival,
 	},
 	{
+		Name:        "look-alike",
+		Title:       "Look-alike leads",
+		Description: "Learns what sets your best customers apart, from a yes or no column that marks them, and scores any customer or lead from 0 to 100 by how alike it is: 50 is as alike as a typical best customer, 100 as alike as the closest. Score a list of leads to visit the most alike first. It is scored by how often a best customer it didn't learn from scores above another: 0.5 is guessing and 1 is always right.",
+		Input:       Table, AnyText: true, Output: Several, Learner: lookAlike,
+	},
+	{
+		Name:        "multi-label",
+		Title:       "Several answers at once",
+		Description: "Learns from a column that lists each row's answers, like snacks; drinks; dairy, the chance of each one apart from the others: every product line a customer will likely buy this quarter, say. It is scored by how well it ranks the rows that have each answer above those that don't: 0.5 is guessing and 1 is always right.",
+		Input:       Table, AnyText: true, Output: Several, Learner: multiLabel,
+	},
+	{
+		Name:        "discount-response",
+		Title:       "Chance of closing at each discount",
+		Description: "Learns from past deals, their discount and whether each closed, how the chance of closing moves with the discount, and gives it for every discount level, with the discount that keeps the most revenue. It learns from discounts given in the past, so it shows how deals like this went, not a controlled test. It is scored by how well it ranks deals that closed above those that didn't: 0.5 is guessing and 1 is always right.",
+		Input:       Table, AnyText: true, Output: Several, Learner: discountResponse,
+	},
+	{
+		Name:        "number-range",
+		Title:       "A range for a number",
+		Description: "Answers a number with a range it likely falls in, like 40 to 70 units, most likely 55, and the range is wider where the data is less sure. It aims for 8 in 10 real values inside the range, and is scored by the share of rows it didn't learn from that were.",
+		Input:       Table, AnyText: true, Output: Several, NumberTarget: true, Learner: numberRange,
+	},
+	{
+		Name:        "find-duplicates",
+		Title:       "Find duplicate accounts",
+		Description: "Reads a table of accounts, each with an id and a name, and finds for any account or new lead the ones that are likely the same business written another way, like PT Maju Jaya and Maju Jaya, PT. It ignores case, word order, punctuation and legal forms, counts rare words more than common ones, and compares addresses, phones and emails too when there are columns for them.",
+		Input:       Table, AnyText: true, Output: Ranked, Items: recommendTop, Target: NoTarget, Learner: duplicates,
+	},
+	{
 		Name:        "forecast",
 		Title:       "Forecast over time",
 		Description: "Learns from a value's history, one row per day, hour, week or month, and says what comes next, up to a month of days ahead. With a column like store, it forecasts each one, and their total.",

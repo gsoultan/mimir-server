@@ -1,13 +1,13 @@
 import { useMutation } from "@connectrpc/connect-query";
 import { Alert, Badge, Button, Card, Code, CopyButton, Group, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { IconAlertCircle, IconArrowLeft, IconCheck, IconCopy, IconDownload, IconPhoto } from "@tabler/icons-react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { message } from "../../../api/client";
 import { TemplateService, type Template } from "../../../api/gen/mimir/v1/template_pb";
-import { listTemplates } from "../../../api/queries";
+import { listArchitectures, listTemplates } from "../../../api/queries";
 import { AnchorLink, ButtonLink } from "../../../components/links";
 import { categoryColor, columnKinds, download, kindColor, kindLabel } from "../../../lib/templates";
 
@@ -31,6 +31,7 @@ function Detail() {
     onSuccess: (res) => download(res.fileName, res.contentType, res.data),
   });
   const unit = photos ? "photos per answer" : "rows";
+  const algo = useQuery(listArchitectures).data?.architectures.find((a) => a.name === t.architecture);
 
   return (
     <Stack gap="lg" className="mx-auto w-full max-w-6xl">
@@ -75,6 +76,15 @@ function Detail() {
             </Stack>
             <Text size="sm" c="dimmed" mt="sm">{t.balance}</Text>
           </Card>
+          {algo && (
+            <Card withBorder radius="lg" padding="lg">
+              <Title order={2} fz="lg">How it learns</Title>
+              <Text fw={600} size="sm" mt="sm">{algo.title}</Text>
+              {algo.algorithm && <Text size="sm" mt={4}>{algo.algorithm}</Text>}
+              <Text size="sm" c="dimmed" mt="xs">{algo.description}</Text>
+              <Text size="xs" c="dimmed" mt="xs">You can pick another model type when you teach.</Text>
+            </Card>
+          )}
           <Card withBorder radius="lg" padding="lg">
             <Title order={2} fz="lg">Ready to try it?</Title>
             <Stack gap="sm" mt="sm">

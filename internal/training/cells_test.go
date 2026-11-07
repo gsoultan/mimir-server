@@ -201,6 +201,15 @@ func TestCellsArchitectures(t *testing.T) {
 	if slices.Contains(got, "forecast") || !slices.Contains(got, "recommend") || slices.Contains(got, "table-boost") {
 		t.Errorf("a table of many text answers offers %v", got)
 	}
+	// A range needs a number to answer; look-alike, answers to pick from.
+	got = Architectures(store.Dataset{Kind: store.DatasetTable, Labels: []string{"no", "yes"}})
+	if slices.Contains(got, "number-range") || !slices.Contains(got, "look-alike") || !slices.Contains(got, "discount-response") {
+		t.Errorf("a yes or no table offers %v", got)
+	}
+	got = Architectures(store.Dataset{Kind: store.DatasetTable, NumberTarget: true})
+	if !slices.Contains(got, "number-range") || slices.Contains(got, "look-alike") {
+		t.Errorf("a table of numbers offers %v", got)
+	}
 }
 
 func TestBestAction(t *testing.T) {

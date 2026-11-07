@@ -14,7 +14,7 @@ import (
 
 func TestCatalog(t *testing.T) {
 	cats, tpls := All()
-	if len(tpls) != 53 || len(cats) != 8 {
+	if len(tpls) != 58 || len(cats) != 8 {
 		t.Fatalf("%d templates in %d categories", len(tpls), len(cats))
 	}
 	seen := map[string]bool{}
@@ -168,6 +168,15 @@ func TestTeach(t *testing.T) {
 		// Guessing the usual success rate for every step is off by about
 		// 0.46.
 		{id: "lead-next-step", epoch: 1, mae: 0.42},
+		// How often a best customer scores above another row.
+		{id: "lookalike-leads", epoch: 1, want: 0.7},
+		// How well each product line's chance ranks the rows with it.
+		{id: "product-lines-next-quarter", epoch: 1, want: 0.75},
+		// How well the chance of closing ranks won deals above lost ones.
+		{id: "discount-to-close", epoch: 1, want: 0.7},
+		// The share of held-out orders inside their range, aiming at 0.8.
+		{id: "order-range", epoch: 1, want: 0.72},
+		{id: "duplicate-accounts", epoch: 1},
 	} {
 		t.Run(c.id, func(t *testing.T) {
 			tp, ok := Get(c.id)

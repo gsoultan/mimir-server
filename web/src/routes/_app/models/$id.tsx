@@ -91,7 +91,7 @@ function ModelDetails() {
   const grpc = `grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \\
   -d '${request("model_id")}' \\
   ${location.host} mimir.v1.PredictService/${method}`;
-  const answer = arch?.output === "boxes" ? "You get back boxes: each thing found, its score, and where it is as shares of the photo (left, top, width, height)." : number ? "You get back a number in value." : `You get back the likeliest of: ${m.labels.join(", ")}.`;
+  const answer = arch?.output === "boxes" ? "You get back boxes: each thing found, its score, and where it is as shares of the photo (left, top, width, height)." : number ? "You get back a number in value." : arch?.output === "numbers" ? `You get back a number for each of ${m.labels.join(", ")}, in that order, in output; value is the first.` : `You get back the likeliest of: ${m.labels.join(", ")}.`;
 
   const { data: quality } = useQuery(modelQuality(m.id));
   const tab = search.tab ?? "overview";

@@ -448,7 +448,7 @@ usually is.
 
 ### Templates
 
-**Templates** lists 52 business problems across manufacturing, quality
+**Templates** lists 58 business problems across manufacturing, quality
 control, sales, shops, finance, people, logistics and support: "which
 customers won't renew", "is this weld OK", "how much energy will the
 next shift use". Some answer with a ranked list instead of one answer:
@@ -459,7 +459,19 @@ category, and `radius_km`) and the best next step for a lead (**Pick the
 best action**). Sales
 teams also get **Who to visit next**, the chance that each customer or
 lead orders within the next 1 to 30 days, which ranks the accounts to
-visit when scored as a list. Each says exactly what data to bring, with a
+visit when scored as a list. Other model types answer with several
+numbers at once: **Look-alike leads** scores how alike a lead is to your
+best customers, **Several answers at once** gives the chance of each
+product line a customer will buy, **Chance of closing at each discount**
+gives the chance at each discount level and the one that keeps the most
+revenue, and **A range for a number** gives a low, likely and high value
+that holds about 8 in 10 real values. **Find duplicate accounts** lists
+the accounts likely to be the same business written another way.
+
+Each template lists the columns it needs and optional ones that make
+answers more specific, and any other column of the data is used too,
+except by recommenders and forecasts. Its page names the algorithm that
+teaches it, such as gradient-boosted trees. Each says exactly what data to bring, with a
 downloadable made-up example (a CSV, a ZIP of photo folders, or a ZIP
 with `data.csv` and photos) and a starting SQL query. **Use this
 template** opens the wizard with the template filled in; **Try it with

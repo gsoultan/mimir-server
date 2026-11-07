@@ -366,7 +366,7 @@ func scorable(m store.Model) (arch.Architecture, error) {
 		return a, errors.New("it doesn't read table rows")
 	}
 	switch a.Answers() {
-	case arch.Class, arch.Number, arch.Ranked:
+	case arch.Class, arch.Number, arch.Ranked, arch.Several:
 		return a, nil
 	}
 	return a, errors.New("it doesn't answer with a label or a number")
@@ -730,6 +730,12 @@ func (s *Service) score1(ctx context.Context, sc store.Scoring) (store.ScoringRe
 		added = append(added, colConfidence)
 	case arch.Ranked:
 		added = append(added, colSuggestions)
+	case arch.Several:
+		// The first number is the answer; each other has a column of its
+		// own, named after it.
+		for _, l := range spec.Labels[min(1, len(spec.Labels)):] {
+			added = append(added, l)
+		}
 	}
 	added = append(added, colProblem)
 	columns := slices.Clone(header)
@@ -783,6 +789,17 @@ func (s *Service) score1(ctx context.Context, sc store.Scoring) (store.ScoringRe
 				return problem(len(added), "the model gave no answer")
 			}
 			return asked{cells: []string{strconv.FormatFloat(float64(out.Output[0]), 'g', 6, 64), ""}}
+		case arch.Several:
+			if len(out.Output) == 0 {
+				return problem(len(added), "the model gave no answer")
+			}
+			cells := make([]string, len(added))
+			for i := range len(added) - 1 {
+				if i < len(out.Output) {
+					cells[i] = strconv.FormatFloat(float64(out.Output[i]), 'g', 6, 64)
+				}
+			}
+			return asked{cells: cells}
 		case arch.Ranked:
 			k := min(len(spec.Labels), 10)
 			if a.Items > 0 {

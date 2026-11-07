@@ -3228,6 +3228,543 @@
    ]
   },
   {
+   "category": "b2b",
+   "data": "table",
+   "id": "lookalike-leads",
+   "kind": "yes_no",
+   "architecture": "look-alike",
+   "name": "Leads that look like your best customers",
+   "question": "Which leads and small accounts look most like your best customers, so salespeople visit the most promising first?",
+   "predicts": "How alike each customer or lead is to your best customers, from 0 to 100. Score your whole lead list and sort it.",
+   "row_means": "One customer or lead, as it is today.",
+   "source": "CRM accounts, with sales from your ERP or invoices",
+   "source_short": "CRM accounts and sales",
+   "rows_min": 300,
+   "rows_good": 3000,
+   "rows_great": 30000,
+   "balance": "Mark at least 30 best customers yes, for example the top 20% by revenue or margin. Leads you haven't sold to are no.",
+   "table": "accounts",
+   "tips": [
+    "Decide what makes a customer best before you start: revenue, margin, how long they stay, or all three.",
+    "Use only what you also know about a lead: industry, size, area, channel. Leave out sales figures, which leads don't have yet.",
+    "Score the lead list afterwards; anything above 50 is as alike as a typical best customer."
+   ],
+   "columns": [
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "What the business does.",
+     "examples": [
+      "retail",
+      "manufacturing",
+      "horeca"
+     ]
+    },
+    {
+     "name": "company_size",
+     "kind": "category",
+     "meaning": "Employees, in bands.",
+     "examples": [
+      "1-10",
+      "11-50",
+      "51-200"
+     ]
+    },
+    {
+     "name": "territory",
+     "kind": "category",
+     "meaning": "The sales area.",
+     "examples": [
+      "north",
+      "south",
+      "east"
+     ]
+    },
+    {
+     "name": "channel",
+     "kind": "category",
+     "meaning": "How they buy or would buy.",
+     "examples": [
+      "distributor",
+      "direct",
+      "online"
+     ]
+    },
+    {
+     "name": "outlets",
+     "kind": "number",
+     "meaning": "How many shops or sites they run.",
+     "examples": [
+      "1",
+      "3",
+      "12"
+     ]
+    },
+    {
+     "name": "years_in_business",
+     "kind": "number",
+     "meaning": "How long the business has run, in years.",
+     "examples": [
+      "2",
+      "8",
+      "25"
+     ],
+     "optional": true
+    },
+    {
+     "name": "city_tier",
+     "kind": "category",
+     "meaning": "How big their city is.",
+     "examples": [
+      "metro",
+      "city",
+      "town"
+     ],
+     "optional": true
+    },
+    {
+     "name": "has_website",
+     "kind": "yesno",
+     "meaning": "Yes if they have a website.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "best_customer",
+     "kind": "yesno",
+     "meaning": "Yes for your best customers, no for everyone else, leads included.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    }
+   ]
+  },
+  {
+   "category": "b2b",
+   "data": "table",
+   "id": "product-lines-next-quarter",
+   "kind": "group",
+   "architecture": "multi-label",
+   "name": "Product lines each customer will buy",
+   "question": "Which of your product lines will each customer buy next quarter, so salespeople bring the right catalogue and samples?",
+   "predicts": "The chance of each product line, apart from the others, so a customer can get several.",
+   "row_means": "One customer and one quarter: who they were before it, and every line they bought in it.",
+   "source": "ERP sales lines, grouped by customer and quarter",
+   "source_short": "ERP sales by quarter",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Each product line needs at least 10 rows with it and 10 without.",
+   "table": "customer_quarters",
+   "tips": [
+    "Describe the customer as they were before the quarter, and list what they bought during it.",
+    "Separate the lines with a semicolon, like snacks; drinks. A quarter they bought nothing has an empty cell.",
+    "Use product lines or categories, not single products: 5 to 25 of them work best."
+   ],
+   "columns": [
+    {
+     "name": "segment",
+     "kind": "category",
+     "meaning": "What kind of customer.",
+     "examples": [
+      "minimarket",
+      "cafe",
+      "restaurant"
+     ]
+    },
+    {
+     "name": "territory",
+     "kind": "category",
+     "meaning": "The sales area.",
+     "examples": [
+      "north",
+      "south",
+      "east"
+     ]
+    },
+    {
+     "name": "orders_last_q",
+     "kind": "number",
+     "meaning": "Orders in the quarter before.",
+     "examples": [
+      "2",
+      "6",
+      "15"
+     ]
+    },
+    {
+     "name": "revenue_last_q",
+     "kind": "number",
+     "meaning": "What they bought in the quarter before.",
+     "examples": [
+      "1500",
+      "8000",
+      "30000"
+     ]
+    },
+    {
+     "name": "lines_last_q",
+     "kind": "number",
+     "meaning": "How many product lines they bought in the quarter before.",
+     "examples": [
+      "1",
+      "3",
+      "6"
+     ]
+    },
+    {
+     "name": "months_customer",
+     "kind": "number",
+     "meaning": "How long they have bought from you, in months.",
+     "examples": [
+      "3",
+      "20",
+      "60"
+     ],
+     "optional": true
+    },
+    {
+     "name": "visits_last_q",
+     "kind": "number",
+     "meaning": "Sales visits in the quarter before.",
+     "examples": [
+      "0",
+      "2",
+      "6"
+     ],
+     "optional": true
+    },
+    {
+     "name": "product_lines",
+     "kind": "category",
+     "meaning": "Every product line they bought in the quarter, separated by semicolons.",
+     "examples": [
+      "snacks; drinks",
+      "dairy",
+      "drinks; dairy; frozen"
+     ]
+    }
+   ]
+  },
+  {
+   "category": "b2b",
+   "data": "table",
+   "id": "discount-to-close",
+   "kind": "yes_no",
+   "architecture": "discount-response",
+   "name": "Discount needed to close a deal",
+   "question": "How much does a discount raise the chance of winning this deal, and which discount keeps the most revenue?",
+   "predicts": "The chance of closing at each discount, with the discount that keeps the most revenue after what it gives away.",
+   "row_means": "One quote or deal that was won or lost, and the discount offered.",
+   "source": "CRM deals or quotes with their final discount",
+   "source_short": "CRM quotes",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Have deals won and lost at several discounts, at least 30 at each.",
+   "table": "quotes",
+   "tips": [
+    "Use the discount in the final offer, in %.",
+    "Only closed deals: won or lost. Leave out ones still open.",
+    "It learns from what happened, so it can't know why a discount was given. If big discounts went to hard deals, read the effect with care."
+   ],
+   "columns": [
+    {
+     "name": "segment",
+     "kind": "category",
+     "meaning": "What kind of customer.",
+     "examples": [
+      "minimarket",
+      "distributor",
+      "horeca"
+     ]
+    },
+    {
+     "name": "deal_size",
+     "kind": "number",
+     "meaning": "The quote's value before the discount.",
+     "examples": [
+      "2000",
+      "15000",
+      "90000"
+     ]
+    },
+    {
+     "name": "product_line",
+     "kind": "category",
+     "meaning": "What is being sold.",
+     "examples": [
+      "snacks",
+      "drinks",
+      "dairy"
+     ]
+    },
+    {
+     "name": "competitor_quoted",
+     "kind": "yesno",
+     "meaning": "Yes if a competitor also quoted.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    },
+    {
+     "name": "days_open",
+     "kind": "number",
+     "meaning": "Days since the quote was sent.",
+     "examples": [
+      "3",
+      "14",
+      "45"
+     ],
+     "optional": true
+    },
+    {
+     "name": "existing_customer",
+     "kind": "yesno",
+     "meaning": "Yes if they already buy from you.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "lead_source",
+     "kind": "category",
+     "meaning": "Where the deal came from.",
+     "examples": [
+      "inbound",
+      "outbound",
+      "partner"
+     ],
+     "optional": true
+    },
+    {
+     "name": "discount_pct",
+     "kind": "number",
+     "meaning": "The discount offered, in %.",
+     "examples": [
+      "0",
+      "5",
+      "10"
+     ]
+    },
+    {
+     "name": "won",
+     "kind": "yesno",
+     "meaning": "Yes if the deal closed.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    }
+   ]
+  },
+  {
+   "category": "b2b",
+   "data": "table",
+   "id": "order-range",
+   "kind": "number",
+   "architecture": "number-range",
+   "name": "Order size range",
+   "question": "How big will a customer's next order be, as a range you can plan stock and trucks with?",
+   "predicts": "The likeliest order size, with a low and a high that hold about 8 in 10 real orders.",
+   "row_means": "One order, and what was known about the customer before it.",
+   "source": "ERP or order system",
+   "source_short": "orders",
+   "rows_min": 300,
+   "rows_good": 3000,
+   "rows_great": 30000,
+   "balance": "Orders of every size, small and big, from many customers.",
+   "table": "orders",
+   "tips": [
+    "The range is wider where orders swing more; that is information, not an error.",
+    "Use what was known before the order: past orders, season, promotion.",
+    "Plan for the high end when running out costs more than spare stock."
+   ],
+   "columns": [
+    {
+     "name": "segment",
+     "kind": "category",
+     "meaning": "What kind of customer.",
+     "examples": [
+      "minimarket",
+      "distributor",
+      "horeca"
+     ]
+    },
+    {
+     "name": "avg_order_last_6m",
+     "kind": "number",
+     "meaning": "Their average order in the last 6 months, in units.",
+     "examples": [
+      "40",
+      "120",
+      "600"
+     ]
+    },
+    {
+     "name": "orders_last_6m",
+     "kind": "number",
+     "meaning": "Orders in the last 6 months.",
+     "examples": [
+      "3",
+      "10",
+      "26"
+     ]
+    },
+    {
+     "name": "on_promo",
+     "kind": "yesno",
+     "meaning": "Yes if a promotion runs when they order.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    },
+    {
+     "name": "month",
+     "kind": "category",
+     "meaning": "The month of the order.",
+     "examples": [
+      "Jan",
+      "Jun",
+      "Dec"
+     ]
+    },
+    {
+     "name": "outlets",
+     "kind": "number",
+     "meaning": "How many shops they run.",
+     "examples": [
+      "1",
+      "3",
+      "12"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_since_last_order",
+     "kind": "number",
+     "meaning": "Days since their order before.",
+     "examples": [
+      "5",
+      "20",
+      "60"
+     ],
+     "optional": true
+    },
+    {
+     "name": "units",
+     "kind": "number",
+     "meaning": "How many units they ordered.",
+     "examples": [
+      "35",
+      "140",
+      "700"
+     ]
+    }
+   ]
+  },
+  {
+   "category": "b2b",
+   "data": "table",
+   "id": "duplicate-accounts",
+   "kind": "ranked",
+   "architecture": "find-duplicates",
+   "name": "Duplicate customer accounts",
+   "question": "Which customer accounts are the same business entered twice, like PT Maju Jaya and Maju Jaya, PT, so the CRM and credit limits stay clean?",
+   "predicts": "For each account or new lead, the existing accounts that are likely the same business, best match first, or no match.",
+   "row_means": "One customer account.",
+   "source": "CRM or ERP customer master",
+   "source_short": "customer master",
+   "rows_min": 50,
+   "rows_good": 1000,
+   "rows_great": 20000,
+   "balance": "Every account, with its own id. Up to 20,000 accounts are compared.",
+   "table": "customers",
+   "tips": [
+    "Score the whole customer list to see each account's likely twins; check them before merging.",
+    "Add the address, city, phone and email when you have them; matching on more than the name is surer.",
+    "Check a new lead before creating it, to stop a duplicate at the start."
+   ],
+   "columns": [
+    {
+     "name": "customer_name",
+     "kind": "text",
+     "meaning": "The account's name as entered.",
+     "examples": [
+      "PT Maju Jaya",
+      "Maju Jaya, PT",
+      "Toko Sinar Abadi"
+     ]
+    },
+    {
+     "name": "address",
+     "kind": "text",
+     "meaning": "The street address.",
+     "examples": [
+      "Jl. Sudirman 12",
+      "Jl Sudirman No 12",
+      "Jl. Ahmad Yani 5"
+     ]
+    },
+    {
+     "name": "city",
+     "kind": "category",
+     "meaning": "The city.",
+     "examples": [
+      "Jakarta",
+      "Jakarta",
+      "Surabaya"
+     ]
+    },
+    {
+     "name": "phone",
+     "kind": "text",
+     "meaning": "The main phone number.",
+     "examples": [
+      "021 555 1234",
+      "021-555-1234",
+      "031 777 9876"
+     ],
+     "optional": true
+    },
+    {
+     "name": "email",
+     "kind": "text",
+     "meaning": "The main email.",
+     "examples": [
+      "sales@majujaya.co.id",
+      "info@majujaya.co.id",
+      "sinarabadi@gmail.com"
+     ],
+     "optional": true
+    },
+    {
+     "name": "customer_id",
+     "kind": "category",
+     "meaning": "Each account's own id. The answer names the other accounts likely the same business.",
+     "examples": [
+      "C-1001",
+      "C-1002",
+      "C-1003"
+     ]
+    }
+   ]
+  },
+  {
    "id": "sub-churn",
    "category": "b2c",
    "kind": "yes_no",
@@ -3738,17 +4275,6 @@
      ]
     },
     {
-     "name": "age",
-     "kind": "number",
-     "meaning": "The borrower's age.",
-     "examples": [
-      "24",
-      "38",
-      "55"
-     ],
-     "optional": true
-    },
-    {
      "name": "home",
      "kind": "category",
      "meaning": "Where they live.",
@@ -3800,6 +4326,17 @@
       "0",
       "3",
       "12"
+     ],
+     "optional": true
+    },
+    {
+     "name": "months_at_address",
+     "kind": "number",
+     "meaning": "Months living at their current address.",
+     "examples": [
+      "6",
+      "30",
+      "120"
      ],
      "optional": true
     },
@@ -4181,17 +4718,6 @@
      ]
     },
     {
-     "name": "age",
-     "kind": "number",
-     "meaning": "The employee's age.",
-     "examples": [
-      "24",
-      "35",
-      "52"
-     ],
-     "optional": true
-    },
-    {
      "name": "commute_km",
      "kind": "number",
      "meaning": "Distance from home to work, in km.",
@@ -4243,6 +4769,17 @@
       "no",
       "yes",
       "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "promotions_3y",
+     "kind": "number",
+     "meaning": "Promotions in the last 3 years.",
+     "examples": [
+      "0",
+      "1",
+      "2"
      ],
      "optional": true
     },
@@ -5207,24 +5744,24 @@
      "optional": true
     },
     {
-     "name": "hours_open",
-     "kind": "number",
-     "meaning": "Hours the ticket has been open.",
+     "name": "repeat_issue",
+     "kind": "yesno",
+     "meaning": "Yes if the customer reported the same problem before.",
      "examples": [
-      "1",
-      "8",
-      "48"
+      "no",
+      "yes",
+      "no"
      ],
      "optional": true
     },
     {
-     "name": "replies",
+     "name": "sla_hours",
      "kind": "number",
-     "meaning": "Replies so far, both ways.",
+     "meaning": "Hours the customer's plan promises for a fix.",
      "examples": [
-      "1",
-      "3",
-      "8"
+      "4",
+      "24",
+      "72"
      ],
      "optional": true
     },
