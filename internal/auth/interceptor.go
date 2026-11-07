@@ -300,7 +300,7 @@ func Authenticate(ctx context.Context, st *store.Store, h http.Header, remoteAdd
 		}
 		return &Principal{User: user, Key: &key, Access: Effective(user.Access, key.Access)}, nil
 	}
-	token := SessionToken(h)
+	token := SessionTokenFor(h, HTTPSFrom(ctx))
 	if token == "" {
 		return nil, nil
 	}
@@ -320,12 +320,42 @@ func Authenticate(ctx context.Context, st *store.Store, h http.Header, remoteAdd
 	return &Principal{User: user, Access: user.Access, Session: &se}, nil
 }
 
-// SessionToken reads the session cookie, preferring the secure one.
+// SessionToken reads the session cookie, whichever name it has. It is
+// for ending a session the browser still names, such as on sign-out;
+// to sign a caller in, use SessionTokenFor.
 func SessionToken(h http.Header) string {
 	if t := cookie(h, SecureSessionCookie); t != "" {
 		return t
 	}
 	return cookie(h, SessionCookie)
+}
+
+// SessionTokenFor reads the session cookie that counts for a request
+// that came over HTTPS or not. Over HTTPS only the __Host- cookie
+// counts: the plain one could have been planted by a subdomain or over
+// plain HTTP, and would sign the browser in to an account of the
+// planter's choosing. Over plain HTTP a browser never sends the secure
+// one, so the plain cookie is the only one there is.
+func SessionTokenFor(h http.Header, https bool) string {
+	if https {
+		return cookie(h, SecureSessionCookie)
+	}
+	return cookie(h, SessionCookie)
+}
+
+type httpsKey struct{}
+
+// WithHTTPS notes on ctx whether the request reached the server over
+// HTTPS: TLS served here, or a trusted proxy's word. Authenticate reads
+// it to pick the cookie that counts.
+func WithHTTPS(ctx context.Context, https bool) context.Context {
+	return context.WithValue(ctx, httpsKey{}, https)
+}
+
+// HTTPSFrom reports what WithHTTPS noted; false when nothing was.
+func HTTPSFrom(ctx context.Context) bool {
+	https, _ := ctx.Value(httpsKey{}).(bool)
+	return https
 }
 
 func cookie(h http.Header, name string) string {
