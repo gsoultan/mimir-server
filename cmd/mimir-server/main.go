@@ -303,6 +303,7 @@ func run() error {
 	}
 	svc.AllowPrivateWebhooks = *allowPrivate
 	svc.Pool = cluster.New(log)
+	svc.Version = version
 	svc.Pool.IdleTimeout = *workerIdle
 	svc.PredictTimeout = *predictTimeout
 	svc.MaxUploads = *maxUploads

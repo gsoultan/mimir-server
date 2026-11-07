@@ -53,6 +53,9 @@ type Service struct {
 	// uses them.
 	uploads uploads
 
+	// Version is the release this binary was built as, shown on the About
+	// page; empty means a development build.
+	Version string
 	// Notifier sends alerts; nil means none.
 	Notifier *alert.Notifier
 	// Kick asks the webhook dispatcher to send now; nil means wait for its

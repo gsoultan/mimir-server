@@ -124,6 +124,7 @@ var Required = map[string]Permission{
 	"/mimir.v1.SettingsService/UpdateLimits":       SettingsManage,
 	"/mimir.v1.SettingsService/UpdateTraining":     SettingsManage,
 	"/mimir.v1.SettingsService/GetUsage":           ModelsRead,
+	"/mimir.v1.SettingsService/GetAbout":           "",
 	"/mimir.v1.DatasetService/TestQuery":           DatabaseQuery,
 	"/mimir.v1.DatasetService/TestBucket":          DatabaseQuery,
 	"/mimir.v1.DatasetService/RefreshDataset":      ModelsWrite,
