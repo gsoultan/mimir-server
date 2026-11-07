@@ -3,7 +3,7 @@ import { useMutation } from "@connectrpc/connect-query";
 import { Alert, Badge, Button, Card, Group, NumberInput, PasswordInput, Radio, SimpleGrid, Stack, Switch, Table, Tabs, TagsInput, Text, TextInput, Title } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconDownload } from "@tabler/icons-react";
+import { IconAlertCircle, IconDownload, IconUsers } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseInfiniteQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -12,7 +12,7 @@ import { z } from "zod";
 import { message } from "../../api/client";
 import { SettingsService, TwoFactorPolicy } from "../../api/gen/mimir/v1/settings_pb";
 import { allSettingsQueries, auditLog, databaseInfo, listTeams, settings, signInProviders, whoAmI } from "../../api/queries";
-import { AnchorLink } from "../../components/links";
+import { AnchorLink, ButtonLink } from "../../components/links";
 import { Page } from "../../components/Page";
 import { SignInProviders } from "../../components/SignInProviders";
 import { Teams } from "../../components/Teams";
@@ -45,7 +45,9 @@ function Settings() {
   const wide = useMediaQuery("(min-width: 62em)", true, { getInitialValueInEffect: false });
   const shown = owner || tab === "audit" || tab === "usage" ? tab ?? "audit" : "audit";
   return (
-    <Page title="Settings" intro={owner ? "How this server stores data and keeps you informed." : `What's happening in ${me.user?.teamName ?? "your team"}.`}>
+    <Page title="Settings"
+      actions={me.permissions.includes("users.read") && <ButtonLink variant="default" leftSection={<IconUsers size={18} />} to="/users">People</ButtonLink>}
+      intro={owner ? "How this server stores data and keeps you informed." : `What's happening in ${me.user?.teamName ?? "your team"}.`}>
       <Tabs value={shown} onChange={(t) => navigate({ search: { tab: (t ?? "audit") as "audit" }, replace: true })}
         orientation={wide ? "vertical" : "horizontal"} variant={wide ? "pills" : "default"} classNames={wide ? { list: "settings-list", tab: "side-link", panel: "settings-panel" } : undefined}>
         <Tabs.List>

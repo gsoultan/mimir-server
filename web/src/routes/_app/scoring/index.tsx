@@ -41,6 +41,7 @@ function Scorings() {
   return (
     <Page
       title="Score a list"
+      crumbs={[{ label: "Try a model", to: "/try" }, { label: "Score a list" }]}
       intro="Answer every row of a table at once: upload a file, run a query on your database, read files from storage or use a table of examples. You get the rows back with each answer next to them, and a list from a database or storage can be scored again on a schedule."
       actions={<Button leftSection={<IconListCheck size={18} />} disabled={fit.length === 0} onClick={() => setAdding(true)}>Score a list</Button>}
     >

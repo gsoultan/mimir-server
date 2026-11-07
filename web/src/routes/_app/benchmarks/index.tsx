@@ -32,6 +32,7 @@ function Benchmarks() {
   return (
     <Page
       title="Benchmarks"
+      crumbs={[{ label: "Models", to: "/models" }, { label: "Benchmarks" }]}
       intro="A fixed test every model takes the same way, so you can see which is really better. Its rows are kept aside: training on the same examples leaves them out, so no model learns the answers to its own test."
       actions={<Button leftSection={<IconTrophy size={18} />} disabled={tables.length === 0} onClick={() => setAdding(true)}>New benchmark</Button>}
     >
