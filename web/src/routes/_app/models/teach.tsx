@@ -532,7 +532,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
               <Radio.Group value={arch} onChange={setArch} label="What kind of model?" mt="md">
                 <Stack gap="sm" mt="sm">
                   {allowed.map((a) => (
-                    <Radio.Card key={a.name} value={a.name} radius="md" p="md" className="data-[checked]:border-[var(--mantine-color-teal-7)]">
+                    <Radio.Card key={a.name} value={a.name} radius="md" p="md">
                       <Group wrap="nowrap" align="flex-start">
                         <Radio.Indicator />
                         <div><Group gap="xs"><Text fw={600}>{a.title}</Text>{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group><Text size="sm" c="dimmed">{a.description}</Text></div>
@@ -577,7 +577,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
             <Radio.Group value={preset} onChange={setPreset} label="How hard should it study?" mt="md">
               <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm">
                 {presets.map((p) => (
-                  <Radio.Card key={p.value} value={p.value} radius="md" p="md" disabled={expert} className="data-[checked]:border-[var(--mantine-color-teal-7)]">
+                  <Radio.Card key={p.value} value={p.value} radius="md" p="md" disabled={expert}>
                     <Group wrap="nowrap" align="flex-start">
                       <Radio.Indicator />
                       <div><Text fw={600}>{p.label}</Text><Text size="sm" c="dimmed">{p.epochs} passes over the examples. {tpl && p.value === "normal" ? "The template's pick." : p.hint}</Text></div>
@@ -702,7 +702,7 @@ function archiveKind(k: DatasetKind) {
 
 function Choice({ value, icon, title, hint, children }: { value: Source; icon: React.ReactNode; title: string; hint: string; children: React.ReactNode }) {
   return (
-    <Radio.Card value={value} radius="md" p="md" className="data-[checked]:border-[var(--mantine-color-teal-7)]">
+    <Radio.Card value={value} radius="md" p="md">
       <Group wrap="nowrap" align="flex-start">
         <Radio.Indicator />
         <div className="min-w-0 flex-1">

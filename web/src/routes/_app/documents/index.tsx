@@ -1,6 +1,6 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Button, Card, Group, Modal, Select, SimpleGrid, Stack, Text, Textarea, TextInput } from "@mantine/core";
-import { IconAlertCircle, IconFileText } from "@tabler/icons-react";
+import { Alert, Button, Card, Group, Modal, Select, Stack, Text, Textarea, TextInput } from "@mantine/core";
+import { IconAlertCircle, IconFolder, IconPlus } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -8,7 +8,8 @@ import { useState } from "react";
 import { message } from "../../../api/client";
 import { DocumentService } from "../../../api/gen/mimir/v1/document_pb";
 import { allDocumentQueries, listCollections, listModels, whoAmI } from "../../../api/queries";
-import { AnchorLink } from "../../../components/links";
+import { AnchorLink, ButtonLink } from "../../../components/links";
+import { Row, RowList } from "../../../components/ui";
 import { Page } from "../../../components/Page";
 import { bytes } from "../../../lib/format";
 
@@ -31,31 +32,34 @@ function Collections() {
   return (
     <Page
       title="Ask your documents"
-      intro="Put your handbooks, policies and notes in a collection, and ask questions about them in plain words. Answers come from your documents, with the passages they used, and never leave this server."
-      actions={canWrite && <Button leftSection={<IconFileText size={18} />} disabled={language.length === 0} onClick={() => setAdding(true)}>New collection</Button>}
+      intro="Put handbooks, policies and notes in a collection, then ask questions in plain words. Answers show which passages they came from, and nothing leaves this server."
+      actions={canWrite && data.collections.length > 0 && <Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>New collection</Button>}
     >
       {data.collections.length === 0 ? (
-        <Card withBorder radius="lg" padding="xl" className="text-center">
-          <Text fw={600}>No collections yet</Text>
+        <Card withBorder padding="xl" className="text-center">
+          <Text fw={650}>No collections yet</Text>
           <Text c="dimmed" mb="md">
             {language.length === 0
               ? "Add a language model first, such as a Llama, Qwen or Gemma file. It reads your documents and writes the answers."
               : canWrite ? "Make a collection, add your files, and ask away." : "Someone who can add models makes collections; you can ask them here."}
           </Text>
-          {canWrite && language.length > 0 && <Group justify="center"><Button onClick={() => setAdding(true)}>New collection</Button></Group>}
+          {canWrite && (language.length > 0
+            ? <Group justify="center"><Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>New collection</Button></Group>
+            : <Group justify="center"><ButtonLink variant="default" to="/models/new">Upload a language model</ButtonLink></Group>)}
         </Card>
       ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+        <RowList>
           {data.collections.map((c) => (
-            <Card key={c.id} withBorder radius="lg" padding="md">
-              <AnchorLink fw={700} to="/documents/$id" params={{ id: c.id }} c="inherit">{c.name}</AnchorLink>
-              <Text size="sm" c="dimmed">
-                {c.documents} {c.documents === 1 ? "document" : "documents"} · {bytes(c.bytes)} · answered by {c.languageModelName || "a deleted model"}
-              </Text>
-              {c.instructions && <Text size="sm" mt={4} lineClamp={2}>{c.instructions}</Text>}
-            </Card>
+            <Row
+              key={c.id}
+              icon={<IconFolder size={20} />}
+              title={<AnchorLink to="/documents/$id" params={{ id: c.id }} c="inherit" fw={650}>{c.name}</AnchorLink>}
+              detail={`${c.documents} ${c.documents === 1 ? "document" : "documents"} · ${bytes(c.bytes)} · answered by ${c.languageModelName || "a deleted model"}`}
+            >
+              <ButtonLink size="xs" variant="default" to="/documents/$id" params={{ id: c.id }}>Ask</ButtonLink>
+            </Row>
           ))}
-        </SimpleGrid>
+        </RowList>
       )}
       <NewCollection open={adding} onClose={() => setAdding(false)} models={language} />
     </Page>

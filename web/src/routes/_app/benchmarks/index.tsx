@@ -1,7 +1,7 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Group, Modal, NumberInput, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { Alert, Badge, Button, Card, Group, Modal, NumberInput, Select, Stack, Text, TextInput, Textarea, ThemeIcon } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconTrophy, IconUpload } from "@tabler/icons-react";
+import { IconAlertCircle, IconPlus, IconTrophy, IconUpload } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -10,7 +10,8 @@ import { message } from "../../../api/client";
 import { BenchmarkService } from "../../../api/gen/mimir/v1/benchmark_pb";
 import { DatasetKind } from "../../../api/gen/mimir/v1/training_pb";
 import { allBenchmarkQueries, listBenchmarks, listDatasets } from "../../../api/queries";
-import { AnchorLink } from "../../../components/links";
+import { AnchorLink, ButtonLink } from "../../../components/links";
+import { Row, RowList } from "../../../components/ui";
 import { Page } from "../../../components/Page";
 import { headlineText } from "../../../lib/benchmark";
 import { ago } from "../../../lib/format";
@@ -33,42 +34,39 @@ function Benchmarks() {
     <Page
       title="Benchmarks"
       crumbs={[{ label: "Models", to: "/models" }, { label: "Benchmarks" }]}
-      intro="A fixed test every model takes the same way, so you can see which is really better. Its rows are kept aside: training on the same examples leaves them out, so no model learns the answers to its own test."
-      actions={<Button leftSection={<IconTrophy size={18} />} disabled={tables.length === 0} onClick={() => setAdding(true)}>New benchmark</Button>}
+      intro="A fixed test every model takes the same way, so you can see which is really better. Its rows are kept out of training, so no model learns its own test."
+      actions={data.benchmarks.length > 0 && <Button leftSection={<IconPlus size={18} />} disabled={tables.length === 0} onClick={() => setAdding(true)}>New benchmark</Button>}
     >
       {data.benchmarks.length === 0 ? (
-        <Card withBorder radius="lg" padding="xl" className="text-center">
-          <Text fw={600}>No benchmarks yet</Text>
+        <Card withBorder padding="xl" className="text-center">
+          <ThemeIcon size={44} radius="xl" variant="light" mx="auto" mb="sm"><IconTrophy size={22} /></ThemeIcon>
+          <Text fw={650}>No benchmarks yet</Text>
           <Text c="dimmed" mb="md">
             {tables.length === 0
               ? "Upload a table of examples first; a benchmark keeps some of its rows aside as the test."
               : "Pick a table of examples and keep a fifth of its rows aside. Every model taught from it is then scored on those same rows."}
           </Text>
-          {tables.length > 0 && <Group justify="center"><Button onClick={() => setAdding(true)}>New benchmark</Button></Group>}
+          {tables.length > 0 && <Group justify="center"><Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>New benchmark</Button></Group>}
         </Card>
       ) : (
-        <Stack gap="sm">
+        <RowList>
           {data.benchmarks.map((b) => (
-            <Card key={b.id} withBorder radius="lg" padding="md">
-              <Group justify="space-between" wrap="nowrap" align="flex-start">
-                <div className="min-w-0 flex-1">
-                  <Group gap="xs" wrap="nowrap">
-                    <AnchorLink fw={700} truncate to="/benchmarks/$id" params={{ id: b.id }} c="inherit">{b.name}</AnchorLink>
-                    <Badge variant="light">{b.kind === "number" ? "Numbers" : "Labels"}</Badge>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    {b.rows.toLocaleString()} rows from {b.datasetName || "deleted examples"} · answers {b.target} · made {ago(b.createTime)}
-                  </Text>
-                  <Text size="sm" mt={4}>
-                    {b.scored === 0
-                      ? "No model scored yet."
-                      : <>Best so far: <b>{b.leaderName}</b>, {headlineText(b, b.leaderHeadline)} · {b.scored} {b.scored === 1 ? "model" : "models"} scored</>}
-                  </Text>
-                </div>
-              </Group>
-            </Card>
+            <Row
+              key={b.id}
+              tone={b.scored > 0 ? "ok" : "idle"}
+              icon={<IconTrophy size={20} />}
+              title={<Group gap="xs" wrap="nowrap"><AnchorLink fw={650} truncate to="/benchmarks/$id" params={{ id: b.id }} c="inherit">{b.name}</AnchorLink><Badge variant="light" color="gray">{b.kind === "number" ? "Numbers" : "Labels"}</Badge></Group>}
+              detail={<>
+                {b.scored === 0
+                  ? "No model scored yet"
+                  : <>Best so far: <Text span fw={600} c="var(--mantine-color-text)">{b.leaderName}</Text>, {headlineText(b, b.leaderHeadline)} · {b.scored} {b.scored === 1 ? "model" : "models"} scored</>}
+                <br />{b.rows.toLocaleString()} rows from {b.datasetName || "deleted examples"} · answers {b.target} · made {ago(b.createTime)}
+              </>}
+            >
+              <ButtonLink size="xs" variant="default" to="/benchmarks/$id" params={{ id: b.id }}>Open</ButtonLink>
+            </Row>
           ))}
-        </Stack>
+        </RowList>
       )}
       <NewBenchmark open={adding} onClose={() => setAdding(false)} tables={tables.map((d) => ({ value: d.id, label: `${d.name} (${d.rows.toLocaleString()} rows)` }))} />
     </Page>

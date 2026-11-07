@@ -1,5 +1,5 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Button, Card, Group, Progress, Select, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Button, Card, Group, Progress, Select, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconDownload, IconPlayerPlay, IconPlayerStop, IconTrash } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { JobStatus } from "../../../api/gen/mimir/v1/training_pb";
 import { allScoringQueries, getScoring } from "../../../api/queries";
 import { AnchorLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
+import { StatTile, StatusPill } from "../../../components/ui";
 import { ago, bytes } from "../../../lib/format";
 import { progress, repeats, resultsURL, statusText, waiting } from "../../../lib/scoring";
 
@@ -56,6 +57,7 @@ function ScoringPage() {
     <Page
       title={s.name}
       crumbs={[{ label: "Score a list", to: "/scoring" }, { label: s.name }]}
+      badge={<StatusPill tone={s.error || s.status === JobStatus.FAILED ? "bad" : busy ? "busy" : s.status === JobStatus.SUCCEEDED ? "ok" : "idle"}>{s.error || s.status === JobStatus.FAILED ? "Failed" : busy ? "Scoring" : s.status === JobStatus.SUCCEEDED ? "Done" : "Stopped"}</StatusPill>}
       intro={<>Rows from {s.sourceDetail}, answered by <AnchorLink to="/models/$id" params={{ id: s.modelId }}>{s.modelName}</AnchorLink> · made by {s.createdBy} {ago(s.createTime)}</>}
       actions={
         <Group gap="xs">
@@ -65,15 +67,22 @@ function ScoringPage() {
           {busy
             ? <Button variant="default" color="red" leftSection={<IconPlayerStop size={18} />} loading={cancel.isPending} onClick={() => cancel.mutate({ id })}>Stop</Button>
             : <Button variant="default" leftSection={<IconPlayerPlay size={18} />} loading={run.isPending} onClick={() => run.mutate({ id })}>{fetched ? "Fetch and score again" : "Score again"}</Button>}
-          <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} disabled={s.status === JobStatus.RUNNING} loading={remove.isPending} onClick={() => remove.mutate({ id })}>Delete</Button>
+          <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} disabled={s.status === JobStatus.RUNNING} loading={remove.isPending} onClick={() => window.confirm(`Delete ${s.name} and its results?`) && remove.mutate({ id })}>Delete</Button>
         </Group>
       }
     >
       {error && <Alert color="red" icon={<IconAlertCircle />}>{message(error)}</Alert>}
-      <Card withBorder radius="lg" padding="lg">
+      {Number(s.rows) > 0 && (
+        <SimpleGrid cols={3} spacing={{ base: "xs", sm: "md" }}>
+          <StatTile value={Number(s.done).toLocaleString()} label="rows answered" hint={`of ${Number(s.rows).toLocaleString()}`} />
+          <StatTile value={Number(s.failed).toLocaleString()} label="rows it couldn't answer" hint={Number(s.failed) > 0 ? "The problem column says why" : undefined} />
+          <StatTile value={String(s.runs)} label={s.runs === 1 ? "run" : "runs"} hint={s.endTime ? `Last ${ago(s.endTime)}` : undefined} />
+        </SimpleGrid>
+      )}
+      {(busy || !!s.error || fetched || Number(s.rows) === 0) && <Card withBorder padding="lg">
         <Stack gap="xs">
-          <Text fw={700}>{statusText(s)}</Text>
-          {busy && <Progress value={progress(s)} animated />}
+          <Text fw={650}>{statusText(s)}</Text>
+          {busy && <Progress value={progress(s)} color="violet" animated />}
           {s.error && <Alert color="red" icon={<IconAlertCircle />}>{s.error}</Alert>}
           <Text size="sm" c="dimmed">
             {s.runs > 0 ? `Run ${s.runs} ${s.runs === 1 ? "time" : "times"}` : "Not finished yet"}
@@ -81,20 +90,20 @@ function ScoringPage() {
             {s.resultBytes > 0n ? ` · results ${bytes(s.resultBytes)}` : ""}
             {s.repeatSeconds > 0n && s.nextRunTime ? ` · next ${ago(s.nextRunTime)}` : ""}
           </Text>
-          {Number(s.failed) > 0 && !busy && <Text size="sm">Rows that couldn't be answered say why in the <b>problem</b> column.</Text>}
           {fetched && (
             <Select label="Score it again" w={220} data={repeats} value={s.repeatSeconds.toString()} allowDeselect={false}
               onChange={(v) => v !== null && repeat.mutate({ id, repeatSeconds: BigInt(v) }, { onSuccess: () => notifications.show({ message: v === "0" ? "It won't run again on its own." : "Saved." }) })} />
           )}
         </Stack>
-      </Card>
+      </Card>}
       {data.sample.length > 0 && (
-        <Card withBorder radius="lg" padding="lg">
-          <Title order={3} fz="md" mb="xs">First rows</Title>
+        <section>
+          <Title order={2} mb="sm">First rows</Title>
+          <Card withBorder padding={0}>
           <Table.ScrollContainer minWidth={320}>
-            <Table fz="xs" withTableBorder>
+            <Table fz="sm" highlightOnHover>
               <Table.Thead>
-                <Table.Tr>{s.columns.map((c, i) => <Table.Th key={c} c={firstOurs >= 0 && i >= firstOurs ? "teal" : undefined}>{c}</Table.Th>)}</Table.Tr>
+                <Table.Tr>{s.columns.map((c, i) => <Table.Th key={c} c={firstOurs >= 0 && i >= firstOurs ? "var(--mantine-primary-color-light-color)" : undefined}>{c}</Table.Th>)}</Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {data.sample.map((r, i) => (
@@ -103,8 +112,9 @@ function ScoringPage() {
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
+          </Card>
           <Text size="sm" c="dimmed" mt="xs">The whole list is in the download, every row in the order it came.</Text>
-        </Card>
+        </section>
       )}
     </Page>
   );

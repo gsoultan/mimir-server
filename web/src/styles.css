@@ -127,3 +127,8 @@ h1, h2, h3 { letter-spacing: -0.01em; }
 .settings-panel { min-width: 0; flex: 1; }
 .settings-list .mantine-Tabs-tab { justify-content: flex-start; text-align: left; }
 .settings-list .mantine-Tabs-tabLabel { text-align: left; }
+
+/* A picked radio card: the brand edge and a light wash, everywhere. */
+.mantine-RadioCard-card { border-color: var(--mimir-line); background: var(--mimir-surface); transition: border-color .15s, background-color .15s; }
+.mantine-RadioCard-card:hover { border-color: var(--mantine-color-default-border); }
+.mantine-RadioCard-card[data-checked] { border-color: var(--mantine-primary-color-filled); background: var(--mantine-primary-color-light); }

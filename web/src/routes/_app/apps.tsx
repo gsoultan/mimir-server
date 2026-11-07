@@ -1,11 +1,12 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Button, Card, Code, CopyButton, Group, Modal, Stack, Table, Tabs, Text, TextInput, Title } from "@mantine/core";
+import { ActionIcon, Alert, Button, Card, Code, CopyButton, Group, Modal, Stack, Table, Tabs, Text, TextInput, Title, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconCheck, IconCopy, IconKey, IconTrash } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 
 import { message } from "../../api/client";
 import { ApiKeyService, type ApiKey } from "../../api/gen/mimir/v1/access_pb";
@@ -13,11 +14,17 @@ import type { Model } from "../../api/gen/mimir/v1/model_pb";
 import { allKeyQueries, listApiKeys, listModels, listWebhooks, whoAmI } from "../../api/queries";
 import { AccessPicker, describe, type AccessValue } from "../../components/AccessPicker";
 import { Page } from "../../components/Page";
+import { StatusPill } from "../../components/ui";
+import { CodeBlock } from "../../components/CodeBlock";
 import { Usage } from "../../components/Usage";
 import { Webhooks } from "../../components/Webhooks";
 import { ago } from "../../lib/format";
 
+const tabNames = ["keys", "openai", "usage", "webhooks"] as const;
+type Tab = (typeof tabNames)[number];
+
 export const Route = createFileRoute("/_app/apps")({
+  validateSearch: z.object({ tab: z.enum(tabNames).optional() }),
   loader: async ({ context }) => {
     const me = await context.queryClient.ensureQueryData(whoAmI);
     await Promise.all([
@@ -34,6 +41,8 @@ function Apps() {
   const { data: models } = useSuspenseQuery(listModels);
   const { data: me } = useSuspenseQuery(whoAmI);
   const { queryClient } = Route.useRouteContext();
+  const { tab } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [creating, create] = useDisclosure();
   const [secret, setSecret] = useState<string>();
   const [revoking, setRevoking] = useState<ApiKey>();
@@ -51,45 +60,75 @@ function Apps() {
   -d '{"model_id": "${example?.id ?? "<model id>"}", "input": {"values": [...]}}' \\
   ${location.host} mimir.v1.PredictService/Predict`;
 
+  const tabs = [["keys", "Keys"], ["openai", "Use it like OpenAI"], ["usage", "Usage"], ...(me.permissions.includes("webhooks.manage") ? [["webhooks", "Webhooks"]] : [])] as const;
+  const shown = tabs.some(([t]) => t === tab) ? tab : "keys";
+
   return (
-    <Page title="Connect your apps" intro="Give each app its own key, limited to the models it needs." actions={<Button leftSection={<IconKey size={18} />} onClick={create.open}>Make a key</Button>}>
-      <Stack gap="sm">
-        <Title order={2} fz="lg">Your API keys</Title>
-        {data.apiKeys.length === 0 && (
-          <Card withBorder radius="lg" padding="xl" className="text-center">
-            <Text fw={600}>No keys yet</Text>
-            <Text c="dimmed">Make one and paste it into your app.</Text>
-          </Card>
-        )}
-        {data.apiKeys.map((k) => (
-          <Card key={k.id} withBorder radius="lg" padding="md">
-            <Group justify="space-between" wrap="nowrap">
-              <div className="min-w-0">
-                <Text fw={700} truncate>{k.name}</Text>
-                <Text size="sm" c="dimmed"><Code>{k.prefix}…</Code> · {describe(k.access, names)}</Text>
-                <Text size="xs" c="dimmed">{k.lastUsedTime ? `Last used ${ago(k.lastUsedTime)}` : "Never used"} · made {ago(k.createTime)}</Text>
-              </div>
-              <Button variant="subtle" color="red" size="sm" leftSection={<IconTrash size={16} />} onClick={() => setRevoking(k)}>Revoke</Button>
-            </Group>
-          </Card>
-        ))}
-      </Stack>
+    <Page title="Connect your apps" intro="Apps ask your models questions with a key. Give each app its own, limited to the models it needs." actions={data.apiKeys.length > 0 && <Button leftSection={<IconKey size={18} />} onClick={create.open}>Make a key</Button>}>
+      <Tabs value={shown} onChange={(t) => void navigate({ search: { tab: (t ?? "keys") as Tab }, replace: true })}>
+        <Tabs.List>{tabs.map(([v, l]) => <Tabs.Tab key={v} value={v}>{l}</Tabs.Tab>)}</Tabs.List>
 
-      <Card withBorder radius="lg" padding="lg">
-        <Title order={2} fz="lg" mb={4}>Ask a model from your code</Title>
-        <Text size="sm" c="dimmed" mb="sm">Put your key in the Authorization header. Every model works over HTTP and gRPC.</Text>
-        <Tabs defaultValue="http">
-          <Tabs.List><Tabs.Tab value="http">HTTP</Tabs.Tab><Tabs.Tab value="grpc">gRPC</Tabs.Tab></Tabs.List>
-          <Tabs.Panel value="http" pt="sm"><Code block>{curl}</Code></Tabs.Panel>
-          <Tabs.Panel value="grpc" pt="sm"><Code block>{grpc}</Code></Tabs.Panel>
-        </Tabs>
-      </Card>
+        <Tabs.Panel value="keys" pt="lg">
+          <Stack gap="lg">
+            {data.apiKeys.length === 0 ? (
+              <Card withBorder padding="xl" className="text-center">
+                <Text fw={650}>No keys yet</Text>
+                <Text c="dimmed" mb="md">Make one and paste it into your app.</Text>
+                <Group justify="center"><Button leftSection={<IconKey size={18} />} onClick={create.open}>Make a key</Button></Group>
+              </Card>
+            ) : (
+              <Card withBorder padding={0}>
+                <Table highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Key</Table.Th>
+                      <Table.Th visibleFrom="sm">Can use</Table.Th>
+                      <Table.Th visibleFrom="md">Last used</Table.Th>
+                      <Table.Th>Status</Table.Th>
+                      <Table.Th w={48} />
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {data.apiKeys.map((k) => {
+                      const recent = !!k.lastUsedTime && Date.now() - Number(k.lastUsedTime.seconds) * 1000 < 30 * 86_400_000;
+                      return (
+                        <Table.Tr key={k.id}>
+                          <Table.Td>
+                            <Text fw={650} truncate>{k.name}</Text>
+                            <Text size="xs" c="dimmed" ff="monospace">{k.prefix}…</Text>
+                          </Table.Td>
+                          <Table.Td visibleFrom="sm" c="dimmed">{describe(k.access, names)}</Table.Td>
+                          <Table.Td visibleFrom="md" c="dimmed">{k.lastUsedTime ? ago(k.lastUsedTime) : "Never"}</Table.Td>
+                          <Table.Td><StatusPill tone={recent ? "ok" : "idle"}>{recent ? "Working" : k.lastUsedTime ? "Not used lately" : "Not used yet"}</StatusPill></Table.Td>
+                          <Table.Td>
+                            <Tooltip label="Revoke">
+                              <ActionIcon variant="subtle" color="red" aria-label={`Revoke ${k.name}`} onClick={() => setRevoking(k)}><IconTrash size={16} /></ActionIcon>
+                            </Tooltip>
+                          </Table.Td>
+                        </Table.Tr>
+                      );
+                    })}
+                  </Table.Tbody>
+                </Table>
+              </Card>
+            )}
 
-      <OpenAICard models={models.models.filter((m) => m.language)} />
+            <Card withBorder padding="lg">
+              <Title order={2} mb={4}>Ask a model from your code</Title>
+              <Text size="sm" c="dimmed" mb="sm">Put your key in the Authorization header. Every model works over HTTP and gRPC.</Text>
+              <Tabs defaultValue="http">
+                <Tabs.List><Tabs.Tab value="http">HTTP</Tabs.Tab><Tabs.Tab value="grpc">gRPC</Tabs.Tab></Tabs.List>
+                <Tabs.Panel value="http" pt="sm"><CodeBlock code={curl} /></Tabs.Panel>
+                <Tabs.Panel value="grpc" pt="sm"><CodeBlock code={grpc} /></Tabs.Panel>
+              </Tabs>
+            </Card>
+          </Stack>
+        </Tabs.Panel>
 
-      <Usage userId={me.user?.id ?? ""} />
-
-      {me.permissions.includes("webhooks.manage") && <Webhooks />}
+        <Tabs.Panel value="openai" pt="lg"><OpenAICard models={models.models.filter((m) => m.language)} /></Tabs.Panel>
+        <Tabs.Panel value="usage" pt="lg"><Usage userId={me.user?.id ?? ""} /></Tabs.Panel>
+        {me.permissions.includes("webhooks.manage") && <Tabs.Panel value="webhooks" pt="lg"><Webhooks /></Tabs.Panel>}
+      </Tabs>
 
       <KeyModal key={creating ? "open" : "closed"} opened={creating} onClose={create.close} maxRole={me.user?.access?.role ?? 1} userAllModels={me.user?.access?.allModels ?? false} onCreated={async (s) => { await refresh(); setSecret(s); create.close(); }} />
 

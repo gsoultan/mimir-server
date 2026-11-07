@@ -1,5 +1,5 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Group, Loader, Modal, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Group, Loader, Modal, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconPlus } from "@tabler/icons-react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import { JobStatus } from "../../../api/gen/mimir/v1/training_pb";
 import { allBenchmarkQueries, getBenchmark } from "../../../api/queries";
 import { AnchorLink, ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
+import { StatTile } from "../../../components/ui";
 import { RunReport } from "../../../components/RunReport";
 import { behind, headlineText, medal, metricHint, metricTitle } from "../../../lib/benchmark";
 import { ago } from "../../../lib/format";
@@ -55,23 +56,29 @@ function Leaderboard() {
       intro={<>{b.rows.toLocaleString()} rows kept aside from {b.datasetName || "deleted examples"}, answering {b.target} · made by {b.createdBy} {ago(b.createTime)}</>}
       actions={
         <Group gap="xs">
-          <Button variant="default" leftSection={<IconPlus size={18} />} disabled={data.candidates.length === 0} onClick={() => setAdding(true)}>
-            {data.candidates.length > 0 ? "Score a model" : data.scores.length > 0 ? "Every model is scored" : "No model fits yet"}
-          </Button>
-          <Button variant="subtle" color="red" loading={remove.isPending} onClick={() => remove.mutate({ id })}>Delete</Button>
+          {data.candidates.length > 0 && <Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>Score a model</Button>}
+          <Button variant="subtle" color="red" loading={remove.isPending} onClick={() => window.confirm(`Delete ${b.name}? Its scores go too; the models stay.`) && remove.mutate({ id })}>Delete</Button>
         </Group>
       }
     >
       {(score.error ?? remove.error) && <Alert color="red" icon={<IconAlertCircle />}>{message(score.error ?? remove.error)}</Alert>}
       {b.description && <Text>{b.description}</Text>}
-      <Card withBorder radius="lg" padding="lg">
-        <Title order={3} fz="md">Leaderboard</Title>
-        <Text size="sm" c="dimmed" mb="xs">{metricHint(b)} Every model answers the same rows, none of which it learned from.</Text>
+      {data.scores.some((s) => s.rank === 1) && (
+        <SimpleGrid cols={{ base: 1, sm: 3 }}>
+          <StatTile value={headlineText(b, data.scores.find((s) => s.rank === 1)!.headline)} label={`${data.scores.find((s) => s.rank === 1)!.modelName}, the best so far`} />
+          <StatTile value={String(data.scores.length)} label={data.scores.length === 1 ? "model scored" : "models scored"} />
+          <StatTile value={b.rows.toLocaleString()} label="rows in the test" hint="Kept out of training" />
+        </SimpleGrid>
+      )}
+      <section>
+        <Title order={2}>Leaderboard</Title>
+        <Text size="sm" c="dimmed" mb="sm">{metricHint(b)} Every model answers the same rows, none of which it learned from.</Text>
+        <Card withBorder padding={data.scores.length === 0 ? "lg" : 0}>
         {data.scores.length === 0 ? (
           <Text size="sm">No model has taken this test yet. Score one, or teach a new model from {b.datasetName || "these examples"} and it is scored on its own.</Text>
         ) : (
           <Table.ScrollContainer minWidth={320}>
-            <Table verticalSpacing="xs" highlightOnHover>
+            <Table highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th w={60}>Place</Table.Th>
@@ -106,7 +113,8 @@ function Leaderboard() {
             </Table>
           </Table.ScrollContainer>
         )}
-      </Card>
+        </Card>
+      </section>
       <Modal opened={adding} onClose={() => setAdding(false)} title="Score a model" radius="lg" centered>
         <Stack gap="sm">
           <Text size="sm" c="dimmed">These models answer the same kind of question and read the columns this test has.</Text>
