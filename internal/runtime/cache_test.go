@@ -301,3 +301,47 @@ func TestCacheClosesDroppedWeightsAfterLastUse(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 }
+
+// Forgetting a model while it loads leaves the loader alone: the entry
+// serves the request that was loading it and closes once that lets go.
+func TestCacheForgetWhileLoading(t *testing.T) {
+	c := NewCache(0)
+	closed := 0
+	loading := make(chan struct{})
+	finish := make(chan struct{})
+	load := func() (Weights, error) { return closing{make(bytesWeights, 10), &closed}, nil }
+	build := func(*entry, []byte) {
+		close(loading)
+		<-finish
+	}
+	type got struct {
+		e   *entry
+		err error
+	}
+	done := make(chan got, 1)
+	go func() {
+		e, err := c.get("m", "v1", load, build)
+		done <- got{e, err}
+	}()
+	<-loading
+	c.Forget("m")
+	close(finish)
+	g := <-done
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	if closed != 0 {
+		t.Fatal("closed while the request that loaded it still held it")
+	}
+	c.release(g.e)
+	if closed != 1 {
+		t.Fatalf("closed %d times after the last release, want 1", closed)
+	}
+	c.mu.Lock()
+	_, pending := c.pending["m"]
+	_, loaded := c.loaded["m"]
+	c.mu.Unlock()
+	if pending || loaded {
+		t.Fatal("a forgotten model is still in the cache")
+	}
+}

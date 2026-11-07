@@ -733,6 +733,7 @@ func (c *Cache) get(id, ver string, load Loader, build func(e *entry, w []byte))
 	defer c.mu.Unlock()
 	if e.err != nil {
 		c.forgetLocked(id, e) // let the next request try again
+		c.closeLocked(e)      // whatever it opened before failing
 		return nil, e.err
 	}
 	c.installLocked(e)
@@ -847,8 +848,8 @@ func (c *Cache) Forget(id string) {
 		delete(c.loaded, id)
 		c.unlist(e)
 	}
-	if e, ok := c.pending[id]; ok {
-		delete(c.pending, id)
-		c.drop(e)
-	}
+	// A loading entry is being written by its loader, so it is not
+	// touched here: no longer pending, it serves the requests waiting on
+	// it and closes once the last has let go (see get).
+	delete(c.pending, id)
 }
