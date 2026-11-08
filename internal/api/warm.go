@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gsoultan/mimir-server/internal/arch"
+	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/store"
 )
 
@@ -24,6 +25,7 @@ func (s *Service) Warm(ctx context.Context, m store.Model) {
 	}
 	spec := arch.Resolve(a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
 	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
+	open := func() (runtime.Weights, error) { return s.store.OpenWeights(m.ID) }
 	ver := m.WeightsVersion()
 	// Mirror Predict: workers take it when this server runs no models,
 	// when it is placed on one, or when only a worker's code runs it.
@@ -37,7 +39,7 @@ func (s *Service) Warm(ctx context.Context, m store.Model) {
 		}
 	}
 	if s.Local && !pinned && !a.Custom {
-		if err := s.cache.Load(m.ID, ver, a, spec, load); err != nil {
+		if err := s.cache.Load(m.ID, ver, a, spec, open); err != nil {
 			s.log.WarnContext(ctx, "warm: couldn't load the model here", "model_id", m.ID, "error", err)
 		}
 	}

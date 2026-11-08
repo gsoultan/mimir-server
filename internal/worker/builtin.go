@@ -80,13 +80,13 @@ func weights(m *worker.Model) func() ([]byte, error) {
 }
 
 func (h *handler) Load(_ context.Context, m *worker.Model) error {
-	return h.cache.Load(m.ID, m.Version, h.a, h.spec(m), weights(m))
+	return h.cache.Load(m.ID, m.Version, h.a, h.spec(m), runtime.InMemory(weights(m)))
 }
 
 func (h *handler) Unload(modelID string) { h.cache.Forget(modelID) }
 
 func (h *handler) Predict(ctx context.Context, m *worker.Model, input []float32) (worker.Prediction, error) {
-	r, err := h.cache.Predict(ctx, m.ID, m.Version, h.a, h.spec(m), weights(m), input)
+	r, err := h.cache.Predict(ctx, m.ID, m.Version, h.a, h.spec(m), runtime.InMemory(weights(m)), input)
 	if err != nil {
 		return worker.Prediction{}, err
 	}

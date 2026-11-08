@@ -25,6 +25,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/ask"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/dbsource"
+	"github.com/gsoultan/mimir-server/internal/runtime"
 	"github.com/gsoultan/mimir-server/internal/s3source"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
@@ -757,6 +758,7 @@ func (s *Service) score1(ctx context.Context, sc store.Scoring) (store.ScoringRe
 	cw.Write(columns)
 
 	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
+	open := func() (runtime.Weights, error) { return s.store.OpenWeights(m.ID) }
 	timeout := s.PredictTimeout
 	if timeout <= 0 {
 		timeout = DefaultPredictTimeout
@@ -774,7 +776,7 @@ func (s *Service) score1(ctx context.Context, sc store.Scoring) (store.ScoringRe
 		}
 		actx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		out, err := s.answer(actx, m, a, spec, load, input)
+		out, err := s.answer(actx, m, a, spec, load, open, input)
 		switch {
 		case err != nil && ctx.Err() != nil:
 			return problem(len(added), "stopped")
