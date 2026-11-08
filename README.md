@@ -1196,3 +1196,10 @@ a text column becoming an array or jsonb) is declared on the column with
 `ConvertFrom(storm.JSONText)`, and automigrate writes the conversion. The
 server lets automigrate replace indexes and CHECK constraints, which hold
 no data, and still refuses any plan that drops a table or column.
+
+## License
+
+Free for personal and noncommercial use, nonprofits, and companies with
+fewer than 100 people and under 1,000,000 USD in yearly revenue, under the
+PolyForm Noncommercial and PolyForm Small Business licenses. Other use needs
+a commercial license. See [LICENSING.md](LICENSING.md) and [LICENSE](LICENSE).
