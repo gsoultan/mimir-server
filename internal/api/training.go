@@ -191,6 +191,11 @@ func (s *Service) CreateDataset(ctx context.Context, req *connect.Request[mimirv
 
 // fetch runs a query for a dataset, refusing the server's own files.
 func (s *Service) fetch(ctx context.Context, conn *mimirv1.Connection, query string) (dbsource.Result, error) {
+	return s.fetchUpTo(ctx, conn, query, training.MaxRows)
+}
+
+// fetchUpTo is fetch with a bound on the rows other than training's.
+func (s *Service) fetchUpTo(ctx context.Context, conn *mimirv1.Connection, query string, limit int) (dbsource.Result, error) {
 	driver, dsn := conn.GetDriver(), strings.TrimSpace(conn.GetDsn())
 	if driver == "sqlite" {
 		// The server's own database and files are off limits: they hold
@@ -217,7 +222,7 @@ func (s *Service) fetch(ctx context.Context, conn *mimirv1.Connection, query str
 	if driver == "postgres" && s.store.IsOwnDatabase(dsn) {
 		return dbsource.Result{}, invalid("That is this server's own database. Point at another database.")
 	}
-	r, err := dbsource.Fetch(ctx, driver, dsn, query, training.MaxRows, s.store.RefuseOwnDatabase)
+	r, err := dbsource.Fetch(ctx, driver, dsn, query, limit, s.store.RefuseOwnDatabase)
 	if errors.Is(err, dbsource.ErrBadQuery) {
 		return dbsource.Result{}, invalid("%s", strings.TrimPrefix(err.Error(), "dbsource: bad query: "))
 	}

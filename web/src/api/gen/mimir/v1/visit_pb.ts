@@ -4,13 +4,17 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Connection, JobStatus } from "./training_pb";
+import { file_mimir_v1_training } from "./training_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file mimir/v1/visit.proto.
  */
 export const file_mimir_v1_visit: GenFile = /*@__PURE__*/
-  fileDesc("ChRtaW1pci92MS92aXNpdC5wcm90bxIIbWltaXIudjEiygEKCVZpc2l0U3RvcBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCGxhdGl0dWRlGAMgASgBEhEKCWxvbmdpdHVkZRgEIAEoARIQCghwcmlvcml0eRgFIAEoARIVCg12aXNpdF9taW51dGVzGAYgASgFEhMKC29wZW5fbWludXRlGAcgASgFEhQKDGNsb3NlX21pbnV0ZRgIIAEoBRIWCg5zYWxlc3BlcnNvbl9pZBgJIAEoCRISCgptdXN0X3Zpc2l0GAogASgIIp4BCgtTYWxlc3BlcnNvbhIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhYKDnN0YXJ0X2xhdGl0dWRlGAMgASgBEhcKD3N0YXJ0X2xvbmdpdHVkZRgEIAEoARIYChBkYXlfc3RhcnRfbWludXRlGAUgASgFEhYKDmRheV9lbmRfbWludXRlGAYgASgFEhIKCm1heF92aXNpdHMYByABKAUimQEKEVBsYW5WaXNpdHNSZXF1ZXN0EiIKBXN0b3BzGAEgAygLMhMubWltaXIudjEuVmlzaXRTdG9wEioKC3NhbGVzcGVvcGxlGAIgAygLMhUubWltaXIudjEuU2FsZXNwZXJzb24SDAoEZGF5cxgDIAEoBRIRCglzcGVlZF9rbWgYBCABKAESEwoLcm9hZF9mYWN0b3IYBSABKAEiZgoMUGxhbm5lZFZpc2l0Eg8KB3N0b3BfaWQYASABKAkSFQoNYXJyaXZlX21pbnV0ZRgCIAEoBRIUCgxsZWF2ZV9taW51dGUYAyABKAUSGAoQa21fZnJvbV9wcmV2aW91cxgEIAEoASJ0CgVSb3V0ZRIWCg5zYWxlc3BlcnNvbl9pZBgBIAEoCRILCgNkYXkYAiABKAUSJgoGdmlzaXRzGAMgAygLMhYubWltaXIudjEuUGxhbm5lZFZpc2l0EgoKAmttGAQgASgBEhIKCmVuZF9taW51dGUYBSABKAUilQEKElBsYW5WaXNpdHNSZXNwb25zZRIfCgZyb3V0ZXMYASADKAsyDy5taW1pci52MS5Sb3V0ZRIaChJ1bnBsYW5uZWRfc3RvcF9pZHMYAiADKAkSEAoIdG90YWxfa20YAyABKAESGAoQcGxhbm5lZF9wcmlvcml0eRgEIAEoARIWCg50b3RhbF9wcmlvcml0eRgFIAEoATJcCgxWaXNpdFNlcnZpY2USTAoKUGxhblZpc2l0cxIbLm1pbWlyLnYxLlBsYW5WaXNpdHNSZXF1ZXN0GhwubWltaXIudjEuUGxhblZpc2l0c1Jlc3BvbnNlIgOQAgFCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw");
+  fileDesc("ChRtaW1pci92MS92aXNpdC5wcm90bxIIbWltaXIudjEiygEKCVZpc2l0U3RvcBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCGxhdGl0dWRlGAMgASgBEhEKCWxvbmdpdHVkZRgEIAEoARIQCghwcmlvcml0eRgFIAEoARIVCg12aXNpdF9taW51dGVzGAYgASgFEhMKC29wZW5fbWludXRlGAcgASgFEhQKDGNsb3NlX21pbnV0ZRgIIAEoBRIWCg5zYWxlc3BlcnNvbl9pZBgJIAEoCRISCgptdXN0X3Zpc2l0GAogASgIIqwBCgtTYWxlc3BlcnNvbhIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhYKDnN0YXJ0X2xhdGl0dWRlGAMgASgBEhcKD3N0YXJ0X2xvbmdpdHVkZRgEIAEoARIYChBkYXlfc3RhcnRfbWludXRlGAUgASgFEhYKDmRheV9lbmRfbWludXRlGAYgASgFEhIKCm1heF92aXNpdHMYByABKAUSDAoEYXJlYRgIIAEoCSKZAQoRUGxhblZpc2l0c1JlcXVlc3QSIgoFc3RvcHMYASADKAsyEy5taW1pci52MS5WaXNpdFN0b3ASKgoLc2FsZXNwZW9wbGUYAiADKAsyFS5taW1pci52MS5TYWxlc3BlcnNvbhIMCgRkYXlzGAMgASgFEhEKCXNwZWVkX2ttaBgEIAEoARITCgtyb2FkX2ZhY3RvchgFIAEoASJmCgxQbGFubmVkVmlzaXQSDwoHc3RvcF9pZBgBIAEoCRIVCg1hcnJpdmVfbWludXRlGAIgASgFEhQKDGxlYXZlX21pbnV0ZRgDIAEoBRIYChBrbV9mcm9tX3ByZXZpb3VzGAQgASgBInQKBVJvdXRlEhYKDnNhbGVzcGVyc29uX2lkGAEgASgJEgsKA2RheRgCIAEoBRImCgZ2aXNpdHMYAyADKAsyFi5taW1pci52MS5QbGFubmVkVmlzaXQSCgoCa20YBCABKAESEgoKZW5kX21pbnV0ZRgFIAEoBSKVAQoSUGxhblZpc2l0c1Jlc3BvbnNlEh8KBnJvdXRlcxgBIAMoCzIPLm1pbWlyLnYxLlJvdXRlEhoKEnVucGxhbm5lZF9zdG9wX2lkcxgCIAMoCRIQCgh0b3RhbF9rbRgDIAEoARIYChBwbGFubmVkX3ByaW9yaXR5GAQgASgBEhYKDnRvdGFsX3ByaW9yaXR5GAUgASgBIqMDChFWaXNpdFBsYW5TZXR0aW5ncxIQCghtb2RlbF9pZBgBIAEoCRIVCg1jdXN0b21lcnNfY3N2GAIgASgMEigKCmNvbm5lY3Rpb24YAyABKAsyFC5taW1pci52MS5Db25uZWN0aW9uEhcKD2N1c3RvbWVyc19xdWVyeRgEIAEoCRIcChRjdXN0b21lcnNfZGF0YXNldF9pZBgFIAEoCRIqCgtzYWxlc3Blb3BsZRgGIAMoCzIVLm1pbWlyLnYxLlNhbGVzcGVyc29uEhcKD3NhbGVzcGVvcGxlX2NzdhgHIAEoDBIZChFzYWxlc3Blb3BsZV9xdWVyeRgIIAEoCRIMCgRkYXlzGAkgASgFEhIKCnN0YXJ0X2RhdGUYCiABKAkSEQoJdGltZV96b25lGAsgASgJEhUKDXNraXBfd2Vla2RheXMYDCADKAUSGQoRc2tpcF92aXNpdGVkX2RheXMYDSABKAUSEQoJc3BlZWRfa21oGA4gASgBEhMKC3JvYWRfZmFjdG9yGA8gASgBEhUKDXZpc2l0X21pbnV0ZXMYECABKAUiyQYKCVZpc2l0UGxhbhIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCG1vZGVsX2lkGAMgASgJEhIKCm1vZGVsX25hbWUYBCABKAkSDgoGc291cmNlGAUgASgJEhUKDXNvdXJjZV9kZXRhaWwYBiABKAkSIwoGc3RhdHVzGAcgASgOMhMubWltaXIudjEuSm9iU3RhdHVzEg0KBWVycm9yGAggASgJEg0KBXN0YWdlGAkgASgJEgwKBGRvbmUYCiABKAMSDQoFdG90YWwYCyABKAMSDAoEZGF5cxgMIAEoBRIVCg1za2lwX3dlZWtkYXlzGA0gAygFEhkKEXNraXBfdmlzaXRlZF9kYXlzGA4gASgFEhEKCXRpbWVfem9uZRgPIAEoCRISCgpzdGFydF9kYXRlGBAgASgJEhAKCGVuZF9kYXRlGBEgASgJEhEKCWN1c3RvbWVycxgSIAEoAxIQCghsZWZ0X291dBgTIAEoAxISCgp1bmFzc2lnbmVkGBQgASgDEhAKCHVucGxhY2VkGBUgASgDEg4KBmZhaWxlZBgWIAEoAxITCgtzYWxlc3Blb3BsZRgXIAEoAxIOCgZ2aXNpdHMYGCABKAMSCgoCa20YGSABKAESDwoHY292ZXJlZBgaIAEoARIRCgluZWVkX2xvb2sYGyABKAMSEAoId2FybmluZ3MYHCADKAkSIgoFYXJlYXMYHSADKAsyEy5taW1pci52MS5BcmVhQ291bnQSEgoKY3JlYXRlZF9ieRgeIAEoCRIvCgtjcmVhdGVfdGltZRgfIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKc3RhcnRfdGltZRggIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kX3RpbWUYISABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDnJlcGVhdF9zZWNvbmRzGCIgASgDEjEKDW5leHRfcnVuX3RpbWUYIyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBHJ1bnMYJCABKAUSGgoSc2FsZXNwZW9wbGVfc291cmNlGCUgASgJIi4KCUFyZWFDb3VudBIMCgRhcmVhGAEgASgJEhMKC3NhbGVzcGVvcGxlGAIgASgFIp8BCg9QbGFuU2FsZXNwZXJzb24SCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRhcmVhGAMgASgJEhEKCWN1c3RvbWVycxgEIAEoBRIOCgZ2aXNpdHMYBSABKAUSCgoCa20YBiABKAESDwoHY292ZXJlZBgHIAEoARITCgtsaWtlbHlfbGVmdBgIIAEoBRIPCgdwcm9ibGVtGAkgASgJInQKD1BsYW5uZWRDdXN0b21lchIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCGxhdGl0dWRlGAMgASgBEhEKCWxvbmdpdHVkZRgEIAEoARIOCgZjaGFuY2UYBSABKAESEgoKbXVzdF92aXNpdBgGIAEoCCJ+CghEYXlWaXNpdBIrCghjdXN0b21lchgBIAEoCzIZLm1pbWlyLnYxLlBsYW5uZWRDdXN0b21lchIVCg1hcnJpdmVfbWludXRlGAIgASgFEhQKDGxlYXZlX21pbnV0ZRgDIAEoBRIYChBrbV9mcm9tX3ByZXZpb3VzGAQgASgBImgKB1BsYW5EYXkSCwoDZGF5GAEgASgFEgwKBGRhdGUYAiABKAkSIgoGdmlzaXRzGAMgAygLMhIubWltaXIudjEuRGF5VmlzaXQSCgoCa20YBCABKAESEgoKZW5kX21pbnV0ZRgFIAEoBSL1AQoPU2FsZXNwZXJzb25QbGFuEi4KC3NhbGVzcGVyc29uGAEgASgLMhkubWltaXIudjEuUGxhblNhbGVzcGVyc29uEhYKDnN0YXJ0X2xhdGl0dWRlGAIgASgBEhcKD3N0YXJ0X2xvbmdpdHVkZRgDIAEoARIYChBkYXlfc3RhcnRfbWludXRlGAQgASgFEhYKDmRheV9lbmRfbWludXRlGAUgASgFEh8KBGRheXMYBiADKAsyES5taW1pci52MS5QbGFuRGF5Ei4KC2xpa2VseV9sZWZ0GAcgAygLMhkubWltaXIudjEuUGxhbm5lZEN1c3RvbWVyIkkKGFNpbXVsYXRlVmlzaXRQbGFuUmVxdWVzdBItCghzZXR0aW5ncxgBIAEoCzIbLm1pbWlyLnYxLlZpc2l0UGxhblNldHRpbmdzIm4KGVNpbXVsYXRlVmlzaXRQbGFuUmVzcG9uc2USIQoEcGxhbhgBIAEoCzITLm1pbWlyLnYxLlZpc2l0UGxhbhIuCgtzYWxlc3Blb3BsZRgCIAMoCzIZLm1pbWlyLnYxLlNhbGVzcGVyc29uUGxhbiJtChZDcmVhdGVWaXNpdFBsYW5SZXF1ZXN0EgwKBG5hbWUYASABKAkSLQoIc2V0dGluZ3MYAiABKAsyGy5taW1pci52MS5WaXNpdFBsYW5TZXR0aW5ncxIWCg5yZXBlYXRfc2Vjb25kcxgDIAEoAyI8ChdDcmVhdGVWaXNpdFBsYW5SZXNwb25zZRIhCgRwbGFuGAEgASgLMhMubWltaXIudjEuVmlzaXRQbGFuIhcKFUxpc3RWaXNpdFBsYW5zUmVxdWVzdCI8ChZMaXN0VmlzaXRQbGFuc1Jlc3BvbnNlEiIKBXBsYW5zGAEgAygLMhMubWltaXIudjEuVmlzaXRQbGFuIiEKE0dldFZpc2l0UGxhblJlcXVlc3QSCgoCaWQYASABKAkiOQoUR2V0VmlzaXRQbGFuUmVzcG9uc2USIQoEcGxhbhgBIAEoCzITLm1pbWlyLnYxLlZpc2l0UGxhbiKQAQoaTGlzdFBsYW5TYWxlc3Blb3BsZVJlcXVlc3QSDwoHcGxhbl9pZBgBIAEoCRIMCgRhcmVhGAIgASgJEg4KBnNlYXJjaBgDIAEoCRIRCgluZWVkX2xvb2sYBCABKAgSDQoFb3JkZXIYBSABKAkSEQoJcGFnZV9zaXplGAYgASgFEg4KBm9mZnNldBgHIAEoBSJcChtMaXN0UGxhblNhbGVzcGVvcGxlUmVzcG9uc2USLgoLc2FsZXNwZW9wbGUYASADKAsyGS5taW1pci52MS5QbGFuU2FsZXNwZXJzb24SDQoFdG90YWwYAiABKAUiRAoZR2V0U2FsZXNwZXJzb25QbGFuUmVxdWVzdBIPCgdwbGFuX2lkGAEgASgJEhYKDnNhbGVzcGVyc29uX2lkGAIgASgJIm8KGkdldFNhbGVzcGVyc29uUGxhblJlc3BvbnNlEiEKBHBsYW4YASABKAsyEy5taW1pci52MS5WaXNpdFBsYW4SLgoLc2FsZXNwZXJzb24YAiABKAsyGS5taW1pci52MS5TYWxlc3BlcnNvblBsYW4iIQoTUnVuVmlzaXRQbGFuUmVxdWVzdBIKCgJpZBgBIAEoCSI5ChRSdW5WaXNpdFBsYW5SZXNwb25zZRIhCgRwbGFuGAEgASgLMhMubWltaXIudjEuVmlzaXRQbGFuIiQKFkNhbmNlbFZpc2l0UGxhblJlcXVlc3QSCgoCaWQYASABKAkiPAoXQ2FuY2VsVmlzaXRQbGFuUmVzcG9uc2USIQoEcGxhbhgBIAEoCzITLm1pbWlyLnYxLlZpc2l0UGxhbiI/ChlTZXRWaXNpdFBsYW5SZXBlYXRSZXF1ZXN0EgoKAmlkGAEgASgJEhYKDnJlcGVhdF9zZWNvbmRzGAIgASgDIj8KGlNldFZpc2l0UGxhblJlcGVhdFJlc3BvbnNlEiEKBHBsYW4YASABKAsyEy5taW1pci52MS5WaXNpdFBsYW4iJAoWRGVsZXRlVmlzaXRQbGFuUmVxdWVzdBIKCgJpZBgBIAEoCSIZChdEZWxldGVWaXNpdFBsYW5SZXNwb25zZTLvBwoMVmlzaXRTZXJ2aWNlEkwKClBsYW5WaXNpdHMSGy5taW1pci52MS5QbGFuVmlzaXRzUmVxdWVzdBocLm1pbWlyLnYxLlBsYW5WaXNpdHNSZXNwb25zZSIDkAIBElwKEVNpbXVsYXRlVmlzaXRQbGFuEiIubWltaXIudjEuU2ltdWxhdGVWaXNpdFBsYW5SZXF1ZXN0GiMubWltaXIudjEuU2ltdWxhdGVWaXNpdFBsYW5SZXNwb25zZRJWCg9DcmVhdGVWaXNpdFBsYW4SIC5taW1pci52MS5DcmVhdGVWaXNpdFBsYW5SZXF1ZXN0GiEubWltaXIudjEuQ3JlYXRlVmlzaXRQbGFuUmVzcG9uc2USWAoOTGlzdFZpc2l0UGxhbnMSHy5taW1pci52MS5MaXN0VmlzaXRQbGFuc1JlcXVlc3QaIC5taW1pci52MS5MaXN0VmlzaXRQbGFuc1Jlc3BvbnNlIgOQAgESUgoMR2V0VmlzaXRQbGFuEh0ubWltaXIudjEuR2V0VmlzaXRQbGFuUmVxdWVzdBoeLm1pbWlyLnYxLkdldFZpc2l0UGxhblJlc3BvbnNlIgOQAgESZwoTTGlzdFBsYW5TYWxlc3Blb3BsZRIkLm1pbWlyLnYxLkxpc3RQbGFuU2FsZXNwZW9wbGVSZXF1ZXN0GiUubWltaXIudjEuTGlzdFBsYW5TYWxlc3Blb3BsZVJlc3BvbnNlIgOQAgESZAoSR2V0U2FsZXNwZXJzb25QbGFuEiMubWltaXIudjEuR2V0U2FsZXNwZXJzb25QbGFuUmVxdWVzdBokLm1pbWlyLnYxLkdldFNhbGVzcGVyc29uUGxhblJlc3BvbnNlIgOQAgESTQoMUnVuVmlzaXRQbGFuEh0ubWltaXIudjEuUnVuVmlzaXRQbGFuUmVxdWVzdBoeLm1pbWlyLnYxLlJ1blZpc2l0UGxhblJlc3BvbnNlElYKD0NhbmNlbFZpc2l0UGxhbhIgLm1pbWlyLnYxLkNhbmNlbFZpc2l0UGxhblJlcXVlc3QaIS5taW1pci52MS5DYW5jZWxWaXNpdFBsYW5SZXNwb25zZRJfChJTZXRWaXNpdFBsYW5SZXBlYXQSIy5taW1pci52MS5TZXRWaXNpdFBsYW5SZXBlYXRSZXF1ZXN0GiQubWltaXIudjEuU2V0VmlzaXRQbGFuUmVwZWF0UmVzcG9uc2USVgoPRGVsZXRlVmlzaXRQbGFuEiAubWltaXIudjEuRGVsZXRlVmlzaXRQbGFuUmVxdWVzdBohLm1pbWlyLnYxLkRlbGV0ZVZpc2l0UGxhblJlc3BvbnNlQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_mimir_v1_training]);
 
 /**
  * VisitStop is a customer or lead to visit.
@@ -141,6 +145,13 @@ export type Salesperson = Message<"mimir.v1.Salesperson"> & {
    * @generated from field: int32 max_visits = 7;
    */
   maxVisits: number;
+
+  /**
+   * area is the salesperson's area or branch, to find them by in a plan.
+   *
+   * @generated from field: string area = 8;
+   */
+  area: string;
 };
 
 /**
@@ -326,10 +337,1051 @@ export const PlanVisitsResponseSchema: GenMessage<PlanVisitsResponse> = /*@__PUR
   messageDesc(file_mimir_v1_visit, 5);
 
 /**
+ * VisitPlanSettings is how to make a visit plan.
+ *
+ * Customers are a table with a header row, one row per customer:
+ * customer_id (or id), latitude and longitude (or lat and lon), and when
+ * there are several salespeople, salesperson_id. It may have name,
+ * visit_minutes, open_minute and close_minute (minutes after midnight,
+ * or HH:MM), must_visit (yes or no), priority (when there is no model)
+ * and days_since_last_visit, and the columns the model reads.
+ *
+ * Salespeople are typed in (salespeople), or a table with id, name, area,
+ * start_latitude and start_longitude (or latitude and longitude),
+ * day_start_minute and day_end_minute (or HH:MM), and max_visits.
+ *
+ * @generated from message mimir.v1.VisitPlanSettings
+ */
+export type VisitPlanSettings = Message<"mimir.v1.VisitPlanSettings"> & {
+  /**
+   * model_id is a model that reads table rows and answers yes or no (its
+   * chance of yes ranks customers) or a number of days until the next
+   * order (fewer first). Empty ranks by the customers' priority column.
+   * The model is asked with visit_window_days set to days.
+   *
+   * @generated from field: string model_id = 1;
+   */
+  modelId: string;
+
+  /**
+   * One source of customers: customers_csv, a table; connection and
+   * customers_query, a database (admins only); customers_dataset_id, a
+   * table dataset.
+   *
+   * @generated from field: bytes customers_csv = 2;
+   */
+  customersCsv: Uint8Array;
+
+  /**
+   * @generated from field: mimir.v1.Connection connection = 3;
+   */
+  connection?: Connection | undefined;
+
+  /**
+   * @generated from field: string customers_query = 4;
+   */
+  customersQuery: string;
+
+  /**
+   * @generated from field: string customers_dataset_id = 5;
+   */
+  customersDatasetId: string;
+
+  /**
+   * One source of salespeople: salespeople, typed in; salespeople_csv, a
+   * table; or salespeople_query on the same connection as the customers.
+   *
+   * @generated from field: repeated mimir.v1.Salesperson salespeople = 6;
+   */
+  salespeople: Salesperson[];
+
+  /**
+   * @generated from field: bytes salespeople_csv = 7;
+   */
+  salespeopleCsv: Uint8Array;
+
+  /**
+   * @generated from field: string salespeople_query = 8;
+   */
+  salespeopleQuery: string;
+
+  /**
+   * days is how many days ahead to plan, from 1 to 7, counting from
+   * start_date (YYYY-MM-DD; empty is the day the plan is made, in
+   * time_zone, an IANA name such as Asia/Jakarta; empty is UTC).
+   *
+   * @generated from field: int32 days = 9;
+   */
+  days: number;
+
+  /**
+   * @generated from field: string start_date = 10;
+   */
+  startDate: string;
+
+  /**
+   * @generated from field: string time_zone = 11;
+   */
+  timeZone: string;
+
+  /**
+   * skip_weekdays are days nobody visits: 0 is Sunday, 6 Saturday.
+   *
+   * @generated from field: repeated int32 skip_weekdays = 12;
+   */
+  skipWeekdays: number[];
+
+  /**
+   * skip_visited_days leaves out customers whose days_since_last_visit
+   * is below it (visited by anyone in the last that many days), unless
+   * they must be visited. 0 keeps them all.
+   *
+   * @generated from field: int32 skip_visited_days = 13;
+   */
+  skipVisitedDays: number;
+
+  /**
+   * speed_kmh, road_factor and visit_minutes are as on PlanVisits; 0
+   * means 30 km/h, 1.3 and 30 minutes.
+   *
+   * @generated from field: double speed_kmh = 14;
+   */
+  speedKmh: number;
+
+  /**
+   * @generated from field: double road_factor = 15;
+   */
+  roadFactor: number;
+
+  /**
+   * @generated from field: int32 visit_minutes = 16;
+   */
+  visitMinutes: number;
+};
+
+/**
+ * Describes the message mimir.v1.VisitPlanSettings.
+ * Use `create(VisitPlanSettingsSchema)` to create a new message.
+ */
+export const VisitPlanSettingsSchema: GenMessage<VisitPlanSettings> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 6);
+
+/**
+ * VisitPlan is a saved plan and the summary of its last run.
+ *
+ * @generated from message mimir.v1.VisitPlan
+ */
+export type VisitPlan = Message<"mimir.v1.VisitPlan"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * model_id is empty for a plan ranked by the customers' own priority.
+   *
+   * @generated from field: string model_id = 3;
+   */
+  modelId: string;
+
+  /**
+   * @generated from field: string model_name = 4;
+   */
+  modelName: string;
+
+  /**
+   * source is where customers come from: "upload", "database" or
+   * "dataset"; source_detail says which, in words.
+   *
+   * @generated from field: string source = 5;
+   */
+  source: string;
+
+  /**
+   * @generated from field: string source_detail = 6;
+   */
+  sourceDetail: string;
+
+  /**
+   * @generated from field: mimir.v1.JobStatus status = 7;
+   */
+  status: JobStatus;
+
+  /**
+   * @generated from field: string error = 8;
+   */
+  error: string;
+
+  /**
+   * stage is what a running plan is doing ("reading", "scoring" or
+   * "planning"); done of total is how far.
+   *
+   * @generated from field: string stage = 9;
+   */
+  stage: string;
+
+  /**
+   * @generated from field: int64 done = 10;
+   */
+  done: bigint;
+
+  /**
+   * @generated from field: int64 total = 11;
+   */
+  total: bigint;
+
+  /**
+   * @generated from field: int32 days = 12;
+   */
+  days: number;
+
+  /**
+   * @generated from field: repeated int32 skip_weekdays = 13;
+   */
+  skipWeekdays: number[];
+
+  /**
+   * @generated from field: int32 skip_visited_days = 14;
+   */
+  skipVisitedDays: number;
+
+  /**
+   * @generated from field: string time_zone = 15;
+   */
+  timeZone: string;
+
+  /**
+   * start_date and end_date are the days the last run planned.
+   *
+   * @generated from field: string start_date = 16;
+   */
+  startDate: string;
+
+  /**
+   * @generated from field: string end_date = 17;
+   */
+  endDate: string;
+
+  /**
+   * customers is how many customers the last run read; left_out how
+   * many it left out as visited lately, unassigned how many have no
+   * salesperson on the list, unplaced how many have no place, failed how
+   * many the model couldn't answer.
+   *
+   * @generated from field: int64 customers = 18;
+   */
+  customers: bigint;
+
+  /**
+   * @generated from field: int64 left_out = 19;
+   */
+  leftOut: bigint;
+
+  /**
+   * @generated from field: int64 unassigned = 20;
+   */
+  unassigned: bigint;
+
+  /**
+   * @generated from field: int64 unplaced = 21;
+   */
+  unplaced: bigint;
+
+  /**
+   * @generated from field: int64 failed = 22;
+   */
+  failed: bigint;
+
+  /**
+   * @generated from field: int64 salespeople = 23;
+   */
+  salespeople: bigint;
+
+  /**
+   * @generated from field: int64 visits = 24;
+   */
+  visits: bigint;
+
+  /**
+   * @generated from field: double km = 25;
+   */
+  km: number;
+
+  /**
+   * covered is the share of the customers' total chance the visits reach,
+   * from 0 to 1.
+   *
+   * @generated from field: double covered = 26;
+   */
+  covered: number;
+
+  /**
+   * need_look counts salespeople with no customers or many likely
+   * customers left over.
+   *
+   * @generated from field: int64 need_look = 27;
+   */
+  needLook: bigint;
+
+  /**
+   * @generated from field: repeated string warnings = 28;
+   */
+  warnings: string[];
+
+  /**
+   * @generated from field: repeated mimir.v1.AreaCount areas = 29;
+   */
+  areas: AreaCount[];
+
+  /**
+   * @generated from field: string created_by = 30;
+   */
+  createdBy: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp create_time = 31;
+   */
+  createTime?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp start_time = 32;
+   */
+  startTime?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp end_time = 33;
+   */
+  endTime?: Timestamp | undefined;
+
+  /**
+   * @generated from field: int64 repeat_seconds = 34;
+   */
+  repeatSeconds: bigint;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp next_run_time = 35;
+   */
+  nextRunTime?: Timestamp | undefined;
+
+  /**
+   * @generated from field: int32 runs = 36;
+   */
+  runs: number;
+
+  /**
+   * salespeople_source is where salespeople come from: "list", "upload"
+   * or "database".
+   *
+   * @generated from field: string salespeople_source = 37;
+   */
+  salespeopleSource: string;
+};
+
+/**
+ * Describes the message mimir.v1.VisitPlan.
+ * Use `create(VisitPlanSchema)` to create a new message.
+ */
+export const VisitPlanSchema: GenMessage<VisitPlan> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 7);
+
+/**
+ * @generated from message mimir.v1.AreaCount
+ */
+export type AreaCount = Message<"mimir.v1.AreaCount"> & {
+  /**
+   * @generated from field: string area = 1;
+   */
+  area: string;
+
+  /**
+   * @generated from field: int32 salespeople = 2;
+   */
+  salespeople: number;
+};
+
+/**
+ * Describes the message mimir.v1.AreaCount.
+ * Use `create(AreaCountSchema)` to create a new message.
+ */
+export const AreaCountSchema: GenMessage<AreaCount> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 8);
+
+/**
+ * PlanSalesperson is one salesperson's summary in a plan.
+ *
+ * @generated from message mimir.v1.PlanSalesperson
+ */
+export type PlanSalesperson = Message<"mimir.v1.PlanSalesperson"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string area = 3;
+   */
+  area: string;
+
+  /**
+   * customers is how many customers they have; visits how many are
+   * planned.
+   *
+   * @generated from field: int32 customers = 4;
+   */
+  customers: number;
+
+  /**
+   * @generated from field: int32 visits = 5;
+   */
+  visits: number;
+
+  /**
+   * @generated from field: double km = 6;
+   */
+  km: number;
+
+  /**
+   * covered is the share of their customers' total chance the visits
+   * reach, from 0 to 1.
+   *
+   * @generated from field: double covered = 7;
+   */
+  covered: number;
+
+  /**
+   * likely_left is how many likely customers didn't fit.
+   *
+   * @generated from field: int32 likely_left = 8;
+   */
+  likelyLeft: number;
+
+  /**
+   * problem says in words why they need a look; empty when they don't.
+   *
+   * @generated from field: string problem = 9;
+   */
+  problem: string;
+};
+
+/**
+ * Describes the message mimir.v1.PlanSalesperson.
+ * Use `create(PlanSalespersonSchema)` to create a new message.
+ */
+export const PlanSalespersonSchema: GenMessage<PlanSalesperson> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 9);
+
+/**
+ * PlannedCustomer is a customer as a plan sees them.
+ *
+ * @generated from message mimir.v1.PlannedCustomer
+ */
+export type PlannedCustomer = Message<"mimir.v1.PlannedCustomer"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: double latitude = 3;
+   */
+  latitude: number;
+
+  /**
+   * @generated from field: double longitude = 4;
+   */
+  longitude: number;
+
+  /**
+   * chance is how likely they are to order in the plan's days, from 0
+   * to 1, or their own priority when the plan has no model.
+   *
+   * @generated from field: double chance = 5;
+   */
+  chance: number;
+
+  /**
+   * @generated from field: bool must_visit = 6;
+   */
+  mustVisit: boolean;
+};
+
+/**
+ * Describes the message mimir.v1.PlannedCustomer.
+ * Use `create(PlannedCustomerSchema)` to create a new message.
+ */
+export const PlannedCustomerSchema: GenMessage<PlannedCustomer> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 10);
+
+/**
+ * @generated from message mimir.v1.DayVisit
+ */
+export type DayVisit = Message<"mimir.v1.DayVisit"> & {
+  /**
+   * @generated from field: mimir.v1.PlannedCustomer customer = 1;
+   */
+  customer?: PlannedCustomer | undefined;
+
+  /**
+   * arrive_minute and leave_minute are minutes after midnight.
+   *
+   * @generated from field: int32 arrive_minute = 2;
+   */
+  arriveMinute: number;
+
+  /**
+   * @generated from field: int32 leave_minute = 3;
+   */
+  leaveMinute: number;
+
+  /**
+   * @generated from field: double km_from_previous = 4;
+   */
+  kmFromPrevious: number;
+};
+
+/**
+ * Describes the message mimir.v1.DayVisit.
+ * Use `create(DayVisitSchema)` to create a new message.
+ */
+export const DayVisitSchema: GenMessage<DayVisit> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 11);
+
+/**
+ * @generated from message mimir.v1.PlanDay
+ */
+export type PlanDay = Message<"mimir.v1.PlanDay"> & {
+  /**
+   * day counts from 1; date is YYYY-MM-DD.
+   *
+   * @generated from field: int32 day = 1;
+   */
+  day: number;
+
+  /**
+   * @generated from field: string date = 2;
+   */
+  date: string;
+
+  /**
+   * @generated from field: repeated mimir.v1.DayVisit visits = 3;
+   */
+  visits: DayVisit[];
+
+  /**
+   * @generated from field: double km = 4;
+   */
+  km: number;
+
+  /**
+   * end_minute is when they are back at the start.
+   *
+   * @generated from field: int32 end_minute = 5;
+   */
+  endMinute: number;
+};
+
+/**
+ * Describes the message mimir.v1.PlanDay.
+ * Use `create(PlanDaySchema)` to create a new message.
+ */
+export const PlanDaySchema: GenMessage<PlanDay> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 12);
+
+/**
+ * SalespersonPlan is one salesperson's days.
+ *
+ * @generated from message mimir.v1.SalespersonPlan
+ */
+export type SalespersonPlan = Message<"mimir.v1.SalespersonPlan"> & {
+  /**
+   * @generated from field: mimir.v1.PlanSalesperson salesperson = 1;
+   */
+  salesperson?: PlanSalesperson | undefined;
+
+  /**
+   * @generated from field: double start_latitude = 2;
+   */
+  startLatitude: number;
+
+  /**
+   * @generated from field: double start_longitude = 3;
+   */
+  startLongitude: number;
+
+  /**
+   * @generated from field: int32 day_start_minute = 4;
+   */
+  dayStartMinute: number;
+
+  /**
+   * @generated from field: int32 day_end_minute = 5;
+   */
+  dayEndMinute: number;
+
+  /**
+   * @generated from field: repeated mimir.v1.PlanDay days = 6;
+   */
+  days: PlanDay[];
+
+  /**
+   * likely_left are the likeliest customers that didn't fit, likeliest
+   * first, up to 20.
+   *
+   * @generated from field: repeated mimir.v1.PlannedCustomer likely_left = 7;
+   */
+  likelyLeft: PlannedCustomer[];
+};
+
+/**
+ * Describes the message mimir.v1.SalespersonPlan.
+ * Use `create(SalespersonPlanSchema)` to create a new message.
+ */
+export const SalespersonPlanSchema: GenMessage<SalespersonPlan> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 13);
+
+/**
+ * @generated from message mimir.v1.SimulateVisitPlanRequest
+ */
+export type SimulateVisitPlanRequest = Message<"mimir.v1.SimulateVisitPlanRequest"> & {
+  /**
+   * @generated from field: mimir.v1.VisitPlanSettings settings = 1;
+   */
+  settings?: VisitPlanSettings | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.SimulateVisitPlanRequest.
+ * Use `create(SimulateVisitPlanRequestSchema)` to create a new message.
+ */
+export const SimulateVisitPlanRequestSchema: GenMessage<SimulateVisitPlanRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 14);
+
+/**
+ * @generated from message mimir.v1.SimulateVisitPlanResponse
+ */
+export type SimulateVisitPlanResponse = Message<"mimir.v1.SimulateVisitPlanResponse"> & {
+  /**
+   * plan is the summary; it has no id, as nothing is saved.
+   *
+   * @generated from field: mimir.v1.VisitPlan plan = 1;
+   */
+  plan?: VisitPlan | undefined;
+
+  /**
+   * @generated from field: repeated mimir.v1.SalespersonPlan salespeople = 2;
+   */
+  salespeople: SalespersonPlan[];
+};
+
+/**
+ * Describes the message mimir.v1.SimulateVisitPlanResponse.
+ * Use `create(SimulateVisitPlanResponseSchema)` to create a new message.
+ */
+export const SimulateVisitPlanResponseSchema: GenMessage<SimulateVisitPlanResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 15);
+
+/**
+ * @generated from message mimir.v1.CreateVisitPlanRequest
+ */
+export type CreateVisitPlanRequest = Message<"mimir.v1.CreateVisitPlanRequest"> & {
+  /**
+   * name is what to call it; empty names it after its days.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: mimir.v1.VisitPlanSettings settings = 2;
+   */
+  settings?: VisitPlanSettings | undefined;
+
+  /**
+   * repeat_seconds makes it again that often, from an hour to 30 days,
+   * such as 86400 for every day; only for customers from a database.
+   *
+   * @generated from field: int64 repeat_seconds = 3;
+   */
+  repeatSeconds: bigint;
+};
+
+/**
+ * Describes the message mimir.v1.CreateVisitPlanRequest.
+ * Use `create(CreateVisitPlanRequestSchema)` to create a new message.
+ */
+export const CreateVisitPlanRequestSchema: GenMessage<CreateVisitPlanRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 16);
+
+/**
+ * @generated from message mimir.v1.CreateVisitPlanResponse
+ */
+export type CreateVisitPlanResponse = Message<"mimir.v1.CreateVisitPlanResponse"> & {
+  /**
+   * @generated from field: mimir.v1.VisitPlan plan = 1;
+   */
+  plan?: VisitPlan | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.CreateVisitPlanResponse.
+ * Use `create(CreateVisitPlanResponseSchema)` to create a new message.
+ */
+export const CreateVisitPlanResponseSchema: GenMessage<CreateVisitPlanResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 17);
+
+/**
+ * @generated from message mimir.v1.ListVisitPlansRequest
+ */
+export type ListVisitPlansRequest = Message<"mimir.v1.ListVisitPlansRequest"> & {
+};
+
+/**
+ * Describes the message mimir.v1.ListVisitPlansRequest.
+ * Use `create(ListVisitPlansRequestSchema)` to create a new message.
+ */
+export const ListVisitPlansRequestSchema: GenMessage<ListVisitPlansRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 18);
+
+/**
+ * @generated from message mimir.v1.ListVisitPlansResponse
+ */
+export type ListVisitPlansResponse = Message<"mimir.v1.ListVisitPlansResponse"> & {
+  /**
+   * @generated from field: repeated mimir.v1.VisitPlan plans = 1;
+   */
+  plans: VisitPlan[];
+};
+
+/**
+ * Describes the message mimir.v1.ListVisitPlansResponse.
+ * Use `create(ListVisitPlansResponseSchema)` to create a new message.
+ */
+export const ListVisitPlansResponseSchema: GenMessage<ListVisitPlansResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 19);
+
+/**
+ * @generated from message mimir.v1.GetVisitPlanRequest
+ */
+export type GetVisitPlanRequest = Message<"mimir.v1.GetVisitPlanRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message mimir.v1.GetVisitPlanRequest.
+ * Use `create(GetVisitPlanRequestSchema)` to create a new message.
+ */
+export const GetVisitPlanRequestSchema: GenMessage<GetVisitPlanRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 20);
+
+/**
+ * @generated from message mimir.v1.GetVisitPlanResponse
+ */
+export type GetVisitPlanResponse = Message<"mimir.v1.GetVisitPlanResponse"> & {
+  /**
+   * @generated from field: mimir.v1.VisitPlan plan = 1;
+   */
+  plan?: VisitPlan | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.GetVisitPlanResponse.
+ * Use `create(GetVisitPlanResponseSchema)` to create a new message.
+ */
+export const GetVisitPlanResponseSchema: GenMessage<GetVisitPlanResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 21);
+
+/**
+ * @generated from message mimir.v1.ListPlanSalespeopleRequest
+ */
+export type ListPlanSalespeopleRequest = Message<"mimir.v1.ListPlanSalespeopleRequest"> & {
+  /**
+   * @generated from field: string plan_id = 1;
+   */
+  planId: string;
+
+  /**
+   * area, when set, keeps only that area's salespeople.
+   *
+   * @generated from field: string area = 2;
+   */
+  area: string;
+
+  /**
+   * search finds salespeople by id, name or area.
+   *
+   * @generated from field: string search = 3;
+   */
+  search: string;
+
+  /**
+   * need_look keeps only those that need a look.
+   *
+   * @generated from field: bool need_look = 4;
+   */
+  needLook: boolean;
+
+  /**
+   * order is "name" (the default), "covered" (least first), "visits"
+   * (most first) or "left" (most likely customers left over first).
+   *
+   * @generated from field: string order = 5;
+   */
+  order: string;
+
+  /**
+   * page_size is up to 200; 0 means 50. offset skips that many.
+   *
+   * @generated from field: int32 page_size = 6;
+   */
+  pageSize: number;
+
+  /**
+   * @generated from field: int32 offset = 7;
+   */
+  offset: number;
+};
+
+/**
+ * Describes the message mimir.v1.ListPlanSalespeopleRequest.
+ * Use `create(ListPlanSalespeopleRequestSchema)` to create a new message.
+ */
+export const ListPlanSalespeopleRequestSchema: GenMessage<ListPlanSalespeopleRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 22);
+
+/**
+ * @generated from message mimir.v1.ListPlanSalespeopleResponse
+ */
+export type ListPlanSalespeopleResponse = Message<"mimir.v1.ListPlanSalespeopleResponse"> & {
+  /**
+   * @generated from field: repeated mimir.v1.PlanSalesperson salespeople = 1;
+   */
+  salespeople: PlanSalesperson[];
+
+  /**
+   * total is how many match in all.
+   *
+   * @generated from field: int32 total = 2;
+   */
+  total: number;
+};
+
+/**
+ * Describes the message mimir.v1.ListPlanSalespeopleResponse.
+ * Use `create(ListPlanSalespeopleResponseSchema)` to create a new message.
+ */
+export const ListPlanSalespeopleResponseSchema: GenMessage<ListPlanSalespeopleResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 23);
+
+/**
+ * @generated from message mimir.v1.GetSalespersonPlanRequest
+ */
+export type GetSalespersonPlanRequest = Message<"mimir.v1.GetSalespersonPlanRequest"> & {
+  /**
+   * @generated from field: string plan_id = 1;
+   */
+  planId: string;
+
+  /**
+   * @generated from field: string salesperson_id = 2;
+   */
+  salespersonId: string;
+};
+
+/**
+ * Describes the message mimir.v1.GetSalespersonPlanRequest.
+ * Use `create(GetSalespersonPlanRequestSchema)` to create a new message.
+ */
+export const GetSalespersonPlanRequestSchema: GenMessage<GetSalespersonPlanRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 24);
+
+/**
+ * @generated from message mimir.v1.GetSalespersonPlanResponse
+ */
+export type GetSalespersonPlanResponse = Message<"mimir.v1.GetSalespersonPlanResponse"> & {
+  /**
+   * @generated from field: mimir.v1.VisitPlan plan = 1;
+   */
+  plan?: VisitPlan | undefined;
+
+  /**
+   * @generated from field: mimir.v1.SalespersonPlan salesperson = 2;
+   */
+  salesperson?: SalespersonPlan | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.GetSalespersonPlanResponse.
+ * Use `create(GetSalespersonPlanResponseSchema)` to create a new message.
+ */
+export const GetSalespersonPlanResponseSchema: GenMessage<GetSalespersonPlanResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 25);
+
+/**
+ * @generated from message mimir.v1.RunVisitPlanRequest
+ */
+export type RunVisitPlanRequest = Message<"mimir.v1.RunVisitPlanRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message mimir.v1.RunVisitPlanRequest.
+ * Use `create(RunVisitPlanRequestSchema)` to create a new message.
+ */
+export const RunVisitPlanRequestSchema: GenMessage<RunVisitPlanRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 26);
+
+/**
+ * @generated from message mimir.v1.RunVisitPlanResponse
+ */
+export type RunVisitPlanResponse = Message<"mimir.v1.RunVisitPlanResponse"> & {
+  /**
+   * @generated from field: mimir.v1.VisitPlan plan = 1;
+   */
+  plan?: VisitPlan | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.RunVisitPlanResponse.
+ * Use `create(RunVisitPlanResponseSchema)` to create a new message.
+ */
+export const RunVisitPlanResponseSchema: GenMessage<RunVisitPlanResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 27);
+
+/**
+ * @generated from message mimir.v1.CancelVisitPlanRequest
+ */
+export type CancelVisitPlanRequest = Message<"mimir.v1.CancelVisitPlanRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message mimir.v1.CancelVisitPlanRequest.
+ * Use `create(CancelVisitPlanRequestSchema)` to create a new message.
+ */
+export const CancelVisitPlanRequestSchema: GenMessage<CancelVisitPlanRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 28);
+
+/**
+ * @generated from message mimir.v1.CancelVisitPlanResponse
+ */
+export type CancelVisitPlanResponse = Message<"mimir.v1.CancelVisitPlanResponse"> & {
+  /**
+   * @generated from field: mimir.v1.VisitPlan plan = 1;
+   */
+  plan?: VisitPlan | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.CancelVisitPlanResponse.
+ * Use `create(CancelVisitPlanResponseSchema)` to create a new message.
+ */
+export const CancelVisitPlanResponseSchema: GenMessage<CancelVisitPlanResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 29);
+
+/**
+ * @generated from message mimir.v1.SetVisitPlanRepeatRequest
+ */
+export type SetVisitPlanRepeatRequest = Message<"mimir.v1.SetVisitPlanRepeatRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: int64 repeat_seconds = 2;
+   */
+  repeatSeconds: bigint;
+};
+
+/**
+ * Describes the message mimir.v1.SetVisitPlanRepeatRequest.
+ * Use `create(SetVisitPlanRepeatRequestSchema)` to create a new message.
+ */
+export const SetVisitPlanRepeatRequestSchema: GenMessage<SetVisitPlanRepeatRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 30);
+
+/**
+ * @generated from message mimir.v1.SetVisitPlanRepeatResponse
+ */
+export type SetVisitPlanRepeatResponse = Message<"mimir.v1.SetVisitPlanRepeatResponse"> & {
+  /**
+   * @generated from field: mimir.v1.VisitPlan plan = 1;
+   */
+  plan?: VisitPlan | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.SetVisitPlanRepeatResponse.
+ * Use `create(SetVisitPlanRepeatResponseSchema)` to create a new message.
+ */
+export const SetVisitPlanRepeatResponseSchema: GenMessage<SetVisitPlanRepeatResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 31);
+
+/**
+ * @generated from message mimir.v1.DeleteVisitPlanRequest
+ */
+export type DeleteVisitPlanRequest = Message<"mimir.v1.DeleteVisitPlanRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message mimir.v1.DeleteVisitPlanRequest.
+ * Use `create(DeleteVisitPlanRequestSchema)` to create a new message.
+ */
+export const DeleteVisitPlanRequestSchema: GenMessage<DeleteVisitPlanRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 32);
+
+/**
+ * @generated from message mimir.v1.DeleteVisitPlanResponse
+ */
+export type DeleteVisitPlanResponse = Message<"mimir.v1.DeleteVisitPlanResponse"> & {
+};
+
+/**
+ * Describes the message mimir.v1.DeleteVisitPlanResponse.
+ * Use `create(DeleteVisitPlanResponseSchema)` to create a new message.
+ */
+export const DeleteVisitPlanResponseSchema: GenMessage<DeleteVisitPlanResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 33);
+
+/**
  * VisitService plans salespeople's visits: which customers each one sees
  * on which day, in what order, and when they arrive. Give each stop a
  * priority, such as a model's chance that the customer orders soon from
  * Score a list, and the plan visits the most valuable stops it can fit.
+ *
+ * A visit plan does both steps: it asks a model how likely each customer
+ * is to order in the coming days, leaves out customers visited lately,
+ * and plans each salesperson's days with the likeliest first.
+ * SimulateVisitPlan answers at once and saves nothing; CreateVisitPlan
+ * saves a plan and makes it in the background, once or every day.
  *
  * @generated from service mimir.v1.VisitService
  */
@@ -341,6 +1393,105 @@ export const VisitService: GenService<{
     methodKind: "unary";
     input: typeof PlanVisitsRequestSchema;
     output: typeof PlanVisitsResponseSchema;
+  },
+  /**
+   * SimulateVisitPlan makes a plan now and returns all of it, saving
+   * nothing: to try settings before saving them. Up to 20,000 customers
+   * and 100 salespeople.
+   *
+   * @generated from rpc mimir.v1.VisitService.SimulateVisitPlan
+   */
+  simulateVisitPlan: {
+    methodKind: "unary";
+    input: typeof SimulateVisitPlanRequestSchema;
+    output: typeof SimulateVisitPlanResponseSchema;
+  },
+  /**
+   * CreateVisitPlan saves a plan and queues it. The server makes queued
+   * plans in order, one at a time; repeat_seconds makes it again that
+   * often, with fresh rows from the database.
+   *
+   * @generated from rpc mimir.v1.VisitService.CreateVisitPlan
+   */
+  createVisitPlan: {
+    methodKind: "unary";
+    input: typeof CreateVisitPlanRequestSchema;
+    output: typeof CreateVisitPlanResponseSchema;
+  },
+  /**
+   * @generated from rpc mimir.v1.VisitService.ListVisitPlans
+   */
+  listVisitPlans: {
+    methodKind: "unary";
+    input: typeof ListVisitPlansRequestSchema;
+    output: typeof ListVisitPlansResponseSchema;
+  },
+  /**
+   * @generated from rpc mimir.v1.VisitService.GetVisitPlan
+   */
+  getVisitPlan: {
+    methodKind: "unary";
+    input: typeof GetVisitPlanRequestSchema;
+    output: typeof GetVisitPlanResponseSchema;
+  },
+  /**
+   * ListPlanSalespeople lists a plan's salespeople from its last run, a
+   * page at a time, by area, search and whether they need a look.
+   *
+   * @generated from rpc mimir.v1.VisitService.ListPlanSalespeople
+   */
+  listPlanSalespeople: {
+    methodKind: "unary";
+    input: typeof ListPlanSalespeopleRequestSchema;
+    output: typeof ListPlanSalespeopleResponseSchema;
+  },
+  /**
+   * GetSalespersonPlan returns one salesperson's days of visits from a
+   * plan's last run, and the likely customers that didn't fit.
+   *
+   * @generated from rpc mimir.v1.VisitService.GetSalespersonPlan
+   */
+  getSalespersonPlan: {
+    methodKind: "unary";
+    input: typeof GetSalespersonPlanRequestSchema;
+    output: typeof GetSalespersonPlanResponseSchema;
+  },
+  /**
+   * RunVisitPlan makes a finished, failed or cancelled plan again now,
+   * with fresh rows.
+   *
+   * @generated from rpc mimir.v1.VisitService.RunVisitPlan
+   */
+  runVisitPlan: {
+    methodKind: "unary";
+    input: typeof RunVisitPlanRequestSchema;
+    output: typeof RunVisitPlanResponseSchema;
+  },
+  /**
+   * @generated from rpc mimir.v1.VisitService.CancelVisitPlan
+   */
+  cancelVisitPlan: {
+    methodKind: "unary";
+    input: typeof CancelVisitPlanRequestSchema;
+    output: typeof CancelVisitPlanResponseSchema;
+  },
+  /**
+   * SetVisitPlanRepeat changes how often a plan is made again; 0 stops it.
+   *
+   * @generated from rpc mimir.v1.VisitService.SetVisitPlanRepeat
+   */
+  setVisitPlanRepeat: {
+    methodKind: "unary";
+    input: typeof SetVisitPlanRepeatRequestSchema;
+    output: typeof SetVisitPlanRepeatResponseSchema;
+  },
+  /**
+   * @generated from rpc mimir.v1.VisitService.DeleteVisitPlan
+   */
+  deleteVisitPlan: {
+    methodKind: "unary";
+    input: typeof DeleteVisitPlanRequestSchema;
+    output: typeof DeleteVisitPlanResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_mimir_v1_visit, 0);

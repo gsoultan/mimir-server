@@ -1,9 +1,9 @@
 import {
-  IconBox, IconDeviceLaptop, IconInfoCircle, IconFileText, IconHome, IconListCheck, IconMessageCircle, IconPlugConnected, IconSchool, IconSettings, IconSparkles, IconTrophy, IconUsers,
+  IconBox, IconDeviceLaptop, IconInfoCircle, IconFileText, IconHome, IconListCheck, IconMessageCircle, IconPlugConnected, IconRoute, IconSchool, IconSettings, IconSparkles, IconTrophy, IconUsers,
   type Icon,
 } from "@tabler/icons-react";
 
-export type NavTo = "/" | "/models" | "/try" | "/device" | "/training" | "/scoring" | "/documents" | "/benchmarks" | "/models/build" | "/apps" | "/users" | "/settings" | "/about";
+export type NavTo = "/" | "/models" | "/try" | "/device" | "/training" | "/scoring" | "/visits" | "/documents" | "/benchmarks" | "/models/build" | "/apps" | "/users" | "/settings" | "/about";
 
 // needs is the permission a person must have to see the item. also lists
 // other paths that light the item up, like templates under Build.
@@ -11,14 +11,14 @@ export type NavItem = { to: NavTo; label: string; short: string; icon: Icon; nee
 export type NavGroup = { label?: string; items: NavItem[] };
 
 // The menu: six places, no headings. Everything else opens from the page
-// it belongs to (Build and Benchmarks from Models, Score a list from Try,
+// it belongs to (Build and Benchmarks from Models, Score a list and Plan visits from Try,
 // People from Settings) and from search. People see only what they may open.
 export const groups: NavGroup[] = [
   {
     items: [
       { to: "/", label: "Home", short: "Home", icon: IconHome },
       { to: "/models", label: "Models", short: "Models", icon: IconBox, also: ["/templates", "/benchmarks"] },
-      { to: "/try", label: "Try a model", short: "Try", icon: IconMessageCircle, also: ["/scoring"] },
+      { to: "/try", label: "Try a model", short: "Try", icon: IconMessageCircle, also: ["/scoring", "/visits"] },
       { to: "/documents", label: "Documents", short: "Docs", icon: IconFileText },
       { to: "/training", label: "Training", short: "Train", icon: IconSchool, needs: "models.write" },
       { to: "/apps", label: "Connect apps", short: "Apps", icon: IconPlugConnected },
@@ -33,6 +33,7 @@ export const settingsItem: NavItem = { to: "/settings", label: "Settings", short
 const extra: NavItem[] = [
   { to: "/models/build", label: "Build a model", short: "Build", icon: IconSparkles, needs: "models.write" },
   { to: "/scoring", label: "Score a list", short: "Score", icon: IconListCheck, needs: "models.write" },
+  { to: "/visits", label: "Plan visits", short: "Visits", icon: IconRoute, needs: "models.read" },
   { to: "/benchmarks", label: "Benchmarks", short: "Tests", icon: IconTrophy, needs: "models.write" },
   { to: "/users", label: "People", short: "People", icon: IconUsers, needs: "users.read" },
 ];

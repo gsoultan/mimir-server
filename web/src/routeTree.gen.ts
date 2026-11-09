@@ -36,10 +36,14 @@ import { Route as AppTemplatesIdRouteImport } from './routes/_app/templates/$id'
 import { Route as AppTrainingIndexRouteImport } from './routes/_app/training/index'
 import { Route as AppTrainingIdRouteImport } from './routes/_app/training/$id'
 import { Route as AppTrainingCompareRouteImport } from './routes/_app/training/compare'
+import { Route as AppVisitsIndexRouteImport } from './routes/_app/visits/index'
+import { Route as AppVisitsNewRouteImport } from './routes/_app/visits/new'
 import { Route as AppWorkersIdRouteImport } from './routes/_app/workers/$id'
 import { Route as AppModelsBuildIndexRouteImport } from './routes/_app/models/build/index'
 import { Route as AppModelsBuildGoalRouteImport } from './routes/_app/models/build/$goal'
 import { Route as AppModelsBuildCodeRouteImport } from './routes/_app/models/build/code'
+import { Route as AppVisitsIdIndexRouteImport } from './routes/_app/visits/$id/index'
+import { Route as AppVisitsIdSalespersonRouteImport } from './routes/_app/visits/$id/$salesperson'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -175,6 +179,16 @@ const AppTrainingCompareRoute = AppTrainingCompareRouteImport.update({
   path: '/training/compare',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVisitsIndexRoute = AppVisitsIndexRouteImport.update({
+  id: '/visits/',
+  path: '/visits/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVisitsNewRoute = AppVisitsNewRouteImport.update({
+  id: '/visits/new',
+  path: '/visits/new',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppWorkersIdRoute = AppWorkersIdRouteImport.update({
   id: '/workers/$id',
   path: '/workers/$id',
@@ -193,6 +207,16 @@ const AppModelsBuildGoalRoute = AppModelsBuildGoalRouteImport.update({
 const AppModelsBuildCodeRoute = AppModelsBuildCodeRouteImport.update({
   id: '/models/build/code',
   path: '/models/build/code',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVisitsIdIndexRoute = AppVisitsIdIndexRouteImport.update({
+  id: '/visits/$id/',
+  path: '/visits/$id/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVisitsIdSalespersonRoute = AppVisitsIdSalespersonRouteImport.update({
+  id: '/visits/$id/$salesperson',
+  path: '/visits/$id/$salesperson',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -217,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/templates/$id': typeof AppTemplatesIdRoute
   '/training/$id': typeof AppTrainingIdRoute
   '/training/compare': typeof AppTrainingCompareRoute
+  '/visits/new': typeof AppVisitsNewRoute
   '/workers/$id': typeof AppWorkersIdRoute
   '/benchmarks/': typeof AppBenchmarksIndexRoute
   '/documents/': typeof AppDocumentsIndexRoute
@@ -224,9 +249,12 @@ export interface FileRoutesByFullPath {
   '/scoring/': typeof AppScoringIndexRoute
   '/templates/': typeof AppTemplatesIndexRoute
   '/training/': typeof AppTrainingIndexRoute
+  '/visits/': typeof AppVisitsIndexRoute
   '/models/build/$goal': typeof AppModelsBuildGoalRoute
   '/models/build/code': typeof AppModelsBuildCodeRoute
+  '/visits/$id/$salesperson': typeof AppVisitsIdSalespersonRoute
   '/models/build/': typeof AppModelsBuildIndexRoute
+  '/visits/$id/': typeof AppVisitsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/device': typeof DeviceRoute
@@ -249,6 +277,7 @@ export interface FileRoutesByTo {
   '/templates/$id': typeof AppTemplatesIdRoute
   '/training/$id': typeof AppTrainingIdRoute
   '/training/compare': typeof AppTrainingCompareRoute
+  '/visits/new': typeof AppVisitsNewRoute
   '/workers/$id': typeof AppWorkersIdRoute
   '/benchmarks': typeof AppBenchmarksIndexRoute
   '/documents': typeof AppDocumentsIndexRoute
@@ -256,9 +285,12 @@ export interface FileRoutesByTo {
   '/scoring': typeof AppScoringIndexRoute
   '/templates': typeof AppTemplatesIndexRoute
   '/training': typeof AppTrainingIndexRoute
+  '/visits': typeof AppVisitsIndexRoute
   '/models/build/$goal': typeof AppModelsBuildGoalRoute
   '/models/build/code': typeof AppModelsBuildCodeRoute
+  '/visits/$id/$salesperson': typeof AppVisitsIdSalespersonRoute
   '/models/build': typeof AppModelsBuildIndexRoute
+  '/visits/$id': typeof AppVisitsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -283,6 +315,7 @@ export interface FileRoutesById {
   '/_app/templates/$id': typeof AppTemplatesIdRoute
   '/_app/training/$id': typeof AppTrainingIdRoute
   '/_app/training/compare': typeof AppTrainingCompareRoute
+  '/_app/visits/new': typeof AppVisitsNewRoute
   '/_app/workers/$id': typeof AppWorkersIdRoute
   '/_app/benchmarks/': typeof AppBenchmarksIndexRoute
   '/_app/documents/': typeof AppDocumentsIndexRoute
@@ -290,9 +323,12 @@ export interface FileRoutesById {
   '/_app/scoring/': typeof AppScoringIndexRoute
   '/_app/templates/': typeof AppTemplatesIndexRoute
   '/_app/training/': typeof AppTrainingIndexRoute
+  '/_app/visits/': typeof AppVisitsIndexRoute
   '/_app/models/build/$goal': typeof AppModelsBuildGoalRoute
   '/_app/models/build/code': typeof AppModelsBuildCodeRoute
+  '/_app/visits/$id/$salesperson': typeof AppVisitsIdSalespersonRoute
   '/_app/models/build/': typeof AppModelsBuildIndexRoute
+  '/_app/visits/$id/': typeof AppVisitsIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -317,6 +353,7 @@ export interface FileRouteTypes {
     | '/templates/$id'
     | '/training/$id'
     | '/training/compare'
+    | '/visits/new'
     | '/workers/$id'
     | '/benchmarks/'
     | '/documents/'
@@ -324,9 +361,12 @@ export interface FileRouteTypes {
     | '/scoring/'
     | '/templates/'
     | '/training/'
+    | '/visits/'
     | '/models/build/$goal'
     | '/models/build/code'
+    | '/visits/$id/$salesperson'
     | '/models/build/'
+    | '/visits/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/device'
@@ -349,6 +389,7 @@ export interface FileRouteTypes {
     | '/templates/$id'
     | '/training/$id'
     | '/training/compare'
+    | '/visits/new'
     | '/workers/$id'
     | '/benchmarks'
     | '/documents'
@@ -356,9 +397,12 @@ export interface FileRouteTypes {
     | '/scoring'
     | '/templates'
     | '/training'
+    | '/visits'
     | '/models/build/$goal'
     | '/models/build/code'
+    | '/visits/$id/$salesperson'
     | '/models/build'
+    | '/visits/$id'
   id:
     | '__root__'
     | '/_app'
@@ -382,6 +426,7 @@ export interface FileRouteTypes {
     | '/_app/templates/$id'
     | '/_app/training/$id'
     | '/_app/training/compare'
+    | '/_app/visits/new'
     | '/_app/workers/$id'
     | '/_app/benchmarks/'
     | '/_app/documents/'
@@ -389,9 +434,12 @@ export interface FileRouteTypes {
     | '/_app/scoring/'
     | '/_app/templates/'
     | '/_app/training/'
+    | '/_app/visits/'
     | '/_app/models/build/$goal'
     | '/_app/models/build/code'
+    | '/_app/visits/$id/$salesperson'
     | '/_app/models/build/'
+    | '/_app/visits/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -592,6 +640,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTrainingCompareRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/visits/': {
+      id: '/_app/visits/'
+      path: '/visits'
+      fullPath: '/visits/'
+      preLoaderRoute: typeof AppVisitsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/visits/new': {
+      id: '/_app/visits/new'
+      path: '/visits/new'
+      fullPath: '/visits/new'
+      preLoaderRoute: typeof AppVisitsNewRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/workers/$id': {
       id: '/_app/workers/$id'
       path: '/workers/$id'
@@ -620,6 +682,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppModelsBuildCodeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/visits/$id/': {
+      id: '/_app/visits/$id/'
+      path: '/visits/$id'
+      fullPath: '/visits/$id/'
+      preLoaderRoute: typeof AppVisitsIdIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/visits/$id/$salesperson': {
+      id: '/_app/visits/$id/$salesperson'
+      path: '/visits/$id/$salesperson'
+      fullPath: '/visits/$id/$salesperson'
+      preLoaderRoute: typeof AppVisitsIdSalespersonRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -641,6 +717,7 @@ interface AppRouteChildren {
   AppTemplatesIdRoute: typeof AppTemplatesIdRoute
   AppTrainingIdRoute: typeof AppTrainingIdRoute
   AppTrainingCompareRoute: typeof AppTrainingCompareRoute
+  AppVisitsNewRoute: typeof AppVisitsNewRoute
   AppWorkersIdRoute: typeof AppWorkersIdRoute
   AppBenchmarksIndexRoute: typeof AppBenchmarksIndexRoute
   AppDocumentsIndexRoute: typeof AppDocumentsIndexRoute
@@ -648,9 +725,12 @@ interface AppRouteChildren {
   AppScoringIndexRoute: typeof AppScoringIndexRoute
   AppTemplatesIndexRoute: typeof AppTemplatesIndexRoute
   AppTrainingIndexRoute: typeof AppTrainingIndexRoute
+  AppVisitsIndexRoute: typeof AppVisitsIndexRoute
   AppModelsBuildGoalRoute: typeof AppModelsBuildGoalRoute
   AppModelsBuildCodeRoute: typeof AppModelsBuildCodeRoute
+  AppVisitsIdSalespersonRoute: typeof AppVisitsIdSalespersonRoute
   AppModelsBuildIndexRoute: typeof AppModelsBuildIndexRoute
+  AppVisitsIdIndexRoute: typeof AppVisitsIdIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -671,6 +751,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTemplatesIdRoute: AppTemplatesIdRoute,
   AppTrainingIdRoute: AppTrainingIdRoute,
   AppTrainingCompareRoute: AppTrainingCompareRoute,
+  AppVisitsNewRoute: AppVisitsNewRoute,
   AppWorkersIdRoute: AppWorkersIdRoute,
   AppBenchmarksIndexRoute: AppBenchmarksIndexRoute,
   AppDocumentsIndexRoute: AppDocumentsIndexRoute,
@@ -678,9 +759,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppScoringIndexRoute: AppScoringIndexRoute,
   AppTemplatesIndexRoute: AppTemplatesIndexRoute,
   AppTrainingIndexRoute: AppTrainingIndexRoute,
+  AppVisitsIndexRoute: AppVisitsIndexRoute,
   AppModelsBuildGoalRoute: AppModelsBuildGoalRoute,
   AppModelsBuildCodeRoute: AppModelsBuildCodeRoute,
+  AppVisitsIdSalespersonRoute: AppVisitsIdSalespersonRoute,
   AppModelsBuildIndexRoute: AppModelsBuildIndexRoute,
+  AppVisitsIdIndexRoute: AppVisitsIdIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

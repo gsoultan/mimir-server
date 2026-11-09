@@ -10,6 +10,13 @@ export function scores(a: Architecture | undefined): boolean {
   return a.output === "" || a.output === "class" || a.output === "number" || a.output === "ranked";
 }
 
+// plansVisits says whether a model can rank customers for a visit plan:
+// it reads a row and answers a label (whether they order) or a number
+// (days until they order).
+export function plansVisits(a: Architecture | undefined): boolean {
+  return scores(a) && (a!.output === "" || a!.output === "class" || a!.output === "number");
+}
+
 // How often a scoring from a database or storage can run again.
 export const repeats = [
   { value: "0", label: "Just once" },

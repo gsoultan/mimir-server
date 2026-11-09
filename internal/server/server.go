@@ -111,6 +111,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	mux.Handle("GET "+api.SSOPath, svc.SSOHandler())
 	mux.Handle("POST /api/uploads", svc.UploadHandler(int64(uploadBytes)))
 	mux.Handle("GET "+api.ScoringPath, svc.ScoringResultsHandler())
+	mux.Handle("GET "+api.VisitPlanPath, svc.VisitPlanHandler())
 	mux.Handle("GET "+gpucloud.ProgramPath, svc.ProgramHandler())
 	mux.Handle("/v1/", openai.Handler(svc, st, log))
 	mux.Handle(grpchealth.NewHandler(newHealthChecker(st.Ping), connect.WithInterceptors(metrics.Interceptor())))

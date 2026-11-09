@@ -603,6 +603,42 @@ are straight lines times a road factor (1.3 unless set) at an average
 speed (30 km/h unless set). It plans up to 2,000 stops over up to 31
 days, and needs the permission to ask models.
 
+For a whole sales team, open **Plan visits** (from **Try a model**, a
+model's page, or search). A visit plan reads every customer and
+salesperson, asks a model how likely each customer is to order (or uses a
+`priority` column), and plans each salesperson's next 1 to 7 days on
+their own. It takes up to 1,000,000 customers and 5,000 salespeople.
+
+- **Customers**: a CSV, a table of examples, or a database query. They
+  need `customer_id`, `latitude`, `longitude`, and `salesperson_id` when
+  there is more than one salesperson; without a model, `priority`.
+  Optional: `name`, `must_visit`, `open_minute`, `close_minute`,
+  `visit_minutes`, `days_since_last_visit`. A model's own columns come
+  along; a model that reads `visit_window_days` is told the plan's days.
+- **Salespeople**: a CSV, a query on the same database, or a list in the
+  API, with `id`, `start_latitude`, `start_longitude` and optionally
+  `name`, `area`, `day_start_minute`, `day_end_minute`, `max_visits`.
+  Rotations need nothing special: the query joins this month's
+  salesperson to each customer, and the next plan follows it.
+- **Leave out customers visited in the last N days**, by anyone, reads
+  `days_since_last_visit`; a `must_visit` customer is always planned.
+  Days off (such as Sundays), the first day, the time zone and how long
+  a visit takes are settings too.
+
+`SimulateVisitPlan` tries a plan and keeps nothing (up to 20,000
+customers and 100 salespeople); **Try it** on the page calls it.
+`CreateVisitPlan` makes a plan in the background, and one read from a
+database can be made again every day or week (`repeat_seconds`), each
+time from fresh rows and starting that day. `ListPlanSalespeople` pages
+through the salespeople by area, name or id, and those that need a
+look; `GetSalespersonPlan` gives one salesperson's days, route and the
+likely customers that didn't fit; `GET /api/visit-plans/{id}/visits.csv`
+downloads every visit. `RunVisitPlan`, `CancelVisitPlan`,
+`SetVisitPlanRepeat` and `DeleteVisitPlan` manage it. Reading plans needs
+the permission to view models; trying and making them, the permission to
+change models, and a database source, the permission to query databases.
+Webhooks fire `visit_plan.finished` and `visit_plan.failed`.
+
 ### Ask your documents
 
 **Ask your documents** answers questions from a team's own files: handbooks,

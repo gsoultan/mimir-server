@@ -9,6 +9,7 @@ package mimirv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -162,7 +163,9 @@ type Salesperson struct {
 	DayStartMinute int32 `protobuf:"varint,5,opt,name=day_start_minute,json=dayStartMinute,proto3" json:"day_start_minute,omitempty"`
 	DayEndMinute   int32 `protobuf:"varint,6,opt,name=day_end_minute,json=dayEndMinute,proto3" json:"day_end_minute,omitempty"`
 	// max_visits bounds visits per day; 0 means no limit beyond time.
-	MaxVisits     int32 `protobuf:"varint,7,opt,name=max_visits,json=maxVisits,proto3" json:"max_visits,omitempty"`
+	MaxVisits int32 `protobuf:"varint,7,opt,name=max_visits,json=maxVisits,proto3" json:"max_visits,omitempty"`
+	// area is the salesperson's area or branch, to find them by in a plan.
+	Area          string `protobuf:"bytes,8,opt,name=area,proto3" json:"area,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -244,6 +247,13 @@ func (x *Salesperson) GetMaxVisits() int32 {
 		return x.MaxVisits
 	}
 	return 0
+}
+
+func (x *Salesperson) GetArea() string {
+	if x != nil {
+		return x.Area
+	}
+	return ""
 }
 
 type PlanVisitsRequest struct {
@@ -561,11 +571,2029 @@ func (x *PlanVisitsResponse) GetTotalPriority() float64 {
 	return 0
 }
 
+// VisitPlanSettings is how to make a visit plan.
+//
+// Customers are a table with a header row, one row per customer:
+// customer_id (or id), latitude and longitude (or lat and lon), and when
+// there are several salespeople, salesperson_id. It may have name,
+// visit_minutes, open_minute and close_minute (minutes after midnight,
+// or HH:MM), must_visit (yes or no), priority (when there is no model)
+// and days_since_last_visit, and the columns the model reads.
+//
+// Salespeople are typed in (salespeople), or a table with id, name, area,
+// start_latitude and start_longitude (or latitude and longitude),
+// day_start_minute and day_end_minute (or HH:MM), and max_visits.
+type VisitPlanSettings struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// model_id is a model that reads table rows and answers yes or no (its
+	// chance of yes ranks customers) or a number of days until the next
+	// order (fewer first). Empty ranks by the customers' priority column.
+	// The model is asked with visit_window_days set to days.
+	ModelId string `protobuf:"bytes,1,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
+	// One source of customers: customers_csv, a table; connection and
+	// customers_query, a database (admins only); customers_dataset_id, a
+	// table dataset.
+	CustomersCsv       []byte      `protobuf:"bytes,2,opt,name=customers_csv,json=customersCsv,proto3" json:"customers_csv,omitempty"`
+	Connection         *Connection `protobuf:"bytes,3,opt,name=connection,proto3" json:"connection,omitempty"`
+	CustomersQuery     string      `protobuf:"bytes,4,opt,name=customers_query,json=customersQuery,proto3" json:"customers_query,omitempty"`
+	CustomersDatasetId string      `protobuf:"bytes,5,opt,name=customers_dataset_id,json=customersDatasetId,proto3" json:"customers_dataset_id,omitempty"`
+	// One source of salespeople: salespeople, typed in; salespeople_csv, a
+	// table; or salespeople_query on the same connection as the customers.
+	Salespeople      []*Salesperson `protobuf:"bytes,6,rep,name=salespeople,proto3" json:"salespeople,omitempty"`
+	SalespeopleCsv   []byte         `protobuf:"bytes,7,opt,name=salespeople_csv,json=salespeopleCsv,proto3" json:"salespeople_csv,omitempty"`
+	SalespeopleQuery string         `protobuf:"bytes,8,opt,name=salespeople_query,json=salespeopleQuery,proto3" json:"salespeople_query,omitempty"`
+	// days is how many days ahead to plan, from 1 to 7, counting from
+	// start_date (YYYY-MM-DD; empty is the day the plan is made, in
+	// time_zone, an IANA name such as Asia/Jakarta; empty is UTC).
+	Days      int32  `protobuf:"varint,9,opt,name=days,proto3" json:"days,omitempty"`
+	StartDate string `protobuf:"bytes,10,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
+	TimeZone  string `protobuf:"bytes,11,opt,name=time_zone,json=timeZone,proto3" json:"time_zone,omitempty"`
+	// skip_weekdays are days nobody visits: 0 is Sunday, 6 Saturday.
+	SkipWeekdays []int32 `protobuf:"varint,12,rep,packed,name=skip_weekdays,json=skipWeekdays,proto3" json:"skip_weekdays,omitempty"`
+	// skip_visited_days leaves out customers whose days_since_last_visit
+	// is below it (visited by anyone in the last that many days), unless
+	// they must be visited. 0 keeps them all.
+	SkipVisitedDays int32 `protobuf:"varint,13,opt,name=skip_visited_days,json=skipVisitedDays,proto3" json:"skip_visited_days,omitempty"`
+	// speed_kmh, road_factor and visit_minutes are as on PlanVisits; 0
+	// means 30 km/h, 1.3 and 30 minutes.
+	SpeedKmh      float64 `protobuf:"fixed64,14,opt,name=speed_kmh,json=speedKmh,proto3" json:"speed_kmh,omitempty"`
+	RoadFactor    float64 `protobuf:"fixed64,15,opt,name=road_factor,json=roadFactor,proto3" json:"road_factor,omitempty"`
+	VisitMinutes  int32   `protobuf:"varint,16,opt,name=visit_minutes,json=visitMinutes,proto3" json:"visit_minutes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VisitPlanSettings) Reset() {
+	*x = VisitPlanSettings{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VisitPlanSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VisitPlanSettings) ProtoMessage() {}
+
+func (x *VisitPlanSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VisitPlanSettings.ProtoReflect.Descriptor instead.
+func (*VisitPlanSettings) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *VisitPlanSettings) GetModelId() string {
+	if x != nil {
+		return x.ModelId
+	}
+	return ""
+}
+
+func (x *VisitPlanSettings) GetCustomersCsv() []byte {
+	if x != nil {
+		return x.CustomersCsv
+	}
+	return nil
+}
+
+func (x *VisitPlanSettings) GetConnection() *Connection {
+	if x != nil {
+		return x.Connection
+	}
+	return nil
+}
+
+func (x *VisitPlanSettings) GetCustomersQuery() string {
+	if x != nil {
+		return x.CustomersQuery
+	}
+	return ""
+}
+
+func (x *VisitPlanSettings) GetCustomersDatasetId() string {
+	if x != nil {
+		return x.CustomersDatasetId
+	}
+	return ""
+}
+
+func (x *VisitPlanSettings) GetSalespeople() []*Salesperson {
+	if x != nil {
+		return x.Salespeople
+	}
+	return nil
+}
+
+func (x *VisitPlanSettings) GetSalespeopleCsv() []byte {
+	if x != nil {
+		return x.SalespeopleCsv
+	}
+	return nil
+}
+
+func (x *VisitPlanSettings) GetSalespeopleQuery() string {
+	if x != nil {
+		return x.SalespeopleQuery
+	}
+	return ""
+}
+
+func (x *VisitPlanSettings) GetDays() int32 {
+	if x != nil {
+		return x.Days
+	}
+	return 0
+}
+
+func (x *VisitPlanSettings) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
+}
+
+func (x *VisitPlanSettings) GetTimeZone() string {
+	if x != nil {
+		return x.TimeZone
+	}
+	return ""
+}
+
+func (x *VisitPlanSettings) GetSkipWeekdays() []int32 {
+	if x != nil {
+		return x.SkipWeekdays
+	}
+	return nil
+}
+
+func (x *VisitPlanSettings) GetSkipVisitedDays() int32 {
+	if x != nil {
+		return x.SkipVisitedDays
+	}
+	return 0
+}
+
+func (x *VisitPlanSettings) GetSpeedKmh() float64 {
+	if x != nil {
+		return x.SpeedKmh
+	}
+	return 0
+}
+
+func (x *VisitPlanSettings) GetRoadFactor() float64 {
+	if x != nil {
+		return x.RoadFactor
+	}
+	return 0
+}
+
+func (x *VisitPlanSettings) GetVisitMinutes() int32 {
+	if x != nil {
+		return x.VisitMinutes
+	}
+	return 0
+}
+
+// VisitPlan is a saved plan and the summary of its last run.
+type VisitPlan struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// model_id is empty for a plan ranked by the customers' own priority.
+	ModelId   string `protobuf:"bytes,3,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
+	ModelName string `protobuf:"bytes,4,opt,name=model_name,json=modelName,proto3" json:"model_name,omitempty"`
+	// source is where customers come from: "upload", "database" or
+	// "dataset"; source_detail says which, in words.
+	Source       string    `protobuf:"bytes,5,opt,name=source,proto3" json:"source,omitempty"`
+	SourceDetail string    `protobuf:"bytes,6,opt,name=source_detail,json=sourceDetail,proto3" json:"source_detail,omitempty"`
+	Status       JobStatus `protobuf:"varint,7,opt,name=status,proto3,enum=mimir.v1.JobStatus" json:"status,omitempty"`
+	Error        string    `protobuf:"bytes,8,opt,name=error,proto3" json:"error,omitempty"`
+	// stage is what a running plan is doing ("reading", "scoring" or
+	// "planning"); done of total is how far.
+	Stage           string  `protobuf:"bytes,9,opt,name=stage,proto3" json:"stage,omitempty"`
+	Done            int64   `protobuf:"varint,10,opt,name=done,proto3" json:"done,omitempty"`
+	Total           int64   `protobuf:"varint,11,opt,name=total,proto3" json:"total,omitempty"`
+	Days            int32   `protobuf:"varint,12,opt,name=days,proto3" json:"days,omitempty"`
+	SkipWeekdays    []int32 `protobuf:"varint,13,rep,packed,name=skip_weekdays,json=skipWeekdays,proto3" json:"skip_weekdays,omitempty"`
+	SkipVisitedDays int32   `protobuf:"varint,14,opt,name=skip_visited_days,json=skipVisitedDays,proto3" json:"skip_visited_days,omitempty"`
+	TimeZone        string  `protobuf:"bytes,15,opt,name=time_zone,json=timeZone,proto3" json:"time_zone,omitempty"`
+	// start_date and end_date are the days the last run planned.
+	StartDate string `protobuf:"bytes,16,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
+	EndDate   string `protobuf:"bytes,17,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`
+	// customers is how many customers the last run read; left_out how
+	// many it left out as visited lately, unassigned how many have no
+	// salesperson on the list, unplaced how many have no place, failed how
+	// many the model couldn't answer.
+	Customers   int64   `protobuf:"varint,18,opt,name=customers,proto3" json:"customers,omitempty"`
+	LeftOut     int64   `protobuf:"varint,19,opt,name=left_out,json=leftOut,proto3" json:"left_out,omitempty"`
+	Unassigned  int64   `protobuf:"varint,20,opt,name=unassigned,proto3" json:"unassigned,omitempty"`
+	Unplaced    int64   `protobuf:"varint,21,opt,name=unplaced,proto3" json:"unplaced,omitempty"`
+	Failed      int64   `protobuf:"varint,22,opt,name=failed,proto3" json:"failed,omitempty"`
+	Salespeople int64   `protobuf:"varint,23,opt,name=salespeople,proto3" json:"salespeople,omitempty"`
+	Visits      int64   `protobuf:"varint,24,opt,name=visits,proto3" json:"visits,omitempty"`
+	Km          float64 `protobuf:"fixed64,25,opt,name=km,proto3" json:"km,omitempty"`
+	// covered is the share of the customers' total chance the visits reach,
+	// from 0 to 1.
+	Covered float64 `protobuf:"fixed64,26,opt,name=covered,proto3" json:"covered,omitempty"`
+	// need_look counts salespeople with no customers or many likely
+	// customers left over.
+	NeedLook      int64                  `protobuf:"varint,27,opt,name=need_look,json=needLook,proto3" json:"need_look,omitempty"`
+	Warnings      []string               `protobuf:"bytes,28,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	Areas         []*AreaCount           `protobuf:"bytes,29,rep,name=areas,proto3" json:"areas,omitempty"`
+	CreatedBy     string                 `protobuf:"bytes,30,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,31,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	StartTime     *timestamppb.Timestamp `protobuf:"bytes,32,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	EndTime       *timestamppb.Timestamp `protobuf:"bytes,33,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	RepeatSeconds int64                  `protobuf:"varint,34,opt,name=repeat_seconds,json=repeatSeconds,proto3" json:"repeat_seconds,omitempty"`
+	NextRunTime   *timestamppb.Timestamp `protobuf:"bytes,35,opt,name=next_run_time,json=nextRunTime,proto3" json:"next_run_time,omitempty"`
+	Runs          int32                  `protobuf:"varint,36,opt,name=runs,proto3" json:"runs,omitempty"`
+	// salespeople_source is where salespeople come from: "list", "upload"
+	// or "database".
+	SalespeopleSource string `protobuf:"bytes,37,opt,name=salespeople_source,json=salespeopleSource,proto3" json:"salespeople_source,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *VisitPlan) Reset() {
+	*x = VisitPlan{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VisitPlan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VisitPlan) ProtoMessage() {}
+
+func (x *VisitPlan) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VisitPlan.ProtoReflect.Descriptor instead.
+func (*VisitPlan) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *VisitPlan) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetModelId() string {
+	if x != nil {
+		return x.ModelId
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetModelName() string {
+	if x != nil {
+		return x.ModelName
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetSourceDetail() string {
+	if x != nil {
+		return x.SourceDetail
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetStatus() JobStatus {
+	if x != nil {
+		return x.Status
+	}
+	return JobStatus_JOB_STATUS_UNSPECIFIED
+}
+
+func (x *VisitPlan) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetStage() string {
+	if x != nil {
+		return x.Stage
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetDone() int64 {
+	if x != nil {
+		return x.Done
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetDays() int32 {
+	if x != nil {
+		return x.Days
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetSkipWeekdays() []int32 {
+	if x != nil {
+		return x.SkipWeekdays
+	}
+	return nil
+}
+
+func (x *VisitPlan) GetSkipVisitedDays() int32 {
+	if x != nil {
+		return x.SkipVisitedDays
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetTimeZone() string {
+	if x != nil {
+		return x.TimeZone
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetEndDate() string {
+	if x != nil {
+		return x.EndDate
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetCustomers() int64 {
+	if x != nil {
+		return x.Customers
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetLeftOut() int64 {
+	if x != nil {
+		return x.LeftOut
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetUnassigned() int64 {
+	if x != nil {
+		return x.Unassigned
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetUnplaced() int64 {
+	if x != nil {
+		return x.Unplaced
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetFailed() int64 {
+	if x != nil {
+		return x.Failed
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetSalespeople() int64 {
+	if x != nil {
+		return x.Salespeople
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetVisits() int64 {
+	if x != nil {
+		return x.Visits
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetKm() float64 {
+	if x != nil {
+		return x.Km
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetCovered() float64 {
+	if x != nil {
+		return x.Covered
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetNeedLook() int64 {
+	if x != nil {
+		return x.NeedLook
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetWarnings() []string {
+	if x != nil {
+		return x.Warnings
+	}
+	return nil
+}
+
+func (x *VisitPlan) GetAreas() []*AreaCount {
+	if x != nil {
+		return x.Areas
+	}
+	return nil
+}
+
+func (x *VisitPlan) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *VisitPlan) GetCreateTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreateTime
+	}
+	return nil
+}
+
+func (x *VisitPlan) GetStartTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartTime
+	}
+	return nil
+}
+
+func (x *VisitPlan) GetEndTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndTime
+	}
+	return nil
+}
+
+func (x *VisitPlan) GetRepeatSeconds() int64 {
+	if x != nil {
+		return x.RepeatSeconds
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetNextRunTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NextRunTime
+	}
+	return nil
+}
+
+func (x *VisitPlan) GetRuns() int32 {
+	if x != nil {
+		return x.Runs
+	}
+	return 0
+}
+
+func (x *VisitPlan) GetSalespeopleSource() string {
+	if x != nil {
+		return x.SalespeopleSource
+	}
+	return ""
+}
+
+type AreaCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Area          string                 `protobuf:"bytes,1,opt,name=area,proto3" json:"area,omitempty"`
+	Salespeople   int32                  `protobuf:"varint,2,opt,name=salespeople,proto3" json:"salespeople,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AreaCount) Reset() {
+	*x = AreaCount{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AreaCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AreaCount) ProtoMessage() {}
+
+func (x *AreaCount) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AreaCount.ProtoReflect.Descriptor instead.
+func (*AreaCount) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *AreaCount) GetArea() string {
+	if x != nil {
+		return x.Area
+	}
+	return ""
+}
+
+func (x *AreaCount) GetSalespeople() int32 {
+	if x != nil {
+		return x.Salespeople
+	}
+	return 0
+}
+
+// PlanSalesperson is one salesperson's summary in a plan.
+type PlanSalesperson struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Area  string                 `protobuf:"bytes,3,opt,name=area,proto3" json:"area,omitempty"`
+	// customers is how many customers they have; visits how many are
+	// planned.
+	Customers int32   `protobuf:"varint,4,opt,name=customers,proto3" json:"customers,omitempty"`
+	Visits    int32   `protobuf:"varint,5,opt,name=visits,proto3" json:"visits,omitempty"`
+	Km        float64 `protobuf:"fixed64,6,opt,name=km,proto3" json:"km,omitempty"`
+	// covered is the share of their customers' total chance the visits
+	// reach, from 0 to 1.
+	Covered float64 `protobuf:"fixed64,7,opt,name=covered,proto3" json:"covered,omitempty"`
+	// likely_left is how many likely customers didn't fit.
+	LikelyLeft int32 `protobuf:"varint,8,opt,name=likely_left,json=likelyLeft,proto3" json:"likely_left,omitempty"`
+	// problem says in words why they need a look; empty when they don't.
+	Problem       string `protobuf:"bytes,9,opt,name=problem,proto3" json:"problem,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlanSalesperson) Reset() {
+	*x = PlanSalesperson{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlanSalesperson) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlanSalesperson) ProtoMessage() {}
+
+func (x *PlanSalesperson) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlanSalesperson.ProtoReflect.Descriptor instead.
+func (*PlanSalesperson) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *PlanSalesperson) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PlanSalesperson) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PlanSalesperson) GetArea() string {
+	if x != nil {
+		return x.Area
+	}
+	return ""
+}
+
+func (x *PlanSalesperson) GetCustomers() int32 {
+	if x != nil {
+		return x.Customers
+	}
+	return 0
+}
+
+func (x *PlanSalesperson) GetVisits() int32 {
+	if x != nil {
+		return x.Visits
+	}
+	return 0
+}
+
+func (x *PlanSalesperson) GetKm() float64 {
+	if x != nil {
+		return x.Km
+	}
+	return 0
+}
+
+func (x *PlanSalesperson) GetCovered() float64 {
+	if x != nil {
+		return x.Covered
+	}
+	return 0
+}
+
+func (x *PlanSalesperson) GetLikelyLeft() int32 {
+	if x != nil {
+		return x.LikelyLeft
+	}
+	return 0
+}
+
+func (x *PlanSalesperson) GetProblem() string {
+	if x != nil {
+		return x.Problem
+	}
+	return ""
+}
+
+// PlannedCustomer is a customer as a plan sees them.
+type PlannedCustomer struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name      string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Latitude  float64                `protobuf:"fixed64,3,opt,name=latitude,proto3" json:"latitude,omitempty"`
+	Longitude float64                `protobuf:"fixed64,4,opt,name=longitude,proto3" json:"longitude,omitempty"`
+	// chance is how likely they are to order in the plan's days, from 0
+	// to 1, or their own priority when the plan has no model.
+	Chance        float64 `protobuf:"fixed64,5,opt,name=chance,proto3" json:"chance,omitempty"`
+	MustVisit     bool    `protobuf:"varint,6,opt,name=must_visit,json=mustVisit,proto3" json:"must_visit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlannedCustomer) Reset() {
+	*x = PlannedCustomer{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlannedCustomer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlannedCustomer) ProtoMessage() {}
+
+func (x *PlannedCustomer) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlannedCustomer.ProtoReflect.Descriptor instead.
+func (*PlannedCustomer) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PlannedCustomer) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PlannedCustomer) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PlannedCustomer) GetLatitude() float64 {
+	if x != nil {
+		return x.Latitude
+	}
+	return 0
+}
+
+func (x *PlannedCustomer) GetLongitude() float64 {
+	if x != nil {
+		return x.Longitude
+	}
+	return 0
+}
+
+func (x *PlannedCustomer) GetChance() float64 {
+	if x != nil {
+		return x.Chance
+	}
+	return 0
+}
+
+func (x *PlannedCustomer) GetMustVisit() bool {
+	if x != nil {
+		return x.MustVisit
+	}
+	return false
+}
+
+type DayVisit struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Customer *PlannedCustomer       `protobuf:"bytes,1,opt,name=customer,proto3" json:"customer,omitempty"`
+	// arrive_minute and leave_minute are minutes after midnight.
+	ArriveMinute   int32   `protobuf:"varint,2,opt,name=arrive_minute,json=arriveMinute,proto3" json:"arrive_minute,omitempty"`
+	LeaveMinute    int32   `protobuf:"varint,3,opt,name=leave_minute,json=leaveMinute,proto3" json:"leave_minute,omitempty"`
+	KmFromPrevious float64 `protobuf:"fixed64,4,opt,name=km_from_previous,json=kmFromPrevious,proto3" json:"km_from_previous,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *DayVisit) Reset() {
+	*x = DayVisit{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DayVisit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DayVisit) ProtoMessage() {}
+
+func (x *DayVisit) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DayVisit.ProtoReflect.Descriptor instead.
+func (*DayVisit) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *DayVisit) GetCustomer() *PlannedCustomer {
+	if x != nil {
+		return x.Customer
+	}
+	return nil
+}
+
+func (x *DayVisit) GetArriveMinute() int32 {
+	if x != nil {
+		return x.ArriveMinute
+	}
+	return 0
+}
+
+func (x *DayVisit) GetLeaveMinute() int32 {
+	if x != nil {
+		return x.LeaveMinute
+	}
+	return 0
+}
+
+func (x *DayVisit) GetKmFromPrevious() float64 {
+	if x != nil {
+		return x.KmFromPrevious
+	}
+	return 0
+}
+
+type PlanDay struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// day counts from 1; date is YYYY-MM-DD.
+	Day    int32       `protobuf:"varint,1,opt,name=day,proto3" json:"day,omitempty"`
+	Date   string      `protobuf:"bytes,2,opt,name=date,proto3" json:"date,omitempty"`
+	Visits []*DayVisit `protobuf:"bytes,3,rep,name=visits,proto3" json:"visits,omitempty"`
+	Km     float64     `protobuf:"fixed64,4,opt,name=km,proto3" json:"km,omitempty"`
+	// end_minute is when they are back at the start.
+	EndMinute     int32 `protobuf:"varint,5,opt,name=end_minute,json=endMinute,proto3" json:"end_minute,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlanDay) Reset() {
+	*x = PlanDay{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlanDay) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlanDay) ProtoMessage() {}
+
+func (x *PlanDay) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlanDay.ProtoReflect.Descriptor instead.
+func (*PlanDay) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *PlanDay) GetDay() int32 {
+	if x != nil {
+		return x.Day
+	}
+	return 0
+}
+
+func (x *PlanDay) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *PlanDay) GetVisits() []*DayVisit {
+	if x != nil {
+		return x.Visits
+	}
+	return nil
+}
+
+func (x *PlanDay) GetKm() float64 {
+	if x != nil {
+		return x.Km
+	}
+	return 0
+}
+
+func (x *PlanDay) GetEndMinute() int32 {
+	if x != nil {
+		return x.EndMinute
+	}
+	return 0
+}
+
+// SalespersonPlan is one salesperson's days.
+type SalespersonPlan struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Salesperson    *PlanSalesperson       `protobuf:"bytes,1,opt,name=salesperson,proto3" json:"salesperson,omitempty"`
+	StartLatitude  float64                `protobuf:"fixed64,2,opt,name=start_latitude,json=startLatitude,proto3" json:"start_latitude,omitempty"`
+	StartLongitude float64                `protobuf:"fixed64,3,opt,name=start_longitude,json=startLongitude,proto3" json:"start_longitude,omitempty"`
+	DayStartMinute int32                  `protobuf:"varint,4,opt,name=day_start_minute,json=dayStartMinute,proto3" json:"day_start_minute,omitempty"`
+	DayEndMinute   int32                  `protobuf:"varint,5,opt,name=day_end_minute,json=dayEndMinute,proto3" json:"day_end_minute,omitempty"`
+	Days           []*PlanDay             `protobuf:"bytes,6,rep,name=days,proto3" json:"days,omitempty"`
+	// likely_left are the likeliest customers that didn't fit, likeliest
+	// first, up to 20.
+	LikelyLeft    []*PlannedCustomer `protobuf:"bytes,7,rep,name=likely_left,json=likelyLeft,proto3" json:"likely_left,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SalespersonPlan) Reset() {
+	*x = SalespersonPlan{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SalespersonPlan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SalespersonPlan) ProtoMessage() {}
+
+func (x *SalespersonPlan) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SalespersonPlan.ProtoReflect.Descriptor instead.
+func (*SalespersonPlan) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SalespersonPlan) GetSalesperson() *PlanSalesperson {
+	if x != nil {
+		return x.Salesperson
+	}
+	return nil
+}
+
+func (x *SalespersonPlan) GetStartLatitude() float64 {
+	if x != nil {
+		return x.StartLatitude
+	}
+	return 0
+}
+
+func (x *SalespersonPlan) GetStartLongitude() float64 {
+	if x != nil {
+		return x.StartLongitude
+	}
+	return 0
+}
+
+func (x *SalespersonPlan) GetDayStartMinute() int32 {
+	if x != nil {
+		return x.DayStartMinute
+	}
+	return 0
+}
+
+func (x *SalespersonPlan) GetDayEndMinute() int32 {
+	if x != nil {
+		return x.DayEndMinute
+	}
+	return 0
+}
+
+func (x *SalespersonPlan) GetDays() []*PlanDay {
+	if x != nil {
+		return x.Days
+	}
+	return nil
+}
+
+func (x *SalespersonPlan) GetLikelyLeft() []*PlannedCustomer {
+	if x != nil {
+		return x.LikelyLeft
+	}
+	return nil
+}
+
+type SimulateVisitPlanRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *VisitPlanSettings     `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SimulateVisitPlanRequest) Reset() {
+	*x = SimulateVisitPlanRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SimulateVisitPlanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SimulateVisitPlanRequest) ProtoMessage() {}
+
+func (x *SimulateVisitPlanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SimulateVisitPlanRequest.ProtoReflect.Descriptor instead.
+func (*SimulateVisitPlanRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *SimulateVisitPlanRequest) GetSettings() *VisitPlanSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+type SimulateVisitPlanResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// plan is the summary; it has no id, as nothing is saved.
+	Plan          *VisitPlan         `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	Salespeople   []*SalespersonPlan `protobuf:"bytes,2,rep,name=salespeople,proto3" json:"salespeople,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SimulateVisitPlanResponse) Reset() {
+	*x = SimulateVisitPlanResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SimulateVisitPlanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SimulateVisitPlanResponse) ProtoMessage() {}
+
+func (x *SimulateVisitPlanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SimulateVisitPlanResponse.ProtoReflect.Descriptor instead.
+func (*SimulateVisitPlanResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SimulateVisitPlanResponse) GetPlan() *VisitPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+func (x *SimulateVisitPlanResponse) GetSalespeople() []*SalespersonPlan {
+	if x != nil {
+		return x.Salespeople
+	}
+	return nil
+}
+
+type CreateVisitPlanRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// name is what to call it; empty names it after its days.
+	Name     string             `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Settings *VisitPlanSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
+	// repeat_seconds makes it again that often, from an hour to 30 days,
+	// such as 86400 for every day; only for customers from a database.
+	RepeatSeconds int64 `protobuf:"varint,3,opt,name=repeat_seconds,json=repeatSeconds,proto3" json:"repeat_seconds,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateVisitPlanRequest) Reset() {
+	*x = CreateVisitPlanRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateVisitPlanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateVisitPlanRequest) ProtoMessage() {}
+
+func (x *CreateVisitPlanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateVisitPlanRequest.ProtoReflect.Descriptor instead.
+func (*CreateVisitPlanRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *CreateVisitPlanRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateVisitPlanRequest) GetSettings() *VisitPlanSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *CreateVisitPlanRequest) GetRepeatSeconds() int64 {
+	if x != nil {
+		return x.RepeatSeconds
+	}
+	return 0
+}
+
+type CreateVisitPlanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plan          *VisitPlan             `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateVisitPlanResponse) Reset() {
+	*x = CreateVisitPlanResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateVisitPlanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateVisitPlanResponse) ProtoMessage() {}
+
+func (x *CreateVisitPlanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateVisitPlanResponse.ProtoReflect.Descriptor instead.
+func (*CreateVisitPlanResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *CreateVisitPlanResponse) GetPlan() *VisitPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+type ListVisitPlansRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListVisitPlansRequest) Reset() {
+	*x = ListVisitPlansRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListVisitPlansRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListVisitPlansRequest) ProtoMessage() {}
+
+func (x *ListVisitPlansRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListVisitPlansRequest.ProtoReflect.Descriptor instead.
+func (*ListVisitPlansRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{18}
+}
+
+type ListVisitPlansResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plans         []*VisitPlan           `protobuf:"bytes,1,rep,name=plans,proto3" json:"plans,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListVisitPlansResponse) Reset() {
+	*x = ListVisitPlansResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListVisitPlansResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListVisitPlansResponse) ProtoMessage() {}
+
+func (x *ListVisitPlansResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListVisitPlansResponse.ProtoReflect.Descriptor instead.
+func (*ListVisitPlansResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ListVisitPlansResponse) GetPlans() []*VisitPlan {
+	if x != nil {
+		return x.Plans
+	}
+	return nil
+}
+
+type GetVisitPlanRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetVisitPlanRequest) Reset() {
+	*x = GetVisitPlanRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetVisitPlanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetVisitPlanRequest) ProtoMessage() {}
+
+func (x *GetVisitPlanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetVisitPlanRequest.ProtoReflect.Descriptor instead.
+func (*GetVisitPlanRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *GetVisitPlanRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetVisitPlanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plan          *VisitPlan             `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetVisitPlanResponse) Reset() {
+	*x = GetVisitPlanResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetVisitPlanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetVisitPlanResponse) ProtoMessage() {}
+
+func (x *GetVisitPlanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetVisitPlanResponse.ProtoReflect.Descriptor instead.
+func (*GetVisitPlanResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *GetVisitPlanResponse) GetPlan() *VisitPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+type ListPlanSalespeopleRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	PlanId string                 `protobuf:"bytes,1,opt,name=plan_id,json=planId,proto3" json:"plan_id,omitempty"`
+	// area, when set, keeps only that area's salespeople.
+	Area string `protobuf:"bytes,2,opt,name=area,proto3" json:"area,omitempty"`
+	// search finds salespeople by id, name or area.
+	Search string `protobuf:"bytes,3,opt,name=search,proto3" json:"search,omitempty"`
+	// need_look keeps only those that need a look.
+	NeedLook bool `protobuf:"varint,4,opt,name=need_look,json=needLook,proto3" json:"need_look,omitempty"`
+	// order is "name" (the default), "covered" (least first), "visits"
+	// (most first) or "left" (most likely customers left over first).
+	Order string `protobuf:"bytes,5,opt,name=order,proto3" json:"order,omitempty"`
+	// page_size is up to 200; 0 means 50. offset skips that many.
+	PageSize      int32 `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Offset        int32 `protobuf:"varint,7,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPlanSalespeopleRequest) Reset() {
+	*x = ListPlanSalespeopleRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPlanSalespeopleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPlanSalespeopleRequest) ProtoMessage() {}
+
+func (x *ListPlanSalespeopleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPlanSalespeopleRequest.ProtoReflect.Descriptor instead.
+func (*ListPlanSalespeopleRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ListPlanSalespeopleRequest) GetPlanId() string {
+	if x != nil {
+		return x.PlanId
+	}
+	return ""
+}
+
+func (x *ListPlanSalespeopleRequest) GetArea() string {
+	if x != nil {
+		return x.Area
+	}
+	return ""
+}
+
+func (x *ListPlanSalespeopleRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+func (x *ListPlanSalespeopleRequest) GetNeedLook() bool {
+	if x != nil {
+		return x.NeedLook
+	}
+	return false
+}
+
+func (x *ListPlanSalespeopleRequest) GetOrder() string {
+	if x != nil {
+		return x.Order
+	}
+	return ""
+}
+
+func (x *ListPlanSalespeopleRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListPlanSalespeopleRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+type ListPlanSalespeopleResponse struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Salespeople []*PlanSalesperson     `protobuf:"bytes,1,rep,name=salespeople,proto3" json:"salespeople,omitempty"`
+	// total is how many match in all.
+	Total         int32 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPlanSalespeopleResponse) Reset() {
+	*x = ListPlanSalespeopleResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPlanSalespeopleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPlanSalespeopleResponse) ProtoMessage() {}
+
+func (x *ListPlanSalespeopleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPlanSalespeopleResponse.ProtoReflect.Descriptor instead.
+func (*ListPlanSalespeopleResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ListPlanSalespeopleResponse) GetSalespeople() []*PlanSalesperson {
+	if x != nil {
+		return x.Salespeople
+	}
+	return nil
+}
+
+func (x *ListPlanSalespeopleResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type GetSalespersonPlanRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PlanId        string                 `protobuf:"bytes,1,opt,name=plan_id,json=planId,proto3" json:"plan_id,omitempty"`
+	SalespersonId string                 `protobuf:"bytes,2,opt,name=salesperson_id,json=salespersonId,proto3" json:"salesperson_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSalespersonPlanRequest) Reset() {
+	*x = GetSalespersonPlanRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSalespersonPlanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSalespersonPlanRequest) ProtoMessage() {}
+
+func (x *GetSalespersonPlanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSalespersonPlanRequest.ProtoReflect.Descriptor instead.
+func (*GetSalespersonPlanRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *GetSalespersonPlanRequest) GetPlanId() string {
+	if x != nil {
+		return x.PlanId
+	}
+	return ""
+}
+
+func (x *GetSalespersonPlanRequest) GetSalespersonId() string {
+	if x != nil {
+		return x.SalespersonId
+	}
+	return ""
+}
+
+type GetSalespersonPlanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plan          *VisitPlan             `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	Salesperson   *SalespersonPlan       `protobuf:"bytes,2,opt,name=salesperson,proto3" json:"salesperson,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSalespersonPlanResponse) Reset() {
+	*x = GetSalespersonPlanResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSalespersonPlanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSalespersonPlanResponse) ProtoMessage() {}
+
+func (x *GetSalespersonPlanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSalespersonPlanResponse.ProtoReflect.Descriptor instead.
+func (*GetSalespersonPlanResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *GetSalespersonPlanResponse) GetPlan() *VisitPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+func (x *GetSalespersonPlanResponse) GetSalesperson() *SalespersonPlan {
+	if x != nil {
+		return x.Salesperson
+	}
+	return nil
+}
+
+type RunVisitPlanRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RunVisitPlanRequest) Reset() {
+	*x = RunVisitPlanRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunVisitPlanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunVisitPlanRequest) ProtoMessage() {}
+
+func (x *RunVisitPlanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunVisitPlanRequest.ProtoReflect.Descriptor instead.
+func (*RunVisitPlanRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *RunVisitPlanRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type RunVisitPlanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plan          *VisitPlan             `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RunVisitPlanResponse) Reset() {
+	*x = RunVisitPlanResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunVisitPlanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunVisitPlanResponse) ProtoMessage() {}
+
+func (x *RunVisitPlanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunVisitPlanResponse.ProtoReflect.Descriptor instead.
+func (*RunVisitPlanResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *RunVisitPlanResponse) GetPlan() *VisitPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+type CancelVisitPlanRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelVisitPlanRequest) Reset() {
+	*x = CancelVisitPlanRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelVisitPlanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelVisitPlanRequest) ProtoMessage() {}
+
+func (x *CancelVisitPlanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelVisitPlanRequest.ProtoReflect.Descriptor instead.
+func (*CancelVisitPlanRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *CancelVisitPlanRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type CancelVisitPlanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plan          *VisitPlan             `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelVisitPlanResponse) Reset() {
+	*x = CancelVisitPlanResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelVisitPlanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelVisitPlanResponse) ProtoMessage() {}
+
+func (x *CancelVisitPlanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelVisitPlanResponse.ProtoReflect.Descriptor instead.
+func (*CancelVisitPlanResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *CancelVisitPlanResponse) GetPlan() *VisitPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+type SetVisitPlanRepeatRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	RepeatSeconds int64                  `protobuf:"varint,2,opt,name=repeat_seconds,json=repeatSeconds,proto3" json:"repeat_seconds,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetVisitPlanRepeatRequest) Reset() {
+	*x = SetVisitPlanRepeatRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetVisitPlanRepeatRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetVisitPlanRepeatRequest) ProtoMessage() {}
+
+func (x *SetVisitPlanRepeatRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetVisitPlanRepeatRequest.ProtoReflect.Descriptor instead.
+func (*SetVisitPlanRepeatRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *SetVisitPlanRepeatRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SetVisitPlanRepeatRequest) GetRepeatSeconds() int64 {
+	if x != nil {
+		return x.RepeatSeconds
+	}
+	return 0
+}
+
+type SetVisitPlanRepeatResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plan          *VisitPlan             `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetVisitPlanRepeatResponse) Reset() {
+	*x = SetVisitPlanRepeatResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetVisitPlanRepeatResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetVisitPlanRepeatResponse) ProtoMessage() {}
+
+func (x *SetVisitPlanRepeatResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetVisitPlanRepeatResponse.ProtoReflect.Descriptor instead.
+func (*SetVisitPlanRepeatResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *SetVisitPlanRepeatResponse) GetPlan() *VisitPlan {
+	if x != nil {
+		return x.Plan
+	}
+	return nil
+}
+
+type DeleteVisitPlanRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteVisitPlanRequest) Reset() {
+	*x = DeleteVisitPlanRequest{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteVisitPlanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteVisitPlanRequest) ProtoMessage() {}
+
+func (x *DeleteVisitPlanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteVisitPlanRequest.ProtoReflect.Descriptor instead.
+func (*DeleteVisitPlanRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *DeleteVisitPlanRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteVisitPlanResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteVisitPlanResponse) Reset() {
+	*x = DeleteVisitPlanResponse{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteVisitPlanResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteVisitPlanResponse) ProtoMessage() {}
+
+func (x *DeleteVisitPlanResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteVisitPlanResponse.ProtoReflect.Descriptor instead.
+func (*DeleteVisitPlanResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{33}
+}
+
 var File_mimir_v1_visit_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\n" +
-	"\x14mimir/v1/visit.proto\x12\bmimir.v1\"\xb4\x02\n" +
+	"\x14mimir/v1/visit.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17mimir/v1/training.proto\"\xb4\x02\n" +
 	"\tVisitStop\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -579,7 +2607,7 @@ const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\x0esalesperson_id\x18\t \x01(\tR\rsalespersonId\x12\x1d\n" +
 	"\n" +
 	"must_visit\x18\n" +
-	" \x01(\bR\tmustVisit\"\xf0\x01\n" +
+	" \x01(\bR\tmustVisit\"\x84\x02\n" +
 	"\vSalesperson\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
@@ -588,7 +2616,8 @@ const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\x10day_start_minute\x18\x05 \x01(\x05R\x0edayStartMinute\x12$\n" +
 	"\x0eday_end_minute\x18\x06 \x01(\x05R\fdayEndMinute\x12\x1d\n" +
 	"\n" +
-	"max_visits\x18\a \x01(\x05R\tmaxVisits\"\xc9\x01\n" +
+	"max_visits\x18\a \x01(\x05R\tmaxVisits\x12\x12\n" +
+	"\x04area\x18\b \x01(\tR\x04area\"\xc9\x01\n" +
 	"\x11PlanVisitsRequest\x12)\n" +
 	"\x05stops\x18\x01 \x03(\v2\x13.mimir.v1.VisitStopR\x05stops\x127\n" +
 	"\vsalespeople\x18\x02 \x03(\v2\x15.mimir.v1.SalespersonR\vsalespeople\x12\x12\n" +
@@ -613,10 +2642,182 @@ const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\x12unplanned_stop_ids\x18\x02 \x03(\tR\x10unplannedStopIds\x12\x19\n" +
 	"\btotal_km\x18\x03 \x01(\x01R\atotalKm\x12)\n" +
 	"\x10planned_priority\x18\x04 \x01(\x01R\x0fplannedPriority\x12%\n" +
-	"\x0etotal_priority\x18\x05 \x01(\x01R\rtotalPriority2\\\n" +
+	"\x0etotal_priority\x18\x05 \x01(\x01R\rtotalPriority\"\xf7\x04\n" +
+	"\x11VisitPlanSettings\x12\x19\n" +
+	"\bmodel_id\x18\x01 \x01(\tR\amodelId\x12#\n" +
+	"\rcustomers_csv\x18\x02 \x01(\fR\fcustomersCsv\x124\n" +
+	"\n" +
+	"connection\x18\x03 \x01(\v2\x14.mimir.v1.ConnectionR\n" +
+	"connection\x12'\n" +
+	"\x0fcustomers_query\x18\x04 \x01(\tR\x0ecustomersQuery\x120\n" +
+	"\x14customers_dataset_id\x18\x05 \x01(\tR\x12customersDatasetId\x127\n" +
+	"\vsalespeople\x18\x06 \x03(\v2\x15.mimir.v1.SalespersonR\vsalespeople\x12'\n" +
+	"\x0fsalespeople_csv\x18\a \x01(\fR\x0esalespeopleCsv\x12+\n" +
+	"\x11salespeople_query\x18\b \x01(\tR\x10salespeopleQuery\x12\x12\n" +
+	"\x04days\x18\t \x01(\x05R\x04days\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\n" +
+	" \x01(\tR\tstartDate\x12\x1b\n" +
+	"\ttime_zone\x18\v \x01(\tR\btimeZone\x12#\n" +
+	"\rskip_weekdays\x18\f \x03(\x05R\fskipWeekdays\x12*\n" +
+	"\x11skip_visited_days\x18\r \x01(\x05R\x0fskipVisitedDays\x12\x1b\n" +
+	"\tspeed_kmh\x18\x0e \x01(\x01R\bspeedKmh\x12\x1f\n" +
+	"\vroad_factor\x18\x0f \x01(\x01R\n" +
+	"roadFactor\x12#\n" +
+	"\rvisit_minutes\x18\x10 \x01(\x05R\fvisitMinutes\"\xb2\t\n" +
+	"\tVisitPlan\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
+	"\bmodel_id\x18\x03 \x01(\tR\amodelId\x12\x1d\n" +
+	"\n" +
+	"model_name\x18\x04 \x01(\tR\tmodelName\x12\x16\n" +
+	"\x06source\x18\x05 \x01(\tR\x06source\x12#\n" +
+	"\rsource_detail\x18\x06 \x01(\tR\fsourceDetail\x12+\n" +
+	"\x06status\x18\a \x01(\x0e2\x13.mimir.v1.JobStatusR\x06status\x12\x14\n" +
+	"\x05error\x18\b \x01(\tR\x05error\x12\x14\n" +
+	"\x05stage\x18\t \x01(\tR\x05stage\x12\x12\n" +
+	"\x04done\x18\n" +
+	" \x01(\x03R\x04done\x12\x14\n" +
+	"\x05total\x18\v \x01(\x03R\x05total\x12\x12\n" +
+	"\x04days\x18\f \x01(\x05R\x04days\x12#\n" +
+	"\rskip_weekdays\x18\r \x03(\x05R\fskipWeekdays\x12*\n" +
+	"\x11skip_visited_days\x18\x0e \x01(\x05R\x0fskipVisitedDays\x12\x1b\n" +
+	"\ttime_zone\x18\x0f \x01(\tR\btimeZone\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\x10 \x01(\tR\tstartDate\x12\x19\n" +
+	"\bend_date\x18\x11 \x01(\tR\aendDate\x12\x1c\n" +
+	"\tcustomers\x18\x12 \x01(\x03R\tcustomers\x12\x19\n" +
+	"\bleft_out\x18\x13 \x01(\x03R\aleftOut\x12\x1e\n" +
+	"\n" +
+	"unassigned\x18\x14 \x01(\x03R\n" +
+	"unassigned\x12\x1a\n" +
+	"\bunplaced\x18\x15 \x01(\x03R\bunplaced\x12\x16\n" +
+	"\x06failed\x18\x16 \x01(\x03R\x06failed\x12 \n" +
+	"\vsalespeople\x18\x17 \x01(\x03R\vsalespeople\x12\x16\n" +
+	"\x06visits\x18\x18 \x01(\x03R\x06visits\x12\x0e\n" +
+	"\x02km\x18\x19 \x01(\x01R\x02km\x12\x18\n" +
+	"\acovered\x18\x1a \x01(\x01R\acovered\x12\x1b\n" +
+	"\tneed_look\x18\x1b \x01(\x03R\bneedLook\x12\x1a\n" +
+	"\bwarnings\x18\x1c \x03(\tR\bwarnings\x12)\n" +
+	"\x05areas\x18\x1d \x03(\v2\x13.mimir.v1.AreaCountR\x05areas\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x1e \x01(\tR\tcreatedBy\x12;\n" +
+	"\vcreate_time\x18\x1f \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"createTime\x129\n" +
+	"\n" +
+	"start_time\x18  \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
+	"\bend_time\x18! \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12%\n" +
+	"\x0erepeat_seconds\x18\" \x01(\x03R\rrepeatSeconds\x12>\n" +
+	"\rnext_run_time\x18# \x01(\v2\x1a.google.protobuf.TimestampR\vnextRunTime\x12\x12\n" +
+	"\x04runs\x18$ \x01(\x05R\x04runs\x12-\n" +
+	"\x12salespeople_source\x18% \x01(\tR\x11salespeopleSource\"A\n" +
+	"\tAreaCount\x12\x12\n" +
+	"\x04area\x18\x01 \x01(\tR\x04area\x12 \n" +
+	"\vsalespeople\x18\x02 \x01(\x05R\vsalespeople\"\xe4\x01\n" +
+	"\x0fPlanSalesperson\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04area\x18\x03 \x01(\tR\x04area\x12\x1c\n" +
+	"\tcustomers\x18\x04 \x01(\x05R\tcustomers\x12\x16\n" +
+	"\x06visits\x18\x05 \x01(\x05R\x06visits\x12\x0e\n" +
+	"\x02km\x18\x06 \x01(\x01R\x02km\x12\x18\n" +
+	"\acovered\x18\a \x01(\x01R\acovered\x12\x1f\n" +
+	"\vlikely_left\x18\b \x01(\x05R\n" +
+	"likelyLeft\x12\x18\n" +
+	"\aproblem\x18\t \x01(\tR\aproblem\"\xa6\x01\n" +
+	"\x0fPlannedCustomer\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\blatitude\x18\x03 \x01(\x01R\blatitude\x12\x1c\n" +
+	"\tlongitude\x18\x04 \x01(\x01R\tlongitude\x12\x16\n" +
+	"\x06chance\x18\x05 \x01(\x01R\x06chance\x12\x1d\n" +
+	"\n" +
+	"must_visit\x18\x06 \x01(\bR\tmustVisit\"\xb3\x01\n" +
+	"\bDayVisit\x125\n" +
+	"\bcustomer\x18\x01 \x01(\v2\x19.mimir.v1.PlannedCustomerR\bcustomer\x12#\n" +
+	"\rarrive_minute\x18\x02 \x01(\x05R\farriveMinute\x12!\n" +
+	"\fleave_minute\x18\x03 \x01(\x05R\vleaveMinute\x12(\n" +
+	"\x10km_from_previous\x18\x04 \x01(\x01R\x0ekmFromPrevious\"\x8a\x01\n" +
+	"\aPlanDay\x12\x10\n" +
+	"\x03day\x18\x01 \x01(\x05R\x03day\x12\x12\n" +
+	"\x04date\x18\x02 \x01(\tR\x04date\x12*\n" +
+	"\x06visits\x18\x03 \x03(\v2\x12.mimir.v1.DayVisitR\x06visits\x12\x0e\n" +
+	"\x02km\x18\x04 \x01(\x01R\x02km\x12\x1d\n" +
+	"\n" +
+	"end_minute\x18\x05 \x01(\x05R\tendMinute\"\xd1\x02\n" +
+	"\x0fSalespersonPlan\x12;\n" +
+	"\vsalesperson\x18\x01 \x01(\v2\x19.mimir.v1.PlanSalespersonR\vsalesperson\x12%\n" +
+	"\x0estart_latitude\x18\x02 \x01(\x01R\rstartLatitude\x12'\n" +
+	"\x0fstart_longitude\x18\x03 \x01(\x01R\x0estartLongitude\x12(\n" +
+	"\x10day_start_minute\x18\x04 \x01(\x05R\x0edayStartMinute\x12$\n" +
+	"\x0eday_end_minute\x18\x05 \x01(\x05R\fdayEndMinute\x12%\n" +
+	"\x04days\x18\x06 \x03(\v2\x11.mimir.v1.PlanDayR\x04days\x12:\n" +
+	"\vlikely_left\x18\a \x03(\v2\x19.mimir.v1.PlannedCustomerR\n" +
+	"likelyLeft\"S\n" +
+	"\x18SimulateVisitPlanRequest\x127\n" +
+	"\bsettings\x18\x01 \x01(\v2\x1b.mimir.v1.VisitPlanSettingsR\bsettings\"\x81\x01\n" +
+	"\x19SimulateVisitPlanResponse\x12'\n" +
+	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\x12;\n" +
+	"\vsalespeople\x18\x02 \x03(\v2\x19.mimir.v1.SalespersonPlanR\vsalespeople\"\x8c\x01\n" +
+	"\x16CreateVisitPlanRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x127\n" +
+	"\bsettings\x18\x02 \x01(\v2\x1b.mimir.v1.VisitPlanSettingsR\bsettings\x12%\n" +
+	"\x0erepeat_seconds\x18\x03 \x01(\x03R\rrepeatSeconds\"B\n" +
+	"\x17CreateVisitPlanResponse\x12'\n" +
+	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\"\x17\n" +
+	"\x15ListVisitPlansRequest\"C\n" +
+	"\x16ListVisitPlansResponse\x12)\n" +
+	"\x05plans\x18\x01 \x03(\v2\x13.mimir.v1.VisitPlanR\x05plans\"%\n" +
+	"\x13GetVisitPlanRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"?\n" +
+	"\x14GetVisitPlanResponse\x12'\n" +
+	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\"\xc9\x01\n" +
+	"\x1aListPlanSalespeopleRequest\x12\x17\n" +
+	"\aplan_id\x18\x01 \x01(\tR\x06planId\x12\x12\n" +
+	"\x04area\x18\x02 \x01(\tR\x04area\x12\x16\n" +
+	"\x06search\x18\x03 \x01(\tR\x06search\x12\x1b\n" +
+	"\tneed_look\x18\x04 \x01(\bR\bneedLook\x12\x14\n" +
+	"\x05order\x18\x05 \x01(\tR\x05order\x12\x1b\n" +
+	"\tpage_size\x18\x06 \x01(\x05R\bpageSize\x12\x16\n" +
+	"\x06offset\x18\a \x01(\x05R\x06offset\"p\n" +
+	"\x1bListPlanSalespeopleResponse\x12;\n" +
+	"\vsalespeople\x18\x01 \x03(\v2\x19.mimir.v1.PlanSalespersonR\vsalespeople\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"[\n" +
+	"\x19GetSalespersonPlanRequest\x12\x17\n" +
+	"\aplan_id\x18\x01 \x01(\tR\x06planId\x12%\n" +
+	"\x0esalesperson_id\x18\x02 \x01(\tR\rsalespersonId\"\x82\x01\n" +
+	"\x1aGetSalespersonPlanResponse\x12'\n" +
+	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\x12;\n" +
+	"\vsalesperson\x18\x02 \x01(\v2\x19.mimir.v1.SalespersonPlanR\vsalesperson\"%\n" +
+	"\x13RunVisitPlanRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"?\n" +
+	"\x14RunVisitPlanResponse\x12'\n" +
+	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\"(\n" +
+	"\x16CancelVisitPlanRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"B\n" +
+	"\x17CancelVisitPlanResponse\x12'\n" +
+	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\"R\n" +
+	"\x19SetVisitPlanRepeatRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12%\n" +
+	"\x0erepeat_seconds\x18\x02 \x01(\x03R\rrepeatSeconds\"E\n" +
+	"\x1aSetVisitPlanRepeatResponse\x12'\n" +
+	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\"(\n" +
+	"\x16DeleteVisitPlanRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x19\n" +
+	"\x17DeleteVisitPlanResponse2\xef\a\n" +
 	"\fVisitService\x12L\n" +
 	"\n" +
-	"PlanVisits\x12\x1b.mimir.v1.PlanVisitsRequest\x1a\x1c.mimir.v1.PlanVisitsResponse\"\x03\x90\x02\x01B7Z5github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1b\x06proto3"
+	"PlanVisits\x12\x1b.mimir.v1.PlanVisitsRequest\x1a\x1c.mimir.v1.PlanVisitsResponse\"\x03\x90\x02\x01\x12\\\n" +
+	"\x11SimulateVisitPlan\x12\".mimir.v1.SimulateVisitPlanRequest\x1a#.mimir.v1.SimulateVisitPlanResponse\x12V\n" +
+	"\x0fCreateVisitPlan\x12 .mimir.v1.CreateVisitPlanRequest\x1a!.mimir.v1.CreateVisitPlanResponse\x12X\n" +
+	"\x0eListVisitPlans\x12\x1f.mimir.v1.ListVisitPlansRequest\x1a .mimir.v1.ListVisitPlansResponse\"\x03\x90\x02\x01\x12R\n" +
+	"\fGetVisitPlan\x12\x1d.mimir.v1.GetVisitPlanRequest\x1a\x1e.mimir.v1.GetVisitPlanResponse\"\x03\x90\x02\x01\x12g\n" +
+	"\x13ListPlanSalespeople\x12$.mimir.v1.ListPlanSalespeopleRequest\x1a%.mimir.v1.ListPlanSalespeopleResponse\"\x03\x90\x02\x01\x12d\n" +
+	"\x12GetSalespersonPlan\x12#.mimir.v1.GetSalespersonPlanRequest\x1a$.mimir.v1.GetSalespersonPlanResponse\"\x03\x90\x02\x01\x12M\n" +
+	"\fRunVisitPlan\x12\x1d.mimir.v1.RunVisitPlanRequest\x1a\x1e.mimir.v1.RunVisitPlanResponse\x12V\n" +
+	"\x0fCancelVisitPlan\x12 .mimir.v1.CancelVisitPlanRequest\x1a!.mimir.v1.CancelVisitPlanResponse\x12_\n" +
+	"\x12SetVisitPlanRepeat\x12#.mimir.v1.SetVisitPlanRepeatRequest\x1a$.mimir.v1.SetVisitPlanRepeatResponse\x12V\n" +
+	"\x0fDeleteVisitPlan\x12 .mimir.v1.DeleteVisitPlanRequest\x1a!.mimir.v1.DeleteVisitPlanResponseB7Z5github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1b\x06proto3"
 
 var (
 	file_mimir_v1_visit_proto_rawDescOnce sync.Once
@@ -630,27 +2831,104 @@ func file_mimir_v1_visit_proto_rawDescGZIP() []byte {
 	return file_mimir_v1_visit_proto_rawDescData
 }
 
-var file_mimir_v1_visit_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_mimir_v1_visit_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_mimir_v1_visit_proto_goTypes = []any{
-	(*VisitStop)(nil),          // 0: mimir.v1.VisitStop
-	(*Salesperson)(nil),        // 1: mimir.v1.Salesperson
-	(*PlanVisitsRequest)(nil),  // 2: mimir.v1.PlanVisitsRequest
-	(*PlannedVisit)(nil),       // 3: mimir.v1.PlannedVisit
-	(*Route)(nil),              // 4: mimir.v1.Route
-	(*PlanVisitsResponse)(nil), // 5: mimir.v1.PlanVisitsResponse
+	(*VisitStop)(nil),                   // 0: mimir.v1.VisitStop
+	(*Salesperson)(nil),                 // 1: mimir.v1.Salesperson
+	(*PlanVisitsRequest)(nil),           // 2: mimir.v1.PlanVisitsRequest
+	(*PlannedVisit)(nil),                // 3: mimir.v1.PlannedVisit
+	(*Route)(nil),                       // 4: mimir.v1.Route
+	(*PlanVisitsResponse)(nil),          // 5: mimir.v1.PlanVisitsResponse
+	(*VisitPlanSettings)(nil),           // 6: mimir.v1.VisitPlanSettings
+	(*VisitPlan)(nil),                   // 7: mimir.v1.VisitPlan
+	(*AreaCount)(nil),                   // 8: mimir.v1.AreaCount
+	(*PlanSalesperson)(nil),             // 9: mimir.v1.PlanSalesperson
+	(*PlannedCustomer)(nil),             // 10: mimir.v1.PlannedCustomer
+	(*DayVisit)(nil),                    // 11: mimir.v1.DayVisit
+	(*PlanDay)(nil),                     // 12: mimir.v1.PlanDay
+	(*SalespersonPlan)(nil),             // 13: mimir.v1.SalespersonPlan
+	(*SimulateVisitPlanRequest)(nil),    // 14: mimir.v1.SimulateVisitPlanRequest
+	(*SimulateVisitPlanResponse)(nil),   // 15: mimir.v1.SimulateVisitPlanResponse
+	(*CreateVisitPlanRequest)(nil),      // 16: mimir.v1.CreateVisitPlanRequest
+	(*CreateVisitPlanResponse)(nil),     // 17: mimir.v1.CreateVisitPlanResponse
+	(*ListVisitPlansRequest)(nil),       // 18: mimir.v1.ListVisitPlansRequest
+	(*ListVisitPlansResponse)(nil),      // 19: mimir.v1.ListVisitPlansResponse
+	(*GetVisitPlanRequest)(nil),         // 20: mimir.v1.GetVisitPlanRequest
+	(*GetVisitPlanResponse)(nil),        // 21: mimir.v1.GetVisitPlanResponse
+	(*ListPlanSalespeopleRequest)(nil),  // 22: mimir.v1.ListPlanSalespeopleRequest
+	(*ListPlanSalespeopleResponse)(nil), // 23: mimir.v1.ListPlanSalespeopleResponse
+	(*GetSalespersonPlanRequest)(nil),   // 24: mimir.v1.GetSalespersonPlanRequest
+	(*GetSalespersonPlanResponse)(nil),  // 25: mimir.v1.GetSalespersonPlanResponse
+	(*RunVisitPlanRequest)(nil),         // 26: mimir.v1.RunVisitPlanRequest
+	(*RunVisitPlanResponse)(nil),        // 27: mimir.v1.RunVisitPlanResponse
+	(*CancelVisitPlanRequest)(nil),      // 28: mimir.v1.CancelVisitPlanRequest
+	(*CancelVisitPlanResponse)(nil),     // 29: mimir.v1.CancelVisitPlanResponse
+	(*SetVisitPlanRepeatRequest)(nil),   // 30: mimir.v1.SetVisitPlanRepeatRequest
+	(*SetVisitPlanRepeatResponse)(nil),  // 31: mimir.v1.SetVisitPlanRepeatResponse
+	(*DeleteVisitPlanRequest)(nil),      // 32: mimir.v1.DeleteVisitPlanRequest
+	(*DeleteVisitPlanResponse)(nil),     // 33: mimir.v1.DeleteVisitPlanResponse
+	(*Connection)(nil),                  // 34: mimir.v1.Connection
+	(JobStatus)(0),                      // 35: mimir.v1.JobStatus
+	(*timestamppb.Timestamp)(nil),       // 36: google.protobuf.Timestamp
 }
 var file_mimir_v1_visit_proto_depIdxs = []int32{
-	0, // 0: mimir.v1.PlanVisitsRequest.stops:type_name -> mimir.v1.VisitStop
-	1, // 1: mimir.v1.PlanVisitsRequest.salespeople:type_name -> mimir.v1.Salesperson
-	3, // 2: mimir.v1.Route.visits:type_name -> mimir.v1.PlannedVisit
-	4, // 3: mimir.v1.PlanVisitsResponse.routes:type_name -> mimir.v1.Route
-	2, // 4: mimir.v1.VisitService.PlanVisits:input_type -> mimir.v1.PlanVisitsRequest
-	5, // 5: mimir.v1.VisitService.PlanVisits:output_type -> mimir.v1.PlanVisitsResponse
-	5, // [5:6] is the sub-list for method output_type
-	4, // [4:5] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0,  // 0: mimir.v1.PlanVisitsRequest.stops:type_name -> mimir.v1.VisitStop
+	1,  // 1: mimir.v1.PlanVisitsRequest.salespeople:type_name -> mimir.v1.Salesperson
+	3,  // 2: mimir.v1.Route.visits:type_name -> mimir.v1.PlannedVisit
+	4,  // 3: mimir.v1.PlanVisitsResponse.routes:type_name -> mimir.v1.Route
+	34, // 4: mimir.v1.VisitPlanSettings.connection:type_name -> mimir.v1.Connection
+	1,  // 5: mimir.v1.VisitPlanSettings.salespeople:type_name -> mimir.v1.Salesperson
+	35, // 6: mimir.v1.VisitPlan.status:type_name -> mimir.v1.JobStatus
+	8,  // 7: mimir.v1.VisitPlan.areas:type_name -> mimir.v1.AreaCount
+	36, // 8: mimir.v1.VisitPlan.create_time:type_name -> google.protobuf.Timestamp
+	36, // 9: mimir.v1.VisitPlan.start_time:type_name -> google.protobuf.Timestamp
+	36, // 10: mimir.v1.VisitPlan.end_time:type_name -> google.protobuf.Timestamp
+	36, // 11: mimir.v1.VisitPlan.next_run_time:type_name -> google.protobuf.Timestamp
+	10, // 12: mimir.v1.DayVisit.customer:type_name -> mimir.v1.PlannedCustomer
+	11, // 13: mimir.v1.PlanDay.visits:type_name -> mimir.v1.DayVisit
+	9,  // 14: mimir.v1.SalespersonPlan.salesperson:type_name -> mimir.v1.PlanSalesperson
+	12, // 15: mimir.v1.SalespersonPlan.days:type_name -> mimir.v1.PlanDay
+	10, // 16: mimir.v1.SalespersonPlan.likely_left:type_name -> mimir.v1.PlannedCustomer
+	6,  // 17: mimir.v1.SimulateVisitPlanRequest.settings:type_name -> mimir.v1.VisitPlanSettings
+	7,  // 18: mimir.v1.SimulateVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	13, // 19: mimir.v1.SimulateVisitPlanResponse.salespeople:type_name -> mimir.v1.SalespersonPlan
+	6,  // 20: mimir.v1.CreateVisitPlanRequest.settings:type_name -> mimir.v1.VisitPlanSettings
+	7,  // 21: mimir.v1.CreateVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	7,  // 22: mimir.v1.ListVisitPlansResponse.plans:type_name -> mimir.v1.VisitPlan
+	7,  // 23: mimir.v1.GetVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	9,  // 24: mimir.v1.ListPlanSalespeopleResponse.salespeople:type_name -> mimir.v1.PlanSalesperson
+	7,  // 25: mimir.v1.GetSalespersonPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	13, // 26: mimir.v1.GetSalespersonPlanResponse.salesperson:type_name -> mimir.v1.SalespersonPlan
+	7,  // 27: mimir.v1.RunVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	7,  // 28: mimir.v1.CancelVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	7,  // 29: mimir.v1.SetVisitPlanRepeatResponse.plan:type_name -> mimir.v1.VisitPlan
+	2,  // 30: mimir.v1.VisitService.PlanVisits:input_type -> mimir.v1.PlanVisitsRequest
+	14, // 31: mimir.v1.VisitService.SimulateVisitPlan:input_type -> mimir.v1.SimulateVisitPlanRequest
+	16, // 32: mimir.v1.VisitService.CreateVisitPlan:input_type -> mimir.v1.CreateVisitPlanRequest
+	18, // 33: mimir.v1.VisitService.ListVisitPlans:input_type -> mimir.v1.ListVisitPlansRequest
+	20, // 34: mimir.v1.VisitService.GetVisitPlan:input_type -> mimir.v1.GetVisitPlanRequest
+	22, // 35: mimir.v1.VisitService.ListPlanSalespeople:input_type -> mimir.v1.ListPlanSalespeopleRequest
+	24, // 36: mimir.v1.VisitService.GetSalespersonPlan:input_type -> mimir.v1.GetSalespersonPlanRequest
+	26, // 37: mimir.v1.VisitService.RunVisitPlan:input_type -> mimir.v1.RunVisitPlanRequest
+	28, // 38: mimir.v1.VisitService.CancelVisitPlan:input_type -> mimir.v1.CancelVisitPlanRequest
+	30, // 39: mimir.v1.VisitService.SetVisitPlanRepeat:input_type -> mimir.v1.SetVisitPlanRepeatRequest
+	32, // 40: mimir.v1.VisitService.DeleteVisitPlan:input_type -> mimir.v1.DeleteVisitPlanRequest
+	5,  // 41: mimir.v1.VisitService.PlanVisits:output_type -> mimir.v1.PlanVisitsResponse
+	15, // 42: mimir.v1.VisitService.SimulateVisitPlan:output_type -> mimir.v1.SimulateVisitPlanResponse
+	17, // 43: mimir.v1.VisitService.CreateVisitPlan:output_type -> mimir.v1.CreateVisitPlanResponse
+	19, // 44: mimir.v1.VisitService.ListVisitPlans:output_type -> mimir.v1.ListVisitPlansResponse
+	21, // 45: mimir.v1.VisitService.GetVisitPlan:output_type -> mimir.v1.GetVisitPlanResponse
+	23, // 46: mimir.v1.VisitService.ListPlanSalespeople:output_type -> mimir.v1.ListPlanSalespeopleResponse
+	25, // 47: mimir.v1.VisitService.GetSalespersonPlan:output_type -> mimir.v1.GetSalespersonPlanResponse
+	27, // 48: mimir.v1.VisitService.RunVisitPlan:output_type -> mimir.v1.RunVisitPlanResponse
+	29, // 49: mimir.v1.VisitService.CancelVisitPlan:output_type -> mimir.v1.CancelVisitPlanResponse
+	31, // 50: mimir.v1.VisitService.SetVisitPlanRepeat:output_type -> mimir.v1.SetVisitPlanRepeatResponse
+	33, // 51: mimir.v1.VisitService.DeleteVisitPlan:output_type -> mimir.v1.DeleteVisitPlanResponse
+	41, // [41:52] is the sub-list for method output_type
+	30, // [30:41] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_visit_proto_init() }
@@ -658,13 +2936,14 @@ func file_mimir_v1_visit_proto_init() {
 	if File_mimir_v1_visit_proto != nil {
 		return
 	}
+	file_mimir_v1_training_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_visit_proto_rawDesc), len(file_mimir_v1_visit_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   34,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

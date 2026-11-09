@@ -1,6 +1,6 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Anchor, Card, SegmentedControl, Select, Stack, Text } from "@mantine/core";
-import { IconDeviceLaptop, IconDownload, IconListCheck } from "@tabler/icons-react";
+import { Alert, Anchor, Card, Group, SegmentedControl, Select, Stack, Text } from "@mantine/core";
+import { IconDeviceLaptop, IconDownload, IconListCheck, IconRoute } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import { Writer } from "../../components/Writer";
 import * as device from "../../lib/device";
 import { explains } from "../../lib/explain";
 import { bytes } from "../../lib/format";
+import { plansVisits } from "../../lib/scoring";
 
 export const Route = createFileRoute("/_app/try")({
   validateSearch: z.object({ model: z.string().optional(), mode: z.enum(["write"]).optional(), where: z.enum(["device"]).optional() }),
@@ -84,7 +85,10 @@ function Try() {
   };
   return (
     <Page title="Try a model" intro={askIntro(arch)}
-      actions={me.permissions.includes("models.write") && <ButtonLink variant="default" leftSection={<IconListCheck size={18} />} to="/scoring" search={{ model: model.id }}>Score a whole list</ButtonLink>}>
+      actions={me.permissions.includes("models.write") && <Group gap="xs">
+        <ButtonLink variant="default" leftSection={<IconListCheck size={18} />} to="/scoring" search={{ model: model.id }}>Score a whole list</ButtonLink>
+        {plansVisits(arch) && <ButtonLink variant="default" leftSection={<IconRoute size={18} />} to="/visits/new" search={{ model: model.id }}>Plan visits</ButtonLink>}
+      </Group>}>
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-full sm:w-80">{pickModel}</div>
         {canDevice && (

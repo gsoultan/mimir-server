@@ -28,6 +28,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/team"
 	"github.com/gsoultan/mimir-server/internal/store/db/trainingjob"
 	"github.com/gsoultan/mimir-server/internal/store/db/user"
+	"github.com/gsoultan/mimir-server/internal/store/db/visitplan"
 )
 
 // DefaultTeam is the team the server starts with; everything made before
@@ -169,8 +170,8 @@ func (s *Store) RenameTeam(ctx context.Context, id, name string) (Team, error) {
 	return s.GetTeam(ctx, id)
 }
 
-// DeleteTeam removes a team that has no people, models, examples or
-// training runs left. Its webhooks go with it; its audit events stay.
+// DeleteTeam removes a team that has no people, models, examples,
+// training runs or visit plans left. Its webhooks go with it; its audit events stay.
 func (s *Store) DeleteTeam(ctx context.Context, id string) error {
 	return storm.InTx(ctx, s.ex, func(ex storm.Executor) error {
 		// Lock the team so nothing joins it between the count and the delete.
@@ -184,6 +185,7 @@ func (s *Store) DeleteTeam(ctx context.Context, id string) error {
 			func() (int64, error) { return model.New().Where(model.TeamID.Eq(id)).Count(ctx, ex) },
 			func() (int64, error) { return dataset.New().Where(dataset.TeamID.Eq(id)).Count(ctx, ex) },
 			func() (int64, error) { return trainingjob.New().Where(trainingjob.TeamID.Eq(id)).Count(ctx, ex) },
+			func() (int64, error) { return visitplan.New().Where(visitplan.TeamID.Eq(id)).Count(ctx, ex) },
 		} {
 			n, err := count()
 			if err != nil {

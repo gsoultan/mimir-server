@@ -131,6 +131,8 @@ type Service struct {
 	answers answerLog
 	// scorer runs scorings (RunScorings).
 	scorer scorer
+	// planner runs visit plans (RunVisitPlans).
+	planner scorer
 	// indexes keeps collections' embeddings for search; docKicks wakes
 	// the document reader (RunDocuments).
 	indexes  indexCache

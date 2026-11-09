@@ -35,11 +35,64 @@ const (
 const (
 	// VisitServicePlanVisitsProcedure is the fully-qualified name of the VisitService's PlanVisits RPC.
 	VisitServicePlanVisitsProcedure = "/mimir.v1.VisitService/PlanVisits"
+	// VisitServiceSimulateVisitPlanProcedure is the fully-qualified name of the VisitService's
+	// SimulateVisitPlan RPC.
+	VisitServiceSimulateVisitPlanProcedure = "/mimir.v1.VisitService/SimulateVisitPlan"
+	// VisitServiceCreateVisitPlanProcedure is the fully-qualified name of the VisitService's
+	// CreateVisitPlan RPC.
+	VisitServiceCreateVisitPlanProcedure = "/mimir.v1.VisitService/CreateVisitPlan"
+	// VisitServiceListVisitPlansProcedure is the fully-qualified name of the VisitService's
+	// ListVisitPlans RPC.
+	VisitServiceListVisitPlansProcedure = "/mimir.v1.VisitService/ListVisitPlans"
+	// VisitServiceGetVisitPlanProcedure is the fully-qualified name of the VisitService's GetVisitPlan
+	// RPC.
+	VisitServiceGetVisitPlanProcedure = "/mimir.v1.VisitService/GetVisitPlan"
+	// VisitServiceListPlanSalespeopleProcedure is the fully-qualified name of the VisitService's
+	// ListPlanSalespeople RPC.
+	VisitServiceListPlanSalespeopleProcedure = "/mimir.v1.VisitService/ListPlanSalespeople"
+	// VisitServiceGetSalespersonPlanProcedure is the fully-qualified name of the VisitService's
+	// GetSalespersonPlan RPC.
+	VisitServiceGetSalespersonPlanProcedure = "/mimir.v1.VisitService/GetSalespersonPlan"
+	// VisitServiceRunVisitPlanProcedure is the fully-qualified name of the VisitService's RunVisitPlan
+	// RPC.
+	VisitServiceRunVisitPlanProcedure = "/mimir.v1.VisitService/RunVisitPlan"
+	// VisitServiceCancelVisitPlanProcedure is the fully-qualified name of the VisitService's
+	// CancelVisitPlan RPC.
+	VisitServiceCancelVisitPlanProcedure = "/mimir.v1.VisitService/CancelVisitPlan"
+	// VisitServiceSetVisitPlanRepeatProcedure is the fully-qualified name of the VisitService's
+	// SetVisitPlanRepeat RPC.
+	VisitServiceSetVisitPlanRepeatProcedure = "/mimir.v1.VisitService/SetVisitPlanRepeat"
+	// VisitServiceDeleteVisitPlanProcedure is the fully-qualified name of the VisitService's
+	// DeleteVisitPlan RPC.
+	VisitServiceDeleteVisitPlanProcedure = "/mimir.v1.VisitService/DeleteVisitPlan"
 )
 
 // VisitServiceClient is a client for the mimir.v1.VisitService service.
 type VisitServiceClient interface {
 	PlanVisits(context.Context, *connect.Request[v1.PlanVisitsRequest]) (*connect.Response[v1.PlanVisitsResponse], error)
+	// SimulateVisitPlan makes a plan now and returns all of it, saving
+	// nothing: to try settings before saving them. Up to 20,000 customers
+	// and 100 salespeople.
+	SimulateVisitPlan(context.Context, *connect.Request[v1.SimulateVisitPlanRequest]) (*connect.Response[v1.SimulateVisitPlanResponse], error)
+	// CreateVisitPlan saves a plan and queues it. The server makes queued
+	// plans in order, one at a time; repeat_seconds makes it again that
+	// often, with fresh rows from the database.
+	CreateVisitPlan(context.Context, *connect.Request[v1.CreateVisitPlanRequest]) (*connect.Response[v1.CreateVisitPlanResponse], error)
+	ListVisitPlans(context.Context, *connect.Request[v1.ListVisitPlansRequest]) (*connect.Response[v1.ListVisitPlansResponse], error)
+	GetVisitPlan(context.Context, *connect.Request[v1.GetVisitPlanRequest]) (*connect.Response[v1.GetVisitPlanResponse], error)
+	// ListPlanSalespeople lists a plan's salespeople from its last run, a
+	// page at a time, by area, search and whether they need a look.
+	ListPlanSalespeople(context.Context, *connect.Request[v1.ListPlanSalespeopleRequest]) (*connect.Response[v1.ListPlanSalespeopleResponse], error)
+	// GetSalespersonPlan returns one salesperson's days of visits from a
+	// plan's last run, and the likely customers that didn't fit.
+	GetSalespersonPlan(context.Context, *connect.Request[v1.GetSalespersonPlanRequest]) (*connect.Response[v1.GetSalespersonPlanResponse], error)
+	// RunVisitPlan makes a finished, failed or cancelled plan again now,
+	// with fresh rows.
+	RunVisitPlan(context.Context, *connect.Request[v1.RunVisitPlanRequest]) (*connect.Response[v1.RunVisitPlanResponse], error)
+	CancelVisitPlan(context.Context, *connect.Request[v1.CancelVisitPlanRequest]) (*connect.Response[v1.CancelVisitPlanResponse], error)
+	// SetVisitPlanRepeat changes how often a plan is made again; 0 stops it.
+	SetVisitPlanRepeat(context.Context, *connect.Request[v1.SetVisitPlanRepeatRequest]) (*connect.Response[v1.SetVisitPlanRepeatResponse], error)
+	DeleteVisitPlan(context.Context, *connect.Request[v1.DeleteVisitPlanRequest]) (*connect.Response[v1.DeleteVisitPlanResponse], error)
 }
 
 // NewVisitServiceClient constructs a client for the mimir.v1.VisitService service. By default, it
@@ -60,12 +113,86 @@ func NewVisitServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		simulateVisitPlan: connect.NewClient[v1.SimulateVisitPlanRequest, v1.SimulateVisitPlanResponse](
+			httpClient,
+			baseURL+VisitServiceSimulateVisitPlanProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("SimulateVisitPlan")),
+			connect.WithClientOptions(opts...),
+		),
+		createVisitPlan: connect.NewClient[v1.CreateVisitPlanRequest, v1.CreateVisitPlanResponse](
+			httpClient,
+			baseURL+VisitServiceCreateVisitPlanProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("CreateVisitPlan")),
+			connect.WithClientOptions(opts...),
+		),
+		listVisitPlans: connect.NewClient[v1.ListVisitPlansRequest, v1.ListVisitPlansResponse](
+			httpClient,
+			baseURL+VisitServiceListVisitPlansProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("ListVisitPlans")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getVisitPlan: connect.NewClient[v1.GetVisitPlanRequest, v1.GetVisitPlanResponse](
+			httpClient,
+			baseURL+VisitServiceGetVisitPlanProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("GetVisitPlan")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		listPlanSalespeople: connect.NewClient[v1.ListPlanSalespeopleRequest, v1.ListPlanSalespeopleResponse](
+			httpClient,
+			baseURL+VisitServiceListPlanSalespeopleProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("ListPlanSalespeople")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getSalespersonPlan: connect.NewClient[v1.GetSalespersonPlanRequest, v1.GetSalespersonPlanResponse](
+			httpClient,
+			baseURL+VisitServiceGetSalespersonPlanProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("GetSalespersonPlan")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		runVisitPlan: connect.NewClient[v1.RunVisitPlanRequest, v1.RunVisitPlanResponse](
+			httpClient,
+			baseURL+VisitServiceRunVisitPlanProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("RunVisitPlan")),
+			connect.WithClientOptions(opts...),
+		),
+		cancelVisitPlan: connect.NewClient[v1.CancelVisitPlanRequest, v1.CancelVisitPlanResponse](
+			httpClient,
+			baseURL+VisitServiceCancelVisitPlanProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("CancelVisitPlan")),
+			connect.WithClientOptions(opts...),
+		),
+		setVisitPlanRepeat: connect.NewClient[v1.SetVisitPlanRepeatRequest, v1.SetVisitPlanRepeatResponse](
+			httpClient,
+			baseURL+VisitServiceSetVisitPlanRepeatProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("SetVisitPlanRepeat")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteVisitPlan: connect.NewClient[v1.DeleteVisitPlanRequest, v1.DeleteVisitPlanResponse](
+			httpClient,
+			baseURL+VisitServiceDeleteVisitPlanProcedure,
+			connect.WithSchema(visitServiceMethods.ByName("DeleteVisitPlan")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // visitServiceClient implements VisitServiceClient.
 type visitServiceClient struct {
-	planVisits *connect.Client[v1.PlanVisitsRequest, v1.PlanVisitsResponse]
+	planVisits          *connect.Client[v1.PlanVisitsRequest, v1.PlanVisitsResponse]
+	simulateVisitPlan   *connect.Client[v1.SimulateVisitPlanRequest, v1.SimulateVisitPlanResponse]
+	createVisitPlan     *connect.Client[v1.CreateVisitPlanRequest, v1.CreateVisitPlanResponse]
+	listVisitPlans      *connect.Client[v1.ListVisitPlansRequest, v1.ListVisitPlansResponse]
+	getVisitPlan        *connect.Client[v1.GetVisitPlanRequest, v1.GetVisitPlanResponse]
+	listPlanSalespeople *connect.Client[v1.ListPlanSalespeopleRequest, v1.ListPlanSalespeopleResponse]
+	getSalespersonPlan  *connect.Client[v1.GetSalespersonPlanRequest, v1.GetSalespersonPlanResponse]
+	runVisitPlan        *connect.Client[v1.RunVisitPlanRequest, v1.RunVisitPlanResponse]
+	cancelVisitPlan     *connect.Client[v1.CancelVisitPlanRequest, v1.CancelVisitPlanResponse]
+	setVisitPlanRepeat  *connect.Client[v1.SetVisitPlanRepeatRequest, v1.SetVisitPlanRepeatResponse]
+	deleteVisitPlan     *connect.Client[v1.DeleteVisitPlanRequest, v1.DeleteVisitPlanResponse]
 }
 
 // PlanVisits calls mimir.v1.VisitService.PlanVisits.
@@ -73,9 +200,82 @@ func (c *visitServiceClient) PlanVisits(ctx context.Context, req *connect.Reques
 	return c.planVisits.CallUnary(ctx, req)
 }
 
+// SimulateVisitPlan calls mimir.v1.VisitService.SimulateVisitPlan.
+func (c *visitServiceClient) SimulateVisitPlan(ctx context.Context, req *connect.Request[v1.SimulateVisitPlanRequest]) (*connect.Response[v1.SimulateVisitPlanResponse], error) {
+	return c.simulateVisitPlan.CallUnary(ctx, req)
+}
+
+// CreateVisitPlan calls mimir.v1.VisitService.CreateVisitPlan.
+func (c *visitServiceClient) CreateVisitPlan(ctx context.Context, req *connect.Request[v1.CreateVisitPlanRequest]) (*connect.Response[v1.CreateVisitPlanResponse], error) {
+	return c.createVisitPlan.CallUnary(ctx, req)
+}
+
+// ListVisitPlans calls mimir.v1.VisitService.ListVisitPlans.
+func (c *visitServiceClient) ListVisitPlans(ctx context.Context, req *connect.Request[v1.ListVisitPlansRequest]) (*connect.Response[v1.ListVisitPlansResponse], error) {
+	return c.listVisitPlans.CallUnary(ctx, req)
+}
+
+// GetVisitPlan calls mimir.v1.VisitService.GetVisitPlan.
+func (c *visitServiceClient) GetVisitPlan(ctx context.Context, req *connect.Request[v1.GetVisitPlanRequest]) (*connect.Response[v1.GetVisitPlanResponse], error) {
+	return c.getVisitPlan.CallUnary(ctx, req)
+}
+
+// ListPlanSalespeople calls mimir.v1.VisitService.ListPlanSalespeople.
+func (c *visitServiceClient) ListPlanSalespeople(ctx context.Context, req *connect.Request[v1.ListPlanSalespeopleRequest]) (*connect.Response[v1.ListPlanSalespeopleResponse], error) {
+	return c.listPlanSalespeople.CallUnary(ctx, req)
+}
+
+// GetSalespersonPlan calls mimir.v1.VisitService.GetSalespersonPlan.
+func (c *visitServiceClient) GetSalespersonPlan(ctx context.Context, req *connect.Request[v1.GetSalespersonPlanRequest]) (*connect.Response[v1.GetSalespersonPlanResponse], error) {
+	return c.getSalespersonPlan.CallUnary(ctx, req)
+}
+
+// RunVisitPlan calls mimir.v1.VisitService.RunVisitPlan.
+func (c *visitServiceClient) RunVisitPlan(ctx context.Context, req *connect.Request[v1.RunVisitPlanRequest]) (*connect.Response[v1.RunVisitPlanResponse], error) {
+	return c.runVisitPlan.CallUnary(ctx, req)
+}
+
+// CancelVisitPlan calls mimir.v1.VisitService.CancelVisitPlan.
+func (c *visitServiceClient) CancelVisitPlan(ctx context.Context, req *connect.Request[v1.CancelVisitPlanRequest]) (*connect.Response[v1.CancelVisitPlanResponse], error) {
+	return c.cancelVisitPlan.CallUnary(ctx, req)
+}
+
+// SetVisitPlanRepeat calls mimir.v1.VisitService.SetVisitPlanRepeat.
+func (c *visitServiceClient) SetVisitPlanRepeat(ctx context.Context, req *connect.Request[v1.SetVisitPlanRepeatRequest]) (*connect.Response[v1.SetVisitPlanRepeatResponse], error) {
+	return c.setVisitPlanRepeat.CallUnary(ctx, req)
+}
+
+// DeleteVisitPlan calls mimir.v1.VisitService.DeleteVisitPlan.
+func (c *visitServiceClient) DeleteVisitPlan(ctx context.Context, req *connect.Request[v1.DeleteVisitPlanRequest]) (*connect.Response[v1.DeleteVisitPlanResponse], error) {
+	return c.deleteVisitPlan.CallUnary(ctx, req)
+}
+
 // VisitServiceHandler is an implementation of the mimir.v1.VisitService service.
 type VisitServiceHandler interface {
 	PlanVisits(context.Context, *connect.Request[v1.PlanVisitsRequest]) (*connect.Response[v1.PlanVisitsResponse], error)
+	// SimulateVisitPlan makes a plan now and returns all of it, saving
+	// nothing: to try settings before saving them. Up to 20,000 customers
+	// and 100 salespeople.
+	SimulateVisitPlan(context.Context, *connect.Request[v1.SimulateVisitPlanRequest]) (*connect.Response[v1.SimulateVisitPlanResponse], error)
+	// CreateVisitPlan saves a plan and queues it. The server makes queued
+	// plans in order, one at a time; repeat_seconds makes it again that
+	// often, with fresh rows from the database.
+	CreateVisitPlan(context.Context, *connect.Request[v1.CreateVisitPlanRequest]) (*connect.Response[v1.CreateVisitPlanResponse], error)
+	ListVisitPlans(context.Context, *connect.Request[v1.ListVisitPlansRequest]) (*connect.Response[v1.ListVisitPlansResponse], error)
+	GetVisitPlan(context.Context, *connect.Request[v1.GetVisitPlanRequest]) (*connect.Response[v1.GetVisitPlanResponse], error)
+	// ListPlanSalespeople lists a plan's salespeople from its last run, a
+	// page at a time, by area, search and whether they need a look.
+	ListPlanSalespeople(context.Context, *connect.Request[v1.ListPlanSalespeopleRequest]) (*connect.Response[v1.ListPlanSalespeopleResponse], error)
+	// GetSalespersonPlan returns one salesperson's days of visits from a
+	// plan's last run, and the likely customers that didn't fit.
+	GetSalespersonPlan(context.Context, *connect.Request[v1.GetSalespersonPlanRequest]) (*connect.Response[v1.GetSalespersonPlanResponse], error)
+	// RunVisitPlan makes a finished, failed or cancelled plan again now,
+	// with fresh rows.
+	RunVisitPlan(context.Context, *connect.Request[v1.RunVisitPlanRequest]) (*connect.Response[v1.RunVisitPlanResponse], error)
+	CancelVisitPlan(context.Context, *connect.Request[v1.CancelVisitPlanRequest]) (*connect.Response[v1.CancelVisitPlanResponse], error)
+	// SetVisitPlanRepeat changes how often a plan is made again; 0 stops it.
+	SetVisitPlanRepeat(context.Context, *connect.Request[v1.SetVisitPlanRepeatRequest]) (*connect.Response[v1.SetVisitPlanRepeatResponse], error)
+	DeleteVisitPlan(context.Context, *connect.Request[v1.DeleteVisitPlanRequest]) (*connect.Response[v1.DeleteVisitPlanResponse], error)
 }
 
 // NewVisitServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -92,10 +292,94 @@ func NewVisitServiceHandler(svc VisitServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	visitServiceSimulateVisitPlanHandler := connect.NewUnaryHandler(
+		VisitServiceSimulateVisitPlanProcedure,
+		svc.SimulateVisitPlan,
+		connect.WithSchema(visitServiceMethods.ByName("SimulateVisitPlan")),
+		connect.WithHandlerOptions(opts...),
+	)
+	visitServiceCreateVisitPlanHandler := connect.NewUnaryHandler(
+		VisitServiceCreateVisitPlanProcedure,
+		svc.CreateVisitPlan,
+		connect.WithSchema(visitServiceMethods.ByName("CreateVisitPlan")),
+		connect.WithHandlerOptions(opts...),
+	)
+	visitServiceListVisitPlansHandler := connect.NewUnaryHandler(
+		VisitServiceListVisitPlansProcedure,
+		svc.ListVisitPlans,
+		connect.WithSchema(visitServiceMethods.ByName("ListVisitPlans")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	visitServiceGetVisitPlanHandler := connect.NewUnaryHandler(
+		VisitServiceGetVisitPlanProcedure,
+		svc.GetVisitPlan,
+		connect.WithSchema(visitServiceMethods.ByName("GetVisitPlan")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	visitServiceListPlanSalespeopleHandler := connect.NewUnaryHandler(
+		VisitServiceListPlanSalespeopleProcedure,
+		svc.ListPlanSalespeople,
+		connect.WithSchema(visitServiceMethods.ByName("ListPlanSalespeople")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	visitServiceGetSalespersonPlanHandler := connect.NewUnaryHandler(
+		VisitServiceGetSalespersonPlanProcedure,
+		svc.GetSalespersonPlan,
+		connect.WithSchema(visitServiceMethods.ByName("GetSalespersonPlan")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	visitServiceRunVisitPlanHandler := connect.NewUnaryHandler(
+		VisitServiceRunVisitPlanProcedure,
+		svc.RunVisitPlan,
+		connect.WithSchema(visitServiceMethods.ByName("RunVisitPlan")),
+		connect.WithHandlerOptions(opts...),
+	)
+	visitServiceCancelVisitPlanHandler := connect.NewUnaryHandler(
+		VisitServiceCancelVisitPlanProcedure,
+		svc.CancelVisitPlan,
+		connect.WithSchema(visitServiceMethods.ByName("CancelVisitPlan")),
+		connect.WithHandlerOptions(opts...),
+	)
+	visitServiceSetVisitPlanRepeatHandler := connect.NewUnaryHandler(
+		VisitServiceSetVisitPlanRepeatProcedure,
+		svc.SetVisitPlanRepeat,
+		connect.WithSchema(visitServiceMethods.ByName("SetVisitPlanRepeat")),
+		connect.WithHandlerOptions(opts...),
+	)
+	visitServiceDeleteVisitPlanHandler := connect.NewUnaryHandler(
+		VisitServiceDeleteVisitPlanProcedure,
+		svc.DeleteVisitPlan,
+		connect.WithSchema(visitServiceMethods.ByName("DeleteVisitPlan")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.VisitService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VisitServicePlanVisitsProcedure:
 			visitServicePlanVisitsHandler.ServeHTTP(w, r)
+		case VisitServiceSimulateVisitPlanProcedure:
+			visitServiceSimulateVisitPlanHandler.ServeHTTP(w, r)
+		case VisitServiceCreateVisitPlanProcedure:
+			visitServiceCreateVisitPlanHandler.ServeHTTP(w, r)
+		case VisitServiceListVisitPlansProcedure:
+			visitServiceListVisitPlansHandler.ServeHTTP(w, r)
+		case VisitServiceGetVisitPlanProcedure:
+			visitServiceGetVisitPlanHandler.ServeHTTP(w, r)
+		case VisitServiceListPlanSalespeopleProcedure:
+			visitServiceListPlanSalespeopleHandler.ServeHTTP(w, r)
+		case VisitServiceGetSalespersonPlanProcedure:
+			visitServiceGetSalespersonPlanHandler.ServeHTTP(w, r)
+		case VisitServiceRunVisitPlanProcedure:
+			visitServiceRunVisitPlanHandler.ServeHTTP(w, r)
+		case VisitServiceCancelVisitPlanProcedure:
+			visitServiceCancelVisitPlanHandler.ServeHTTP(w, r)
+		case VisitServiceSetVisitPlanRepeatProcedure:
+			visitServiceSetVisitPlanRepeatHandler.ServeHTTP(w, r)
+		case VisitServiceDeleteVisitPlanProcedure:
+			visitServiceDeleteVisitPlanHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -107,4 +391,44 @@ type UnimplementedVisitServiceHandler struct{}
 
 func (UnimplementedVisitServiceHandler) PlanVisits(context.Context, *connect.Request[v1.PlanVisitsRequest]) (*connect.Response[v1.PlanVisitsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.PlanVisits is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) SimulateVisitPlan(context.Context, *connect.Request[v1.SimulateVisitPlanRequest]) (*connect.Response[v1.SimulateVisitPlanResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.SimulateVisitPlan is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) CreateVisitPlan(context.Context, *connect.Request[v1.CreateVisitPlanRequest]) (*connect.Response[v1.CreateVisitPlanResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.CreateVisitPlan is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) ListVisitPlans(context.Context, *connect.Request[v1.ListVisitPlansRequest]) (*connect.Response[v1.ListVisitPlansResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.ListVisitPlans is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) GetVisitPlan(context.Context, *connect.Request[v1.GetVisitPlanRequest]) (*connect.Response[v1.GetVisitPlanResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.GetVisitPlan is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) ListPlanSalespeople(context.Context, *connect.Request[v1.ListPlanSalespeopleRequest]) (*connect.Response[v1.ListPlanSalespeopleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.ListPlanSalespeople is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) GetSalespersonPlan(context.Context, *connect.Request[v1.GetSalespersonPlanRequest]) (*connect.Response[v1.GetSalespersonPlanResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.GetSalespersonPlan is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) RunVisitPlan(context.Context, *connect.Request[v1.RunVisitPlanRequest]) (*connect.Response[v1.RunVisitPlanResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.RunVisitPlan is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) CancelVisitPlan(context.Context, *connect.Request[v1.CancelVisitPlanRequest]) (*connect.Response[v1.CancelVisitPlanResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.CancelVisitPlan is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) SetVisitPlanRepeat(context.Context, *connect.Request[v1.SetVisitPlanRepeatRequest]) (*connect.Response[v1.SetVisitPlanRepeatResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.SetVisitPlanRepeat is not implemented"))
+}
+
+func (UnimplementedVisitServiceHandler) DeleteVisitPlan(context.Context, *connect.Request[v1.DeleteVisitPlanRequest]) (*connect.Response[v1.DeleteVisitPlanResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.VisitService.DeleteVisitPlan is not implemented"))
 }

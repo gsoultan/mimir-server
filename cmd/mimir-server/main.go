@@ -305,6 +305,10 @@ func run() error {
 	if err := st.ResetRunningScorings(ctx); err != nil {
 		log.Warn("couldn't queue unfinished scorings again", "error", err)
 	}
+	// Visit plans a stopped server left half made are made again.
+	if err := st.ResetRunningVisitPlans(ctx); err != nil {
+		log.Warn("couldn't queue unfinished visit plans again", "error", err)
+	}
 	// Documents a stopped server left half read are read again.
 	if err := st.ResetRunningDocuments(ctx); err != nil {
 		log.Warn("couldn't queue unfinished documents again", "error", err)
@@ -455,6 +459,9 @@ func run() error {
 	svc.CancelTraining = runner.Cancel
 	bg.Go(func() { safe.Loop(bgCtx, log, "training runner", func() { runner.Run(bgCtx) }) })
 	bg.Go(func() { safe.Loop(bgCtx, log, "scoring runner", func() { svc.RunScorings(bgCtx, 30*time.Second) }) })
+	bg.Go(func() {
+		safe.Loop(bgCtx, log, "visit plan runner", func() { svc.RunVisitPlans(bgCtx, 30*time.Second) })
+	})
 	bg.Go(func() { safe.Loop(bgCtx, log, "document reader", func() { svc.RunDocuments(bgCtx, 30*time.Second) }) })
 
 	if *metricsToken == "" && !loopbackOnly(*addr) {
