@@ -504,3 +504,38 @@ func TestVisitPlanFromDatabase(t *testing.T) {
 		t.Fatalf("bad query: %v", err)
 	}
 }
+
+func TestVisitPlanByOrderValue(t *testing.T) {
+	ctx := context.Background()
+	srv := newServer(t)
+	own := owner(t, srv)
+	vc := mimirv1connect.NewVisitServiceClient(srv.Client(), srv.URL, connect.WithInterceptors(own.jar))
+
+	// The same chance for everyone: the bigger buyers are visited.
+	for name, header := range map[string]string{"with priority": "customer_id,latitude,longitude,priority,avg_order_amount", "value alone": "customer_id,latitude,longitude,order_value"} {
+		var b strings.Builder
+		b.WriteString(header + "\n")
+		for i := range 40 {
+			if strings.Contains(header, "priority") {
+				fmt.Fprintf(&b, "c-%d,%.4f,106.8,0.5,%d\n", i, -6.2+float64(i)*0.001, i*100)
+			} else {
+				fmt.Fprintf(&b, "c-%d,%.4f,106.8,%d\n", i, -6.2+float64(i)*0.001, i*100)
+			}
+		}
+		people := planPeople(1)
+		people[0].MaxVisits = 5
+		res, err := vc.SimulateVisitPlan(ctx, connect.NewRequest(&mimirv1.SimulateVisitPlanRequest{Settings: &mimirv1.VisitPlanSettings{CustomersCsv: []byte(b.String()), Salespeople: people, Days: 1}}))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		visits := res.Msg.GetSalespeople()[0].GetDays()[0].GetVisits()
+		if len(visits) != 5 {
+			t.Fatalf("%s: %d visits", name, len(visits))
+		}
+		for _, v := range visits {
+			if v.GetCustomer().GetOrderValue() < 3500 {
+				t.Errorf("%s: visits %s, worth %v", name, v.GetCustomer().GetId(), v.GetCustomer().GetOrderValue())
+			}
+		}
+	}
+}

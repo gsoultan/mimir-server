@@ -30,6 +30,7 @@ function SalespersonPage() {
   const plan = data.plan!, sp = data.salesperson!, who = sp.salesperson!;
   const [day, setDay] = useState(String(sp.days.findIndex((d) => d.visits.length > 0) >= 0 ? sp.days.findIndex((d) => d.visits.length > 0) : 0));
   const today = sp.days[Number(day)];
+  const valued = sp.days.some((d) => d.visits.some((v) => (v.customer?.orderValue ?? 0) > 0));
 
   return (
     <Page
@@ -54,7 +55,7 @@ function SalespersonPage() {
           <Card withBorder padding={0}>
             <Table.ScrollContainer minWidth={360}>
               <Table fz="sm" highlightOnHover>
-                <Table.Thead><Table.Tr><Table.Th>#</Table.Th><Table.Th>Arrive</Table.Th><Table.Th>Customer</Table.Th><Table.Th ta="right">Chance</Table.Th><Table.Th ta="right">Km</Table.Th></Table.Tr></Table.Thead>
+                <Table.Thead><Table.Tr><Table.Th>#</Table.Th><Table.Th>Arrive</Table.Th><Table.Th>Customer</Table.Th><Table.Th ta="right">Chance</Table.Th>{valued && <Table.Th ta="right">Order value</Table.Th>}<Table.Th ta="right">Km</Table.Th></Table.Tr></Table.Thead>
                 <Table.Tbody>
                   {today.visits.map((v, i) => (
                     <Table.Tr key={v.customer!.id}>
@@ -65,6 +66,7 @@ function SalespersonPage() {
                         <Group gap={4}>{v.customer!.name && <Text size="xs" c="dimmed">{v.customer!.id}</Text>}{v.customer!.mustVisit && <StatusPill tone="busy">Must visit</StatusPill>}</Group>
                       </Table.Td>
                       <Table.Td ta="right">{percent(v.customer!.chance)}</Table.Td>
+                      {valued && <Table.Td ta="right">{v.customer!.orderValue.toLocaleString()}</Table.Td>}
                       <Table.Td ta="right">{v.kmFromPrevious.toFixed(1)}</Table.Td>
                     </Table.Tr>
                   ))}

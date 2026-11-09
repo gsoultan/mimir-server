@@ -1299,8 +1299,11 @@ type PlannedCustomer struct {
 	Longitude float64                `protobuf:"fixed64,4,opt,name=longitude,proto3" json:"longitude,omitempty"`
 	// chance is how likely they are to order in the plan's days, from 0
 	// to 1, or their own priority when the plan has no model.
-	Chance        float64 `protobuf:"fixed64,5,opt,name=chance,proto3" json:"chance,omitempty"`
-	MustVisit     bool    `protobuf:"varint,6,opt,name=must_visit,json=mustVisit,proto3" json:"must_visit,omitempty"`
+	Chance    float64 `protobuf:"fixed64,5,opt,name=chance,proto3" json:"chance,omitempty"`
+	MustVisit bool    `protobuf:"varint,6,opt,name=must_visit,json=mustVisit,proto3" json:"must_visit,omitempty"`
+	// order_value is the customer's order value, from an order_value
+	// column; with one, customers rank by chance times order value.
+	OrderValue    float64 `protobuf:"fixed64,7,opt,name=order_value,json=orderValue,proto3" json:"order_value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1375,6 +1378,13 @@ func (x *PlannedCustomer) GetMustVisit() bool {
 		return x.MustVisit
 	}
 	return false
+}
+
+func (x *PlannedCustomer) GetOrderValue() float64 {
+	if x != nil {
+		return x.OrderValue
+	}
+	return 0
 }
 
 type DayVisit struct {
@@ -2814,7 +2824,7 @@ const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\acovered\x18\a \x01(\x01R\acovered\x12\x1f\n" +
 	"\vlikely_left\x18\b \x01(\x05R\n" +
 	"likelyLeft\x12\x18\n" +
-	"\aproblem\x18\t \x01(\tR\aproblem\"\xa6\x01\n" +
+	"\aproblem\x18\t \x01(\tR\aproblem\"\xc7\x01\n" +
 	"\x0fPlannedCustomer\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -2822,7 +2832,9 @@ const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\tlongitude\x18\x04 \x01(\x01R\tlongitude\x12\x16\n" +
 	"\x06chance\x18\x05 \x01(\x01R\x06chance\x12\x1d\n" +
 	"\n" +
-	"must_visit\x18\x06 \x01(\bR\tmustVisit\"\xb3\x01\n" +
+	"must_visit\x18\x06 \x01(\bR\tmustVisit\x12\x1f\n" +
+	"\vorder_value\x18\a \x01(\x01R\n" +
+	"orderValue\"\xb3\x01\n" +
 	"\bDayVisit\x125\n" +
 	"\bcustomer\x18\x01 \x01(\v2\x19.mimir.v1.PlannedCustomerR\bcustomer\x12#\n" +
 	"\rarrive_minute\x18\x02 \x01(\x05R\farriveMinute\x12!\n" +

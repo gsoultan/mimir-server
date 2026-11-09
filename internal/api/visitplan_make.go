@@ -91,8 +91,11 @@ type customer struct {
 	minutes     int
 	open, close int
 	sinceVisit  float64 // -1 when not known
-	failed      bool
-	row         []string
+	// worth is what a visit is expected to bring, for ranking: the
+	// chance, times the order value when the customers have one.
+	worth  float64
+	failed bool
+	row    []string
 }
 
 // header columns a plan reads, by the names people use for them.
@@ -107,6 +110,7 @@ var (
 	colClose       = []string{"close_minute", "close"}
 	colMust        = []string{"must_visit", "must"}
 	colPriority    = []string{"priority"}
+	colValue       = []string{"order_value", "avg_order_amount", "average_order_amount", "avg_order_value", "average_order_value", "expected_order_value"}
 	colSinceVisit  = []string{"days_since_last_visit"}
 
 	spID    = []string{"id", "salesperson_id", "salesman_id"}
@@ -219,8 +223,8 @@ func checkCustomerHeader(header []string, model *store.Model, people int) string
 	if people > 1 && columnIndex(header, colSalesperson) < 0 {
 		missing = append(missing, "salesperson_id (there are several salespeople)")
 	}
-	if model == nil && columnIndex(header, colPriority) < 0 {
-		missing = append(missing, "priority (there is no model to rank them)")
+	if model == nil && columnIndex(header, colPriority) < 0 && columnIndex(header, colValue) < 0 {
+		missing = append(missing, "priority or order_value (there is no model to rank them)")
 	}
 	if len(missing) > 0 {
 		return "The customers have no " + strings.Join(missing, ", ") + " column."
@@ -500,6 +504,7 @@ func (s *Service) makePlan(ctx context.Context, in planInput) (planOutcome, erro
 	cSP, cMin := columnIndex(header, colSalesperson), columnIndex(header, colMinutes)
 	cOpen, cClose := columnIndex(header, colOpen), columnIndex(header, colClose)
 	cMust, cPri, cSince := columnIndex(header, colMust), columnIndex(header, colPriority), columnIndex(header, colSinceVisit)
+	cValue := columnIndex(header, colValue)
 	sum := store.VisitPlanSummary{
 		StartDate: dates[0].Format(time.DateOnly), EndDate: dates[len(dates)-1].Format(time.DateOnly),
 		Customers: int64(len(rows)), Salespeople: int64(len(people)),
@@ -548,9 +553,18 @@ func (s *Service) makePlan(ctx context.Context, in planInput) (planOutcome, erro
 		c.minutes = cmp.Or(max(minuteOf(cell(row, cMin)), 0), set.VisitMinutes, 30)
 		c.open, c.close = minuteOf(cell(row, cOpen)), minuteOf(cell(row, cClose))
 		if pm == nil {
-			c.Priority, _ = strconv.ParseFloat(cell(row, cPri), 64)
+			c.Priority = 1 // ranked by order value alone
+			if cPri >= 0 {
+				c.Priority, _ = strconv.ParseFloat(cell(row, cPri), 64)
+			}
 			if math.IsNaN(c.Priority) || math.IsInf(c.Priority, 0) || c.Priority < 0 {
 				c.Priority = 0
+			}
+		}
+		if cValue >= 0 {
+			// A blank or bad value counts as nothing to order.
+			if v, err := strconv.ParseFloat(cell(row, cValue), 64); err == nil && v > 0 && !math.IsInf(v, 0) {
+				c.Value = v
 			}
 		}
 		cs = append(cs, c)
@@ -603,7 +617,7 @@ func (s *Service) makePlan(ctx context.Context, in planInput) (planOutcome, erro
 	for range min(max(goruntime.NumCPU(), 1), 4, len(people)) {
 		done.Go(func() {
 			for i := range next {
-				out[i], chance[i][0], chance[i][1] = planOne(people[i], byPerson[i], dates, set, pm.likely())
+				out[i], chance[i][0], chance[i][1] = planOne(people[i], byPerson[i], dates, set, pm.likely(), cValue >= 0)
 				byPerson[i] = nil
 				mu.Lock()
 				finished++
@@ -654,7 +668,10 @@ func (s *Service) makePlan(ctx context.Context, in planInput) (planOutcome, erro
 
 // planOne plans one salesperson's days. It also returns the chance the
 // visits reach and all their customers' chance.
-func planOne(sp store.PlanSalesperson, cs []customer, dates []time.Time, set store.VisitPlanSettings, likely float64) (_ store.SalespersonPlan, covered, total float64) {
+//
+// valued ranks the customers by chance times order value, rather than
+// by chance alone.
+func planOne(sp store.PlanSalesperson, cs []customer, dates []time.Time, set store.VisitPlanSettings, likely float64, valued bool) (_ store.SalespersonPlan, covered, total float64) {
 	out := store.SalespersonPlan{
 		SalespersonID: sp.ID, Name: cmp.Or(sp.Name, sp.ID), Area: sp.Area, Customers: int64(len(cs)),
 		Detail: store.SalespersonDetail{Lat: sp.Lat, Lon: sp.Lon, Start: sp.Start, End: sp.End, Days: []store.PlanDay{}},
@@ -662,8 +679,12 @@ func planOne(sp store.PlanSalesperson, cs []customer, dates []time.Time, set sto
 	if out.Detail.Start == 0 && out.Detail.End == 0 {
 		out.Detail.Start, out.Detail.End = 8*60, 17*60
 	}
-	for _, c := range cs {
-		total += c.Priority
+	for i := range cs {
+		cs[i].worth = cs[i].Priority
+		if valued {
+			cs[i].worth *= cs[i].Value
+		}
+		total += cs[i].worth
 	}
 	switch {
 	case len(cs) == 0:
@@ -685,12 +706,20 @@ func planOne(sp store.PlanSalesperson, cs []customer, dates []time.Time, set sto
 			}
 			return 1
 		}
-		return cmp.Compare(b.Priority, a.Priority)
+		return cmp.Compare(b.worth, a.worth)
 	})
 	consider := cs[:min(len(cs), visit.MaxStops)]
 	req := visit.Request{
 		Salespeople: []visit.Salesperson{{ID: sp.ID, Name: sp.Name, Lat: sp.Lat, Lon: sp.Lon, Start: out.Detail.Start, End: out.Detail.End, MaxVisits: sp.MaxVisits}},
 		Days:        len(dates), SpeedKmh: set.SpeedKmh, RoadFactor: set.RoadFactor,
+	}
+	// The planner weighs stops from 0 to 1.
+	top := 0.0
+	for _, c := range consider {
+		top = max(top, c.worth)
+	}
+	if top == 0 {
+		top = 1
 	}
 	byID := make(map[string]*customer, len(consider))
 	for i := range consider {
@@ -698,7 +727,7 @@ func planOne(sp store.PlanSalesperson, cs []customer, dates []time.Time, set sto
 		byID[c.CustomerID] = c
 		st := visit.Stop{ID: c.CustomerID, Name: c.Name, Lat: c.Lat, Lon: c.Lon, Minutes: min(c.minutes, 12*60), Salesperson: sp.ID, Must: c.Must,
 			// The planner reads 0 as 1; a customer with no chance comes last.
-			Priority: math.Max(c.Priority, 1e-9)}
+			Priority: math.Max(c.worth/top, 1e-9)}
 		if c.open >= 0 && c.close >= c.open {
 			st.Open, st.Close = c.open, c.close
 		}
@@ -715,7 +744,7 @@ func planOne(sp store.PlanSalesperson, cs []customer, dates []time.Time, set sto
 		for _, v := range r.Visits {
 			c := byID[v.Stop]
 			planned[v.Stop] = true
-			covered += c.Priority
+			covered += c.worth
 			d.Visits = append(d.Visits, store.PlanVisit{PlanStop: c.PlanStop, Arrive: v.Arrive, Leave: v.Leave, Km: math.Round(v.Km*10) / 10})
 		}
 		out.Visits += int64(len(r.Visits))

@@ -130,7 +130,7 @@ function NewVisitPlan() {
           <Title order={2}>Customers</Title>
           <Text size="sm" c="dimmed">
             One row per customer with <b>customer_id</b>, <b>latitude</b> and <b>longitude</b>, and <b>salesperson_id</b> when there is more than one salesperson.
-            Without a model, add a <b>priority</b> column. Optional: name, must_visit, open_minute, close_minute, visit_minutes, days_since_last_visit.
+            Without a model, add a <b>priority</b> column. With an <b>order_value</b> column (such as the average order amount), customers rank by chance times order value. Optional: name, must_visit, open_minute, close_minute, visit_minutes, days_since_last_visit.
           </Text>
           <SegmentedControl value={source} onChange={(v) => { setSource(v); if (v !== "database") setPeopleSource("upload"); changed(); }} data={[
             ...(canConnect ? [{ value: "database", label: "Database" }] : []),

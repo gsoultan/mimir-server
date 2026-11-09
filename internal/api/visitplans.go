@@ -663,7 +663,7 @@ func planSalespersonProto(sp store.SalespersonPlan) *mimirv1.PlanSalesperson {
 }
 
 func plannedCustomer(c store.PlanStop) *mimirv1.PlannedCustomer {
-	return &mimirv1.PlannedCustomer{Id: c.CustomerID, Name: c.Name, Latitude: c.Lat, Longitude: c.Lon, Chance: c.Priority, MustVisit: c.Must}
+	return &mimirv1.PlannedCustomer{Id: c.CustomerID, Name: c.Name, Latitude: c.Lat, Longitude: c.Lon, Chance: c.Priority, MustVisit: c.Must, OrderValue: c.Value}
 }
 
 func salespersonPlanProto(sp store.SalespersonPlan) *mimirv1.SalespersonPlan {
@@ -716,7 +716,7 @@ func (s *Service) VisitPlanHandler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		bw := bufio.NewWriterSize(w, 1<<16)
 		cw := csv.NewWriter(bw)
-		cw.Write([]string{"salesperson_id", "salesperson", "area", "date", "day", "order", "customer_id", "customer", "latitude", "longitude", "arrive", "leave", "km_from_previous", "chance", "must_visit"})
+		cw.Write([]string{"salesperson_id", "salesperson", "area", "date", "day", "order", "customer_id", "customer", "latitude", "longitude", "arrive", "leave", "km_from_previous", "chance", "must_visit", "order_value"})
 		f := func(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
 		hm := func(m int) string { return fmt.Sprintf("%02d:%02d", m/60, m%60) }
 		err = s.store.AllPlanSalespeople(ctx, plan.ID, func(sp store.SalespersonPlan) error {
@@ -727,7 +727,7 @@ func (s *Service) VisitPlanHandler() http.Handler {
 						must = "yes"
 					}
 					cw.Write([]string{sp.SalespersonID, sp.Name, sp.Area, d.Date, strconv.Itoa(d.Day), strconv.Itoa(i + 1), v.CustomerID, v.Name,
-						f(v.Lat), f(v.Lon), hm(v.Arrive), hm(v.Leave), f(v.Km), strconv.FormatFloat(v.Priority, 'f', 4, 64), must})
+						f(v.Lat), f(v.Lon), hm(v.Arrive), hm(v.Leave), f(v.Km), strconv.FormatFloat(v.Priority, 'f', 4, 64), must, f(v.Value)})
 				}
 			}
 			return cw.Error()

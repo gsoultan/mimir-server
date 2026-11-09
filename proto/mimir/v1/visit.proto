@@ -288,6 +288,9 @@ message PlannedCustomer {
   // to 1, or their own priority when the plan has no model.
   double chance = 5;
   bool must_visit = 6;
+  // order_value is the customer's order value, from an order_value
+  // column; with one, customers rank by chance times order value.
+  double order_value = 7;
 }
 
 message DayVisit {

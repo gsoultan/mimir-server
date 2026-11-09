@@ -613,7 +613,9 @@ their own. It takes up to 1,000,000 customers and 5,000 salespeople.
   need `customer_id`, `latitude`, `longitude`, and `salesperson_id` when
   there is more than one salesperson; without a model, `priority`.
   Optional: `name`, `must_visit`, `open_minute`, `close_minute`,
-  `visit_minutes`, `days_since_last_visit`. A model's own columns come
+  `visit_minutes`, `days_since_last_visit`, and `order_value` (or
+  `avg_order_amount`): with it, customers rank by the chance they order
+  times what they order, and coverage is of that expected amount. A model's own columns come
   along; a model that reads `visit_window_days` is told the plan's days.
 - **Salespeople**: a CSV, a query on the same database, or a list in the
   API, with `id`, `start_latitude`, `start_longitude` and optionally

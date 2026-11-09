@@ -235,7 +235,9 @@ type PlanStop struct {
 	Lat        float64 `json:"lat"`
 	Lon        float64 `json:"lon"`
 	Priority   float64 `json:"priority"`
-	Must       bool    `json:"must,omitempty"`
+	// Value is the customer's order value, when the customers have one.
+	Value float64 `json:"value,omitempty"`
+	Must  bool    `json:"must,omitempty"`
 }
 
 func visitPlanContext(id string) string { return "visit_plans.dsn:" + id }
