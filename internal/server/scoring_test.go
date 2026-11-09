@@ -119,7 +119,8 @@ func TestScoreAWholeTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := c.Msg.GetScoring()
-	if s.GetName() != "Fruit on the uploaded file" || s.GetSource() != "upload" || s.GetStatus() != mimirv1.JobStatus_JOB_STATUS_QUEUED {
+	// The runner is kicked as the scoring is made, so it may have started.
+	if s.GetName() != "Fruit on the uploaded file" || s.GetSource() != "upload" || (s.GetStatus() != mimirv1.JobStatus_JOB_STATUS_QUEUED && s.GetStatus() != mimirv1.JobStatus_JOB_STATUS_RUNNING) {
 		t.Fatalf("created %v", s)
 	}
 	got := waitScoring(t, sc, s.GetId())
