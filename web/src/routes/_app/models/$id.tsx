@@ -2,7 +2,7 @@ import { useMutation } from "@connectrpc/connect-query";
 import { Alert, Button, Card, Group, Modal, SimpleGrid, Stack, Tabs, Text, Textarea, TextInput } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconListCheck, IconPlayerPlay, IconSparkles, IconTrash } from "@tabler/icons-react";
+import { IconAlertCircle, IconListCheck, IconPlayerPlay, IconRoute, IconSparkles, IconTrash } from "@tabler/icons-react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -20,7 +20,7 @@ import { RunsOn } from "../../../components/Placement";
 import { InUse } from "../../../components/InUse";
 import { Versions } from "../../../components/Versions";
 import { ago, bytes } from "../../../lib/format";
-import { scores } from "../../../lib/scoring";
+import { plansVisits, scores } from "../../../lib/scoring";
 import { explains } from "../../../lib/explain";
 import { ColumnsThatMatter } from "../../../components/Why";
 import { StatTile, StatusPill } from "../../../components/ui";
@@ -108,6 +108,7 @@ function ModelDetails() {
       actions={
         <Group gap="xs">
           {canWrite && scores(arch) && <ButtonLink variant="default" to="/scoring" search={{ model: m.id }} leftSection={<IconListCheck size={18} />}>Score a list</ButtonLink>}
+          {canWrite && plansVisits(arch) && <ButtonLink variant="default" to="/visits/new" search={{ model: m.id }} leftSection={<IconRoute size={18} />}>Plan visits</ButtonLink>}
           <ButtonLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={18} />}>{writes ? "Chat with it" : "Try it"}</ButtonLink>
         </Group>
       }

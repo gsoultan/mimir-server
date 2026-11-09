@@ -6,6 +6,7 @@ import { SettingsService } from "./gen/mimir/v1/settings_pb";
 import { SignInService } from "./gen/mimir/v1/signin_pb";
 import { BenchmarkService } from "./gen/mimir/v1/benchmark_pb";
 import { ScoringService } from "./gen/mimir/v1/scoring_pb";
+import { VisitService } from "./gen/mimir/v1/visit_pb";
 import { DocumentService } from "./gen/mimir/v1/document_pb";
 import { DatasetService, TrainingService } from "./gen/mimir/v1/training_pb";
 import { WebhookService } from "./gen/mimir/v1/webhook_pb";
@@ -82,3 +83,11 @@ export const listTemplates = { ...createQueryOptions(TemplateService.method.list
 export const signInOptions = createQueryOptions(SignInService.method.listSignInOptions, {}, { transport });
 export const signInProviders = createQueryOptions(SignInService.method.listSignInProviders, {}, { transport });
 export const allSignInQueries = createConnectQueryKey({ schema: SignInService, cardinality: undefined });
+
+export const listVisitPlans = createQueryOptions(VisitService.method.listVisitPlans, {}, { transport });
+export const getVisitPlan = (id: string) => createQueryOptions(VisitService.method.getVisitPlan, { id }, { transport });
+export const planSalespeople = (q: { planId: string; area: string; search: string; needLook: boolean; order: string; pageSize: number; offset: number }) =>
+  createQueryOptions(VisitService.method.listPlanSalespeople, q, { transport });
+export const salespersonPlan = (planId: string, salespersonId: string) =>
+  createQueryOptions(VisitService.method.getSalespersonPlan, { planId, salespersonId }, { transport });
+export const allVisitQueries = createConnectQueryKey({ schema: VisitService, cardinality: undefined });

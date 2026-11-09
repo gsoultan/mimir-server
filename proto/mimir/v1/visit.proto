@@ -4,14 +4,54 @@ package mimir.v1;
 
 option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
 
+import "google/protobuf/timestamp.proto";
+import "mimir/v1/training.proto";
+
 // VisitService plans salespeople's visits: which customers each one sees
 // on which day, in what order, and when they arrive. Give each stop a
 // priority, such as a model's chance that the customer orders soon from
 // Score a list, and the plan visits the most valuable stops it can fit.
+//
+// A visit plan does both steps: it asks a model how likely each customer
+// is to order in the coming days, leaves out customers visited lately,
+// and plans each salesperson's days with the likeliest first.
+// SimulateVisitPlan answers at once and saves nothing; CreateVisitPlan
+// saves a plan and makes it in the background, once or every day.
 service VisitService {
   rpc PlanVisits(PlanVisitsRequest) returns (PlanVisitsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+  // SimulateVisitPlan makes a plan now and returns all of it, saving
+  // nothing: to try settings before saving them. Up to 20,000 customers
+  // and 100 salespeople.
+  rpc SimulateVisitPlan(SimulateVisitPlanRequest) returns (SimulateVisitPlanResponse);
+  // CreateVisitPlan saves a plan and queues it. The server makes queued
+  // plans in order, one at a time; repeat_seconds makes it again that
+  // often, with fresh rows from the database.
+  rpc CreateVisitPlan(CreateVisitPlanRequest) returns (CreateVisitPlanResponse);
+  rpc ListVisitPlans(ListVisitPlansRequest) returns (ListVisitPlansResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc GetVisitPlan(GetVisitPlanRequest) returns (GetVisitPlanResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // ListPlanSalespeople lists a plan's salespeople from its last run, a
+  // page at a time, by area, search and whether they need a look.
+  rpc ListPlanSalespeople(ListPlanSalespeopleRequest) returns (ListPlanSalespeopleResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // GetSalespersonPlan returns one salesperson's days of visits from a
+  // plan's last run, and the likely customers that didn't fit.
+  rpc GetSalespersonPlan(GetSalespersonPlanRequest) returns (GetSalespersonPlanResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // RunVisitPlan makes a finished, failed or cancelled plan again now,
+  // with fresh rows.
+  rpc RunVisitPlan(RunVisitPlanRequest) returns (RunVisitPlanResponse);
+  rpc CancelVisitPlan(CancelVisitPlanRequest) returns (CancelVisitPlanResponse);
+  // SetVisitPlanRepeat changes how often a plan is made again; 0 stops it.
+  rpc SetVisitPlanRepeat(SetVisitPlanRepeatRequest) returns (SetVisitPlanRepeatResponse);
+  rpc DeleteVisitPlan(DeleteVisitPlanRequest) returns (DeleteVisitPlanResponse);
 }
 
 // VisitStop is a customer or lead to visit.
@@ -52,6 +92,8 @@ message Salesperson {
   int32 day_end_minute = 6;
   // max_visits bounds visits per day; 0 means no limit beyond time.
   int32 max_visits = 7;
+  // area is the salesperson's area or branch, to find them by in a plan.
+  string area = 8;
 }
 
 message PlanVisitsRequest {
@@ -103,3 +145,300 @@ message PlanVisitsResponse {
   double planned_priority = 4;
   double total_priority = 5;
 }
+
+// VisitPlanSettings is how to make a visit plan.
+//
+// Customers are a table with a header row, one row per customer:
+// customer_id (or id), latitude and longitude (or lat and lon), and when
+// there are several salespeople, salesperson_id. It may have name,
+// visit_minutes, open_minute and close_minute (minutes after midnight,
+// or HH:MM), must_visit (yes or no), priority (when there is no model)
+// and days_since_last_visit, and the columns the model reads.
+//
+// Salespeople are typed in (salespeople), or a table with id, name, area,
+// start_latitude and start_longitude (or latitude and longitude),
+// day_start_minute and day_end_minute (or HH:MM), and max_visits.
+message VisitPlanSettings {
+  // model_id is a model that reads table rows and answers yes or no (its
+  // chance of yes ranks customers) or a number of days until the next
+  // order (fewer first). Empty ranks by the customers' priority column.
+  // The model is asked with visit_window_days set to days.
+  string model_id = 1;
+  // One source of customers: customers_csv, a table; connection and
+  // customers_query, a database (admins only); customers_dataset_id, a
+  // table dataset.
+  bytes customers_csv = 2;
+  Connection connection = 3;
+  string customers_query = 4;
+  string customers_dataset_id = 5;
+  // One source of salespeople: salespeople, typed in; salespeople_csv, a
+  // table; or salespeople_query on the same connection as the customers.
+  repeated Salesperson salespeople = 6;
+  bytes salespeople_csv = 7;
+  string salespeople_query = 8;
+  // days is how many days ahead to plan, from 1 to 7, counting from
+  // start_date (YYYY-MM-DD; empty is the day the plan is made, in
+  // time_zone, an IANA name such as Asia/Jakarta; empty is UTC).
+  int32 days = 9;
+  string start_date = 10;
+  string time_zone = 11;
+  // skip_weekdays are days nobody visits: 0 is Sunday, 6 Saturday.
+  repeated int32 skip_weekdays = 12;
+  // skip_visited_days leaves out customers whose days_since_last_visit
+  // is below it (visited by anyone in the last that many days), unless
+  // they must be visited. 0 keeps them all.
+  int32 skip_visited_days = 13;
+  // speed_kmh, road_factor and visit_minutes are as on PlanVisits; 0
+  // means 30 km/h, 1.3 and 30 minutes.
+  double speed_kmh = 14;
+  double road_factor = 15;
+  int32 visit_minutes = 16;
+}
+
+// VisitPlan is a saved plan and the summary of its last run.
+message VisitPlan {
+  string id = 1;
+  string name = 2;
+  // model_id is empty for a plan ranked by the customers' own priority.
+  string model_id = 3;
+  string model_name = 4;
+  // source is where customers come from: "upload", "database" or
+  // "dataset"; source_detail says which, in words.
+  string source = 5;
+  string source_detail = 6;
+  JobStatus status = 7;
+  string error = 8;
+  // stage is what a running plan is doing ("reading", "scoring" or
+  // "planning"); done of total is how far.
+  string stage = 9;
+  int64 done = 10;
+  int64 total = 11;
+  int32 days = 12;
+  repeated int32 skip_weekdays = 13;
+  int32 skip_visited_days = 14;
+  string time_zone = 15;
+  // start_date and end_date are the days the last run planned.
+  string start_date = 16;
+  string end_date = 17;
+  // customers is how many customers the last run read; left_out how
+  // many it left out as visited lately, unassigned how many have no
+  // salesperson on the list, unplaced how many have no place, failed how
+  // many the model couldn't answer.
+  int64 customers = 18;
+  int64 left_out = 19;
+  int64 unassigned = 20;
+  int64 unplaced = 21;
+  int64 failed = 22;
+  int64 salespeople = 23;
+  int64 visits = 24;
+  double km = 25;
+  // covered is the share of the customers' total chance the visits reach,
+  // from 0 to 1.
+  double covered = 26;
+  // need_look counts salespeople with no customers or many likely
+  // customers left over.
+  int64 need_look = 27;
+  repeated string warnings = 28;
+  repeated AreaCount areas = 29;
+  string created_by = 30;
+  google.protobuf.Timestamp create_time = 31;
+  google.protobuf.Timestamp start_time = 32;
+  google.protobuf.Timestamp end_time = 33;
+  int64 repeat_seconds = 34;
+  google.protobuf.Timestamp next_run_time = 35;
+  int32 runs = 36;
+  // salespeople_source is where salespeople come from: "list", "upload"
+  // or "database".
+  string salespeople_source = 37;
+  // schedule is when it is made again, when on a schedule.
+  PlanSchedule schedule = 38;
+}
+
+message AreaCount {
+  string area = 1;
+  int32 salespeople = 2;
+}
+
+// PlanSalesperson is one salesperson's summary in a plan.
+message PlanSalesperson {
+  string id = 1;
+  string name = 2;
+  string area = 3;
+  // customers is how many customers they have; visits how many are
+  // planned.
+  int32 customers = 4;
+  int32 visits = 5;
+  double km = 6;
+  // covered is the share of their customers' total chance the visits
+  // reach, from 0 to 1.
+  double covered = 7;
+  // likely_left is how many likely customers didn't fit.
+  int32 likely_left = 8;
+  // problem says in words why they need a look; empty when they don't.
+  string problem = 9;
+}
+
+// PlannedCustomer is a customer as a plan sees them.
+message PlannedCustomer {
+  string id = 1;
+  string name = 2;
+  double latitude = 3;
+  double longitude = 4;
+  // chance is how likely they are to order in the plan's days, from 0
+  // to 1, or their own priority when the plan has no model.
+  double chance = 5;
+  bool must_visit = 6;
+  // order_value is the customer's order value, from an order_value
+  // column; with one, customers rank by chance times order value.
+  double order_value = 7;
+}
+
+message DayVisit {
+  PlannedCustomer customer = 1;
+  // arrive_minute and leave_minute are minutes after midnight.
+  int32 arrive_minute = 2;
+  int32 leave_minute = 3;
+  double km_from_previous = 4;
+}
+
+message PlanDay {
+  // day counts from 1; date is YYYY-MM-DD.
+  int32 day = 1;
+  string date = 2;
+  repeated DayVisit visits = 3;
+  double km = 4;
+  // end_minute is when they are back at the start.
+  int32 end_minute = 5;
+}
+
+// SalespersonPlan is one salesperson's days.
+message SalespersonPlan {
+  PlanSalesperson salesperson = 1;
+  double start_latitude = 2;
+  double start_longitude = 3;
+  int32 day_start_minute = 4;
+  int32 day_end_minute = 5;
+  repeated PlanDay days = 6;
+  // likely_left are the likeliest customers that didn't fit, likeliest
+  // first, up to 20.
+  repeated PlannedCustomer likely_left = 7;
+}
+
+message SimulateVisitPlanRequest {
+  VisitPlanSettings settings = 1;
+}
+
+message SimulateVisitPlanResponse {
+  // plan is the summary; it has no id, as nothing is saved.
+  VisitPlan plan = 1;
+  repeated SalespersonPlan salespeople = 2;
+}
+
+message CreateVisitPlanRequest {
+  // name is what to call it; empty names it after its days.
+  string name = 1;
+  VisitPlanSettings settings = 2;
+  // repeat_seconds makes it again that often, from an hour to 30 days,
+  // such as 86400 for every day; only for customers from a database.
+  int64 repeat_seconds = 3;
+  // schedule, in place of repeat_seconds, makes it again at a time of
+  // day on chosen weekdays, in the settings' time zone.
+  PlanSchedule schedule = 4;
+}
+
+// PlanSchedule is when a repeating plan is made, in its time zone.
+message PlanSchedule {
+  // at_minute is the time of day, in minutes after midnight: 330 is
+  // 05:30.
+  int32 at_minute = 1;
+  // weekdays it is made on, 0 (Sunday) to 6 (Saturday); none is every
+  // day.
+  repeated int32 weekdays = 2;
+}
+
+message CreateVisitPlanResponse {
+  VisitPlan plan = 1;
+}
+
+message ListVisitPlansRequest {}
+
+message ListVisitPlansResponse {
+  repeated VisitPlan plans = 1;
+}
+
+message GetVisitPlanRequest {
+  string id = 1;
+}
+
+message GetVisitPlanResponse {
+  VisitPlan plan = 1;
+}
+
+message ListPlanSalespeopleRequest {
+  string plan_id = 1;
+  // area, when set, keeps only that area's salespeople.
+  string area = 2;
+  // search finds salespeople by id, name or area.
+  string search = 3;
+  // need_look keeps only those that need a look.
+  bool need_look = 4;
+  // order is "name" (the default), "covered" (least first), "visits"
+  // (most first) or "left" (most likely customers left over first).
+  string order = 5;
+  // page_size is up to 200; 0 means 50. offset skips that many.
+  int32 page_size = 6;
+  int32 offset = 7;
+}
+
+message ListPlanSalespeopleResponse {
+  repeated PlanSalesperson salespeople = 1;
+  // total is how many match in all.
+  int32 total = 2;
+}
+
+message GetSalespersonPlanRequest {
+  // plan_id is the plan to read; empty reads the plan of the caller's
+  // team made most recently that has the salesperson, so a salesperson's
+  // app needs only their own id.
+  string plan_id = 1;
+  string salesperson_id = 2;
+}
+
+message GetSalespersonPlanResponse {
+  VisitPlan plan = 1;
+  SalespersonPlan salesperson = 2;
+}
+
+message RunVisitPlanRequest {
+  string id = 1;
+}
+
+message RunVisitPlanResponse {
+  VisitPlan plan = 1;
+}
+
+message CancelVisitPlanRequest {
+  string id = 1;
+}
+
+message CancelVisitPlanResponse {
+  VisitPlan plan = 1;
+}
+
+message SetVisitPlanRepeatRequest {
+  string id = 1;
+  // repeat_seconds as when creating; 0 with no schedule stops it.
+  int64 repeat_seconds = 2;
+  // schedule, in place of repeat_seconds, as when creating.
+  PlanSchedule schedule = 3;
+}
+
+message SetVisitPlanRepeatResponse {
+  VisitPlan plan = 1;
+}
+
+message DeleteVisitPlanRequest {
+  string id = 1;
+}
+
+message DeleteVisitPlanResponse {}

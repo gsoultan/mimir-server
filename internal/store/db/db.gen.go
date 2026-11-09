@@ -30,6 +30,8 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/usage"
 	"github.com/gsoultan/mimir-server/internal/store/db/user"
 	"github.com/gsoultan/mimir-server/internal/store/db/usermodel"
+	"github.com/gsoultan/mimir-server/internal/store/db/visitplan"
+	"github.com/gsoultan/mimir-server/internal/store/db/visitplansalesperson"
 	"github.com/gsoultan/mimir-server/internal/store/db/webhook"
 	"github.com/gsoultan/mimir-server/internal/store/db/worker"
 	"github.com/gsoultan/mimir-server/internal/store/db/workersample"
@@ -41,34 +43,36 @@ import (
 // runtime code inspects a schema and no constraint has to be deferred for
 // a graph write to succeed.
 var FlushOrder = map[string]int{
-	"architectures":      0,
-	"settings":           1,
-	"teams":              2,
-	"users":              3,
-	"webhooks":           4,
-	"workers":            5,
-	"api_keys":           6,
-	"audit_events":       7,
-	"benchmarks":         8,
-	"datasets":           9,
-	"deliveries":         10,
-	"models":             11,
-	"recovery_codes":     12,
-	"scorings":           13,
-	"sessions":           14,
-	"sign_in_identities": 15,
-	"training_jobs":      16,
-	"usage":              17,
-	"user_models":        18,
-	"worker_samples":     19,
-	"answer_days":        20,
-	"answers":            21,
-	"api_key_models":     22,
-	"benchmark_scores":   23,
-	"collections":        24,
-	"documents":          25,
-	"model_versions":     26,
-	"passages":           27,
+	"architectures":           0,
+	"settings":                1,
+	"teams":                   2,
+	"users":                   3,
+	"visit_plans":             4,
+	"webhooks":                5,
+	"workers":                 6,
+	"api_keys":                7,
+	"audit_events":            8,
+	"benchmarks":              9,
+	"datasets":                10,
+	"deliveries":              11,
+	"models":                  12,
+	"recovery_codes":          13,
+	"scorings":                14,
+	"sessions":                15,
+	"sign_in_identities":      16,
+	"training_jobs":           17,
+	"usage":                   18,
+	"user_models":             19,
+	"visit_plan_salespersons": 20,
+	"worker_samples":          21,
+	"answer_days":             22,
+	"answers":                 23,
+	"api_key_models":          24,
+	"benchmark_scores":        25,
+	"collections":             26,
+	"documents":               27,
+	"model_versions":          28,
+	"passages":                29,
 }
 
 // NewUnit stages writes across this context and flushes them in foreign-key
@@ -3630,6 +3634,246 @@ func (p UserWithTeamQuery) All(ctx context.Context, ex runtime.Executor) ([]User
 			// A foreign key pointing at a row that is not there. The database
 			// forbids it, so reaching this means the constraint was dropped.
 			return nil, fmt.Errorf("storm: %s references a missing %s row", "users", "teams")
+		}
+		out[i].Team = &targets[j]
+	}
+	return out, nil
+}
+
+// VisitPlanSalespersonWithPlanRow is visit_plan_salespersons with its Plan loaded.
+type VisitPlanSalespersonWithPlanRow struct {
+	visitplansalesperson.Row
+	Plan visitplan.Row
+}
+
+type VisitPlanSalespersonWithPlanQuery struct {
+	q visitplansalesperson.Query
+}
+
+// VisitPlanSalespersonWithPlan starts the plan.
+func VisitPlanSalespersonWithPlan() VisitPlanSalespersonWithPlanQuery {
+	return VisitPlanSalespersonWithPlanQuery{q: visitplansalesperson.New()}
+}
+
+func (p VisitPlanSalespersonWithPlanQuery) Where(ps ...visitplansalesperson.Pred) VisitPlanSalespersonWithPlanQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p VisitPlanSalespersonWithPlanQuery) WhereIf(cond bool, pr visitplansalesperson.Pred) VisitPlanSalespersonWithPlanQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p VisitPlanSalespersonWithPlanQuery) Any(ps ...visitplansalesperson.Pred) VisitPlanSalespersonWithPlanQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p VisitPlanSalespersonWithPlanQuery) Not(pr visitplansalesperson.Pred) VisitPlanSalespersonWithPlanQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p VisitPlanSalespersonWithPlanQuery) NotAny(ps ...visitplansalesperson.Pred) VisitPlanSalespersonWithPlanQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p VisitPlanSalespersonWithPlanQuery) Order(ts ...visitplansalesperson.Sort) VisitPlanSalespersonWithPlanQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p VisitPlanSalespersonWithPlanQuery) Limit(n int64) VisitPlanSalespersonWithPlanQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p VisitPlanSalespersonWithPlanQuery) Offset(n int64) VisitPlanSalespersonWithPlanQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p VisitPlanSalespersonWithPlanQuery) After(r VisitPlanSalespersonWithPlanRow) VisitPlanSalespersonWithPlanQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p VisitPlanSalespersonWithPlanQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p VisitPlanSalespersonWithPlanQuery) All(ctx context.Context, ex runtime.Executor) ([]VisitPlanSalespersonWithPlanRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]VisitPlanSalespersonWithPlanRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = VisitPlanSalespersonWithPlanRow{Row: r}
+		key := r.PlanID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := visitplan.New().Unordered().
+		Where(visitplan.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.PlanID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "visit_plan_salespersons", "visit_plans")
+		}
+		out[i].Plan = targets[j]
+	}
+	return out, nil
+}
+
+// VisitPlanWithTeamRow is visit_plans with its Team loaded.
+type VisitPlanWithTeamRow struct {
+	visitplan.Row
+	// A pointer because the link is optional. nil means the row has no
+	// Team, which is different from having one that failed to load.
+	Team *team.Row
+}
+
+type VisitPlanWithTeamQuery struct {
+	q visitplan.Query
+}
+
+// VisitPlanWithTeam starts the plan.
+func VisitPlanWithTeam() VisitPlanWithTeamQuery { return VisitPlanWithTeamQuery{q: visitplan.New()} }
+
+func (p VisitPlanWithTeamQuery) Where(ps ...visitplan.Pred) VisitPlanWithTeamQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p VisitPlanWithTeamQuery) WhereIf(cond bool, pr visitplan.Pred) VisitPlanWithTeamQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p VisitPlanWithTeamQuery) Any(ps ...visitplan.Pred) VisitPlanWithTeamQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p VisitPlanWithTeamQuery) Not(pr visitplan.Pred) VisitPlanWithTeamQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p VisitPlanWithTeamQuery) NotAny(ps ...visitplan.Pred) VisitPlanWithTeamQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p VisitPlanWithTeamQuery) Order(ts ...visitplan.Sort) VisitPlanWithTeamQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p VisitPlanWithTeamQuery) Limit(n int64) VisitPlanWithTeamQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p VisitPlanWithTeamQuery) Offset(n int64) VisitPlanWithTeamQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p VisitPlanWithTeamQuery) After(r VisitPlanWithTeamRow) VisitPlanWithTeamQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p VisitPlanWithTeamQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p VisitPlanWithTeamQuery) All(ctx context.Context, ex runtime.Executor) ([]VisitPlanWithTeamRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]VisitPlanWithTeamRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = VisitPlanWithTeamRow{Row: r}
+		key, ok := r.TeamID.Get()
+		if !ok {
+			continue
+		}
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := team.New().Unordered().
+		Where(team.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key, ok := out[i].Row.TeamID.Get()
+		if !ok {
+			continue
+		}
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "visit_plans", "teams")
 		}
 		out[i].Team = &targets[j]
 	}

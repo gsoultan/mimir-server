@@ -450,6 +450,72 @@ func _assertUserModelShape(m m0.UserModel) {
 	}
 }
 
+// _assertVisitPlanShape fails to compile if m0.VisitPlan gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertVisitPlanShape(m m0.VisitPlan) {
+	type shape m0.VisitPlan
+	_ = shape{
+		m.Record,
+		m.Named,
+		m.TeamOwned,
+		m.ModelID,
+		m.DatasetID,
+		m.Driver,
+		m.DSN,
+		m.CustomersQuery,
+		m.SalespeopleQuery,
+		m.Settings,
+		m.Status,
+		m.Error,
+		m.Stage,
+		m.Done,
+		m.Total,
+		m.StartDate,
+		m.EndDate,
+		m.Customers,
+		m.LeftOut,
+		m.Unassigned,
+		m.Unplaced,
+		m.Failed,
+		m.Salespeople,
+		m.Visits,
+		m.Km,
+		m.Covered,
+		m.NeedLook,
+		m.Warnings,
+		m.Areas,
+		m.CreatedBy,
+		m.StartTime,
+		m.EndTime,
+		m.RepeatSeconds,
+		m.Schedule,
+		m.NextRun,
+		m.Runs,
+	}
+}
+
+// _assertVisitPlanSalespersonShape fails to compile if m0.VisitPlanSalesperson gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertVisitPlanSalespersonShape(m m0.VisitPlanSalesperson) {
+	type shape m0.VisitPlanSalesperson
+	_ = shape{
+		m.Record,
+		m.Plan,
+		m.SalespersonID,
+		m.Name,
+		m.Area,
+		m.SearchText,
+		m.Customers,
+		m.Visits,
+		m.Km,
+		m.Covered,
+		m.LikelyLeft,
+		m.Problem,
+		m.NeedLook,
+		m.Detail,
+	}
+}
+
 // _assertWebhookShape fails to compile if m0.Webhook gains, loses, renames or
 // reorders a field. Regenerate: `storm generate`.
 func _assertWebhookShape(m m0.Webhook) {
