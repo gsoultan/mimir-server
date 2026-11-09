@@ -9,7 +9,7 @@ import { AnchorLink, ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { Row, RowList } from "../../../components/ui";
 import { ago } from "../../../lib/format";
-import { planDays, planProgress, planRepeats, planStatus, planWaiting, visitsURL } from "../../../lib/visits";
+import { planDays, planProgress, planStatus, planWaiting, repeatText, visitsURL } from "../../../lib/visits";
 
 export const Route = createFileRoute("/_app/visits/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(listVisitPlans),
@@ -45,7 +45,7 @@ function VisitPlans() {
               icon={<IconRoute size={20} />}
               title={<Group gap="xs" wrap="nowrap">
                 <AnchorLink fw={650} truncate to="/visits/$id" params={{ id: p.id }} c="inherit">{p.name}</AnchorLink>
-                {p.repeatSeconds > 0n && <Badge variant="light" color="gray">{planRepeats.find((r) => r.value === p.repeatSeconds.toString())?.label ?? "On a schedule"}</Badge>}
+                {p.repeatSeconds > 0n && <Badge variant="light" color="gray">{repeatText(p)}</Badge>}
               </Group>}
               detail={<>
                 {planDays(p) || `${p.days} ${p.days === 1 ? "day" : "days"}`} · {p.modelName || "by priority"} · {p.endTime ? `made ${ago(p.endTime)}` : `asked ${ago(p.createTime)}`}<br />

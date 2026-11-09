@@ -33,3 +33,21 @@ describe("visits", () => {
     expect(Math.round(y)).toBe(50);
   });
 });
+
+import { create } from "@bufbuild/protobuf";
+import { VisitPlanSchema } from "../api/gen/mimir/v1/visit_pb";
+import { repeatOf, repeatRequest, repeatText } from "./visits";
+
+describe("repeat", () => {
+  test("a schedule reads back and says when", () => {
+    const p = create(VisitPlanSchema, { repeatSeconds: 86400n, schedule: { atMinute: 330, weekdays: [1, 4] } });
+    expect(repeatText(p)).toBe("05:30 on Mon, Thu");
+    expect(repeatOf(p)).toEqual({ mode: "schedule", atMinute: 330, weekdays: [1, 4] });
+    expect(repeatRequest(repeatOf(p))).toEqual({ repeatSeconds: 0n, schedule: { atMinute: 330, weekdays: [1, 4] } });
+  });
+  test("every day from now, and once", () => {
+    expect(repeatText(create(VisitPlanSchema, { repeatSeconds: 86400n }))).toBe("Every day, from now");
+    expect(repeatText(create(VisitPlanSchema, {}))).toBe("");
+    expect(repeatRequest({ mode: "0", atMinute: 0, weekdays: [] })).toEqual({ repeatSeconds: 0n });
+  });
+});

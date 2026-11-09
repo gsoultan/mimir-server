@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/visit.proto.
  */
 export const file_mimir_v1_visit: GenFile = /*@__PURE__*/
-  fileDesc("ChRtaW1pci92MS92aXNpdC5wcm90bxIIbWltaXIudjEiygEKCVZpc2l0U3RvcBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCGxhdGl0dWRlGAMgASgBEhEKCWxvbmdpdHVkZRgEIAEoARIQCghwcmlvcml0eRgFIAEoARIVCg12aXNpdF9taW51dGVzGAYgASgFEhMKC29wZW5fbWludXRlGAcgASgFEhQKDGNsb3NlX21pbnV0ZRgIIAEoBRIWCg5zYWxlc3BlcnNvbl9pZBgJIAEoCRISCgptdXN0X3Zpc2l0GAogASgIIqwBCgtTYWxlc3BlcnNvbhIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhYKDnN0YXJ0X2xhdGl0dWRlGAMgASgBEhcKD3N0YXJ0X2xvbmdpdHVkZRgEIAEoARIYChBkYXlfc3RhcnRfbWludXRlGAUgASgFEhYKDmRheV9lbmRfbWludXRlGAYgASgFEhIKCm1heF92aXNpdHMYByABKAUSDAoEYXJlYRgIIAEoCSKZAQoRUGxhblZpc2l0c1JlcXVlc3QSIgoFc3RvcHMYASADKAsyEy5taW1pci52MS5WaXNpdFN0b3ASKgoLc2FsZXNwZW9wbGUYAiADKAsyFS5taW1pci52MS5TYWxlc3BlcnNvbhIMCgRkYXlzGAMgASgFEhEKCXNwZWVkX2ttaBgEIAEoARITCgtyb2FkX2ZhY3RvchgFIAEoASJmCgxQbGFubmVkVmlzaXQSDwoHc3RvcF9pZBgBIAEoCRIVCg1hcnJpdmVfbWludXRlGAIgASgFEhQKDGxlYXZlX21pbnV0ZRgDIAEoBRIYChBrbV9mcm9tX3ByZXZpb3VzGAQgASgBInQKBVJvdXRlEhYKDnNhbGVzcGVyc29uX2lkGAEgASgJEgsKA2RheRgCIAEoBRImCgZ2aXNpdHMYAyADKAsyFi5taW1pci52MS5QbGFubmVkVmlzaXQSCgoCa20YBCABKAESEgoKZW5kX21pbnV0ZRgFIAEoBSKVAQoSUGxhblZpc2l0c1Jlc3BvbnNlEh8KBnJvdXRlcxgBIAMoCzIPLm1pbWlyLnYxLlJvdXRlEhoKEnVucGxhbm5lZF9zdG9wX2lkcxgCIAMoCRIQCgh0b3RhbF9rbRgDIAEoARIYChBwbGFubmVkX3ByaW9yaXR5GAQgASgBEhYKDnRvdGFsX3ByaW9yaXR5GAUgASgBIqMDChFWaXNpdFBsYW5TZXR0aW5ncxIQCghtb2RlbF9pZBgBIAEoCRIVCg1jdXN0b21lcnNfY3N2GAIgASgMEigKCmNvbm5lY3Rpb24YAyABKAsyFC5taW1pci52MS5Db25uZWN0aW9uEhcKD2N1c3RvbWVyc19xdWVyeRgEIAEoCRIcChRjdXN0b21lcnNfZGF0YXNldF9pZBgFIAEoCRIqCgtzYWxlc3Blb3BsZRgGIAMoCzIVLm1pbWlyLnYxLlNhbGVzcGVyc29uEhcKD3NhbGVzcGVvcGxlX2NzdhgHIAEoDBIZChFzYWxlc3Blb3BsZV9xdWVyeRgIIAEoCRIMCgRkYXlzGAkgASgFEhIKCnN0YXJ0X2RhdGUYCiABKAkSEQoJdGltZV96b25lGAsgASgJEhUKDXNraXBfd2Vla2RheXMYDCADKAUSGQoRc2tpcF92aXNpdGVkX2RheXMYDSABKAUSEQoJc3BlZWRfa21oGA4gASgBEhMKC3JvYWRfZmFjdG9yGA8gASgBEhUKDXZpc2l0X21pbnV0ZXMYECABKAUiyQYKCVZpc2l0UGxhbhIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCG1vZGVsX2lkGAMgASgJEhIKCm1vZGVsX25hbWUYBCABKAkSDgoGc291cmNlGAUgASgJEhUKDXNvdXJjZV9kZXRhaWwYBiABKAkSIwoGc3RhdHVzGAcgASgOMhMubWltaXIudjEuSm9iU3RhdHVzEg0KBWVycm9yGAggASgJEg0KBXN0YWdlGAkgASgJEgwKBGRvbmUYCiABKAMSDQoFdG90YWwYCyABKAMSDAoEZGF5cxgMIAEoBRIVCg1za2lwX3dlZWtkYXlzGA0gAygFEhkKEXNraXBfdmlzaXRlZF9kYXlzGA4gASgFEhEKCXRpbWVfem9uZRgPIAEoCRISCgpzdGFydF9kYXRlGBAgASgJEhAKCGVuZF9kYXRlGBEgASgJEhEKCWN1c3RvbWVycxgSIAEoAxIQCghsZWZ0X291dBgTIAEoAxISCgp1bmFzc2lnbmVkGBQgASgDEhAKCHVucGxhY2VkGBUgASgDEg4KBmZhaWxlZBgWIAEoAxITCgtzYWxlc3Blb3BsZRgXIAEoAxIOCgZ2aXNpdHMYGCABKAMSCgoCa20YGSABKAESDwoHY292ZXJlZBgaIAEoARIRCgluZWVkX2xvb2sYGyABKAMSEAoId2FybmluZ3MYHCADKAkSIgoFYXJlYXMYHSADKAsyEy5taW1pci52MS5BcmVhQ291bnQSEgoKY3JlYXRlZF9ieRgeIAEoCRIvCgtjcmVhdGVfdGltZRgfIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKc3RhcnRfdGltZRggIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kX3RpbWUYISABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDnJlcGVhdF9zZWNvbmRzGCIgASgDEjEKDW5leHRfcnVuX3RpbWUYIyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBHJ1bnMYJCABKAUSGgoSc2FsZXNwZW9wbGVfc291cmNlGCUgASgJIi4KCUFyZWFDb3VudBIMCgRhcmVhGAEgASgJEhMKC3NhbGVzcGVvcGxlGAIgASgFIp8BCg9QbGFuU2FsZXNwZXJzb24SCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRhcmVhGAMgASgJEhEKCWN1c3RvbWVycxgEIAEoBRIOCgZ2aXNpdHMYBSABKAUSCgoCa20YBiABKAESDwoHY292ZXJlZBgHIAEoARITCgtsaWtlbHlfbGVmdBgIIAEoBRIPCgdwcm9ibGVtGAkgASgJInQKD1BsYW5uZWRDdXN0b21lchIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCGxhdGl0dWRlGAMgASgBEhEKCWxvbmdpdHVkZRgEIAEoARIOCgZjaGFuY2UYBSABKAESEgoKbXVzdF92aXNpdBgGIAEoCCJ+CghEYXlWaXNpdBIrCghjdXN0b21lchgBIAEoCzIZLm1pbWlyLnYxLlBsYW5uZWRDdXN0b21lchIVCg1hcnJpdmVfbWludXRlGAIgASgFEhQKDGxlYXZlX21pbnV0ZRgDIAEoBRIYChBrbV9mcm9tX3ByZXZpb3VzGAQgASgBImgKB1BsYW5EYXkSCwoDZGF5GAEgASgFEgwKBGRhdGUYAiABKAkSIgoGdmlzaXRzGAMgAygLMhIubWltaXIudjEuRGF5VmlzaXQSCgoCa20YBCABKAESEgoKZW5kX21pbnV0ZRgFIAEoBSL1AQoPU2FsZXNwZXJzb25QbGFuEi4KC3NhbGVzcGVyc29uGAEgASgLMhkubWltaXIudjEuUGxhblNhbGVzcGVyc29uEhYKDnN0YXJ0X2xhdGl0dWRlGAIgASgBEhcKD3N0YXJ0X2xvbmdpdHVkZRgDIAEoARIYChBkYXlfc3RhcnRfbWludXRlGAQgASgFEhYKDmRheV9lbmRfbWludXRlGAUgASgFEh8KBGRheXMYBiADKAsyES5taW1pci52MS5QbGFuRGF5Ei4KC2xpa2VseV9sZWZ0GAcgAygLMhkubWltaXIudjEuUGxhbm5lZEN1c3RvbWVyIkkKGFNpbXVsYXRlVmlzaXRQbGFuUmVxdWVzdBItCghzZXR0aW5ncxgBIAEoCzIbLm1pbWlyLnYxLlZpc2l0UGxhblNldHRpbmdzIm4KGVNpbXVsYXRlVmlzaXRQbGFuUmVzcG9uc2USIQoEcGxhbhgBIAEoCzITLm1pbWlyLnYxLlZpc2l0UGxhbhIuCgtzYWxlc3Blb3BsZRgCIAMoCzIZLm1pbWlyLnYxLlNhbGVzcGVyc29uUGxhbiJtChZDcmVhdGVWaXNpdFBsYW5SZXF1ZXN0EgwKBG5hbWUYASABKAkSLQoIc2V0dGluZ3MYAiABKAsyGy5taW1pci52MS5WaXNpdFBsYW5TZXR0aW5ncxIWCg5yZXBlYXRfc2Vjb25kcxgDIAEoAyI8ChdDcmVhdGVWaXNpdFBsYW5SZXNwb25zZRIhCgRwbGFuGAEgASgLMhMubWltaXIudjEuVmlzaXRQbGFuIhcKFUxpc3RWaXNpdFBsYW5zUmVxdWVzdCI8ChZMaXN0VmlzaXRQbGFuc1Jlc3BvbnNlEiIKBXBsYW5zGAEgAygLMhMubWltaXIudjEuVmlzaXRQbGFuIiEKE0dldFZpc2l0UGxhblJlcXVlc3QSCgoCaWQYASABKAkiOQoUR2V0VmlzaXRQbGFuUmVzcG9uc2USIQoEcGxhbhgBIAEoCzITLm1pbWlyLnYxLlZpc2l0UGxhbiKQAQoaTGlzdFBsYW5TYWxlc3Blb3BsZVJlcXVlc3QSDwoHcGxhbl9pZBgBIAEoCRIMCgRhcmVhGAIgASgJEg4KBnNlYXJjaBgDIAEoCRIRCgluZWVkX2xvb2sYBCABKAgSDQoFb3JkZXIYBSABKAkSEQoJcGFnZV9zaXplGAYgASgFEg4KBm9mZnNldBgHIAEoBSJcChtMaXN0UGxhblNhbGVzcGVvcGxlUmVzcG9uc2USLgoLc2FsZXNwZW9wbGUYASADKAsyGS5taW1pci52MS5QbGFuU2FsZXNwZXJzb24SDQoFdG90YWwYAiABKAUiRAoZR2V0U2FsZXNwZXJzb25QbGFuUmVxdWVzdBIPCgdwbGFuX2lkGAEgASgJEhYKDnNhbGVzcGVyc29uX2lkGAIgASgJIm8KGkdldFNhbGVzcGVyc29uUGxhblJlc3BvbnNlEiEKBHBsYW4YASABKAsyEy5taW1pci52MS5WaXNpdFBsYW4SLgoLc2FsZXNwZXJzb24YAiABKAsyGS5taW1pci52MS5TYWxlc3BlcnNvblBsYW4iIQoTUnVuVmlzaXRQbGFuUmVxdWVzdBIKCgJpZBgBIAEoCSI5ChRSdW5WaXNpdFBsYW5SZXNwb25zZRIhCgRwbGFuGAEgASgLMhMubWltaXIudjEuVmlzaXRQbGFuIiQKFkNhbmNlbFZpc2l0UGxhblJlcXVlc3QSCgoCaWQYASABKAkiPAoXQ2FuY2VsVmlzaXRQbGFuUmVzcG9uc2USIQoEcGxhbhgBIAEoCzITLm1pbWlyLnYxLlZpc2l0UGxhbiI/ChlTZXRWaXNpdFBsYW5SZXBlYXRSZXF1ZXN0EgoKAmlkGAEgASgJEhYKDnJlcGVhdF9zZWNvbmRzGAIgASgDIj8KGlNldFZpc2l0UGxhblJlcGVhdFJlc3BvbnNlEiEKBHBsYW4YASABKAsyEy5taW1pci52MS5WaXNpdFBsYW4iJAoWRGVsZXRlVmlzaXRQbGFuUmVxdWVzdBIKCgJpZBgBIAEoCSIZChdEZWxldGVWaXNpdFBsYW5SZXNwb25zZTLvBwoMVmlzaXRTZXJ2aWNlEkwKClBsYW5WaXNpdHMSGy5taW1pci52MS5QbGFuVmlzaXRzUmVxdWVzdBocLm1pbWlyLnYxLlBsYW5WaXNpdHNSZXNwb25zZSIDkAIBElwKEVNpbXVsYXRlVmlzaXRQbGFuEiIubWltaXIudjEuU2ltdWxhdGVWaXNpdFBsYW5SZXF1ZXN0GiMubWltaXIudjEuU2ltdWxhdGVWaXNpdFBsYW5SZXNwb25zZRJWCg9DcmVhdGVWaXNpdFBsYW4SIC5taW1pci52MS5DcmVhdGVWaXNpdFBsYW5SZXF1ZXN0GiEubWltaXIudjEuQ3JlYXRlVmlzaXRQbGFuUmVzcG9uc2USWAoOTGlzdFZpc2l0UGxhbnMSHy5taW1pci52MS5MaXN0VmlzaXRQbGFuc1JlcXVlc3QaIC5taW1pci52MS5MaXN0VmlzaXRQbGFuc1Jlc3BvbnNlIgOQAgESUgoMR2V0VmlzaXRQbGFuEh0ubWltaXIudjEuR2V0VmlzaXRQbGFuUmVxdWVzdBoeLm1pbWlyLnYxLkdldFZpc2l0UGxhblJlc3BvbnNlIgOQAgESZwoTTGlzdFBsYW5TYWxlc3Blb3BsZRIkLm1pbWlyLnYxLkxpc3RQbGFuU2FsZXNwZW9wbGVSZXF1ZXN0GiUubWltaXIudjEuTGlzdFBsYW5TYWxlc3Blb3BsZVJlc3BvbnNlIgOQAgESZAoSR2V0U2FsZXNwZXJzb25QbGFuEiMubWltaXIudjEuR2V0U2FsZXNwZXJzb25QbGFuUmVxdWVzdBokLm1pbWlyLnYxLkdldFNhbGVzcGVyc29uUGxhblJlc3BvbnNlIgOQAgESTQoMUnVuVmlzaXRQbGFuEh0ubWltaXIudjEuUnVuVmlzaXRQbGFuUmVxdWVzdBoeLm1pbWlyLnYxLlJ1blZpc2l0UGxhblJlc3BvbnNlElYKD0NhbmNlbFZpc2l0UGxhbhIgLm1pbWlyLnYxLkNhbmNlbFZpc2l0UGxhblJlcXVlc3QaIS5taW1pci52MS5DYW5jZWxWaXNpdFBsYW5SZXNwb25zZRJfChJTZXRWaXNpdFBsYW5SZXBlYXQSIy5taW1pci52MS5TZXRWaXNpdFBsYW5SZXBlYXRSZXF1ZXN0GiQubWltaXIudjEuU2V0VmlzaXRQbGFuUmVwZWF0UmVzcG9uc2USVgoPRGVsZXRlVmlzaXRQbGFuEiAubWltaXIudjEuRGVsZXRlVmlzaXRQbGFuUmVxdWVzdBohLm1pbWlyLnYxLkRlbGV0ZVZpc2l0UGxhblJlc3BvbnNlQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_mimir_v1_training]);
+  fileDesc("ChRtaW1pci92MS92aXNpdC5wcm90bxIIbWltaXIudjEiygEKCVZpc2l0U3RvcBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCGxhdGl0dWRlGAMgASgBEhEKCWxvbmdpdHVkZRgEIAEoARIQCghwcmlvcml0eRgFIAEoARIVCg12aXNpdF9taW51dGVzGAYgASgFEhMKC29wZW5fbWludXRlGAcgASgFEhQKDGNsb3NlX21pbnV0ZRgIIAEoBRIWCg5zYWxlc3BlcnNvbl9pZBgJIAEoCRISCgptdXN0X3Zpc2l0GAogASgIIqwBCgtTYWxlc3BlcnNvbhIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhYKDnN0YXJ0X2xhdGl0dWRlGAMgASgBEhcKD3N0YXJ0X2xvbmdpdHVkZRgEIAEoARIYChBkYXlfc3RhcnRfbWludXRlGAUgASgFEhYKDmRheV9lbmRfbWludXRlGAYgASgFEhIKCm1heF92aXNpdHMYByABKAUSDAoEYXJlYRgIIAEoCSKZAQoRUGxhblZpc2l0c1JlcXVlc3QSIgoFc3RvcHMYASADKAsyEy5taW1pci52MS5WaXNpdFN0b3ASKgoLc2FsZXNwZW9wbGUYAiADKAsyFS5taW1pci52MS5TYWxlc3BlcnNvbhIMCgRkYXlzGAMgASgFEhEKCXNwZWVkX2ttaBgEIAEoARITCgtyb2FkX2ZhY3RvchgFIAEoASJmCgxQbGFubmVkVmlzaXQSDwoHc3RvcF9pZBgBIAEoCRIVCg1hcnJpdmVfbWludXRlGAIgASgFEhQKDGxlYXZlX21pbnV0ZRgDIAEoBRIYChBrbV9mcm9tX3ByZXZpb3VzGAQgASgBInQKBVJvdXRlEhYKDnNhbGVzcGVyc29uX2lkGAEgASgJEgsKA2RheRgCIAEoBRImCgZ2aXNpdHMYAyADKAsyFi5taW1pci52MS5QbGFubmVkVmlzaXQSCgoCa20YBCABKAESEgoKZW5kX21pbnV0ZRgFIAEoBSKVAQoSUGxhblZpc2l0c1Jlc3BvbnNlEh8KBnJvdXRlcxgBIAMoCzIPLm1pbWlyLnYxLlJvdXRlEhoKEnVucGxhbm5lZF9zdG9wX2lkcxgCIAMoCRIQCgh0b3RhbF9rbRgDIAEoARIYChBwbGFubmVkX3ByaW9yaXR5GAQgASgBEhYKDnRvdGFsX3ByaW9yaXR5GAUgASgBIqMDChFWaXNpdFBsYW5TZXR0aW5ncxIQCghtb2RlbF9pZBgBIAEoCRIVCg1jdXN0b21lcnNfY3N2GAIgASgMEigKCmNvbm5lY3Rpb24YAyABKAsyFC5taW1pci52MS5Db25uZWN0aW9uEhcKD2N1c3RvbWVyc19xdWVyeRgEIAEoCRIcChRjdXN0b21lcnNfZGF0YXNldF9pZBgFIAEoCRIqCgtzYWxlc3Blb3BsZRgGIAMoCzIVLm1pbWlyLnYxLlNhbGVzcGVyc29uEhcKD3NhbGVzcGVvcGxlX2NzdhgHIAEoDBIZChFzYWxlc3Blb3BsZV9xdWVyeRgIIAEoCRIMCgRkYXlzGAkgASgFEhIKCnN0YXJ0X2RhdGUYCiABKAkSEQoJdGltZV96b25lGAsgASgJEhUKDXNraXBfd2Vla2RheXMYDCADKAUSGQoRc2tpcF92aXNpdGVkX2RheXMYDSABKAUSEQoJc3BlZWRfa21oGA4gASgBEhMKC3JvYWRfZmFjdG9yGA8gASgBEhUKDXZpc2l0X21pbnV0ZXMYECABKAUi8wYKCVZpc2l0UGxhbhIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCG1vZGVsX2lkGAMgASgJEhIKCm1vZGVsX25hbWUYBCABKAkSDgoGc291cmNlGAUgASgJEhUKDXNvdXJjZV9kZXRhaWwYBiABKAkSIwoGc3RhdHVzGAcgASgOMhMubWltaXIudjEuSm9iU3RhdHVzEg0KBWVycm9yGAggASgJEg0KBXN0YWdlGAkgASgJEgwKBGRvbmUYCiABKAMSDQoFdG90YWwYCyABKAMSDAoEZGF5cxgMIAEoBRIVCg1za2lwX3dlZWtkYXlzGA0gAygFEhkKEXNraXBfdmlzaXRlZF9kYXlzGA4gASgFEhEKCXRpbWVfem9uZRgPIAEoCRISCgpzdGFydF9kYXRlGBAgASgJEhAKCGVuZF9kYXRlGBEgASgJEhEKCWN1c3RvbWVycxgSIAEoAxIQCghsZWZ0X291dBgTIAEoAxISCgp1bmFzc2lnbmVkGBQgASgDEhAKCHVucGxhY2VkGBUgASgDEg4KBmZhaWxlZBgWIAEoAxITCgtzYWxlc3Blb3BsZRgXIAEoAxIOCgZ2aXNpdHMYGCABKAMSCgoCa20YGSABKAESDwoHY292ZXJlZBgaIAEoARIRCgluZWVkX2xvb2sYGyABKAMSEAoId2FybmluZ3MYHCADKAkSIgoFYXJlYXMYHSADKAsyEy5taW1pci52MS5BcmVhQ291bnQSEgoKY3JlYXRlZF9ieRgeIAEoCRIvCgtjcmVhdGVfdGltZRgfIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKc3RhcnRfdGltZRggIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kX3RpbWUYISABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDnJlcGVhdF9zZWNvbmRzGCIgASgDEjEKDW5leHRfcnVuX3RpbWUYIyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBHJ1bnMYJCABKAUSGgoSc2FsZXNwZW9wbGVfc291cmNlGCUgASgJEigKCHNjaGVkdWxlGCYgASgLMhYubWltaXIudjEuUGxhblNjaGVkdWxlIi4KCUFyZWFDb3VudBIMCgRhcmVhGAEgASgJEhMKC3NhbGVzcGVvcGxlGAIgASgFIp8BCg9QbGFuU2FsZXNwZXJzb24SCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRhcmVhGAMgASgJEhEKCWN1c3RvbWVycxgEIAEoBRIOCgZ2aXNpdHMYBSABKAUSCgoCa20YBiABKAESDwoHY292ZXJlZBgHIAEoARITCgtsaWtlbHlfbGVmdBgIIAEoBRIPCgdwcm9ibGVtGAkgASgJInQKD1BsYW5uZWRDdXN0b21lchIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCGxhdGl0dWRlGAMgASgBEhEKCWxvbmdpdHVkZRgEIAEoARIOCgZjaGFuY2UYBSABKAESEgoKbXVzdF92aXNpdBgGIAEoCCJ+CghEYXlWaXNpdBIrCghjdXN0b21lchgBIAEoCzIZLm1pbWlyLnYxLlBsYW5uZWRDdXN0b21lchIVCg1hcnJpdmVfbWludXRlGAIgASgFEhQKDGxlYXZlX21pbnV0ZRgDIAEoBRIYChBrbV9mcm9tX3ByZXZpb3VzGAQgASgBImgKB1BsYW5EYXkSCwoDZGF5GAEgASgFEgwKBGRhdGUYAiABKAkSIgoGdmlzaXRzGAMgAygLMhIubWltaXIudjEuRGF5VmlzaXQSCgoCa20YBCABKAESEgoKZW5kX21pbnV0ZRgFIAEoBSL1AQoPU2FsZXNwZXJzb25QbGFuEi4KC3NhbGVzcGVyc29uGAEgASgLMhkubWltaXIudjEuUGxhblNhbGVzcGVyc29uEhYKDnN0YXJ0X2xhdGl0dWRlGAIgASgBEhcKD3N0YXJ0X2xvbmdpdHVkZRgDIAEoARIYChBkYXlfc3RhcnRfbWludXRlGAQgASgFEhYKDmRheV9lbmRfbWludXRlGAUgASgFEh8KBGRheXMYBiADKAsyES5taW1pci52MS5QbGFuRGF5Ei4KC2xpa2VseV9sZWZ0GAcgAygLMhkubWltaXIudjEuUGxhbm5lZEN1c3RvbWVyIkkKGFNpbXVsYXRlVmlzaXRQbGFuUmVxdWVzdBItCghzZXR0aW5ncxgBIAEoCzIbLm1pbWlyLnYxLlZpc2l0UGxhblNldHRpbmdzIm4KGVNpbXVsYXRlVmlzaXRQbGFuUmVzcG9uc2USIQoEcGxhbhgBIAEoCzITLm1pbWlyLnYxLlZpc2l0UGxhbhIuCgtzYWxlc3Blb3BsZRgCIAMoCzIZLm1pbWlyLnYxLlNhbGVzcGVyc29uUGxhbiKXAQoWQ3JlYXRlVmlzaXRQbGFuUmVxdWVzdBIMCgRuYW1lGAEgASgJEi0KCHNldHRpbmdzGAIgASgLMhsubWltaXIudjEuVmlzaXRQbGFuU2V0dGluZ3MSFgoOcmVwZWF0X3NlY29uZHMYAyABKAMSKAoIc2NoZWR1bGUYBCABKAsyFi5taW1pci52MS5QbGFuU2NoZWR1bGUiMwoMUGxhblNjaGVkdWxlEhEKCWF0X21pbnV0ZRgBIAEoBRIQCgh3ZWVrZGF5cxgCIAMoBSI8ChdDcmVhdGVWaXNpdFBsYW5SZXNwb25zZRIhCgRwbGFuGAEgASgLMhMubWltaXIudjEuVmlzaXRQbGFuIhcKFUxpc3RWaXNpdFBsYW5zUmVxdWVzdCI8ChZMaXN0VmlzaXRQbGFuc1Jlc3BvbnNlEiIKBXBsYW5zGAEgAygLMhMubWltaXIudjEuVmlzaXRQbGFuIiEKE0dldFZpc2l0UGxhblJlcXVlc3QSCgoCaWQYASABKAkiOQoUR2V0VmlzaXRQbGFuUmVzcG9uc2USIQoEcGxhbhgBIAEoCzITLm1pbWlyLnYxLlZpc2l0UGxhbiKQAQoaTGlzdFBsYW5TYWxlc3Blb3BsZVJlcXVlc3QSDwoHcGxhbl9pZBgBIAEoCRIMCgRhcmVhGAIgASgJEg4KBnNlYXJjaBgDIAEoCRIRCgluZWVkX2xvb2sYBCABKAgSDQoFb3JkZXIYBSABKAkSEQoJcGFnZV9zaXplGAYgASgFEg4KBm9mZnNldBgHIAEoBSJcChtMaXN0UGxhblNhbGVzcGVvcGxlUmVzcG9uc2USLgoLc2FsZXNwZW9wbGUYASADKAsyGS5taW1pci52MS5QbGFuU2FsZXNwZXJzb24SDQoFdG90YWwYAiABKAUiRAoZR2V0U2FsZXNwZXJzb25QbGFuUmVxdWVzdBIPCgdwbGFuX2lkGAEgASgJEhYKDnNhbGVzcGVyc29uX2lkGAIgASgJIm8KGkdldFNhbGVzcGVyc29uUGxhblJlc3BvbnNlEiEKBHBsYW4YASABKAsyEy5taW1pci52MS5WaXNpdFBsYW4SLgoLc2FsZXNwZXJzb24YAiABKAsyGS5taW1pci52MS5TYWxlc3BlcnNvblBsYW4iIQoTUnVuVmlzaXRQbGFuUmVxdWVzdBIKCgJpZBgBIAEoCSI5ChRSdW5WaXNpdFBsYW5SZXNwb25zZRIhCgRwbGFuGAEgASgLMhMubWltaXIudjEuVmlzaXRQbGFuIiQKFkNhbmNlbFZpc2l0UGxhblJlcXVlc3QSCgoCaWQYASABKAkiPAoXQ2FuY2VsVmlzaXRQbGFuUmVzcG9uc2USIQoEcGxhbhgBIAEoCzITLm1pbWlyLnYxLlZpc2l0UGxhbiJpChlTZXRWaXNpdFBsYW5SZXBlYXRSZXF1ZXN0EgoKAmlkGAEgASgJEhYKDnJlcGVhdF9zZWNvbmRzGAIgASgDEigKCHNjaGVkdWxlGAMgASgLMhYubWltaXIudjEuUGxhblNjaGVkdWxlIj8KGlNldFZpc2l0UGxhblJlcGVhdFJlc3BvbnNlEiEKBHBsYW4YASABKAsyEy5taW1pci52MS5WaXNpdFBsYW4iJAoWRGVsZXRlVmlzaXRQbGFuUmVxdWVzdBIKCgJpZBgBIAEoCSIZChdEZWxldGVWaXNpdFBsYW5SZXNwb25zZTLvBwoMVmlzaXRTZXJ2aWNlEkwKClBsYW5WaXNpdHMSGy5taW1pci52MS5QbGFuVmlzaXRzUmVxdWVzdBocLm1pbWlyLnYxLlBsYW5WaXNpdHNSZXNwb25zZSIDkAIBElwKEVNpbXVsYXRlVmlzaXRQbGFuEiIubWltaXIudjEuU2ltdWxhdGVWaXNpdFBsYW5SZXF1ZXN0GiMubWltaXIudjEuU2ltdWxhdGVWaXNpdFBsYW5SZXNwb25zZRJWCg9DcmVhdGVWaXNpdFBsYW4SIC5taW1pci52MS5DcmVhdGVWaXNpdFBsYW5SZXF1ZXN0GiEubWltaXIudjEuQ3JlYXRlVmlzaXRQbGFuUmVzcG9uc2USWAoOTGlzdFZpc2l0UGxhbnMSHy5taW1pci52MS5MaXN0VmlzaXRQbGFuc1JlcXVlc3QaIC5taW1pci52MS5MaXN0VmlzaXRQbGFuc1Jlc3BvbnNlIgOQAgESUgoMR2V0VmlzaXRQbGFuEh0ubWltaXIudjEuR2V0VmlzaXRQbGFuUmVxdWVzdBoeLm1pbWlyLnYxLkdldFZpc2l0UGxhblJlc3BvbnNlIgOQAgESZwoTTGlzdFBsYW5TYWxlc3Blb3BsZRIkLm1pbWlyLnYxLkxpc3RQbGFuU2FsZXNwZW9wbGVSZXF1ZXN0GiUubWltaXIudjEuTGlzdFBsYW5TYWxlc3Blb3BsZVJlc3BvbnNlIgOQAgESZAoSR2V0U2FsZXNwZXJzb25QbGFuEiMubWltaXIudjEuR2V0U2FsZXNwZXJzb25QbGFuUmVxdWVzdBokLm1pbWlyLnYxLkdldFNhbGVzcGVyc29uUGxhblJlc3BvbnNlIgOQAgESTQoMUnVuVmlzaXRQbGFuEh0ubWltaXIudjEuUnVuVmlzaXRQbGFuUmVxdWVzdBoeLm1pbWlyLnYxLlJ1blZpc2l0UGxhblJlc3BvbnNlElYKD0NhbmNlbFZpc2l0UGxhbhIgLm1pbWlyLnYxLkNhbmNlbFZpc2l0UGxhblJlcXVlc3QaIS5taW1pci52MS5DYW5jZWxWaXNpdFBsYW5SZXNwb25zZRJfChJTZXRWaXNpdFBsYW5SZXBlYXQSIy5taW1pci52MS5TZXRWaXNpdFBsYW5SZXBlYXRSZXF1ZXN0GiQubWltaXIudjEuU2V0VmlzaXRQbGFuUmVwZWF0UmVzcG9uc2USVgoPRGVsZXRlVmlzaXRQbGFuEiAubWltaXIudjEuRGVsZXRlVmlzaXRQbGFuUmVxdWVzdBohLm1pbWlyLnYxLkRlbGV0ZVZpc2l0UGxhblJlc3BvbnNlQjdaNWdpdGh1Yi5jb20vZ3NvdWx0YW4vbWltaXItc2VydmVyL2dlbi9taW1pci92MTttaW1pcnYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_mimir_v1_training]);
 
 /**
  * VisitStop is a customer or lead to visit.
@@ -680,6 +680,13 @@ export type VisitPlan = Message<"mimir.v1.VisitPlan"> & {
    * @generated from field: string salespeople_source = 37;
    */
   salespeopleSource: string;
+
+  /**
+   * schedule is when it is made again, when on a schedule.
+   *
+   * @generated from field: mimir.v1.PlanSchedule schedule = 38;
+   */
+  schedule?: PlanSchedule | undefined;
 };
 
 /**
@@ -1018,6 +1025,14 @@ export type CreateVisitPlanRequest = Message<"mimir.v1.CreateVisitPlanRequest"> 
    * @generated from field: int64 repeat_seconds = 3;
    */
   repeatSeconds: bigint;
+
+  /**
+   * schedule, in place of repeat_seconds, makes it again at a time of
+   * day on chosen weekdays, in the settings' time zone.
+   *
+   * @generated from field: mimir.v1.PlanSchedule schedule = 4;
+   */
+  schedule?: PlanSchedule | undefined;
 };
 
 /**
@@ -1026,6 +1041,36 @@ export type CreateVisitPlanRequest = Message<"mimir.v1.CreateVisitPlanRequest"> 
  */
 export const CreateVisitPlanRequestSchema: GenMessage<CreateVisitPlanRequest> = /*@__PURE__*/
   messageDesc(file_mimir_v1_visit, 16);
+
+/**
+ * PlanSchedule is when a repeating plan is made, in its time zone.
+ *
+ * @generated from message mimir.v1.PlanSchedule
+ */
+export type PlanSchedule = Message<"mimir.v1.PlanSchedule"> & {
+  /**
+   * at_minute is the time of day, in minutes after midnight: 330 is
+   * 05:30.
+   *
+   * @generated from field: int32 at_minute = 1;
+   */
+  atMinute: number;
+
+  /**
+   * weekdays it is made on, 0 (Sunday) to 6 (Saturday); none is every
+   * day.
+   *
+   * @generated from field: repeated int32 weekdays = 2;
+   */
+  weekdays: number[];
+};
+
+/**
+ * Describes the message mimir.v1.PlanSchedule.
+ * Use `create(PlanScheduleSchema)` to create a new message.
+ */
+export const PlanScheduleSchema: GenMessage<PlanSchedule> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_visit, 17);
 
 /**
  * @generated from message mimir.v1.CreateVisitPlanResponse
@@ -1042,7 +1087,7 @@ export type CreateVisitPlanResponse = Message<"mimir.v1.CreateVisitPlanResponse"
  * Use `create(CreateVisitPlanResponseSchema)` to create a new message.
  */
 export const CreateVisitPlanResponseSchema: GenMessage<CreateVisitPlanResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 17);
+  messageDesc(file_mimir_v1_visit, 18);
 
 /**
  * @generated from message mimir.v1.ListVisitPlansRequest
@@ -1055,7 +1100,7 @@ export type ListVisitPlansRequest = Message<"mimir.v1.ListVisitPlansRequest"> & 
  * Use `create(ListVisitPlansRequestSchema)` to create a new message.
  */
 export const ListVisitPlansRequestSchema: GenMessage<ListVisitPlansRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 18);
+  messageDesc(file_mimir_v1_visit, 19);
 
 /**
  * @generated from message mimir.v1.ListVisitPlansResponse
@@ -1072,7 +1117,7 @@ export type ListVisitPlansResponse = Message<"mimir.v1.ListVisitPlansResponse"> 
  * Use `create(ListVisitPlansResponseSchema)` to create a new message.
  */
 export const ListVisitPlansResponseSchema: GenMessage<ListVisitPlansResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 19);
+  messageDesc(file_mimir_v1_visit, 20);
 
 /**
  * @generated from message mimir.v1.GetVisitPlanRequest
@@ -1089,7 +1134,7 @@ export type GetVisitPlanRequest = Message<"mimir.v1.GetVisitPlanRequest"> & {
  * Use `create(GetVisitPlanRequestSchema)` to create a new message.
  */
 export const GetVisitPlanRequestSchema: GenMessage<GetVisitPlanRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 20);
+  messageDesc(file_mimir_v1_visit, 21);
 
 /**
  * @generated from message mimir.v1.GetVisitPlanResponse
@@ -1106,7 +1151,7 @@ export type GetVisitPlanResponse = Message<"mimir.v1.GetVisitPlanResponse"> & {
  * Use `create(GetVisitPlanResponseSchema)` to create a new message.
  */
 export const GetVisitPlanResponseSchema: GenMessage<GetVisitPlanResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 21);
+  messageDesc(file_mimir_v1_visit, 22);
 
 /**
  * @generated from message mimir.v1.ListPlanSalespeopleRequest
@@ -1164,7 +1209,7 @@ export type ListPlanSalespeopleRequest = Message<"mimir.v1.ListPlanSalespeopleRe
  * Use `create(ListPlanSalespeopleRequestSchema)` to create a new message.
  */
 export const ListPlanSalespeopleRequestSchema: GenMessage<ListPlanSalespeopleRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 22);
+  messageDesc(file_mimir_v1_visit, 23);
 
 /**
  * @generated from message mimir.v1.ListPlanSalespeopleResponse
@@ -1188,13 +1233,17 @@ export type ListPlanSalespeopleResponse = Message<"mimir.v1.ListPlanSalespeopleR
  * Use `create(ListPlanSalespeopleResponseSchema)` to create a new message.
  */
 export const ListPlanSalespeopleResponseSchema: GenMessage<ListPlanSalespeopleResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 23);
+  messageDesc(file_mimir_v1_visit, 24);
 
 /**
  * @generated from message mimir.v1.GetSalespersonPlanRequest
  */
 export type GetSalespersonPlanRequest = Message<"mimir.v1.GetSalespersonPlanRequest"> & {
   /**
+   * plan_id is the plan to read; empty reads the plan of the caller's
+   * team made most recently that has the salesperson, so a salesperson's
+   * app needs only their own id.
+   *
    * @generated from field: string plan_id = 1;
    */
   planId: string;
@@ -1210,7 +1259,7 @@ export type GetSalespersonPlanRequest = Message<"mimir.v1.GetSalespersonPlanRequ
  * Use `create(GetSalespersonPlanRequestSchema)` to create a new message.
  */
 export const GetSalespersonPlanRequestSchema: GenMessage<GetSalespersonPlanRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 24);
+  messageDesc(file_mimir_v1_visit, 25);
 
 /**
  * @generated from message mimir.v1.GetSalespersonPlanResponse
@@ -1232,7 +1281,7 @@ export type GetSalespersonPlanResponse = Message<"mimir.v1.GetSalespersonPlanRes
  * Use `create(GetSalespersonPlanResponseSchema)` to create a new message.
  */
 export const GetSalespersonPlanResponseSchema: GenMessage<GetSalespersonPlanResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 25);
+  messageDesc(file_mimir_v1_visit, 26);
 
 /**
  * @generated from message mimir.v1.RunVisitPlanRequest
@@ -1249,7 +1298,7 @@ export type RunVisitPlanRequest = Message<"mimir.v1.RunVisitPlanRequest"> & {
  * Use `create(RunVisitPlanRequestSchema)` to create a new message.
  */
 export const RunVisitPlanRequestSchema: GenMessage<RunVisitPlanRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 26);
+  messageDesc(file_mimir_v1_visit, 27);
 
 /**
  * @generated from message mimir.v1.RunVisitPlanResponse
@@ -1266,7 +1315,7 @@ export type RunVisitPlanResponse = Message<"mimir.v1.RunVisitPlanResponse"> & {
  * Use `create(RunVisitPlanResponseSchema)` to create a new message.
  */
 export const RunVisitPlanResponseSchema: GenMessage<RunVisitPlanResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 27);
+  messageDesc(file_mimir_v1_visit, 28);
 
 /**
  * @generated from message mimir.v1.CancelVisitPlanRequest
@@ -1283,7 +1332,7 @@ export type CancelVisitPlanRequest = Message<"mimir.v1.CancelVisitPlanRequest"> 
  * Use `create(CancelVisitPlanRequestSchema)` to create a new message.
  */
 export const CancelVisitPlanRequestSchema: GenMessage<CancelVisitPlanRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 28);
+  messageDesc(file_mimir_v1_visit, 29);
 
 /**
  * @generated from message mimir.v1.CancelVisitPlanResponse
@@ -1300,7 +1349,7 @@ export type CancelVisitPlanResponse = Message<"mimir.v1.CancelVisitPlanResponse"
  * Use `create(CancelVisitPlanResponseSchema)` to create a new message.
  */
 export const CancelVisitPlanResponseSchema: GenMessage<CancelVisitPlanResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 29);
+  messageDesc(file_mimir_v1_visit, 30);
 
 /**
  * @generated from message mimir.v1.SetVisitPlanRepeatRequest
@@ -1312,9 +1361,18 @@ export type SetVisitPlanRepeatRequest = Message<"mimir.v1.SetVisitPlanRepeatRequ
   id: string;
 
   /**
+   * repeat_seconds as when creating; 0 with no schedule stops it.
+   *
    * @generated from field: int64 repeat_seconds = 2;
    */
   repeatSeconds: bigint;
+
+  /**
+   * schedule, in place of repeat_seconds, as when creating.
+   *
+   * @generated from field: mimir.v1.PlanSchedule schedule = 3;
+   */
+  schedule?: PlanSchedule | undefined;
 };
 
 /**
@@ -1322,7 +1380,7 @@ export type SetVisitPlanRepeatRequest = Message<"mimir.v1.SetVisitPlanRepeatRequ
  * Use `create(SetVisitPlanRepeatRequestSchema)` to create a new message.
  */
 export const SetVisitPlanRepeatRequestSchema: GenMessage<SetVisitPlanRepeatRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 30);
+  messageDesc(file_mimir_v1_visit, 31);
 
 /**
  * @generated from message mimir.v1.SetVisitPlanRepeatResponse
@@ -1339,7 +1397,7 @@ export type SetVisitPlanRepeatResponse = Message<"mimir.v1.SetVisitPlanRepeatRes
  * Use `create(SetVisitPlanRepeatResponseSchema)` to create a new message.
  */
 export const SetVisitPlanRepeatResponseSchema: GenMessage<SetVisitPlanRepeatResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 31);
+  messageDesc(file_mimir_v1_visit, 32);
 
 /**
  * @generated from message mimir.v1.DeleteVisitPlanRequest
@@ -1356,7 +1414,7 @@ export type DeleteVisitPlanRequest = Message<"mimir.v1.DeleteVisitPlanRequest"> 
  * Use `create(DeleteVisitPlanRequestSchema)` to create a new message.
  */
 export const DeleteVisitPlanRequestSchema: GenMessage<DeleteVisitPlanRequest> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 32);
+  messageDesc(file_mimir_v1_visit, 33);
 
 /**
  * @generated from message mimir.v1.DeleteVisitPlanResponse
@@ -1369,7 +1427,7 @@ export type DeleteVisitPlanResponse = Message<"mimir.v1.DeleteVisitPlanResponse"
  * Use `create(DeleteVisitPlanResponseSchema)` to create a new message.
  */
 export const DeleteVisitPlanResponseSchema: GenMessage<DeleteVisitPlanResponse> = /*@__PURE__*/
-  messageDesc(file_mimir_v1_visit, 33);
+  messageDesc(file_mimir_v1_visit, 34);
 
 /**
  * VisitService plans salespeople's visits: which customers each one sees

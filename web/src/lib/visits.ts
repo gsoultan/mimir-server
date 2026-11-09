@@ -4,9 +4,39 @@ import type { VisitPlan } from "../api/gen/mimir/v1/visit_pb";
 // How often a plan whose customers come from a database is made again.
 export const planRepeats = [
   { value: "0", label: "Just once" },
-  { value: "86400", label: "Every day" },
-  { value: "604800", label: "Every week" },
+  { value: "schedule", label: "At a time I choose" },
+  { value: "86400", label: "Every day, from now" },
+  { value: "604800", label: "Every week, from now" },
 ];
+
+// Repeat is how a plan is made again: a planRepeats value, and for
+// "schedule" the time of day (minutes after midnight) and weekdays
+// (none is every day).
+export type Repeat = { mode: string; atMinute: number; weekdays: number[] };
+
+export const once: Repeat = { mode: "0", atMinute: 6 * 60, weekdays: [1, 2, 3, 4, 5, 6] };
+
+// repeatOf reads how a plan is made again.
+export function repeatOf(p: VisitPlan): Repeat {
+  if (p.schedule && p.repeatSeconds > 0n) return { mode: "schedule", atMinute: p.schedule.atMinute, weekdays: [...p.schedule.weekdays] };
+  return { ...once, mode: p.repeatSeconds.toString() };
+}
+
+// repeatRequest is a Repeat as the API takes it.
+export function repeatRequest(r: Repeat): { repeatSeconds: bigint; schedule?: { atMinute: number; weekdays: number[] } } {
+  if (r.mode === "schedule") return { repeatSeconds: 0n, schedule: { atMinute: r.atMinute, weekdays: r.weekdays } };
+  return { repeatSeconds: BigInt(r.mode) };
+}
+
+// repeatText says when a plan is made again: "06:00 on Mon, Tue".
+export function repeatText(p: VisitPlan): string {
+  if (p.repeatSeconds <= 0n) return "";
+  if (p.schedule) {
+    const days = p.schedule.weekdays.length === 0 || p.schedule.weekdays.length === 7 ? "every day" : "on " + p.schedule.weekdays.map((d) => weekdays[d]).join(", ");
+    return `${clock(p.schedule.atMinute)} ${days}`;
+  }
+  return planRepeats.find((r) => r.value === p.repeatSeconds.toString())?.label ?? "On a schedule";
+}
 
 export const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

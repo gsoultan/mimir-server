@@ -268,17 +268,9 @@ func (s *Service) CreateVisitPlan(ctx context.Context, req *connect.Request[mimi
 		return nil, err
 	}
 	plan := src.plan
-	plan.CreatedBy, plan.TeamID, plan.RepeatSeconds = p.Actor(), p.Team(), msg.GetRepeatSeconds()
-	if plan.RepeatSeconds != 0 {
-		if plan.CustomersQuery == "" {
-			return nil, invalid("Only a plan whose customers come from a database can be made again on a schedule; an upload or a dataset stays the same.")
-		}
-		if plan.RepeatSeconds < minScoringRepeat || plan.RepeatSeconds > maxScoringRepeat {
-			return nil, invalid("Plan again every hour at most often, and at least every 30 days.")
-		}
-		if plan.Settings.StartDate != "" {
-			return nil, invalid("A plan made again on a schedule starts on the day it is made; leave the start date empty.")
-		}
+	plan.CreatedBy, plan.TeamID = p.Actor(), p.Team()
+	if plan.RepeatSeconds, plan.Schedule, err = planRepeat(plan, msg.GetRepeatSeconds(), msg.GetSchedule()); err != nil {
+		return nil, err
 	}
 	name := strings.TrimSpace(msg.GetName())
 	if name == "" {
@@ -365,11 +357,18 @@ func (s *Service) ListPlanSalespeople(ctx context.Context, req *connect.Request[
 }
 
 func (s *Service) GetSalespersonPlan(ctx context.Context, req *connect.Request[mimirv1.GetSalespersonPlanRequest]) (*connect.Response[mimirv1.GetSalespersonPlanResponse], error) {
+	who := strings.TrimSpace(req.Msg.GetSalespersonId())
+	if who == "" {
+		return nil, invalid("Say which salesperson.")
+	}
+	if req.Msg.GetPlanId() == "" {
+		return s.latestSalespersonPlan(ctx, who)
+	}
 	plan, err := s.getVisitPlan(ctx, req.Msg.GetPlanId())
 	if err != nil {
 		return nil, err
 	}
-	sp, err := s.store.GetPlanSalesperson(ctx, plan.ID, req.Msg.GetSalespersonId())
+	sp, err := s.store.GetPlanSalesperson(ctx, plan.ID, who)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("That salesperson isn't in this plan."))
 	}
@@ -377,6 +376,33 @@ func (s *Service) GetSalespersonPlan(ctx context.Context, req *connect.Request[m
 		return nil, s.internal(ctx, err)
 	}
 	return connect.NewResponse(&mimirv1.GetSalespersonPlanResponse{Plan: s.visitPlanProto(ctx, plan), Salesperson: salespersonPlanProto(sp)}), nil
+}
+
+// latestSalespersonPlan answers a salesperson's plan asked for without a
+// plan: the one of the caller's team made most recently that has them.
+func (s *Service) latestSalespersonPlan(ctx context.Context, who string) (*connect.Response[mimirv1.GetSalespersonPlanResponse], error) {
+	p, _ := auth.From(ctx)
+	plans, err := s.store.ListVisitPlans(ctx, p.Team())
+	if err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	plans = slices.DeleteFunc(plans, func(v store.VisitPlan) bool { return v.Runs == 0 || v.Ended.IsZero() })
+	slices.SortFunc(plans, func(a, b store.VisitPlan) int { return b.Ended.Compare(a.Ended) })
+	for _, v := range plans {
+		sp, err := s.store.GetPlanSalesperson(ctx, v.ID, who)
+		if errors.Is(err, store.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, s.internal(ctx, err)
+		}
+		plan, err := s.getVisitPlan(ctx, v.ID)
+		if err != nil {
+			continue // a plan whose model the caller may not see
+		}
+		return connect.NewResponse(&mimirv1.GetSalespersonPlanResponse{Plan: s.visitPlanProto(ctx, plan), Salesperson: salespersonPlanProto(sp)}), nil
+	}
+	return nil, connect.NewError(connect.CodeNotFound, errors.New("No plan made so far has that salesperson."))
 }
 
 func (s *Service) RunVisitPlan(ctx context.Context, req *connect.Request[mimirv1.RunVisitPlanRequest]) (*connect.Response[mimirv1.RunVisitPlanResponse], error) {
@@ -426,26 +452,21 @@ func (s *Service) SetVisitPlanRepeat(ctx context.Context, req *connect.Request[m
 	if err != nil {
 		return nil, err
 	}
-	seconds := req.Msg.GetRepeatSeconds()
-	if seconds != 0 {
-		if plan.CustomersQuery == "" {
-			return nil, invalid("Only a plan whose customers come from a database can be made again on a schedule.")
-		}
-		if seconds < minScoringRepeat || seconds > maxScoringRepeat {
-			return nil, invalid("Plan again every hour at most often, and at least every 30 days.")
-		}
-		if plan.Settings.StartDate != "" {
-			return nil, invalid("This plan starts on a set date, so making it again would plan the same days. Make a new plan without a start date.")
-		}
+	seconds, sched, err := planRepeat(plan, req.Msg.GetRepeatSeconds(), req.Msg.GetSchedule())
+	if err != nil {
+		return nil, err
 	}
-	if err := s.store.SetVisitPlanRepeat(ctx, plan.ID, seconds); err != nil {
+	if err := s.store.SetVisitPlanRepeat(ctx, plan.ID, seconds, sched, plan.Settings.TimeZone); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, noVisitPlan()
 		}
 		return nil, s.internal(ctx, err)
 	}
 	detail := "stopped"
-	if seconds > 0 {
+	switch {
+	case sched != nil:
+		detail = scheduleText(sched)
+	case seconds > 0:
 		detail = fmt.Sprintf("every %s", time.Duration(seconds)*time.Second)
 	}
 	p, _ := auth.From(ctx)
@@ -470,6 +491,59 @@ func (s *Service) DeleteVisitPlan(ctx context.Context, req *connect.Request[mimi
 	p, _ := auth.From(ctx)
 	s.audit(ctx, p.Actor(), "visit_plan.deleted", plan.Name, "")
 	return connect.NewResponse(&mimirv1.DeleteVisitPlanResponse{}), nil
+}
+
+// planRepeat checks how a plan is to be made again: every seconds, or on
+// a schedule (which wins; it is kept with a day as its seconds). Neither
+// makes it once.
+func planRepeat(plan store.VisitPlan, seconds int64, msg *mimirv1.PlanSchedule) (int64, *store.VisitSchedule, error) {
+	var sched *store.VisitSchedule
+	if msg != nil {
+		if msg.GetAtMinute() < 0 || msg.GetAtMinute() >= 24*60 {
+			return 0, nil, invalid("Pick a time of day from 00:00 to 23:59.")
+		}
+		sched = &store.VisitSchedule{AtMinute: int(msg.GetAtMinute())}
+		for _, d := range msg.GetWeekdays() {
+			if d < 0 || d > 6 {
+				return 0, nil, invalid("Weekdays are 0 (Sunday) to 6 (Saturday).")
+			}
+			if !slices.Contains(sched.Weekdays, int(d)) {
+				sched.Weekdays = append(sched.Weekdays, int(d))
+			}
+		}
+		slices.Sort(sched.Weekdays)
+		if len(sched.Weekdays) == 7 {
+			sched.Weekdays = nil
+		}
+		seconds = 86400
+	}
+	if seconds == 0 {
+		return 0, nil, nil
+	}
+	if plan.CustomersQuery == "" {
+		return 0, nil, invalid("Only a plan whose customers come from a database can be made again on a schedule; an upload or a dataset stays the same.")
+	}
+	if seconds < minScoringRepeat || seconds > maxScoringRepeat {
+		return 0, nil, invalid("Plan again every hour at most often, and at least every 30 days.")
+	}
+	if plan.Settings.StartDate != "" {
+		return 0, nil, invalid("A plan made again on a schedule starts on the day it is made; leave the start date empty.")
+	}
+	return seconds, sched, nil
+}
+
+// scheduleText says when a schedule makes a plan: "06:00 on Mon, Tue".
+func scheduleText(sc *store.VisitSchedule) string {
+	at := fmt.Sprintf("%02d:%02d", sc.AtMinute/60, sc.AtMinute%60)
+	if len(sc.Weekdays) == 0 {
+		return at + " every day"
+	}
+	names := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+	var days []string
+	for _, d := range sc.Weekdays {
+		days = append(days, names[d])
+	}
+	return at + " on " + strings.Join(days, ", ")
 }
 
 // getVisitPlan returns a plan the caller may see; others read as missing.
@@ -568,6 +642,12 @@ func visitPlanProto(plan store.VisitPlan, modelName, sourceDetail string) *mimir
 	}
 	if !plan.Ended.IsZero() {
 		out.EndTime = timestamppb.New(plan.Ended)
+	}
+	if sc := plan.Schedule; sc != nil && plan.RepeatSeconds > 0 {
+		out.Schedule = &mimirv1.PlanSchedule{AtMinute: int32(sc.AtMinute)}
+		for _, d := range sc.Weekdays {
+			out.Schedule.Weekdays = append(out.Schedule.Weekdays, int32(d))
+		}
 	}
 	if plan.RepeatSeconds > 0 && !plan.NextRun.IsZero() {
 		out.NextRunTime = timestamppb.New(plan.NextRun)

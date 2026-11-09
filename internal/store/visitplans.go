@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -58,8 +59,67 @@ type VisitPlan struct {
 	Ended            time.Time
 	TeamID           string
 	RepeatSeconds    int64
-	NextRun          time.Time
-	Runs             int64
+	// Schedule, when set, makes a repeating plan at a time of day on
+	// some weekdays, in the plan's time zone, rather than every
+	// RepeatSeconds.
+	Schedule *VisitSchedule
+	NextRun  time.Time
+	Runs     int64
+}
+
+// VisitSchedule is when a repeating plan is made: at AtMinute (minutes
+// after midnight) on Weekdays (0 is Sunday; none is every day).
+type VisitSchedule struct {
+	AtMinute int   `json:"at_minute"`
+	Weekdays []int `json:"weekdays,omitempty"`
+}
+
+// NextVisitRun is when a repeating plan is next made after after: the
+// next scheduled time in timeZone, or one interval on. Zero when it
+// doesn't repeat.
+func NextVisitRun(seconds int64, sched *VisitSchedule, timeZone string, after time.Time) time.Time {
+	if seconds <= 0 {
+		return time.Time{}
+	}
+	if sched == nil {
+		return after.Add(time.Duration(seconds) * time.Second)
+	}
+	loc, err := time.LoadLocation(timeZone)
+	if err != nil {
+		loc = time.UTC
+	}
+	local := after.In(loc)
+	day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	for i := range 15 {
+		d := day.AddDate(0, 0, i)
+		at := time.Date(d.Year(), d.Month(), d.Day(), sched.AtMinute/60, sched.AtMinute%60, 0, 0, loc)
+		if !at.After(after) {
+			continue
+		}
+		if len(sched.Weekdays) == 0 || slices.Contains(sched.Weekdays, int(at.Weekday())) {
+			return at.UTC()
+		}
+	}
+	return after.Add(24 * time.Hour) // unreachable with valid weekdays
+}
+
+func scheduleJSON(sched *VisitSchedule) []byte {
+	if sched == nil {
+		return []byte("{}")
+	}
+	b, _ := json.Marshal(sched)
+	return b
+}
+
+func scheduleOf(b []byte) *VisitSchedule {
+	if len(b) == 0 || string(b) == "{}" {
+		return nil
+	}
+	var sc VisitSchedule
+	if json.Unmarshal(b, &sc) != nil {
+		return nil
+	}
+	return &sc
 }
 
 // Upload reports whether the plan's customers were uploaded, so they
@@ -216,7 +276,7 @@ func (s *Store) fromVisitPlan(r visitplan.Row) (VisitPlan, error) {
 			Visits: r.Visits, Km: r.Km, Covered: r.Covered, NeedLook: r.NeedLook, Warnings: fromStrs(r.Warnings), Areas: areas,
 		},
 		CreatedBy: r.CreatedBy, Created: r.CreateTime.UTC(), Started: timeOf(r.StartTime), Ended: timeOf(r.EndTime),
-		TeamID: r.TeamID.V, RepeatSeconds: r.RepeatSeconds, NextRun: timeOf(r.NextRun), Runs: r.Runs,
+		TeamID: r.TeamID.V, RepeatSeconds: r.RepeatSeconds, Schedule: scheduleOf(r.Schedule), NextRun: timeOf(r.NextRun), Runs: r.Runs,
 	}, nil
 }
 
@@ -268,8 +328,8 @@ func (s *Store) CreateVisitPlan(ctx context.Context, p VisitPlan, customers, sal
 	n.SetStatus(int32(p.Status))
 	n.SetCreatedBy(p.CreatedBy)
 	n.SetRepeatSeconds(p.RepeatSeconds)
-	if p.RepeatSeconds > 0 {
-		next := p.Created.Add(time.Duration(p.RepeatSeconds) * time.Second)
+	n.SetSchedule(scheduleJSON(p.Schedule))
+	if next := NextVisitRun(p.RepeatSeconds, p.Schedule, p.Settings.TimeZone, p.Created); !next.IsZero() {
 		n.SetNextRun(next)
 		p.NextRun = next
 	}
@@ -455,7 +515,9 @@ func (s *Store) FinishVisitPlan(ctx context.Context, id string, sum VisitPlanSum
 			m.SetRuns(r.Runs + 1)
 		}
 		if r.RepeatSeconds > 0 {
-			m.SetNextRun(t.Add(time.Duration(r.RepeatSeconds) * time.Second))
+			var set VisitPlanSettings
+			json.Unmarshal(r.Settings, &set) // a bad one plans in UTC
+			m.SetNextRun(NextVisitRun(r.RepeatSeconds, scheduleOf(r.Schedule), set.TimeZone, t))
 		}
 		finished = true
 		return m.Update(ctx, ex)
@@ -599,13 +661,18 @@ func (s *Store) RequeueVisitPlan(ctx context.Context, id string) (bool, error) {
 	return n > 0, nil
 }
 
-// SetVisitPlanRepeat changes how often a plan runs again; 0 stops it.
-// The next run is due one interval from now.
-func (s *Store) SetVisitPlanRepeat(ctx context.Context, id string, seconds int64) error {
+// SetVisitPlanRepeat changes how often a plan runs again, and on what
+// schedule; 0 stops it. The next run is due one interval from now, or
+// at the next scheduled time in timeZone.
+func (s *Store) SetVisitPlanRepeat(ctx context.Context, id string, seconds int64, sched *VisitSchedule, timeZone string) error {
 	m := visitplan.MutateKey(id)
 	m.SetRepeatSeconds(seconds)
-	if seconds > 0 {
-		m.SetNextRun(now().Add(time.Duration(seconds) * time.Second))
+	if seconds <= 0 {
+		sched = nil
+	}
+	m.SetSchedule(scheduleJSON(sched))
+	if next := NextVisitRun(seconds, sched, timeZone, now()); !next.IsZero() {
+		m.SetNextRun(next)
 	} else {
 		m.SetNextRunNull()
 	}

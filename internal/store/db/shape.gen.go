@@ -488,6 +488,7 @@ func _assertVisitPlanShape(m m0.VisitPlan) {
 		m.StartTime,
 		m.EndTime,
 		m.RepeatSeconds,
+		m.Schedule,
 		m.NextRun,
 		m.Runs,
 	}

@@ -65,8 +65,11 @@ type VisitPlan struct {
 	EndTime   *time.Time
 	// RepeatSeconds > 0 plans again that often; NextRun is when.
 	RepeatSeconds int64
-	NextRun       *time.Time
-	Runs          int64
+	// Schedule, as jsonb, sets the time of day and the weekdays a
+	// repeating plan is made; '{}' repeats every RepeatSeconds.
+	Schedule storm.JSON
+	NextRun  *time.Time
+	Runs     int64
 }
 
 func (p *VisitPlan) Schema(t *storm.Table) {
@@ -98,6 +101,7 @@ func (p *VisitPlan) Schema(t *storm.Table) {
 	t.Col(&p.Areas).Default("'[]'")
 	t.Col(&p.CreatedBy).Default("''").Immutable()
 	t.Col(&p.RepeatSeconds).Default("0")
+	t.Col(&p.Schedule).Default("'{}'")
 	t.Col(&p.Runs).Default("0")
 	// A team's plans, newest first; also the team key's index.
 	t.Col(&p.Team).NoIndex()

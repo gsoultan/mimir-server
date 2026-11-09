@@ -54,6 +54,7 @@ type Row struct {
 	StartTime        runtime.Null[time.Time]
 	EndTime          runtime.Null[time.Time]
 	RepeatSeconds    int64
+	Schedule         runtime.JSON
 	NextRun          runtime.Null[time.Time]
 	Runs             int64
 }
@@ -94,7 +95,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 36
+const nCols = 37
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -426,14 +427,14 @@ func (q *Query) cursor(col uint32, r Row) {
 		}
 		q.nums[q.nn] = int64(r.RepeatSeconds)
 		q.nn++
-	case 34:
+	case 35:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.NextRun.V
 		q.ntm++
-	case 35:
+	case 36:
 		if int(q.nn) >= len(q.nums) {
 			q.over = true
 			return
@@ -634,8 +635,9 @@ var (
 	StartTime        = NullTimeCol{31}
 	EndTime          = NullTimeCol{32}
 	RepeatSeconds    = Int64Col{33}
-	NextRun          = NullTimeCol{34}
-	Runs             = Int64Col{35}
+	Schedule         = JSONCol{34}
+	NextRun          = NullTimeCol{35}
+	Runs             = Int64Col{36}
 )
 
 // TextCol addresses a text column.
@@ -1197,7 +1199,14 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyI64[q.nai64] = p.anyI64
 			q.nai64++
-		case 35:
+		case 34:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
+		case 36:
 			if int(q.nai64) >= 3 {
 				q.over = true
 				return
@@ -1445,13 +1454,20 @@ func (q *Query) leaf(p Pred) {
 		q.nums[q.nn] = p.num
 		q.nn++
 	case 34:
+		if int(q.njs) >= 2 {
+			q.over = true
+			return
+		}
+		q.jsns[q.njs] = p.jsn
+		q.njs++
+	case 35:
 		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = p.tim
 		q.ntm++
-	case 35:
+	case 36:
 		if int(q.nn) >= 6 {
 			q.over = true
 			return
@@ -1760,6 +1776,10 @@ func (q Query) RepeatSecondsLt(v int64) Query            { return q.Where(Repeat
 func (q Query) RepeatSecondsLte(v int64) Query           { return q.Where(RepeatSeconds.Lte(v)) }
 func (q Query) RepeatSecondsIn(v ...int64) Query         { return q.Where(RepeatSeconds.In(v...)) }
 func (q Query) RepeatSecondsNotIn(v ...int64) Query      { return q.Where(RepeatSeconds.NotIn(v...)) }
+func (q Query) ScheduleContains(v runtime.JSON) Query    { return q.Where(Schedule.Contains(v)) }
+func (q Query) ScheduleContainedBy(v runtime.JSON) Query { return q.Where(Schedule.ContainedBy(v)) }
+func (q Query) ScheduleHasAnyKey(v ...string) Query      { return q.Where(Schedule.HasAnyKey(v...)) }
+func (q Query) ScheduleHasAllKeys(v ...string) Query     { return q.Where(Schedule.HasAllKeys(v...)) }
 func (q Query) NextRunEq(v time.Time) Query              { return q.Where(NextRun.Eq(v)) }
 func (q Query) NextRunNotEq(v time.Time) Query           { return q.Where(NextRun.NotEq(v)) }
 func (q Query) NextRunGt(v time.Time) Query              { return q.Where(NextRun.Gt(v)) }
@@ -1777,7 +1797,7 @@ func (q Query) RunsLte(v int64) Query                    { return q.Where(Runs.L
 func (q Query) RunsIn(v ...int64) Query                  { return q.Where(Runs.In(v...)) }
 func (q Query) RunsNotIn(v ...int64) Query               { return q.Where(Runs.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "model_id", "dataset_id", "driver", "dsn", "customers_query", "salespeople_query", "settings", "status", "error", "stage", "done", "total", "start_date", "end_date", "customers", "left_out", "unassigned", "unplaced", "failed", "salespeople", "visits", "km", "covered", "need_look", "warnings", "areas", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "runs" FROM "visit_plans"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "model_id", "dataset_id", "driver", "dsn", "customers_query", "salespeople_query", "settings", "status", "error", "stage", "done", "total", "start_date", "end_date", "customers", "left_out", "unassigned", "unplaced", "failed", "salespeople", "visits", "km", "covered", "need_look", "warnings", "areas", "created_by", "start_time", "end_time", "repeat_seconds", "schedule", "next_run", "runs" FROM "visit_plans"`
 const countPrefix = `SELECT count(*) FROM "visit_plans"`
 const existsPrefix = `SELECT 1 FROM "visit_plans"`
 const existsSuffix = ` LIMIT 1`
@@ -2018,6 +2038,12 @@ var orderTable = [nCols][4]string{
 		"\"repeat_seconds\" ASC NULLS FIRST",
 		"\"repeat_seconds\" DESC NULLS LAST",
 	},
+	{ // schedule
+		"\"schedule\"",
+		"\"schedule\" DESC",
+		"\"schedule\" ASC NULLS FIRST",
+		"\"schedule\" DESC NULLS LAST",
+	},
 	{ // next_run
 		"\"next_run\"",
 		"\"next_run\" DESC",
@@ -2069,6 +2095,7 @@ var identTable = [nCols]string{
 	"\"start_time\"",
 	"\"end_time\"",
 	"\"repeat_seconds\"",
+	"\"schedule\"",
 	"\"next_run\"",
 	"\"runs\"",
 }
@@ -2103,7 +2130,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [36][28]runtime.Frag{
+var fragTable = [37][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -3124,6 +3151,36 @@ var fragTable = [36][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // schedule
+		{}, // opNone
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"schedule\" @> $", B: ""},
+		{A: "\"schedule\" <@ $", B: ""},
+		{A: "\"schedule\" ?| $", B: ""},
+		{A: "\"schedule\" ?& $", B: ""},
+		{},
+		{},
+		{},
+		{},
+	},
 	{ // next_run
 		{}, // opNone
 		{A: "\"next_run\" = $", B: ""},
@@ -3378,8 +3435,9 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.StartTime = runtime.Nullable(rv[31], runtime.Timestamptz)
 	r.EndTime = runtime.Nullable(rv[32], runtime.Timestamptz)
 	r.RepeatSeconds = runtime.Int8(rv[33])
-	r.NextRun = runtime.Nullable(rv[34], runtime.Timestamptz)
-	r.Runs = runtime.Int8(rv[35])
+	r.Schedule = runtime.JSON(runtime.JSONB(rv[34], sl))
+	r.NextRun = runtime.Nullable(rv[35], runtime.Timestamptz)
+	r.Runs = runtime.Int8(rv[36])
 	return decErr
 }
 
@@ -3566,7 +3624,11 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyI64[nai64] = q.anyI64[nai64]
 				v = append(v, &b.anyI64[nai64])
 				nai64++
-			case 35:
+			case 34:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
+			case 36:
 				b.anyI64[nai64] = q.anyI64[nai64]
 				v = append(v, &b.anyI64[nai64])
 				nai64++
@@ -3707,10 +3769,14 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.nums[nn])
 			nn++
 		case 34:
+			b.jsns[njs] = q.jsns[njs]
+			v = append(v, &b.jsns[njs])
+			njs++
+		case 35:
 			b.tims[ntm] = q.tims[ntm]
 			v = append(v, &b.tims[ntm])
 			ntm++
-		case 35:
+		case 36:
 			b.nums[nn] = q.nums[nn]
 			v = append(v, &b.nums[nn])
 			nn++
@@ -3851,7 +3917,7 @@ func (q Query) Prepare(b *Binder) (string, []any) {
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "visit_plans" ("id", "create_time", "name", "team_id", "model_id", "dataset_id", "driver", "dsn", "customers_query", "salespeople_query", "settings", "status", "error", "stage", "done", "total", "start_date", "end_date", "customers", "left_out", "unassigned", "unplaced", "failed", "salespeople", "visits", "km", "covered", "need_look", "warnings", "areas", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "runs") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36) RETURNING "id", "create_time", "name", "team_id", "model_id", "dataset_id", "driver", "dsn", "customers_query", "salespeople_query", "settings", "status", "error", "stage", "done", "total", "start_date", "end_date", "customers", "left_out", "unassigned", "unplaced", "failed", "salespeople", "visits", "km", "covered", "need_look", "warnings", "areas", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "runs"`
+const insertSQL = `INSERT INTO "visit_plans" ("id", "create_time", "name", "team_id", "model_id", "dataset_id", "driver", "dsn", "customers_query", "salespeople_query", "settings", "status", "error", "stage", "done", "total", "start_date", "end_date", "customers", "left_out", "unassigned", "unplaced", "failed", "salespeople", "visits", "km", "covered", "need_look", "warnings", "areas", "created_by", "start_time", "end_time", "repeat_seconds", "schedule", "next_run", "runs") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37) RETURNING "id", "create_time", "name", "team_id", "model_id", "dataset_id", "driver", "dsn", "customers_query", "salespeople_query", "settings", "status", "error", "stage", "done", "total", "start_date", "end_date", "customers", "left_out", "unassigned", "unplaced", "failed", "salespeople", "visits", "km", "covered", "need_look", "warnings", "areas", "created_by", "start_time", "end_time", "repeat_seconds", "schedule", "next_run", "runs"`
 
 const updatePrefix = `UPDATE "visit_plans" SET `
 const deletePrefix = `DELETE FROM "visit_plans"`
@@ -3883,11 +3949,12 @@ const (
 	dStartTime     uint64 = 1 << 21
 	dEndTime       uint64 = 1 << 22
 	dRepeatSeconds uint64 = 1 << 23
-	dNextRun       uint64 = 1 << 24
-	dRuns          uint64 = 1 << 25
+	dSchedule      uint64 = 1 << 24
+	dNextRun       uint64 = 1 << 25
+	dRuns          uint64 = 1 << 26
 )
 
-const nUpdatable = 26
+const nUpdatable = 27
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
@@ -3915,6 +3982,7 @@ var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"start_time\" = $", B: ""},     // start_time
 	{A: "\"end_time\" = $", B: ""},       // end_time
 	{A: "\"repeat_seconds\" = $", B: ""}, // repeat_seconds
+	{A: "\"schedule\" = $", B: ""},       // schedule
 	{A: "\"next_run\" = $", B: ""},       // next_run
 	{A: "\"runs\" = $", B: ""},           // runs
 }
@@ -3947,8 +4015,9 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{A: "\"start_time\" = now()", B: ""}, // start_time = the database's clock
 	{A: "\"end_time\" = now()", B: ""},   // end_time = the database's clock
 	{A: "\"repeat_seconds\" = \"repeat_seconds\" + 1", B: ""}, // repeat_seconds = its own value plus one
-	{A: "\"next_run\" = now()", B: ""},                        // next_run = the database's clock
-	{A: "\"runs\" = \"runs\" + 1", B: ""},                     // runs = its own value plus one
+	{},                                    // schedule has no server-side form
+	{A: "\"next_run\" = now()", B: ""},    // next_run = the database's clock
+	{A: "\"runs\" = \"runs\" + 1", B: ""}, // runs = its own value plus one
 }
 
 // pkFrags addresses one row.
@@ -3994,11 +4063,12 @@ const (
 	iStartTime        uint64 = 1 << 31
 	iEndTime          uint64 = 1 << 32
 	iRepeatSeconds    uint64 = 1 << 33
-	iNextRun          uint64 = 1 << 34
-	iRuns             uint64 = 1 << 35
+	iSchedule         uint64 = 1 << 34
+	iNextRun          uint64 = 1 << 35
+	iRuns             uint64 = 1 << 36
 )
 
-const nInsertable = 36
+const nInsertable = 37
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -4036,6 +4106,7 @@ var insCols = [nInsertable]string{
 	"\"start_time\"",
 	"\"end_time\"",
 	"\"repeat_seconds\"",
+	"\"schedule\"",
 	"\"next_run\"",
 	"\"runs\"",
 }
@@ -4046,7 +4117,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"visit_plans\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"model_id\", \"dataset_id\", \"driver\", \"dsn\", \"customers_query\", \"salespeople_query\", \"settings\", \"status\", \"error\", \"stage\", \"done\", \"total\", \"start_date\", \"end_date\", \"customers\", \"left_out\", \"unassigned\", \"unplaced\", \"failed\", \"salespeople\", \"visits\", \"km\", \"covered\", \"need_look\", \"warnings\", \"areas\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"runs\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"model_id\", \"dataset_id\", \"driver\", \"dsn\", \"customers_query\", \"salespeople_query\", \"settings\", \"status\", \"error\", \"stage\", \"done\", \"total\", \"start_date\", \"end_date\", \"customers\", \"left_out\", \"unassigned\", \"unplaced\", \"failed\", \"salespeople\", \"visits\", \"km\", \"covered\", \"need_look\", \"warnings\", \"areas\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"schedule\", \"next_run\", \"runs\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -4065,7 +4136,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"model_id\", \"dataset_id\", \"driver\", \"dsn\", \"customers_query\", \"salespeople_query\", \"settings\", \"status\", \"error\", \"stage\", \"done\", \"total\", \"start_date\", \"end_date\", \"customers\", \"left_out\", \"unassigned\", \"unplaced\", \"failed\", \"salespeople\", \"visits\", \"km\", \"covered\", \"need_look\", \"warnings\", \"areas\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"runs\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"model_id\", \"dataset_id\", \"driver\", \"dsn\", \"customers_query\", \"salespeople_query\", \"settings\", \"status\", \"error\", \"stage\", \"done\", \"total\", \"start_date\", \"end_date\", \"customers\", \"left_out\", \"unassigned\", \"unplaced\", \"failed\", \"salespeople\", \"visits\", \"km\", \"covered\", \"need_look\", \"warnings\", \"areas\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"schedule\", \"next_run\", \"runs\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -4413,6 +4484,12 @@ func (m *Mut) SetRepeatSeconds(v int64) {
 func (m *Mut) IncRepeatSeconds() {
 	m.expr |= dRepeatSeconds
 	m.dirty &^= dRepeatSeconds
+}
+
+func (m *Mut) SetSchedule(v runtime.JSON) {
+	m.row.Schedule = v
+	m.dirty |= dSchedule
+	m.expr &^= dSchedule
 }
 
 func (m *Mut) SetNextRun(v time.Time) {
@@ -4900,6 +4977,11 @@ func (n *Ins) AddRepeatSecondsOnConflict(v int64) {
 	n.add |= iRepeatSeconds
 }
 
+func (n *Ins) SetSchedule(v runtime.JSON) {
+	n.row.Schedule = v
+	n.set |= iSchedule
+}
+
 func (n *Ins) SetNextRun(v time.Time) {
 	n.row.NextRun = runtime.Null[time.Time]{V: v, Valid: true}
 	n.set |= iNextRun
@@ -4982,7 +5064,7 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 26)
+	set := make([]string, 0, 27)
 	switch i {
 	case 0:
 		if mask&(1<<2) != 0 {
@@ -5058,9 +5140,12 @@ func assignable(i uint8, mask uint64) []string {
 			set = append(set, "repeat_seconds")
 		}
 		if mask&(1<<34) != 0 {
-			set = append(set, "next_run")
+			set = append(set, "schedule")
 		}
 		if mask&(1<<35) != 0 {
+			set = append(set, "next_run")
+		}
+		if mask&(1<<36) != 0 {
 			set = append(set, "runs")
 		}
 	}
@@ -5179,6 +5264,7 @@ var assignFor = map[string]string{
 	"start_time":     "\"start_time\" = EXCLUDED.\"start_time\"",
 	"end_time":       "\"end_time\" = EXCLUDED.\"end_time\"",
 	"repeat_seconds": "\"repeat_seconds\" = EXCLUDED.\"repeat_seconds\"",
+	"schedule":       "\"schedule\" = EXCLUDED.\"schedule\"",
 	"next_run":       "\"next_run\" = EXCLUDED.\"next_run\"",
 	"runs":           "\"runs\" = EXCLUDED.\"runs\"",
 }
@@ -5300,8 +5386,10 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 		case 33:
 			args = append(args, n.row.RepeatSeconds)
 		case 34:
-			args = append(args, n.row.NextRun.Arg())
+			args = append(args, n.row.Schedule)
 		case 35:
+			args = append(args, n.row.NextRun.Arg())
+		case 36:
 			args = append(args, n.row.Runs)
 		}
 	}
@@ -5340,7 +5428,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 36)
+	args := make([]any, 0, 37)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -5375,6 +5463,7 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.StartTime.Arg())
 	args = append(args, r.EndTime.Arg())
 	args = append(args, r.RepeatSeconds)
+	args = append(args, r.Schedule)
 	args = append(args, r.NextRun.Arg())
 	args = append(args, r.Runs)
 	rows, err := ex.Query(ctx, insertSQL, args)
@@ -5437,6 +5526,7 @@ var copyCols = []string{
 	"start_time",
 	"end_time",
 	"repeat_seconds",
+	"schedule",
 	"next_run",
 	"runs",
 }
@@ -5445,7 +5535,7 @@ var copyCols = []string{
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [36]any
+	buf  [37]any
 }
 
 func (s *rowSource) Next() bool {
@@ -5497,8 +5587,9 @@ func (s *rowSource) Values() []any {
 	s.buf[31] = r.StartTime.Ptr()
 	s.buf[32] = r.EndTime.Ptr()
 	s.buf[33] = &r.RepeatSeconds
-	s.buf[34] = r.NextRun.Ptr()
-	s.buf[35] = &r.Runs
+	s.buf[34] = &r.Schedule
+	s.buf[35] = r.NextRun.Ptr()
+	s.buf[36] = &r.Runs
 	return s.buf[:]
 }
 
@@ -5565,8 +5656,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 33
 	mask |= 1 << 34
 	mask |= 1 << 35
+	mask |= 1 << 36
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 36)
+	args := make([]any, 0, 37)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -5601,6 +5693,7 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.StartTime.Arg())
 	args = append(args, r.EndTime.Arg())
 	args = append(args, r.RepeatSeconds)
+	args = append(args, r.Schedule)
 	args = append(args, r.NextRun.Arg())
 	args = append(args, r.Runs)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
@@ -5705,8 +5798,10 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 		case 33:
 			args = append(args, n.row.RepeatSeconds)
 		case 34:
-			args = append(args, n.row.NextRun.Arg())
+			args = append(args, n.row.Schedule)
 		case 35:
+			args = append(args, n.row.NextRun.Arg())
+		case 36:
 			args = append(args, n.row.Runs)
 		}
 	}
@@ -5812,8 +5907,10 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 		case 23:
 			args = append(args, m.row.RepeatSeconds)
 		case 24:
-			args = append(args, m.row.NextRun.Arg())
+			args = append(args, m.row.Schedule)
 		case 25:
+			args = append(args, m.row.NextRun.Arg())
+		case 26:
 			args = append(args, m.row.Runs)
 		}
 	}
@@ -5946,8 +6043,10 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 		case 23:
 			args = append(args, m.row.RepeatSeconds)
 		case 24:
-			args = append(args, m.row.NextRun.Arg())
+			args = append(args, m.row.Schedule)
 		case 25:
+			args = append(args, m.row.NextRun.Arg())
+		case 26:
 			args = append(args, m.row.Runs)
 		}
 	}
@@ -6146,8 +6245,10 @@ func (q Query) UpdateAll(ctx context.Context, ex runtime.Executor, m Mut) (int64
 		case 23:
 			args = append(args, m.row.RepeatSeconds)
 		case 24:
-			args = append(args, m.row.NextRun.Arg())
+			args = append(args, m.row.Schedule)
 		case 25:
+			args = append(args, m.row.NextRun.Arg())
+		case 26:
 			args = append(args, m.row.Runs)
 		}
 	}

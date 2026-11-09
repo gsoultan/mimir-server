@@ -246,6 +246,14 @@ func TestVisitPlanJob(t *testing.T) {
 	if len(one.Msg.GetSalesperson().GetDays()) != 5 || visits != int(one.Msg.GetSalesperson().GetSalesperson().GetVisits()) {
 		t.Fatalf("salesperson %v", one.Msg.GetSalesperson())
 	}
+	// A salesperson's app can ask with only their own id.
+	mine, err := vc.GetSalespersonPlan(ctx, connect.NewRequest(&mimirv1.GetSalespersonPlanRequest{SalespersonId: "s-2"}))
+	if err != nil || mine.Msg.GetPlan().GetId() != id || mine.Msg.GetSalesperson().GetSalesperson().GetVisits() != one.Msg.GetSalesperson().GetSalesperson().GetVisits() {
+		t.Fatalf("latest plan for s-2: %v %v", mine, err)
+	}
+	if _, err := vc.GetSalespersonPlan(ctx, connect.NewRequest(&mimirv1.GetSalespersonPlanRequest{SalespersonId: "nope"})); connect.CodeOf(err) != connect.CodeNotFound {
+		t.Fatalf("latest plan for nobody: %v", err)
+	}
 	if _, err := vc.GetSalespersonPlan(ctx, connect.NewRequest(&mimirv1.GetSalespersonPlanRequest{PlanId: id, SalespersonId: "nope"})); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("missing salesperson: %v", err)
 	}
@@ -469,8 +477,24 @@ func TestVisitPlanFromDatabase(t *testing.T) {
 	if _, err := vc.SetVisitPlanRepeat(ctx, connect.NewRequest(&mimirv1.SetVisitPlanRepeatRequest{Id: id, RepeatSeconds: 60})); connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("every minute: %v", err)
 	}
+	// On a schedule the user picks: 05:30 on weekdays, in the plan's zone.
+	sched := &mimirv1.PlanSchedule{AtMinute: 5*60 + 30, Weekdays: []int32{5, 1, 2, 3, 4}}
+	on, err := vc.SetVisitPlanRepeat(ctx, connect.NewRequest(&mimirv1.SetVisitPlanRepeatRequest{Id: id, Schedule: sched}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := on.Msg.GetPlan().GetNextRunTime().AsTime().In(time.UTC)
+	if got := on.Msg.GetPlan().GetSchedule(); got.GetAtMinute() != 330 || len(got.GetWeekdays()) != 5 || got.GetWeekdays()[0] != 1 {
+		t.Fatalf("schedule %v", got)
+	}
+	if next.Hour() != 5 || next.Minute() != 30 || next.Weekday() == time.Saturday || next.Weekday() == time.Sunday || !next.After(time.Now()) {
+		t.Fatalf("next run %v", next)
+	}
+	if _, err := vc.SetVisitPlanRepeat(ctx, connect.NewRequest(&mimirv1.SetVisitPlanRepeatRequest{Id: id, Schedule: &mimirv1.PlanSchedule{AtMinute: 24 * 60}})); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("24:00: %v", err)
+	}
 	stop, err := vc.SetVisitPlanRepeat(ctx, connect.NewRequest(&mimirv1.SetVisitPlanRepeatRequest{Id: id}))
-	if err != nil || stop.Msg.GetPlan().GetRepeatSeconds() != 0 || stop.Msg.GetPlan().GetNextRunTime() != nil {
+	if err != nil || stop.Msg.GetPlan().GetRepeatSeconds() != 0 || stop.Msg.GetPlan().GetNextRunTime() != nil || stop.Msg.GetPlan().GetSchedule() != nil {
 		t.Fatalf("stop repeating %v %v", stop, err)
 	}
 

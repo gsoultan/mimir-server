@@ -16,10 +16,11 @@ import { DatasetKind } from "../../../api/gen/mimir/v1/training_pb";
 import { VisitService, type SimulateVisitPlanResponse, type VisitPlanSettingsSchema } from "../../../api/gen/mimir/v1/visit_pb";
 import { allVisitQueries, listArchitectures, listDatasets, listModels, whoAmI } from "../../../api/queries";
 import { Page } from "../../../components/Page";
+import { PlanRepeat } from "../../../components/PlanRepeat";
 import { StatTile, StatusPill } from "../../../components/ui";
 import { bytes, percent } from "../../../lib/format";
 import { scores } from "../../../lib/scoring";
-import { planDays, planRepeats, weekdays } from "../../../lib/visits";
+import { once, planDays, repeatRequest, weekdays, type Repeat } from "../../../lib/visits";
 
 export const Route = createFileRoute("/_app/visits/new")({
   validateSearch: z.object({ model: z.string().optional() }),
@@ -82,7 +83,7 @@ function NewVisitPlan() {
   const [skip, setSkip] = useState<string[]>(["0"]);
   const [skipVisited, setSkipVisited] = useState<number>(3);
   const [visitMinutes, setVisitMinutes] = useState<number>(30);
-  const [repeat, setRepeat] = useState("0");
+  const [repeat, setRepeat] = useState<Repeat>(once);
   const [name, setName] = useState("");
   const [preview, setPreview] = useState<SimulateVisitPlanResponse>();
 
@@ -101,7 +102,7 @@ function NewVisitPlan() {
     salespeopleCsv: peopleSource === "upload" ? people?.csv : undefined,
     salespeopleQuery: peopleSource === "database" ? peopleQuery.trim() : "",
     days: Number(days),
-    startDate: repeat === "0" ? startDate : "",
+    startDate: repeat.mode === "0" || source !== "database" ? startDate : "",
     timeZone,
     skipWeekdays: skip.map(Number),
     skipVisitedDays: skipVisited,
@@ -184,9 +185,9 @@ function NewVisitPlan() {
               <Text size="sm" fw={500} mb={4}>Days to plan</Text>
               <SegmentedControl fullWidth value={days} onChange={(v) => { setDays(v); changed(); }} data={["1", "2", "3", "4", "5", "6", "7"]} />
             </div>
-            <Select label="Make it" data={planRepeats} value={repeat} allowDeselect={false} disabled={source !== "database"} onChange={(v) => { setRepeat(v ?? "0"); changed(); }}
-              description={source === "database" ? "Made again, it reads the customers afresh and starts from that day." : "Only a plan from a database can be made again."} />
-            <TextInput type="date" label="First day" description="Empty means the day it is made." value={startDate} disabled={repeat !== "0"} onChange={(e) => { setStartDate(e.currentTarget.value); changed(); }} />
+            <PlanRepeat value={source === "database" ? repeat : once} disabled={source !== "database"} onChange={(r) => { setRepeat(r); changed(); }}
+              description={source === "database" ? "Made again, it reads the customers afresh and plans from that day." : "Only a plan from a database can be made again."} />
+            <TextInput type="date" label="First day" description="Empty means the day it is made." value={startDate} disabled={repeat.mode !== "0" && source === "database"} onChange={(e) => { setStartDate(e.currentTarget.value); changed(); }} />
             <TextInput label="Time zone" description="Whose day it is." value={timeZone} onChange={(e) => { setTimeZone(e.currentTarget.value); changed(); }} />
           </SimpleGrid>
           <div>
@@ -213,7 +214,7 @@ function NewVisitPlan() {
         <Button variant="default" leftSection={<IconFlask size={18} />} disabled={!ready} loading={simulate.isPending}
           onClick={() => simulate.mutate({ settings: settings() })}>Try it</Button>
         <Button leftSection={<IconRoute size={18} />} disabled={!ready} loading={create.isPending}
-          onClick={() => create.mutate({ name: name.trim(), settings: settings(), repeatSeconds: BigInt(repeat) })}>Make the plan</Button>
+          onClick={() => create.mutate({ name: name.trim(), settings: settings(), ...repeatRequest(source === "database" ? repeat : once) })}>Make the plan</Button>
       </Group>
       <Text size="xs" c="dimmed" ta="right">Try it plans up to 20,000 customers and 100 salespeople and keeps nothing. Make the plan has no such limit and runs in the background.</Text>
     </Page>

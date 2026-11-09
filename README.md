@@ -628,11 +628,15 @@ their own. It takes up to 1,000,000 customers and 5,000 salespeople.
 `SimulateVisitPlan` tries a plan and keeps nothing (up to 20,000
 customers and 100 salespeople); **Try it** on the page calls it.
 `CreateVisitPlan` makes a plan in the background, and one read from a
-database can be made again every day or week (`repeat_seconds`), each
-time from fresh rows and starting that day. `ListPlanSalespeople` pages
+database can be made again from fresh rows, starting that day: at a
+time of day on the weekdays you pick, in the plan's time zone
+(`schedule`, such as 05:30 Monday to Saturday so routes are ready
+before the day starts), or every day or week from when it was set
+(`repeat_seconds`). `SetVisitPlanRepeat` changes or stops it. `ListPlanSalespeople` pages
 through the salespeople by area, name or id, and those that need a
 look; `GetSalespersonPlan` gives one salesperson's days, route and the
-likely customers that didn't fit; `GET /api/visit-plans/{id}/visits.csv`
+likely customers that didn't fit (without a `plan_id`, from the latest
+plan that has them, so a salesperson's app needs only their id); `GET /api/visit-plans/{id}/visits.csv`
 downloads every visit. `RunVisitPlan`, `CancelVisitPlan`,
 `SetVisitPlanRepeat` and `DeleteVisitPlan` manage it. Reading plans needs
 the permission to view models; trying and making them, the permission to

@@ -15,9 +15,10 @@ import { VisitService } from "../../../../api/gen/mimir/v1/visit_pb";
 import { allVisitQueries, getVisitPlan, planSalespeople, whoAmI } from "../../../../api/queries";
 import { AnchorLink } from "../../../../components/links";
 import { Page } from "../../../../components/Page";
+import { PlanRepeat } from "../../../../components/PlanRepeat";
 import { StatTile, StatusPill } from "../../../../components/ui";
 import { ago, percent } from "../../../../lib/format";
-import { planDays, planProgress, planRepeats, planStatus, planWaiting, visitsURL, weekdays } from "../../../../lib/visits";
+import { planDays, planProgress, planStatus, planWaiting, repeatOf, repeatRequest, repeatText, visitsURL, weekdays, type Repeat } from "../../../../lib/visits";
 
 export const Route = createFileRoute("/_app/visits/$id/")({
   loader: ({ context, params }) => context.queryClient.ensureQueryData(getVisitPlan(params.id)),
@@ -104,11 +105,12 @@ function VisitPlanPage() {
           <Text size="sm" c="dimmed">
             {p.runs > 0 ? `Made ${p.runs} ${p.runs === 1 ? "time" : "times"}` : "Not made yet"}
             {p.endTime ? ` · last ${ago(p.endTime)}` : ""}
+            {p.repeatSeconds > 0n ? ` · made again ${p.schedule ? "at " + repeatText(p) : repeatText(p).toLowerCase()}` : ""}
             {p.repeatSeconds > 0n && p.nextRunTime ? ` · next ${ago(p.nextRunTime)}` : ""}
           </Text>
           {fromDB && canChange && (
-            <Select label="Make it again" w={220} data={planRepeats} value={p.repeatSeconds.toString()} allowDeselect={false}
-              onChange={(v) => v !== null && repeat.mutate({ id, repeatSeconds: BigInt(v) }, { onSuccess: () => notifications.show({ message: v === "0" ? "It won't be made again on its own." : "Saved." }) })} />
+            <RepeatEditor key={`${p.repeatSeconds}-${p.schedule?.atMinute}-${p.schedule?.weekdays.join()}`} initial={repeatOf(p)} saving={repeat.isPending}
+              onSave={(r) => repeat.mutate({ id, ...repeatRequest(r) }, { onSuccess: () => notifications.show({ message: r.mode === "0" ? "It won't be made again on its own." : "Saved." }) })} />
           )}
         </Stack>
       </Card>}
@@ -167,5 +169,18 @@ function VisitPlanPage() {
         </>
       )}
     </Page>
+  );
+}
+
+// RepeatEditor changes how a plan is made again, saved with a button so
+// a time being typed isn't sent on every key.
+function RepeatEditor({ initial, saving, onSave }: { initial: Repeat; saving: boolean; onSave: (r: Repeat) => void }) {
+  const [r, setR] = useState(initial);
+  const changed = JSON.stringify(r) !== JSON.stringify(initial);
+  return (
+    <Stack gap="xs" maw={480}>
+      <PlanRepeat label="Make it again" value={r} onChange={setR} />
+      {changed && <Group><Button size="xs" loading={saving} onClick={() => onSave(r)}>Save</Button><Button size="xs" variant="subtle" onClick={() => setR(initial)}>Undo</Button></Group>}
+    </Stack>
   );
 }

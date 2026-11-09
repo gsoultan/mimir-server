@@ -821,8 +821,10 @@ type VisitPlan struct {
 	// salespeople_source is where salespeople come from: "list", "upload"
 	// or "database".
 	SalespeopleSource string `protobuf:"bytes,37,opt,name=salespeople_source,json=salespeopleSource,proto3" json:"salespeople_source,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// schedule is when it is made again, when on a schedule.
+	Schedule      *PlanSchedule `protobuf:"bytes,38,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *VisitPlan) Reset() {
@@ -1112,6 +1114,13 @@ func (x *VisitPlan) GetSalespeopleSource() string {
 		return x.SalespeopleSource
 	}
 	return ""
+}
+
+func (x *VisitPlan) GetSchedule() *PlanSchedule {
+	if x != nil {
+		return x.Schedule
+	}
+	return nil
 }
 
 type AreaCount struct {
@@ -1715,6 +1724,9 @@ type CreateVisitPlanRequest struct {
 	// repeat_seconds makes it again that often, from an hour to 30 days,
 	// such as 86400 for every day; only for customers from a database.
 	RepeatSeconds int64 `protobuf:"varint,3,opt,name=repeat_seconds,json=repeatSeconds,proto3" json:"repeat_seconds,omitempty"`
+	// schedule, in place of repeat_seconds, makes it again at a time of
+	// day on chosen weekdays, in the settings' time zone.
+	Schedule      *PlanSchedule `protobuf:"bytes,4,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1770,6 +1782,70 @@ func (x *CreateVisitPlanRequest) GetRepeatSeconds() int64 {
 	return 0
 }
 
+func (x *CreateVisitPlanRequest) GetSchedule() *PlanSchedule {
+	if x != nil {
+		return x.Schedule
+	}
+	return nil
+}
+
+// PlanSchedule is when a repeating plan is made, in its time zone.
+type PlanSchedule struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// at_minute is the time of day, in minutes after midnight: 330 is
+	// 05:30.
+	AtMinute int32 `protobuf:"varint,1,opt,name=at_minute,json=atMinute,proto3" json:"at_minute,omitempty"`
+	// weekdays it is made on, 0 (Sunday) to 6 (Saturday); none is every
+	// day.
+	Weekdays      []int32 `protobuf:"varint,2,rep,packed,name=weekdays,proto3" json:"weekdays,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlanSchedule) Reset() {
+	*x = PlanSchedule{}
+	mi := &file_mimir_v1_visit_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlanSchedule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlanSchedule) ProtoMessage() {}
+
+func (x *PlanSchedule) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_visit_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlanSchedule.ProtoReflect.Descriptor instead.
+func (*PlanSchedule) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *PlanSchedule) GetAtMinute() int32 {
+	if x != nil {
+		return x.AtMinute
+	}
+	return 0
+}
+
+func (x *PlanSchedule) GetWeekdays() []int32 {
+	if x != nil {
+		return x.Weekdays
+	}
+	return nil
+}
+
 type CreateVisitPlanResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Plan          *VisitPlan             `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
@@ -1779,7 +1855,7 @@ type CreateVisitPlanResponse struct {
 
 func (x *CreateVisitPlanResponse) Reset() {
 	*x = CreateVisitPlanResponse{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[17]
+	mi := &file_mimir_v1_visit_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1791,7 +1867,7 @@ func (x *CreateVisitPlanResponse) String() string {
 func (*CreateVisitPlanResponse) ProtoMessage() {}
 
 func (x *CreateVisitPlanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[17]
+	mi := &file_mimir_v1_visit_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1804,7 +1880,7 @@ func (x *CreateVisitPlanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVisitPlanResponse.ProtoReflect.Descriptor instead.
 func (*CreateVisitPlanResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{17}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CreateVisitPlanResponse) GetPlan() *VisitPlan {
@@ -1822,7 +1898,7 @@ type ListVisitPlansRequest struct {
 
 func (x *ListVisitPlansRequest) Reset() {
 	*x = ListVisitPlansRequest{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[18]
+	mi := &file_mimir_v1_visit_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1834,7 +1910,7 @@ func (x *ListVisitPlansRequest) String() string {
 func (*ListVisitPlansRequest) ProtoMessage() {}
 
 func (x *ListVisitPlansRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[18]
+	mi := &file_mimir_v1_visit_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1847,7 +1923,7 @@ func (x *ListVisitPlansRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVisitPlansRequest.ProtoReflect.Descriptor instead.
 func (*ListVisitPlansRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{18}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{19}
 }
 
 type ListVisitPlansResponse struct {
@@ -1859,7 +1935,7 @@ type ListVisitPlansResponse struct {
 
 func (x *ListVisitPlansResponse) Reset() {
 	*x = ListVisitPlansResponse{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[19]
+	mi := &file_mimir_v1_visit_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1871,7 +1947,7 @@ func (x *ListVisitPlansResponse) String() string {
 func (*ListVisitPlansResponse) ProtoMessage() {}
 
 func (x *ListVisitPlansResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[19]
+	mi := &file_mimir_v1_visit_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1884,7 +1960,7 @@ func (x *ListVisitPlansResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVisitPlansResponse.ProtoReflect.Descriptor instead.
 func (*ListVisitPlansResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{19}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListVisitPlansResponse) GetPlans() []*VisitPlan {
@@ -1903,7 +1979,7 @@ type GetVisitPlanRequest struct {
 
 func (x *GetVisitPlanRequest) Reset() {
 	*x = GetVisitPlanRequest{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[20]
+	mi := &file_mimir_v1_visit_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1915,7 +1991,7 @@ func (x *GetVisitPlanRequest) String() string {
 func (*GetVisitPlanRequest) ProtoMessage() {}
 
 func (x *GetVisitPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[20]
+	mi := &file_mimir_v1_visit_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1928,7 +2004,7 @@ func (x *GetVisitPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVisitPlanRequest.ProtoReflect.Descriptor instead.
 func (*GetVisitPlanRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{20}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetVisitPlanRequest) GetId() string {
@@ -1947,7 +2023,7 @@ type GetVisitPlanResponse struct {
 
 func (x *GetVisitPlanResponse) Reset() {
 	*x = GetVisitPlanResponse{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[21]
+	mi := &file_mimir_v1_visit_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1959,7 +2035,7 @@ func (x *GetVisitPlanResponse) String() string {
 func (*GetVisitPlanResponse) ProtoMessage() {}
 
 func (x *GetVisitPlanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[21]
+	mi := &file_mimir_v1_visit_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1972,7 +2048,7 @@ func (x *GetVisitPlanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVisitPlanResponse.ProtoReflect.Descriptor instead.
 func (*GetVisitPlanResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{21}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetVisitPlanResponse) GetPlan() *VisitPlan {
@@ -2003,7 +2079,7 @@ type ListPlanSalespeopleRequest struct {
 
 func (x *ListPlanSalespeopleRequest) Reset() {
 	*x = ListPlanSalespeopleRequest{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[22]
+	mi := &file_mimir_v1_visit_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2015,7 +2091,7 @@ func (x *ListPlanSalespeopleRequest) String() string {
 func (*ListPlanSalespeopleRequest) ProtoMessage() {}
 
 func (x *ListPlanSalespeopleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[22]
+	mi := &file_mimir_v1_visit_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2028,7 +2104,7 @@ func (x *ListPlanSalespeopleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlanSalespeopleRequest.ProtoReflect.Descriptor instead.
 func (*ListPlanSalespeopleRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{22}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListPlanSalespeopleRequest) GetPlanId() string {
@@ -2091,7 +2167,7 @@ type ListPlanSalespeopleResponse struct {
 
 func (x *ListPlanSalespeopleResponse) Reset() {
 	*x = ListPlanSalespeopleResponse{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[23]
+	mi := &file_mimir_v1_visit_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2103,7 +2179,7 @@ func (x *ListPlanSalespeopleResponse) String() string {
 func (*ListPlanSalespeopleResponse) ProtoMessage() {}
 
 func (x *ListPlanSalespeopleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[23]
+	mi := &file_mimir_v1_visit_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2116,7 +2192,7 @@ func (x *ListPlanSalespeopleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlanSalespeopleResponse.ProtoReflect.Descriptor instead.
 func (*ListPlanSalespeopleResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{23}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListPlanSalespeopleResponse) GetSalespeople() []*PlanSalesperson {
@@ -2134,16 +2210,19 @@ func (x *ListPlanSalespeopleResponse) GetTotal() int32 {
 }
 
 type GetSalespersonPlanRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PlanId        string                 `protobuf:"bytes,1,opt,name=plan_id,json=planId,proto3" json:"plan_id,omitempty"`
-	SalespersonId string                 `protobuf:"bytes,2,opt,name=salesperson_id,json=salespersonId,proto3" json:"salesperson_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// plan_id is the plan to read; empty reads the plan of the caller's
+	// team made most recently that has the salesperson, so a salesperson's
+	// app needs only their own id.
+	PlanId        string `protobuf:"bytes,1,opt,name=plan_id,json=planId,proto3" json:"plan_id,omitempty"`
+	SalespersonId string `protobuf:"bytes,2,opt,name=salesperson_id,json=salespersonId,proto3" json:"salesperson_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetSalespersonPlanRequest) Reset() {
 	*x = GetSalespersonPlanRequest{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[24]
+	mi := &file_mimir_v1_visit_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2155,7 +2234,7 @@ func (x *GetSalespersonPlanRequest) String() string {
 func (*GetSalespersonPlanRequest) ProtoMessage() {}
 
 func (x *GetSalespersonPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[24]
+	mi := &file_mimir_v1_visit_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2168,7 +2247,7 @@ func (x *GetSalespersonPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSalespersonPlanRequest.ProtoReflect.Descriptor instead.
 func (*GetSalespersonPlanRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{24}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetSalespersonPlanRequest) GetPlanId() string {
@@ -2195,7 +2274,7 @@ type GetSalespersonPlanResponse struct {
 
 func (x *GetSalespersonPlanResponse) Reset() {
 	*x = GetSalespersonPlanResponse{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[25]
+	mi := &file_mimir_v1_visit_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2207,7 +2286,7 @@ func (x *GetSalespersonPlanResponse) String() string {
 func (*GetSalespersonPlanResponse) ProtoMessage() {}
 
 func (x *GetSalespersonPlanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[25]
+	mi := &file_mimir_v1_visit_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2220,7 +2299,7 @@ func (x *GetSalespersonPlanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSalespersonPlanResponse.ProtoReflect.Descriptor instead.
 func (*GetSalespersonPlanResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{25}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetSalespersonPlanResponse) GetPlan() *VisitPlan {
@@ -2246,7 +2325,7 @@ type RunVisitPlanRequest struct {
 
 func (x *RunVisitPlanRequest) Reset() {
 	*x = RunVisitPlanRequest{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[26]
+	mi := &file_mimir_v1_visit_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2258,7 +2337,7 @@ func (x *RunVisitPlanRequest) String() string {
 func (*RunVisitPlanRequest) ProtoMessage() {}
 
 func (x *RunVisitPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[26]
+	mi := &file_mimir_v1_visit_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2271,7 +2350,7 @@ func (x *RunVisitPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunVisitPlanRequest.ProtoReflect.Descriptor instead.
 func (*RunVisitPlanRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{26}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *RunVisitPlanRequest) GetId() string {
@@ -2290,7 +2369,7 @@ type RunVisitPlanResponse struct {
 
 func (x *RunVisitPlanResponse) Reset() {
 	*x = RunVisitPlanResponse{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[27]
+	mi := &file_mimir_v1_visit_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2302,7 +2381,7 @@ func (x *RunVisitPlanResponse) String() string {
 func (*RunVisitPlanResponse) ProtoMessage() {}
 
 func (x *RunVisitPlanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[27]
+	mi := &file_mimir_v1_visit_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2315,7 +2394,7 @@ func (x *RunVisitPlanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunVisitPlanResponse.ProtoReflect.Descriptor instead.
 func (*RunVisitPlanResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{27}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RunVisitPlanResponse) GetPlan() *VisitPlan {
@@ -2334,7 +2413,7 @@ type CancelVisitPlanRequest struct {
 
 func (x *CancelVisitPlanRequest) Reset() {
 	*x = CancelVisitPlanRequest{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[28]
+	mi := &file_mimir_v1_visit_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2346,7 +2425,7 @@ func (x *CancelVisitPlanRequest) String() string {
 func (*CancelVisitPlanRequest) ProtoMessage() {}
 
 func (x *CancelVisitPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[28]
+	mi := &file_mimir_v1_visit_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2359,7 +2438,7 @@ func (x *CancelVisitPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelVisitPlanRequest.ProtoReflect.Descriptor instead.
 func (*CancelVisitPlanRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{28}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CancelVisitPlanRequest) GetId() string {
@@ -2378,7 +2457,7 @@ type CancelVisitPlanResponse struct {
 
 func (x *CancelVisitPlanResponse) Reset() {
 	*x = CancelVisitPlanResponse{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[29]
+	mi := &file_mimir_v1_visit_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2390,7 +2469,7 @@ func (x *CancelVisitPlanResponse) String() string {
 func (*CancelVisitPlanResponse) ProtoMessage() {}
 
 func (x *CancelVisitPlanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[29]
+	mi := &file_mimir_v1_visit_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2403,7 +2482,7 @@ func (x *CancelVisitPlanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelVisitPlanResponse.ProtoReflect.Descriptor instead.
 func (*CancelVisitPlanResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{29}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *CancelVisitPlanResponse) GetPlan() *VisitPlan {
@@ -2414,16 +2493,19 @@ func (x *CancelVisitPlanResponse) GetPlan() *VisitPlan {
 }
 
 type SetVisitPlanRepeatRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	RepeatSeconds int64                  `protobuf:"varint,2,opt,name=repeat_seconds,json=repeatSeconds,proto3" json:"repeat_seconds,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// repeat_seconds as when creating; 0 with no schedule stops it.
+	RepeatSeconds int64 `protobuf:"varint,2,opt,name=repeat_seconds,json=repeatSeconds,proto3" json:"repeat_seconds,omitempty"`
+	// schedule, in place of repeat_seconds, as when creating.
+	Schedule      *PlanSchedule `protobuf:"bytes,3,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SetVisitPlanRepeatRequest) Reset() {
 	*x = SetVisitPlanRepeatRequest{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[30]
+	mi := &file_mimir_v1_visit_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2435,7 +2517,7 @@ func (x *SetVisitPlanRepeatRequest) String() string {
 func (*SetVisitPlanRepeatRequest) ProtoMessage() {}
 
 func (x *SetVisitPlanRepeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[30]
+	mi := &file_mimir_v1_visit_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2448,7 +2530,7 @@ func (x *SetVisitPlanRepeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetVisitPlanRepeatRequest.ProtoReflect.Descriptor instead.
 func (*SetVisitPlanRepeatRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{30}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SetVisitPlanRepeatRequest) GetId() string {
@@ -2465,6 +2547,13 @@ func (x *SetVisitPlanRepeatRequest) GetRepeatSeconds() int64 {
 	return 0
 }
 
+func (x *SetVisitPlanRepeatRequest) GetSchedule() *PlanSchedule {
+	if x != nil {
+		return x.Schedule
+	}
+	return nil
+}
+
 type SetVisitPlanRepeatResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Plan          *VisitPlan             `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
@@ -2474,7 +2563,7 @@ type SetVisitPlanRepeatResponse struct {
 
 func (x *SetVisitPlanRepeatResponse) Reset() {
 	*x = SetVisitPlanRepeatResponse{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[31]
+	mi := &file_mimir_v1_visit_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2486,7 +2575,7 @@ func (x *SetVisitPlanRepeatResponse) String() string {
 func (*SetVisitPlanRepeatResponse) ProtoMessage() {}
 
 func (x *SetVisitPlanRepeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[31]
+	mi := &file_mimir_v1_visit_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2499,7 +2588,7 @@ func (x *SetVisitPlanRepeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetVisitPlanRepeatResponse.ProtoReflect.Descriptor instead.
 func (*SetVisitPlanRepeatResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{31}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *SetVisitPlanRepeatResponse) GetPlan() *VisitPlan {
@@ -2518,7 +2607,7 @@ type DeleteVisitPlanRequest struct {
 
 func (x *DeleteVisitPlanRequest) Reset() {
 	*x = DeleteVisitPlanRequest{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[32]
+	mi := &file_mimir_v1_visit_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2530,7 +2619,7 @@ func (x *DeleteVisitPlanRequest) String() string {
 func (*DeleteVisitPlanRequest) ProtoMessage() {}
 
 func (x *DeleteVisitPlanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[32]
+	mi := &file_mimir_v1_visit_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2543,7 +2632,7 @@ func (x *DeleteVisitPlanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteVisitPlanRequest.ProtoReflect.Descriptor instead.
 func (*DeleteVisitPlanRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{32}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *DeleteVisitPlanRequest) GetId() string {
@@ -2561,7 +2650,7 @@ type DeleteVisitPlanResponse struct {
 
 func (x *DeleteVisitPlanResponse) Reset() {
 	*x = DeleteVisitPlanResponse{}
-	mi := &file_mimir_v1_visit_proto_msgTypes[33]
+	mi := &file_mimir_v1_visit_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2573,7 +2662,7 @@ func (x *DeleteVisitPlanResponse) String() string {
 func (*DeleteVisitPlanResponse) ProtoMessage() {}
 
 func (x *DeleteVisitPlanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_visit_proto_msgTypes[33]
+	mi := &file_mimir_v1_visit_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2586,7 +2675,7 @@ func (x *DeleteVisitPlanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteVisitPlanResponse.ProtoReflect.Descriptor instead.
 func (*DeleteVisitPlanResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{33}
+	return file_mimir_v1_visit_proto_rawDescGZIP(), []int{34}
 }
 
 var File_mimir_v1_visit_proto protoreflect.FileDescriptor
@@ -2664,7 +2753,7 @@ const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\tspeed_kmh\x18\x0e \x01(\x01R\bspeedKmh\x12\x1f\n" +
 	"\vroad_factor\x18\x0f \x01(\x01R\n" +
 	"roadFactor\x12#\n" +
-	"\rvisit_minutes\x18\x10 \x01(\x05R\fvisitMinutes\"\xb2\t\n" +
+	"\rvisit_minutes\x18\x10 \x01(\x05R\fvisitMinutes\"\xe6\t\n" +
 	"\tVisitPlan\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
@@ -2710,7 +2799,8 @@ const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\x0erepeat_seconds\x18\" \x01(\x03R\rrepeatSeconds\x12>\n" +
 	"\rnext_run_time\x18# \x01(\v2\x1a.google.protobuf.TimestampR\vnextRunTime\x12\x12\n" +
 	"\x04runs\x18$ \x01(\x05R\x04runs\x12-\n" +
-	"\x12salespeople_source\x18% \x01(\tR\x11salespeopleSource\"A\n" +
+	"\x12salespeople_source\x18% \x01(\tR\x11salespeopleSource\x122\n" +
+	"\bschedule\x18& \x01(\v2\x16.mimir.v1.PlanScheduleR\bschedule\"A\n" +
 	"\tAreaCount\x12\x12\n" +
 	"\x04area\x18\x01 \x01(\tR\x04area\x12 \n" +
 	"\vsalespeople\x18\x02 \x01(\x05R\vsalespeople\"\xe4\x01\n" +
@@ -2758,11 +2848,15 @@ const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\bsettings\x18\x01 \x01(\v2\x1b.mimir.v1.VisitPlanSettingsR\bsettings\"\x81\x01\n" +
 	"\x19SimulateVisitPlanResponse\x12'\n" +
 	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\x12;\n" +
-	"\vsalespeople\x18\x02 \x03(\v2\x19.mimir.v1.SalespersonPlanR\vsalespeople\"\x8c\x01\n" +
+	"\vsalespeople\x18\x02 \x03(\v2\x19.mimir.v1.SalespersonPlanR\vsalespeople\"\xc0\x01\n" +
 	"\x16CreateVisitPlanRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x127\n" +
 	"\bsettings\x18\x02 \x01(\v2\x1b.mimir.v1.VisitPlanSettingsR\bsettings\x12%\n" +
-	"\x0erepeat_seconds\x18\x03 \x01(\x03R\rrepeatSeconds\"B\n" +
+	"\x0erepeat_seconds\x18\x03 \x01(\x03R\rrepeatSeconds\x122\n" +
+	"\bschedule\x18\x04 \x01(\v2\x16.mimir.v1.PlanScheduleR\bschedule\"G\n" +
+	"\fPlanSchedule\x12\x1b\n" +
+	"\tat_minute\x18\x01 \x01(\x05R\batMinute\x12\x1a\n" +
+	"\bweekdays\x18\x02 \x03(\x05R\bweekdays\"B\n" +
 	"\x17CreateVisitPlanResponse\x12'\n" +
 	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\"\x17\n" +
 	"\x15ListVisitPlansRequest\"C\n" +
@@ -2796,10 +2890,11 @@ const file_mimir_v1_visit_proto_rawDesc = "" +
 	"\x16CancelVisitPlanRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"B\n" +
 	"\x17CancelVisitPlanResponse\x12'\n" +
-	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\"R\n" +
+	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\"\x86\x01\n" +
 	"\x19SetVisitPlanRepeatRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12%\n" +
-	"\x0erepeat_seconds\x18\x02 \x01(\x03R\rrepeatSeconds\"E\n" +
+	"\x0erepeat_seconds\x18\x02 \x01(\x03R\rrepeatSeconds\x122\n" +
+	"\bschedule\x18\x03 \x01(\v2\x16.mimir.v1.PlanScheduleR\bschedule\"E\n" +
 	"\x1aSetVisitPlanRepeatResponse\x12'\n" +
 	"\x04plan\x18\x01 \x01(\v2\x13.mimir.v1.VisitPlanR\x04plan\"(\n" +
 	"\x16DeleteVisitPlanRequest\x12\x0e\n" +
@@ -2831,7 +2926,7 @@ func file_mimir_v1_visit_proto_rawDescGZIP() []byte {
 	return file_mimir_v1_visit_proto_rawDescData
 }
 
-var file_mimir_v1_visit_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
+var file_mimir_v1_visit_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
 var file_mimir_v1_visit_proto_goTypes = []any{
 	(*VisitStop)(nil),                   // 0: mimir.v1.VisitStop
 	(*Salesperson)(nil),                 // 1: mimir.v1.Salesperson
@@ -2850,85 +2945,89 @@ var file_mimir_v1_visit_proto_goTypes = []any{
 	(*SimulateVisitPlanRequest)(nil),    // 14: mimir.v1.SimulateVisitPlanRequest
 	(*SimulateVisitPlanResponse)(nil),   // 15: mimir.v1.SimulateVisitPlanResponse
 	(*CreateVisitPlanRequest)(nil),      // 16: mimir.v1.CreateVisitPlanRequest
-	(*CreateVisitPlanResponse)(nil),     // 17: mimir.v1.CreateVisitPlanResponse
-	(*ListVisitPlansRequest)(nil),       // 18: mimir.v1.ListVisitPlansRequest
-	(*ListVisitPlansResponse)(nil),      // 19: mimir.v1.ListVisitPlansResponse
-	(*GetVisitPlanRequest)(nil),         // 20: mimir.v1.GetVisitPlanRequest
-	(*GetVisitPlanResponse)(nil),        // 21: mimir.v1.GetVisitPlanResponse
-	(*ListPlanSalespeopleRequest)(nil),  // 22: mimir.v1.ListPlanSalespeopleRequest
-	(*ListPlanSalespeopleResponse)(nil), // 23: mimir.v1.ListPlanSalespeopleResponse
-	(*GetSalespersonPlanRequest)(nil),   // 24: mimir.v1.GetSalespersonPlanRequest
-	(*GetSalespersonPlanResponse)(nil),  // 25: mimir.v1.GetSalespersonPlanResponse
-	(*RunVisitPlanRequest)(nil),         // 26: mimir.v1.RunVisitPlanRequest
-	(*RunVisitPlanResponse)(nil),        // 27: mimir.v1.RunVisitPlanResponse
-	(*CancelVisitPlanRequest)(nil),      // 28: mimir.v1.CancelVisitPlanRequest
-	(*CancelVisitPlanResponse)(nil),     // 29: mimir.v1.CancelVisitPlanResponse
-	(*SetVisitPlanRepeatRequest)(nil),   // 30: mimir.v1.SetVisitPlanRepeatRequest
-	(*SetVisitPlanRepeatResponse)(nil),  // 31: mimir.v1.SetVisitPlanRepeatResponse
-	(*DeleteVisitPlanRequest)(nil),      // 32: mimir.v1.DeleteVisitPlanRequest
-	(*DeleteVisitPlanResponse)(nil),     // 33: mimir.v1.DeleteVisitPlanResponse
-	(*Connection)(nil),                  // 34: mimir.v1.Connection
-	(JobStatus)(0),                      // 35: mimir.v1.JobStatus
-	(*timestamppb.Timestamp)(nil),       // 36: google.protobuf.Timestamp
+	(*PlanSchedule)(nil),                // 17: mimir.v1.PlanSchedule
+	(*CreateVisitPlanResponse)(nil),     // 18: mimir.v1.CreateVisitPlanResponse
+	(*ListVisitPlansRequest)(nil),       // 19: mimir.v1.ListVisitPlansRequest
+	(*ListVisitPlansResponse)(nil),      // 20: mimir.v1.ListVisitPlansResponse
+	(*GetVisitPlanRequest)(nil),         // 21: mimir.v1.GetVisitPlanRequest
+	(*GetVisitPlanResponse)(nil),        // 22: mimir.v1.GetVisitPlanResponse
+	(*ListPlanSalespeopleRequest)(nil),  // 23: mimir.v1.ListPlanSalespeopleRequest
+	(*ListPlanSalespeopleResponse)(nil), // 24: mimir.v1.ListPlanSalespeopleResponse
+	(*GetSalespersonPlanRequest)(nil),   // 25: mimir.v1.GetSalespersonPlanRequest
+	(*GetSalespersonPlanResponse)(nil),  // 26: mimir.v1.GetSalespersonPlanResponse
+	(*RunVisitPlanRequest)(nil),         // 27: mimir.v1.RunVisitPlanRequest
+	(*RunVisitPlanResponse)(nil),        // 28: mimir.v1.RunVisitPlanResponse
+	(*CancelVisitPlanRequest)(nil),      // 29: mimir.v1.CancelVisitPlanRequest
+	(*CancelVisitPlanResponse)(nil),     // 30: mimir.v1.CancelVisitPlanResponse
+	(*SetVisitPlanRepeatRequest)(nil),   // 31: mimir.v1.SetVisitPlanRepeatRequest
+	(*SetVisitPlanRepeatResponse)(nil),  // 32: mimir.v1.SetVisitPlanRepeatResponse
+	(*DeleteVisitPlanRequest)(nil),      // 33: mimir.v1.DeleteVisitPlanRequest
+	(*DeleteVisitPlanResponse)(nil),     // 34: mimir.v1.DeleteVisitPlanResponse
+	(*Connection)(nil),                  // 35: mimir.v1.Connection
+	(JobStatus)(0),                      // 36: mimir.v1.JobStatus
+	(*timestamppb.Timestamp)(nil),       // 37: google.protobuf.Timestamp
 }
 var file_mimir_v1_visit_proto_depIdxs = []int32{
 	0,  // 0: mimir.v1.PlanVisitsRequest.stops:type_name -> mimir.v1.VisitStop
 	1,  // 1: mimir.v1.PlanVisitsRequest.salespeople:type_name -> mimir.v1.Salesperson
 	3,  // 2: mimir.v1.Route.visits:type_name -> mimir.v1.PlannedVisit
 	4,  // 3: mimir.v1.PlanVisitsResponse.routes:type_name -> mimir.v1.Route
-	34, // 4: mimir.v1.VisitPlanSettings.connection:type_name -> mimir.v1.Connection
+	35, // 4: mimir.v1.VisitPlanSettings.connection:type_name -> mimir.v1.Connection
 	1,  // 5: mimir.v1.VisitPlanSettings.salespeople:type_name -> mimir.v1.Salesperson
-	35, // 6: mimir.v1.VisitPlan.status:type_name -> mimir.v1.JobStatus
+	36, // 6: mimir.v1.VisitPlan.status:type_name -> mimir.v1.JobStatus
 	8,  // 7: mimir.v1.VisitPlan.areas:type_name -> mimir.v1.AreaCount
-	36, // 8: mimir.v1.VisitPlan.create_time:type_name -> google.protobuf.Timestamp
-	36, // 9: mimir.v1.VisitPlan.start_time:type_name -> google.protobuf.Timestamp
-	36, // 10: mimir.v1.VisitPlan.end_time:type_name -> google.protobuf.Timestamp
-	36, // 11: mimir.v1.VisitPlan.next_run_time:type_name -> google.protobuf.Timestamp
-	10, // 12: mimir.v1.DayVisit.customer:type_name -> mimir.v1.PlannedCustomer
-	11, // 13: mimir.v1.PlanDay.visits:type_name -> mimir.v1.DayVisit
-	9,  // 14: mimir.v1.SalespersonPlan.salesperson:type_name -> mimir.v1.PlanSalesperson
-	12, // 15: mimir.v1.SalespersonPlan.days:type_name -> mimir.v1.PlanDay
-	10, // 16: mimir.v1.SalespersonPlan.likely_left:type_name -> mimir.v1.PlannedCustomer
-	6,  // 17: mimir.v1.SimulateVisitPlanRequest.settings:type_name -> mimir.v1.VisitPlanSettings
-	7,  // 18: mimir.v1.SimulateVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
-	13, // 19: mimir.v1.SimulateVisitPlanResponse.salespeople:type_name -> mimir.v1.SalespersonPlan
-	6,  // 20: mimir.v1.CreateVisitPlanRequest.settings:type_name -> mimir.v1.VisitPlanSettings
-	7,  // 21: mimir.v1.CreateVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
-	7,  // 22: mimir.v1.ListVisitPlansResponse.plans:type_name -> mimir.v1.VisitPlan
-	7,  // 23: mimir.v1.GetVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
-	9,  // 24: mimir.v1.ListPlanSalespeopleResponse.salespeople:type_name -> mimir.v1.PlanSalesperson
-	7,  // 25: mimir.v1.GetSalespersonPlanResponse.plan:type_name -> mimir.v1.VisitPlan
-	13, // 26: mimir.v1.GetSalespersonPlanResponse.salesperson:type_name -> mimir.v1.SalespersonPlan
-	7,  // 27: mimir.v1.RunVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
-	7,  // 28: mimir.v1.CancelVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
-	7,  // 29: mimir.v1.SetVisitPlanRepeatResponse.plan:type_name -> mimir.v1.VisitPlan
-	2,  // 30: mimir.v1.VisitService.PlanVisits:input_type -> mimir.v1.PlanVisitsRequest
-	14, // 31: mimir.v1.VisitService.SimulateVisitPlan:input_type -> mimir.v1.SimulateVisitPlanRequest
-	16, // 32: mimir.v1.VisitService.CreateVisitPlan:input_type -> mimir.v1.CreateVisitPlanRequest
-	18, // 33: mimir.v1.VisitService.ListVisitPlans:input_type -> mimir.v1.ListVisitPlansRequest
-	20, // 34: mimir.v1.VisitService.GetVisitPlan:input_type -> mimir.v1.GetVisitPlanRequest
-	22, // 35: mimir.v1.VisitService.ListPlanSalespeople:input_type -> mimir.v1.ListPlanSalespeopleRequest
-	24, // 36: mimir.v1.VisitService.GetSalespersonPlan:input_type -> mimir.v1.GetSalespersonPlanRequest
-	26, // 37: mimir.v1.VisitService.RunVisitPlan:input_type -> mimir.v1.RunVisitPlanRequest
-	28, // 38: mimir.v1.VisitService.CancelVisitPlan:input_type -> mimir.v1.CancelVisitPlanRequest
-	30, // 39: mimir.v1.VisitService.SetVisitPlanRepeat:input_type -> mimir.v1.SetVisitPlanRepeatRequest
-	32, // 40: mimir.v1.VisitService.DeleteVisitPlan:input_type -> mimir.v1.DeleteVisitPlanRequest
-	5,  // 41: mimir.v1.VisitService.PlanVisits:output_type -> mimir.v1.PlanVisitsResponse
-	15, // 42: mimir.v1.VisitService.SimulateVisitPlan:output_type -> mimir.v1.SimulateVisitPlanResponse
-	17, // 43: mimir.v1.VisitService.CreateVisitPlan:output_type -> mimir.v1.CreateVisitPlanResponse
-	19, // 44: mimir.v1.VisitService.ListVisitPlans:output_type -> mimir.v1.ListVisitPlansResponse
-	21, // 45: mimir.v1.VisitService.GetVisitPlan:output_type -> mimir.v1.GetVisitPlanResponse
-	23, // 46: mimir.v1.VisitService.ListPlanSalespeople:output_type -> mimir.v1.ListPlanSalespeopleResponse
-	25, // 47: mimir.v1.VisitService.GetSalespersonPlan:output_type -> mimir.v1.GetSalespersonPlanResponse
-	27, // 48: mimir.v1.VisitService.RunVisitPlan:output_type -> mimir.v1.RunVisitPlanResponse
-	29, // 49: mimir.v1.VisitService.CancelVisitPlan:output_type -> mimir.v1.CancelVisitPlanResponse
-	31, // 50: mimir.v1.VisitService.SetVisitPlanRepeat:output_type -> mimir.v1.SetVisitPlanRepeatResponse
-	33, // 51: mimir.v1.VisitService.DeleteVisitPlan:output_type -> mimir.v1.DeleteVisitPlanResponse
-	41, // [41:52] is the sub-list for method output_type
-	30, // [30:41] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	37, // 8: mimir.v1.VisitPlan.create_time:type_name -> google.protobuf.Timestamp
+	37, // 9: mimir.v1.VisitPlan.start_time:type_name -> google.protobuf.Timestamp
+	37, // 10: mimir.v1.VisitPlan.end_time:type_name -> google.protobuf.Timestamp
+	37, // 11: mimir.v1.VisitPlan.next_run_time:type_name -> google.protobuf.Timestamp
+	17, // 12: mimir.v1.VisitPlan.schedule:type_name -> mimir.v1.PlanSchedule
+	10, // 13: mimir.v1.DayVisit.customer:type_name -> mimir.v1.PlannedCustomer
+	11, // 14: mimir.v1.PlanDay.visits:type_name -> mimir.v1.DayVisit
+	9,  // 15: mimir.v1.SalespersonPlan.salesperson:type_name -> mimir.v1.PlanSalesperson
+	12, // 16: mimir.v1.SalespersonPlan.days:type_name -> mimir.v1.PlanDay
+	10, // 17: mimir.v1.SalespersonPlan.likely_left:type_name -> mimir.v1.PlannedCustomer
+	6,  // 18: mimir.v1.SimulateVisitPlanRequest.settings:type_name -> mimir.v1.VisitPlanSettings
+	7,  // 19: mimir.v1.SimulateVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	13, // 20: mimir.v1.SimulateVisitPlanResponse.salespeople:type_name -> mimir.v1.SalespersonPlan
+	6,  // 21: mimir.v1.CreateVisitPlanRequest.settings:type_name -> mimir.v1.VisitPlanSettings
+	17, // 22: mimir.v1.CreateVisitPlanRequest.schedule:type_name -> mimir.v1.PlanSchedule
+	7,  // 23: mimir.v1.CreateVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	7,  // 24: mimir.v1.ListVisitPlansResponse.plans:type_name -> mimir.v1.VisitPlan
+	7,  // 25: mimir.v1.GetVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	9,  // 26: mimir.v1.ListPlanSalespeopleResponse.salespeople:type_name -> mimir.v1.PlanSalesperson
+	7,  // 27: mimir.v1.GetSalespersonPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	13, // 28: mimir.v1.GetSalespersonPlanResponse.salesperson:type_name -> mimir.v1.SalespersonPlan
+	7,  // 29: mimir.v1.RunVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	7,  // 30: mimir.v1.CancelVisitPlanResponse.plan:type_name -> mimir.v1.VisitPlan
+	17, // 31: mimir.v1.SetVisitPlanRepeatRequest.schedule:type_name -> mimir.v1.PlanSchedule
+	7,  // 32: mimir.v1.SetVisitPlanRepeatResponse.plan:type_name -> mimir.v1.VisitPlan
+	2,  // 33: mimir.v1.VisitService.PlanVisits:input_type -> mimir.v1.PlanVisitsRequest
+	14, // 34: mimir.v1.VisitService.SimulateVisitPlan:input_type -> mimir.v1.SimulateVisitPlanRequest
+	16, // 35: mimir.v1.VisitService.CreateVisitPlan:input_type -> mimir.v1.CreateVisitPlanRequest
+	19, // 36: mimir.v1.VisitService.ListVisitPlans:input_type -> mimir.v1.ListVisitPlansRequest
+	21, // 37: mimir.v1.VisitService.GetVisitPlan:input_type -> mimir.v1.GetVisitPlanRequest
+	23, // 38: mimir.v1.VisitService.ListPlanSalespeople:input_type -> mimir.v1.ListPlanSalespeopleRequest
+	25, // 39: mimir.v1.VisitService.GetSalespersonPlan:input_type -> mimir.v1.GetSalespersonPlanRequest
+	27, // 40: mimir.v1.VisitService.RunVisitPlan:input_type -> mimir.v1.RunVisitPlanRequest
+	29, // 41: mimir.v1.VisitService.CancelVisitPlan:input_type -> mimir.v1.CancelVisitPlanRequest
+	31, // 42: mimir.v1.VisitService.SetVisitPlanRepeat:input_type -> mimir.v1.SetVisitPlanRepeatRequest
+	33, // 43: mimir.v1.VisitService.DeleteVisitPlan:input_type -> mimir.v1.DeleteVisitPlanRequest
+	5,  // 44: mimir.v1.VisitService.PlanVisits:output_type -> mimir.v1.PlanVisitsResponse
+	15, // 45: mimir.v1.VisitService.SimulateVisitPlan:output_type -> mimir.v1.SimulateVisitPlanResponse
+	18, // 46: mimir.v1.VisitService.CreateVisitPlan:output_type -> mimir.v1.CreateVisitPlanResponse
+	20, // 47: mimir.v1.VisitService.ListVisitPlans:output_type -> mimir.v1.ListVisitPlansResponse
+	22, // 48: mimir.v1.VisitService.GetVisitPlan:output_type -> mimir.v1.GetVisitPlanResponse
+	24, // 49: mimir.v1.VisitService.ListPlanSalespeople:output_type -> mimir.v1.ListPlanSalespeopleResponse
+	26, // 50: mimir.v1.VisitService.GetSalespersonPlan:output_type -> mimir.v1.GetSalespersonPlanResponse
+	28, // 51: mimir.v1.VisitService.RunVisitPlan:output_type -> mimir.v1.RunVisitPlanResponse
+	30, // 52: mimir.v1.VisitService.CancelVisitPlan:output_type -> mimir.v1.CancelVisitPlanResponse
+	32, // 53: mimir.v1.VisitService.SetVisitPlanRepeat:output_type -> mimir.v1.SetVisitPlanRepeatResponse
+	34, // 54: mimir.v1.VisitService.DeleteVisitPlan:output_type -> mimir.v1.DeleteVisitPlanResponse
+	44, // [44:55] is the sub-list for method output_type
+	33, // [33:44] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_visit_proto_init() }
@@ -2943,7 +3042,7 @@ func file_mimir_v1_visit_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_visit_proto_rawDesc), len(file_mimir_v1_visit_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   34,
+			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

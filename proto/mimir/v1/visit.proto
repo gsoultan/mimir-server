@@ -250,6 +250,8 @@ message VisitPlan {
   // salespeople_source is where salespeople come from: "list", "upload"
   // or "database".
   string salespeople_source = 37;
+  // schedule is when it is made again, when on a schedule.
+  PlanSchedule schedule = 38;
 }
 
 message AreaCount {
@@ -336,6 +338,19 @@ message CreateVisitPlanRequest {
   // repeat_seconds makes it again that often, from an hour to 30 days,
   // such as 86400 for every day; only for customers from a database.
   int64 repeat_seconds = 3;
+  // schedule, in place of repeat_seconds, makes it again at a time of
+  // day on chosen weekdays, in the settings' time zone.
+  PlanSchedule schedule = 4;
+}
+
+// PlanSchedule is when a repeating plan is made, in its time zone.
+message PlanSchedule {
+  // at_minute is the time of day, in minutes after midnight: 330 is
+  // 05:30.
+  int32 at_minute = 1;
+  // weekdays it is made on, 0 (Sunday) to 6 (Saturday); none is every
+  // day.
+  repeated int32 weekdays = 2;
 }
 
 message CreateVisitPlanResponse {
@@ -379,6 +394,9 @@ message ListPlanSalespeopleResponse {
 }
 
 message GetSalespersonPlanRequest {
+  // plan_id is the plan to read; empty reads the plan of the caller's
+  // team made most recently that has the salesperson, so a salesperson's
+  // app needs only their own id.
   string plan_id = 1;
   string salesperson_id = 2;
 }
@@ -406,7 +424,10 @@ message CancelVisitPlanResponse {
 
 message SetVisitPlanRepeatRequest {
   string id = 1;
+  // repeat_seconds as when creating; 0 with no schedule stops it.
   int64 repeat_seconds = 2;
+  // schedule, in place of repeat_seconds, as when creating.
+  PlanSchedule schedule = 3;
 }
 
 message SetVisitPlanRepeatResponse {

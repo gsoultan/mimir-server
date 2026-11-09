@@ -57,6 +57,7 @@ CREATE TABLE "visit_plans" (
     "start_time" timestamptz,
     "end_time" timestamptz,
     "repeat_seconds" int8 DEFAULT 0 NOT NULL,
+    "schedule" jsonb DEFAULT '{}'::jsonb NOT NULL,
     "next_run" timestamptz,
     "runs" int8 DEFAULT 0 NOT NULL,
     PRIMARY KEY ("id"),
