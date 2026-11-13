@@ -10,7 +10,6 @@
 // license from Gembit Soultan Shirazi. See the LICENSE and LICENSING.md files
 // at the root of this repository.
 
-
 // Package drift tells when the questions a table model is asked stop
 // looking like the examples it learned from, column by column. It needs
 // no feedback: only the questions themselves.

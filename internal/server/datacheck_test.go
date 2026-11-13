@@ -10,7 +10,6 @@
 // license from Gembit Soultan Shirazi. See the LICENSE and LICENSING.md files
 // at the root of this repository.
 
-
 package server_test
 
 import (
