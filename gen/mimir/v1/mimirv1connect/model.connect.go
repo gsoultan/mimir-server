@@ -125,7 +125,8 @@ type ModelServiceClient interface {
 	UseModelVersion(context.Context, *connect.Request[v1.UseModelVersionRequest]) (*connect.Response[v1.UseModelVersionResponse], error)
 	// GetModelQuality says how a model does in use: its answers each day,
 	// the feedback apps sent on them (PredictService.SendFeedback) and how
-	// many of those it got right.
+	// many of those it got right, and whether the questions it is asked
+	// still look like the examples it learned from.
 	GetModelQuality(context.Context, *connect.Request[v1.GetModelQualityRequest]) (*connect.Response[v1.GetModelQualityResponse], error)
 }
 
@@ -343,7 +344,8 @@ type ModelServiceHandler interface {
 	UseModelVersion(context.Context, *connect.Request[v1.UseModelVersionRequest]) (*connect.Response[v1.UseModelVersionResponse], error)
 	// GetModelQuality says how a model does in use: its answers each day,
 	// the feedback apps sent on them (PredictService.SendFeedback) and how
-	// many of those it got right.
+	// many of those it got right, and whether the questions it is asked
+	// still look like the examples it learned from.
 	GetModelQuality(context.Context, *connect.Request[v1.GetModelQualityRequest]) (*connect.Response[v1.GetModelQualityResponse], error)
 }
 

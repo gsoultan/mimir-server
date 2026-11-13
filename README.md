@@ -741,6 +741,21 @@ places to act. `ModelService.GetModelQuality` returns the same counts.
 Answers are written in batches every few seconds; daily counts are kept
 for 400 days.
 
+Most apps never send the right answers back, so the server also watches
+the questions themselves. Every hour it compares the last 7 days'
+questions to each table model (up to 2,000 of the newest, from at least
+100) with the examples its live version learned from, column by column:
+how often a column is empty, which ranges its numbers fall in, how often
+each value comes up and how often one it never saw does. A column whose
+recent questions differ a lot (a population stability index of 0.25,
+after taking off what chance alone gives a sample that size) shows on
+the model's page in plain words, such as "Mostly 20 to 80 in the
+examples it learned from; mostly 150 to 400 in recent questions", alerts
+owners and sends a `model.data_changed` webhook. Each change alerts once,
+and again after a week if it lasts. `GetModelQuality` returns the check
+in its `data_*` fields. Uploaded models, whose examples the server never
+saw, aren't checked.
+
 ## Use it from your app
 
 Every method works over Connect (HTTP/JSON), gRPC and gRPC-Web. The API is

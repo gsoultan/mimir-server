@@ -146,6 +146,22 @@ func _assertCollectionShape(m m0.Collection) {
 	}
 }
 
+// _assertDataCheckShape fails to compile if m0.DataCheck gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertDataCheckShape(m m0.DataCheck) {
+	type shape m0.DataCheck
+	_ = shape{
+		m.Model,
+		m.VersionID,
+		m.Baseline,
+		m.CheckTime,
+		m.Questions,
+		m.Changes,
+		m.AlertTime,
+		m.AlertColumns,
+	}
+}
+
 // _assertDatasetShape fails to compile if m0.Dataset gains, loses, renames or
 // reorders a field. Regenerate: `storm generate`.
 func _assertDatasetShape(m m0.Dataset) {

@@ -103,7 +103,7 @@ function ModelDetails() {
     <Page
       title={m.name}
       crumbs={[{ label: "Models", to: "/models" }, { label: m.name }]}
-      badge={quality?.dropped ? <StatusPill tone="warn">Needs a look</StatusPill> : <StatusPill tone="ok">Ready</StatusPill>}
+      badge={quality?.dropped || quality?.dataChanged ? <StatusPill tone="warn">Needs a look</StatusPill> : <StatusPill tone="ok">Ready</StatusPill>}
       intro={`${arch?.title ?? m.architecture}${m.baseModelName ? `, fine-tuned from ${m.baseModelName}` : ""} · ${bytes(m.sizeBytes)} · added ${ago(m.createTime)}${m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? ` · last learned ${ago(m.updateTime)}` : ""}`}
       actions={
         <Group gap="xs">

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Warn when the questions change
+
+- Every hour the server compares the last week's questions to each table
+  model with the examples its live version learned from, column by
+  column, with no feedback needed. When a column looks a lot different
+  (a number range that moved, values it never saw, a column left empty)
+  the model's page says so in plain words, the home page lists it under
+  what needs a look, owners get an email or Telegram alert, and a
+  `model.data_changed` webhook goes out, once per change.
+  `ModelService.GetModelQuality` returns the same check.
+
 ### More model types
 
 - **What goes together** lists, for any product, the products bought in

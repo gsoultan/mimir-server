@@ -223,6 +223,18 @@ func (s *Service) GetModelQuality(ctx context.Context, req *connect.Request[mimi
 	q := week(rows, now)
 	res.WeekAnswers, res.WeekFeedback, res.WeekAccuracy = q.answers, q.feedback, q.accuracy()
 	res.Dropped = q.dropped(m.Accuracy)
+	d, ok, err := s.store.GetDataCheck(ctx, m.ID)
+	if err != nil {
+		return nil, s.internal(ctx, err)
+	}
+	// A check made for another version says nothing about this one.
+	if ok && d.VersionID == m.VersionID && len(d.Baseline) > 0 {
+		res.DataChecked, res.DataQuestions, res.DataCheckTime = true, d.Questions, timestamppb.New(d.CheckTime)
+		for _, c := range d.Changes {
+			res.DataChanges = append(res.DataChanges, &mimirv1.DataChange{Column: c.Column, ALot: c.ALot, Score: c.Score, Summary: c.Summary})
+			res.DataChanged = res.DataChanged || c.ALot
+		}
+	}
 	return connect.NewResponse(res), nil
 }
 
