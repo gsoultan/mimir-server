@@ -842,9 +842,22 @@ It serves `GET /v1/models`, `POST /v1/chat/completions`,
 `stream` (server-sent events, ending in `data: [DONE]`, and
 `stream_options.include_usage`), `max_tokens` or
 `max_completion_tokens`, `temperature`, `seed` and `stop` (up to four
-strings). System and developer messages become the instructions. Tools,
-images, `n` above 1 and log probabilities aren't supported and are refused
-with a 400.
+strings). System and developer messages become the instructions. Images,
+`n` above 1 and log probabilities aren't supported and are refused with a
+400.
+
+Chats take `tools` (functions with a JSON schema), `tool_choice` (`auto`,
+`none`, `required` or one function) and `parallel_tool_calls`, so agent
+frameworks work too. The model is shown the tools in the format most open
+chat models learned (`<tools>` and `<tool_call>`, as Qwen and Hermes write
+them; a bare call object, as Llama 3.1 writes it, is read too). Its calls
+come back as `tool_calls` with `finish_reason` `tool_calls`, streamed as
+one `tool_calls` delta once the call is complete; earlier calls and `tool`
+messages with their answers are passed back to the model. How well a model
+calls tools depends on whether it was taught to: Qwen 2.5 and later, Hermes
+and Llama 3.1 and later do it well; small models often don't. Collections
+call no tools: they leave offered tools unused and refuse a chat that
+requires one.
 
 `/v1/embeddings` turns `input`, a string or a list of up to 256, into an
 embedding each, for search and grouping: the mean of the model's last
@@ -860,6 +873,33 @@ curl localhost:8080/v1/embeddings \
   -H 'Content-Type: application/json' \
   -d '{"model": "tiny-llama", "input": ["Where is my order?", "Shipping times"]}'
 ```
+
+### MCP: models for AI assistants
+
+Claude, ChatGPT, Cursor and other assistants that speak the Model Context
+Protocol can use the models at `/mcp` (the Streamable HTTP transport) with
+a mimir API key sent as `Authorization: Bearer mimir_...`. Keys,
+per-model access and limits apply as for every other call. The tools are:
+
+- `list_models`: the models and document collections the key may use,
+  what each model answers, and its columns.
+- `predict`: ask a model about one case, given by column name (and a
+  photo, in base64, for a model that looks at photos).
+- `score_table`: ask a model about up to 1,000 rows at once; a row it
+  can't read gets an error of its own.
+- `search_documents`: the passages of a collection that best match a query.
+- `ask_documents`: an answer written from a collection, with its sources.
+
+Models and collections are named by name or id. For Claude Code, for
+example:
+
+```sh
+claude mcp add --transport http mimir http://localhost:8080/mcp \
+  --header "Authorization: Bearer mimir_..."
+```
+
+The server keeps no session: it answers POST only, and GET is refused with
+a 405 as the transport allows.
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public.
