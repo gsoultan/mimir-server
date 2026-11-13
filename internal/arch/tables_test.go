@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"math"
 	"testing"
 
@@ -97,5 +98,29 @@ func TestBlendSavesAndLoads(t *testing.T) {
 		if math.Abs(float64(got[i]-want[i])) > 1e-4 {
 			t.Fatalf("answer %d is %v, want %v", i, got[i], want[i])
 		}
+	}
+}
+
+func TestRulesRoundTrip(t *testing.T) {
+	rules := map[string]int{"price": Down, "visits, last week": Up}
+	s := FormatRules(rules)
+	if s != `{"price":"down","visits, last week":"up"}` {
+		t.Fatalf("FormatRules = %s", s)
+	}
+	back, err := ParseRules(s)
+	if err != nil || len(back) != 2 || back["price"] != Down || back["visits, last week"] != Up {
+		t.Fatalf("ParseRules = %v, %v", back, err)
+	}
+	if r, err := ParseRules(""); r != nil || err != nil || FormatRules(nil) != "" {
+		t.Errorf("no rules: %v, %v", r, err)
+	}
+	cols := []schema.Column{{Name: "price", Kind: schema.Number}, {Name: "region", Kind: schema.Category, Values: []string{"a", "b"}}}
+	for _, bad := range []map[string]int{{"region": Up}, {"weather": Up}, {"price": 2}} {
+		if err := CheckRules(bad, cols); !errors.Is(err, ErrBadRules) {
+			t.Errorf("CheckRules(%v) = %v", bad, err)
+		}
+	}
+	if _, err := ParseRules(`{"price":"sideways"}`); !errors.Is(err, ErrBadRules) {
+		t.Errorf("a sideways rule: %v", err)
 	}
 }

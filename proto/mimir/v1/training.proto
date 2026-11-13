@@ -323,6 +323,19 @@ message TrainingSettings {
   // layers, when set, shapes a table model in place of its usual hidden
   // layers: at most 8 steps, with at least one dense.
   repeated Layer layers = 5;
+  // rules, when set, keep a boosted-tree model's answer going one way as
+  // a number column rises: up or down, the rest free. Only for model
+  // types whose rules flag is set, and for yes-or-no answers the chance
+  // of the second label.
+  repeated ColumnRule rules = 6;
+}
+
+// ColumnRule says which way a model's answer goes as a number column
+// rises, all else the same.
+message ColumnRule {
+  string column = 1;
+  // direction is "up" or "down".
+  string direction = 2;
 }
 
 // Layer is one step of a designed table model.

@@ -43,11 +43,13 @@ type Learner struct {
 	// for a number). It returns the model as a module and its shape for
 	// Build. progress, when not nil, is told how far it is.
 	Fit func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(done, total int)) (nn.Module, string, error)
-	// FitColumns, when set, is called in place of Fit with the input
-	// columns the table's numbers come from, for a learner that treats
-	// some of them specially, such as trees reading a category column as
-	// categories rather than as separate yes-or-no columns.
-	FitColumns func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(done, total int)) (nn.Module, string, error)
+	// FitColumns, when set, is called in place of Fit with what is known
+	// of the input columns the table's numbers come from, for a learner
+	// that treats some of them specially, such as trees reading a
+	// category column as categories rather than as separate yes-or-no
+	// columns, or keeping a rule that the answer goes up as a column
+	// rises.
+	FitColumns func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, in Inputs, progress func(done, total int)) (nn.Module, string, error)
 	// Cells, set in place of Fit, learns from a table's cells themselves,
 	// for a model whose questions aren't the table's rows, or that has no
 	// answer column: it says what its questions name and its answers are.
@@ -83,10 +85,10 @@ func shapeJSON(v any) (string, error) {
 
 // withColumns returns a Learner that fits as fit does, with the columns
 // when they are known and without when they are not.
-func withColumns(fit func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(int, int)) (nn.Module, string, error), build func(string) (nn.Module, error)) *Learner {
+func withColumns(fit func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, in Inputs, progress func(int, int)) (nn.Module, string, error), build func(string) (nn.Module, error)) *Learner {
 	return &Learner{
 		Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
-			return fit(ctx, d, task, classes, nil, progress)
+			return fit(ctx, d, task, classes, Inputs{}, progress)
 		},
 		FitColumns: fit,
 		Build:      build,
@@ -118,9 +120,14 @@ func categoryOption(cols []schema.Column, d tabular.Data) []tree.Option {
 }
 
 var boosting = withColumns(
-	func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(int, int)) (nn.Module, string, error) {
+	func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, in Inputs, progress func(int, int)) (nn.Module, string, error) {
 		opts := []tree.Option{tree.Trees(boostTrees), tree.LearningRate(0.05), tree.MinLeaf(5)}
-		opts = append(opts, categoryOption(cols, d)...)
+		opts = append(opts, categoryOption(in.Columns, d)...)
+		rules, err := monotone(in, d, classes)
+		if err != nil {
+			return nil, "", err
+		}
+		opts = append(opts, rules...)
 		if classes > 0 {
 			opts = append(opts, tree.Classes(classes))
 		}
@@ -147,7 +154,7 @@ var boosting = withColumns(
 // answer below 0 for such numbers, and is pulled about by the few large
 // ones.
 var counts = withColumns(
-	func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(int, int)) (nn.Module, string, error) {
+	func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, in Inputs, progress func(int, int)) (nn.Module, string, error) {
 		whole, any := true, false
 		for _, y := range d.Y {
 			if y < 0 {
@@ -164,7 +171,12 @@ var counts = withColumns(
 			loss = tree.Poisson()
 		}
 		opts := []tree.Option{tree.Trees(boostTrees), tree.LearningRate(0.05), tree.MinLeaf(5), tree.Loss(loss)}
-		opts = append(opts, categoryOption(cols, d)...)
+		opts = append(opts, categoryOption(in.Columns, d)...)
+		rules, err := monotone(in, d, 0)
+		if err != nil {
+			return nil, "", err
+		}
+		opts = append(opts, rules...)
 		if progress != nil {
 			opts = append(opts, tree.Progress(progress))
 		}
@@ -187,9 +199,9 @@ var counts = withColumns(
 const countPower = 1.5
 
 var forest = withColumns(
-	func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(int, int)) (nn.Module, string, error) {
+	func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, in Inputs, progress func(int, int)) (nn.Module, string, error) {
 		opts := []tree.Option{tree.Trees(200), tree.MinLeaf(2)}
-		opts = append(opts, categoryOption(cols, d)...)
+		opts = append(opts, categoryOption(in.Columns, d)...)
 		if classes > 0 {
 			opts = append(opts, tree.Classes(classes))
 		}
@@ -466,19 +478,19 @@ var learned = []Architecture{
 		Name:        "number-counts",
 		Title:       "Counts and amounts with many zeros",
 		Description: "Boosted trees for a number that is never below 0 and is often exactly 0, like orders a week, visits a month or the cost of a claim. It never answers below 0, and a few very large values don't pull the other answers about.",
-		Input:       Table, AnyText: true, Output: Number, Learner: counts,
+		Input:       Table, AnyText: true, Output: Number, Learner: counts, Rules: true,
 	},
 	{
 		Name:        "table-boost",
 		Title:       "Boosted trees",
 		Description: "Hundreds of small decision trees, each fixing the mistakes of the ones before, pick a category. Usually the most accurate choice for a table, and quick to teach.",
-		Input:       Table, AnyText: true, Learner: boosting,
+		Input:       Table, AnyText: true, Learner: boosting, Rules: true,
 	},
 	{
 		Name:        "number-boost",
 		Title:       "Boosted trees for a number",
 		Description: "Hundreds of small decision trees, each fixing the mistakes of the ones before, answer with a number. Usually the most accurate choice for a table.",
-		Input:       Table, AnyText: true, Output: Number, Learner: boosting,
+		Input:       Table, AnyText: true, Output: Number, Learner: boosting, Rules: true,
 	},
 	{
 		Name:        "table-forest",

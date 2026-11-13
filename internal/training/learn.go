@@ -57,7 +57,11 @@ func learn(ctx context.Context, t Task, l Loaded, spec arch.Spec, progress Progr
 	var mod nn.Module
 	var shape string
 	if fit := t.Arch.Learner.FitColumns; fit != nil {
-		mod, shape, err = fit(ctx, d, t.Arch.Task(), classes, l.Columns, tick)
+		in := arch.Inputs{Columns: l.Columns}
+		if in.Rules, err = arch.ParseRules(t.Settings.Rules); err != nil {
+			return Result{}, err
+		}
+		mod, shape, err = fit(ctx, d, t.Arch.Task(), classes, in, tick)
 	} else {
 		mod, shape, err = t.Arch.Learner.Fit(ctx, d, t.Arch.Task(), classes, tick)
 	}

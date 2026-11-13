@@ -54,6 +54,9 @@ type TrainingJob struct {
 	// Layers is the design of a table model someone shaped themselves, as
 	// arch.FormatLayers writes it; "" is the usual shape.
 	Layers string
+	// Rules keep a boosted-tree model's answer going one way as a number
+	// column rises, as arch.FormatRules writes them; "" is none.
+	Rules string
 	// MinNewRows > 0 makes a keep-learning pass wait until its source has
 	// that many more rows than TrainedRows, the rows the last pass had.
 	MinNewRows  int64
@@ -93,6 +96,7 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Col(&j.Note).Default("''")
 	t.Col(&j.RunOn).Default("''")
 	t.Col(&j.Layers).Default("''").Immutable()
+	t.Col(&j.Rules).Default("''").Immutable()
 	t.Col(&j.MinNewRows).Default("0")
 	t.Col(&j.TrainedRows).Default("0")
 	t.Col(&j.CheckNote).Default("''")
@@ -111,5 +115,6 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Index(&j.Worker)
 	t.Check(storm.RawSQL(between("status", JobQueued, JobCancelled)))
 	t.Check(storm.RawSQL(`length(layers) <= 200`))
+	t.Check(storm.RawSQL(`length(rules) <= 4000`))
 	t.Check(storm.RawSQL(`min_new_rows >= 0`))
 }

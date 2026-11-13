@@ -1513,7 +1513,11 @@ type Architecture struct {
 	Target string `protobuf:"bytes,13,opt,name=target,proto3" json:"target,omitempty"`
 	// algorithm names the method it learns with, in a data scientist's
 	// words; empty for someone's own model type.
-	Algorithm     string `protobuf:"bytes,14,opt,name=algorithm,proto3" json:"algorithm,omitempty"`
+	Algorithm string `protobuf:"bytes,14,opt,name=algorithm,proto3" json:"algorithm,omitempty"`
+	// rules says a model of this shape can be told, per number column,
+	// that its answer only goes up or only goes down as the column rises
+	// (TrainingSettings.rules).
+	Rules         bool `protobuf:"varint,15,opt,name=rules,proto3" json:"rules,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1644,6 +1648,13 @@ func (x *Architecture) GetAlgorithm() string {
 		return x.Algorithm
 	}
 	return ""
+}
+
+func (x *Architecture) GetRules() bool {
+	if x != nil {
+		return x.Rules
+	}
+	return false
 }
 
 // Column is one column a model reads and how it becomes numbers.
@@ -3861,7 +3872,7 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
 	"\x05value\x18\x03 \x01(\x01R\x05value\"0\n" +
 	"\x14SendFeedbackResponse\x12\x18\n" +
-	"\acorrect\x18\x01 \x01(\bR\acorrect\"\xfd\x02\n" +
+	"\acorrect\x18\x01 \x01(\bR\acorrect\"\x93\x03\n" +
 	"\fArchitecture\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3880,7 +3891,8 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"designable\x12\x18\n" +
 	"\alearned\x18\f \x01(\bR\alearned\x12\x16\n" +
 	"\x06target\x18\r \x01(\tR\x06target\x12\x1c\n" +
-	"\talgorithm\x18\x0e \x01(\tR\talgorithm\"\\\n" +
+	"\talgorithm\x18\x0e \x01(\tR\talgorithm\x12\x14\n" +
+	"\x05rules\x18\x0f \x01(\bR\x05rules\"\\\n" +
 	"\x06Column\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
