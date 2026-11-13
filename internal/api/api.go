@@ -215,6 +215,7 @@ const DefaultPredictTimeout = time.Minute
 var (
 	_ mimirv1connect.ModelServiceHandler   = (*Service)(nil)
 	_ mimirv1connect.PredictServiceHandler = (*Service)(nil)
+	_ mimirv1connect.MediaServiceHandler   = (*Service)(nil)
 )
 
 // New returns a Service backed by s.
@@ -348,12 +349,19 @@ func (s *Service) CreateModel(ctx context.Context, req *connect.Request[mimirv1.
 		// The file says itself whether it holds a language model; one
 		// from GGUF always does.
 		kind := "mim"
-		if from == convert.GGUF || runtime.IsLanguageModel(mf.Bytes()) {
+		switch {
+		case from == convert.GGUF || runtime.IsLanguageModel(mf.Bytes()):
 			kind = arch.LanguageModel
+		case runtime.MediaKind(mf.Bytes()) == "whisper":
+			kind = arch.SpeechToText
+		case runtime.MediaKind(mf.Bytes()) == "clip":
+			kind = arch.PhotoSearch
 		}
 		a, _ = arch.Lookup(kind)
 		m.Architecture, detail = a.Name, a.Title
-		if from != convert.Mim {
+		if from == convert.Zip {
+			detail += ", converted from a Hugging Face folder"
+		} else if from != convert.Mim {
 			detail += ", converted from " + strings.ToUpper(string(from))
 		}
 		err = checkFile(&m, a, mf.Bytes())
@@ -452,12 +460,25 @@ func buildFrom(a arch.Architecture, weights []byte, path string) error {
 // of a language model or of a model that reads numbers, and fills in what
 // m reads and answers from it.
 func checkFile(m *store.Model, a arch.Architecture, weights []byte) error {
-	if a.Answers() == arch.Written {
+	switch a.Answers() {
+	case arch.Written:
 		lm, err := runtime.OpenLanguageModel(weights)
 		if err != nil {
 			return err
 		}
 		return lm.Close()
+	case arch.Transcript:
+		s, err := runtime.OpenSpeech(weights)
+		if err != nil {
+			return err
+		}
+		return s.Close()
+	case arch.Matches:
+		p, err := runtime.OpenPhotos(weights)
+		if err != nil {
+			return err
+		}
+		return p.Close()
 	}
 	f, err := runtime.OpenFile(weights)
 	if err != nil {
@@ -472,6 +493,8 @@ func fileName(f convert.Format) string {
 	switch f {
 	case convert.ONNX, convert.GGUF:
 		return strings.ToUpper(string(f)) + " model"
+	case convert.Zip:
+		return "ZIP"
 	case convert.Safetensors:
 		return "safetensors file"
 	case convert.Mim:
@@ -594,8 +617,13 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		return nil, connect.NewError(connect.CodeFailedPrecondition,
 			fmt.Errorf("This model's type (%s) isn't available on this server anymore.", m.Architecture))
 	}
-	if a.Answers() == arch.Written {
+	switch a.Answers() {
+	case arch.Written:
 		return nil, invalid("%s is a language model: send it a prompt to continue with Generate.", m.Name)
+	case arch.Transcript:
+		return nil, invalid("%s writes down speech: send it a recording with Transcribe.", m.Name)
+	case arch.Matches:
+		return nil, invalid("%s matches photos and words: send them with MatchPhotos.", m.Name)
 	}
 	topK := int(msg.GetTopK())
 	switch {

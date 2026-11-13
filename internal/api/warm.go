@@ -32,8 +32,8 @@ const warmTimeout = 5 * time.Minute
 // logged: the weights then travel with the first prediction, as before.
 func (s *Service) Warm(ctx context.Context, m store.Model) {
 	a, ok := arch.Lookup(m.Architecture)
-	if !ok || a.Answers() == arch.Written {
-		return // language models run on the console, loaded on first use
+	if !ok || a.OnConsole() {
+		return // language, speech and photo search models run on the console, loaded on first use
 	}
 	spec := arch.Resolve(a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels})
 	load := func() ([]byte, error) { return s.store.Weights(m.ID) }

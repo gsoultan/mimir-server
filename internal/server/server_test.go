@@ -145,6 +145,7 @@ type clients struct {
 	auth     mimirv1connect.AuthServiceClient
 	models   mimirv1connect.ModelServiceClient
 	predict  mimirv1connect.PredictServiceClient
+	media    mimirv1connect.MediaServiceClient
 	users    mimirv1connect.UserServiceClient
 	keys     mimirv1connect.ApiKeyServiceClient
 	audit    mimirv1connect.AuditServiceClient
@@ -165,6 +166,7 @@ func newClients(srv *httptest.Server, opts ...connect.ClientOption) clients {
 		auth:     mimirv1connect.NewAuthServiceClient(srv.Client(), srv.URL, opts...),
 		models:   mimirv1connect.NewModelServiceClient(srv.Client(), srv.URL, opts...),
 		predict:  mimirv1connect.NewPredictServiceClient(srv.Client(), srv.URL, opts...),
+		media:    mimirv1connect.NewMediaServiceClient(srv.Client(), srv.URL, opts...),
 		users:    mimirv1connect.NewUserServiceClient(srv.Client(), srv.URL, opts...),
 		keys:     mimirv1connect.NewApiKeyServiceClient(srv.Client(), srv.URL, opts...),
 		audit:    mimirv1connect.NewAuditServiceClient(srv.Client(), srv.URL, opts...),

@@ -46,6 +46,9 @@ import (
 const (
 	maxModelBytes   = 256 << 20
 	maxPredictBytes = 16 << 20
+	// maxMediaBytes bounds a recording or a set of photos sent to ask a
+	// speech or photo search model: about an hour of 16 kHz speech.
+	maxMediaBytes = 128 << 20
 )
 
 // Option changes how Handler serves.
@@ -89,6 +92,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	modelBytes := max(svc.MaxModelBytes, maxModelBytes)
 	mux.Handle(mimirv1connect.NewModelServiceHandler(svc, guard, connect.WithReadMaxBytes(uploadBytes)))
 	mux.Handle(mimirv1connect.NewPredictServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
+	mux.Handle(mimirv1connect.NewMediaServiceHandler(svc, guard, connect.WithReadMaxBytes(maxMediaBytes)))
 	mux.Handle(mimirv1connect.NewAuthServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewUserServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))
 	mux.Handle(mimirv1connect.NewApiKeyServiceHandler(svc, guard, connect.WithReadMaxBytes(maxPredictBytes)))

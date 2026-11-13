@@ -1,8 +1,9 @@
 // A quick look inside a model file, so the upload screen can say what's in
 // it before sending anything: a Mimir Model (.mim) file, or an ONNX or GGUF
-// model the server converts to one. The server does the real check.
+// model, or a ZIP of a Hugging Face model folder, the server converts to
+// one. The server does the real check.
 
-export type Format = "mim" | "onnx" | "gguf";
+export type Format = "mim" | "onnx" | "gguf" | "zip";
 
 export type Inspection =
   | { ok: true; format: Format; tensors?: number; parameters?: number }
@@ -25,6 +26,12 @@ export function inspect(bytes: Uint8Array, name = ""): Inspection {
   if (bytes.length >= ggufHeader && isGGUF(bytes)) {
     const tensors = Number(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigUint64(8, true));
     return tensors > 0 ? { ok: true, format: "gguf", tensors } : noWeights;
+  }
+  // A ZIP file starts with a local file header, "PK\x03\x04".
+  if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 3 && bytes[3] === 4) return { ok: true, format: "zip" };
+  // A safetensors file starts with the length of its JSON header.
+  if (bytes.length > 8 && bytes[8] === 0x7b && /^\{"/.test(new TextDecoder().decode(bytes.subarray(8, 10)))) {
+    return { ok: false, reason: "A .safetensors file holds only the weights. Put the model's whole folder, with its config.json, in a ZIP and add that." };
   }
   // ONNX has no magic number; a serialized model starts with its
   // ir_version field.
@@ -80,5 +87,5 @@ function counted(tensors: number, parameters: number): Inspection {
 }
 
 function bad(): Inspection {
-  return { ok: false, reason: "This isn't a .mim, ONNX or GGUF model file." };
+  return { ok: false, reason: "This isn't a .mim, ONNX or GGUF model file, or a ZIP of a Hugging Face model folder." };
 }

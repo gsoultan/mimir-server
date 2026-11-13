@@ -429,9 +429,13 @@ type entry struct {
 	once  sync.Once
 	batch *batcher       // runs the model's predictions
 	lm    *LanguageModel // for a language model, instead of batch
-	kind  string         // "language", "file" or "built", for metrics
-	err   error
-	size  int64 // bytes of the file it was loaded from
+	// speech and photos are a speech-to-text or photo search model,
+	// instead of batch.
+	speech *Speech
+	photos *Photos
+	kind   string // "language", "speech", "photos", "file" or "built", for metrics
+	err    error
+	size   int64 // bytes of the file it was loaded from
 	// weights are the files the model was loaded from and closer the
 	// model itself, closed together once the entry has gone from the
 	// cache and nothing runs it any more (see release).
@@ -736,7 +740,7 @@ func (c *Cache) get(id, ver string, load Loader, build func(e *entry, w []byte))
 			// A file that makes the loader panic fails its own requests,
 			// not the server.
 			if err := safe.Run(nil, "loading model "+id, func() { build(e, w.Bytes()) }); err != nil {
-				e.err, e.batch, e.lm = err, nil, nil
+				e.err, e.batch, e.lm, e.speech, e.photos = err, nil, nil, nil, nil
 			}
 			e.size = int64(len(w.Bytes()))
 		}

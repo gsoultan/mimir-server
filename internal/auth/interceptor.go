@@ -101,6 +101,8 @@ var Required = map[string]Permission{
 	"/mimir.v1.PredictService/Chat":                ModelsPredict,
 	"/mimir.v1.PredictService/Explain":             ModelsPredict,
 	"/mimir.v1.PredictService/ExplainModel":        ModelsPredict,
+	"/mimir.v1.MediaService/Transcribe":            ModelsPredict,
+	"/mimir.v1.MediaService/MatchPhotos":           ModelsPredict,
 	"/mimir.v1.DatasetService/ListDatasets":        ModelsWrite,
 	"/mimir.v1.DatasetService/GetDataset":          ModelsWrite,
 	"/mimir.v1.DatasetService/CreateDataset":       ModelsWrite,
