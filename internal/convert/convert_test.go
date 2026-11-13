@@ -13,6 +13,7 @@
 package convert_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -241,5 +242,54 @@ func TestFile(t *testing.T) {
 	}
 	if _, err := convert.File(t.TempDir()+"/missing", io.Discard); err == nil || errors.Is(err, convert.ErrUnsupported) {
 		t.Fatalf("a missing file: %v", err)
+	}
+}
+
+// TestHuggingFaceZip converts ZIPs of tiny Hugging Face folders: a
+// Whisper stored in a subfolder, and a CLIP compressed at the top.
+func TestHuggingFaceZip(t *testing.T) {
+	for _, tc := range []struct{ name, arch string }{{"tiny-whisper.zip", "whisper"}, {"tiny-clip.zip", "clip"}} {
+		var out bytes.Buffer
+		f, err := convert.File("testdata/"+tc.name, &out)
+		if err != nil || f != convert.Zip {
+			t.Fatalf("%s: %v, %s", tc.name, err, f)
+		}
+		m, err := mimfile.Parse(out.Bytes())
+		if err != nil {
+			t.Fatal(err)
+		}
+		md, err := m.Metadata()
+		if err != nil || md["general.architecture"] != tc.arch {
+			t.Errorf("%s: architecture %v, %v", tc.name, md["general.architecture"], err)
+		}
+	}
+}
+
+func TestHuggingFaceZipRejects(t *testing.T) {
+	zipOf := func(files map[string]string) []byte {
+		var b bytes.Buffer
+		z := zip.NewWriter(&b)
+		for name, body := range files {
+			w, _ := z.Create(name)
+			w.Write([]byte(body))
+		}
+		z.Close()
+		return b.Bytes()
+	}
+	for _, tc := range []struct {
+		files map[string]string
+		want  string
+	}{
+		{map[string]string{"model.safetensors": "x"}, "no config.json"},
+		{map[string]string{"config.json": "{}", "tokenizer.json": "{}"}, "no .safetensors"},
+		{map[string]string{"config.json": `{"model_type":"bert"}`, "model.safetensors": "\x08\x00\x00\x00\x00\x00\x00\x00{}      "}, "only Whisper and CLIP"},
+	} {
+		_, _, err := convert.ToMim(zipOf(tc.files))
+		if !errors.Is(err, convert.ErrUnsupported) || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%v: %v, want %q", tc.files, err, tc.want)
+		}
+	}
+	if _, _, err := convert.ToMim([]byte("PK\x03\x04 not really")); !errors.Is(err, convert.ErrUnsupported) {
+		t.Errorf("a broken ZIP: %v", err)
 	}
 }

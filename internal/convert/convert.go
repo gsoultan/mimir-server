@@ -19,7 +19,10 @@
 // it is. A GGUF language model of the llama or qwen2 architecture (Llama
 // 1 to 3, TinyLlama, Mistral, SmolLM, Qwen 2 and 2.5) gets the forward
 // pass mim builds for it, with its weights kept byte for byte in their
-// quantization. Anything else fails with an error that says why.
+// quantization. A ZIP of a Hugging Face Transformers folder of Whisper
+// (speech to text) or CLIP (photo search by words), its config.json,
+// tokenizer.json and safetensors weights, gets the metadata mimir runs it
+// by. Anything else fails with an error that says why.
 package convert
 
 import (
@@ -43,6 +46,8 @@ const (
 	ONNX        Format = "onnx"
 	GGUF        Format = "gguf"
 	Safetensors Format = "safetensors"
+	// Zip is a ZIP of a Hugging Face model folder.
+	Zip Format = "zip"
 )
 
 // Context is the longest conversation, in tokens, a converted language
@@ -71,6 +76,8 @@ func Detect(b []byte) Format {
 		return GGUF
 	case importer.Detect(b) == "safetensors":
 		return Safetensors
+	case len(b) >= 4 && string(b[:4]) == "PK\x03\x04":
+		return Zip
 	case len(b) > 1 && b[0] == 0x08: // field 1 (ir_version), varint
 		return ONNX
 	}
@@ -134,9 +141,15 @@ func write(b []byte, out io.Writer) (Format, error) {
 			return f, err
 		}
 	case Safetensors:
-		return f, unsupported("a safetensors file holds weights but not the model that uses them; convert it with mim-import, or export the model to ONNX")
+		return f, unsupported("a safetensors file holds weights but not the model that uses them; ZIP the whole Hugging Face folder, with its config.json and tokenizer.json, and upload that")
+	case Zip:
+		var done func()
+		if src, done, err = huggingFace(b); err != nil {
+			return f, err
+		}
+		defer done()
 	default:
-		return f, unsupported("this isn't a .mim, ONNX or GGUF model file")
+		return f, unsupported("this isn't a .mim, ONNX or GGUF model file, or a ZIP of a Hugging Face model folder")
 	}
 	w := mim.NewWriter()
 	if err := src.AddTo(w); err != nil {

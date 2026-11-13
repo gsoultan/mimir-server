@@ -50,7 +50,7 @@ export type WayId = "template" | "data" | "file" | "code";
 export const ways: { id: WayId; icon: Icon; title: string; hint: string; who: string }[] = [
   { id: "template", icon: IconBooks, title: "Start from a template", hint: "A ready problem with example data. Bring a file shaped like it.", who: "Easiest · no code" },
   { id: "data", icon: IconTable, title: "Start from your own data", hint: "Upload a table, text or photos and say which column is the answer.", who: "No code · you choose" },
-  { id: "file", icon: IconFileUpload, title: "Bring a trained model", hint: "A Mimir Model, ONNX or GGUF file trained somewhere else.", who: "Already trained" },
+  { id: "file", icon: IconFileUpload, title: "Bring a trained model", hint: "A Mimir Model, ONNX or GGUF file, or a Hugging Face Whisper or CLIP folder, trained somewhere else.", who: "Already trained" },
   { id: "code", icon: IconBrandGolang, title: "Write your own model", hint: "Go code on a worker, for anything the others can't do.", who: "For developers" },
 ];
 

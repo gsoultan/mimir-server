@@ -83,15 +83,25 @@ function ModelDetails() {
     ? `{"${id}": "${m.id}"${columns.length > 0 ? `, "fields": ${fields}` : ""}${wantsPhoto ? `, "photo": "<the photo, base64>"` : ""}${wantsSound ? `, "sound": "<the WAV file, base64>"` : ""}}`
     : `{"${id}": "${m.id}", "input": {"values": [ /* ${input} numbers */ ]}}`;
   const writes = arch?.output === "text";
-  const method = writes ? "Generate" : "Predict";
-  const request = (id: string) => writes ? `{"${id}": "${m.id}", "prompt": "Once upon a time", "${id === "modelId" ? "maxTokens" : "max_tokens"}": 128}` : body(id);
-  const curl = `curl ${location.origin}/mimir.v1.PredictService/${method} \\
+  // Speech and photo search models answer through their own calls, and
+  // have no answers to count or devices to run on.
+  const media = arch?.output === "transcript" ? "Transcribe" : arch?.output === "matches" ? "MatchPhotos" : undefined;
+  const plain = writes || !!media;
+  const method = media ? `MediaService/${media}` : `PredictService/${writes ? "Generate" : "Predict"}`;
+  const request = (id: string) => writes
+    ? `{"${id}": "${m.id}", "prompt": "Once upon a time", "${id === "modelId" ? "maxTokens" : "max_tokens"}": 128}`
+    : media === "Transcribe"
+    ? `{"${id}": "${m.id}", "recording": "<the WAV file, base64>", "language": ""}`
+    : media
+    ? `{"${id}": "${m.id}", "photos": ["<a JPG or PNG, base64>"], "texts": ["a dog", "a cat"]}`
+    : body(id);
+  const curl = `curl ${location.origin}/mimir.v1.${method} \\
   -H 'Authorization: Bearer mimir_...' \\
   -H 'Content-Type: application/json' \\
   -d '${request("modelId")}'`;
   const grpc = `grpcurl -plaintext -H 'Authorization: Bearer mimir_...' \\
   -d '${request("model_id")}' \\
-  ${location.host} mimir.v1.PredictService/${method}`;
+  ${location.host} mimir.v1.${method}`;
   const answer = arch?.output === "boxes" ? "You get back boxes: each thing found, its score, and where it is as shares of the photo (left, top, width, height)." : number ? "You get back a number in value." : arch?.output === "numbers" ? `You get back a number for each of ${m.labels.join(", ")}, in that order, in output; value is the first.` : `You get back the likeliest of: ${m.labels.join(", ")}.`;
 
   const { data: quality } = useQuery(modelQuality(m.id));
@@ -118,13 +128,13 @@ function ModelDetails() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="use">Use from your app</Tabs.Tab>
           <Tabs.Tab value="versions">Versions</Tabs.Tab>
-          {!writes && <Tabs.Tab value="runs">Where it runs</Tabs.Tab>}
+          {!plain && <Tabs.Tab value="runs">Where it runs</Tabs.Tab>}
           <Tabs.Tab value="settings">{canWrite ? "Settings" : "About"}</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="overview">
           <Stack gap="lg">
-            {!writes && (
+            {!plain && (
               <SimpleGrid cols={{ base: 2, md: 4 }}>
                 <StatTile value={Number(quality?.weekAnswers ?? 0n).toLocaleString()} label="answers this week" />
                 <StatTile value={checked > 0 ? `${Math.round((quality?.weekAccuracy ?? 0) * 100)} of 100` : "–"} label={`${number ? "close" : "right"} this week`} hint={checked > 0 ? `of ${checked.toLocaleString()} checked` : "once apps send answers back"} />
@@ -133,9 +143,19 @@ function ModelDetails() {
               </SimpleGrid>
             )}
             <SimpleGrid cols={{ base: 1, md: explains(m, arch) ? 2 : 1 }}>
-              {!writes && <InUse model={m} number={number} />}
+              {!plain && <InUse model={m} number={number} />}
               {explains(m, arch) && <ColumnsThatMatter model={m} />}
             </SimpleGrid>
+            {media && (
+              <Card withBorder padding="lg">
+                <Text fw={700} mb={4}>{media === "Transcribe" ? "Turns speech into text" : "Finds photos by what is in them"}</Text>
+                <Text size="sm" c="dimmed">
+                  {media === "Transcribe"
+                    ? "Give it a recording and it writes down what is said, in the language spoken or translated into English. It works out the language itself if you don't say."
+                    : "Give it photos and a few words, and it says which photos fit the words best. Use it to search photos by a description, or to sort photos into labels you choose, without teaching it first."}
+                </Text>
+              </Card>
+            )}
             {writes && m.language && <LanguageDefaults model={m} canWrite={canWrite} />}
             {writes && (
               <Card withBorder padding="lg">
@@ -158,6 +178,10 @@ function ModelDetails() {
             <Text size="sm" c="dimmed" mb="sm">
               {writes
                 ? "Send the start of a text as prompt; get back how the model carries on, in text."
+                : media === "Transcribe"
+                ? "Send a WAV recording of up to 2 hours, and the code of the language spoken if you know it (such as en or de; leave it empty to have it found). Set translate to get English instead. You get back the text, and each 30-second part with its start and end in seconds."
+                : media
+                ? "Send up to 64 photos (JPG, PNG or GIF) and up to 64 short texts in English. For each photo you get back how well it fits each text, as similarity (from -1 to 1; higher is a better fit) and as chance (the texts share each photo, adding up to 1)."
                 : named
                 ? `Send ${[columns.length > 0 && "each column by name in fields", wantsPhoto && "the photo as a JPG, PNG or GIF"].filter(Boolean).join(", and ")}. ${answer}`
                 : arch?.custom
@@ -179,7 +203,7 @@ function ModelDetails() {
           <Versions model={m} number={number} canWrite={canWrite} />
         </Tabs.Panel>
 
-        {!writes && (
+        {!plain && (
           <Tabs.Panel value="runs">
             <SimpleGrid cols={{ base: 1, md: 2 }}>
               <RunsOn model={m} canWrite={canWrite} />

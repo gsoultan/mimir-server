@@ -34,7 +34,7 @@ describe("inspect", () => {
     const out = new Uint8Array(8 + json.length + 40);
     new DataView(out.buffer).setBigUint64(0, BigInt(json.length), true);
     out.set(json, 8);
-    expect(inspect(out)).toEqual({ ok: false, reason: "This isn't a .mim, ONNX or GGUF model file." });
+    expect(inspect(out)).toEqual({ ok: false, reason: "A .safetensors file holds only the weights. Put the model's whole folder, with its config.json, in a ZIP and add that." });
   });
 
   test("counts the tensors and parameters of a .mim file", () => {
@@ -52,6 +52,11 @@ describe("inspect", () => {
   test("takes an ONNX model by its first field or its name", () => {
     expect(inspect(new Uint8Array([0x08, 0x07, 0x12]))).toEqual({ ok: true, format: "onnx" });
     expect(inspect(new Uint8Array([0x0a, 0x07]), "net.ONNX")).toEqual({ ok: true, format: "onnx" });
+  });
+
+  test("takes a ZIP by its first bytes", () => {
+    expect(inspect(new Uint8Array([0x50, 0x4b, 3, 4, 20]))).toEqual({ ok: true, format: "zip" });
+    expect(inspect(new Uint8Array([0x50, 0x4b, 5, 6])).ok).toBe(false);
   });
 
   test("rejects a cut-off .mim file", () => {

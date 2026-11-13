@@ -54,6 +54,8 @@ var algorithms = map[string]string{
 	"photo-mobilenet":   "MobileNet convolutional neural network (depthwise separable convolutions), trained by gradient descent",
 	"sound":             "Convolutional neural network over a mel spectrogram of each second of sound",
 	"language-model":    "Transformer language model, writing one token at a time",
+	"speech-to-text":    "Whisper encoder-decoder transformer over a log-mel spectrogram, decoding greedily in 30-second windows",
+	"photo-search":      "CLIP contrastive image and text encoders (a vision transformer and a text transformer), ranked by cosine similarity",
 	"mim":               "The model in the file, as it was built",
 }
 

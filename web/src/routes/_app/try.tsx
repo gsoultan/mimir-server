@@ -9,8 +9,10 @@ import { PredictService, type Architecture, type Model } from "../../api/gen/mim
 import { listArchitectures, listModels, whoAmI } from "../../api/queries";
 import { Ask, askIntro, type Answer, type Question } from "../../components/Ask";
 import { Chat } from "../../components/Chat";
+import { Listen } from "../../components/Listen";
 import { ButtonLink } from "../../components/links";
 import { Page } from "../../components/Page";
+import { PhotoSearch } from "../../components/PhotoSearch";
 import { Writer } from "../../components/Writer";
 import * as device from "../../lib/device";
 import { explains } from "../../lib/explain";
@@ -69,6 +71,15 @@ function Try() {
         {mode === "chat"
           ? <Chat key={model.id} model={model} canWrite={me.permissions.includes("models.write")} header={modes} />
           : <>{modes}<Writer key={model.id} modelId={model.id} /></>}
+      </Page>
+    );
+  }
+  if (arch?.output === "transcript" || arch?.output === "matches") {
+    const speech = arch.output === "transcript";
+    return (
+      <Page title="Try a model" intro={speech ? "Turn speech into text, the way your apps will." : "Find photos by describing them, or sort photos into labels."}>
+        <div className="w-full sm:w-80">{pickModel}</div>
+        {speech ? <Listen key={model.id} modelId={model.id} /> : <PhotoSearch key={model.id} modelId={model.id} />}
       </Page>
     );
   }

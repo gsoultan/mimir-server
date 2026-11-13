@@ -4,6 +4,17 @@
 
 ### More model types
 
+- **Speech to text** writes down what is said in a recording, up to two
+  hours, in the language spoken or translated into English, with a time
+  for each 30-second part. It runs OpenAI's Whisper models.
+- **Photo search by words** finds the photos that fit a description, or
+  sorts photos into labels you choose, with no teaching first. It runs
+  OpenAI's CLIP models.
+- Both come from Hugging Face: ZIP the model's folder (its config.json,
+  tokenizer and safetensors weights) and upload it. Try them on the Try a
+  model page, or call `MediaService.Transcribe` and
+  `MediaService.MatchPhotos` from an app.
+
 - **What goes together** lists, for any product, the products bought in
   the same orders far more often than chance, by association rules
   (Apriori) with lift. The **Products bought together** template shows
