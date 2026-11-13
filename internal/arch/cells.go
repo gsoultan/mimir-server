@@ -633,7 +633,17 @@ var forecaster = &Learner{
 			}
 			return forecast.Fit(ctx, long, opts...)
 		}
-		smooth := func(s []float32) *forecast.Smoothing {
+		// smooth forecasts one series on its own: by Holt-Winters
+		// smoothing, or, for a series with demand at few steps such as
+		// a slow seller, by Croston's method. Such a series is not
+		// judged by its mean error, which a forecast of 0 wins, though
+		// it plans no stock.
+		smooth := func(s []float32) interface{ Forecast(int) []float32 } {
+			if forecast.Sparse(s) {
+				if c, err := forecast.Croston(s); err == nil {
+					return c
+				}
+			}
 			season := season
 			if len(s) < 2*season {
 				season = 0
@@ -681,7 +691,7 @@ var forecaster = &Learner{
 				if sm := smooth(short[i]); sm != nil {
 					se, sn = score(sm.Forecast(len(held)))
 				}
-				if sn > 0 && (tn == 0 || se/float64(sn) < te/float64(tn)) {
+				if sn > 0 && (tn == 0 || se/float64(sn) < te/float64(tn) || forecast.Sparse(short[i])) {
 					smoothed[i] = true
 					sum, n = sum+se, n+sn
 				} else {
@@ -707,7 +717,7 @@ var forecaster = &Learner{
 			var f []float32
 			sm := smooth(s)
 			switch {
-			case sm != nil && (smoothed[i] || trees == nil || len(s) < lags+2):
+			case sm != nil && (smoothed[i] || trees == nil || len(s) < lags+2 || forecast.Sparse(s)):
 				f = sm.Forecast(h)
 			case trees != nil:
 				f = trees.Forecast(s, h)

@@ -465,7 +465,13 @@ best customers, **Several answers at once** gives the chance of each
 product line a customer will buy, **Chance of closing at each discount**
 gives the chance at each discount level and the one that keeps the most
 revenue, and **A range for a number** gives a low, likely and high value
-that holds about 8 in 10 real values. **Find duplicate accounts** lists
+that holds about 8 in 10 real values, fitted directly for each row.
+**Counts and amounts with many zeros** answers numbers like orders a week
+or the cost of a claim, never below 0. Boosted trees and forests read a
+column of a few values, like region or plan, as one column of categories,
+and **Best of several** keeps a mix of its best three when the mix does
+better. A forecast of something that sells only now and then, like a
+spare part, gives a steady amount per day to plan stock for. **Find duplicate accounts** lists
 the accounts likely to be the same business written another way, and
 **What goes together** lists, for a product, the ones bought in the same
 orders far more often than chance.

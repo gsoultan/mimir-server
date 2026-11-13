@@ -16,6 +16,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/gsoultan/mimir/automl"
@@ -26,6 +27,8 @@ import (
 	"github.com/gsoultan/mimir/svm"
 	"github.com/gsoultan/mimir/tabular"
 	"github.com/gsoultan/mimir/tree"
+
+	"github.com/gsoultan/mimir-server/internal/schema"
 )
 
 // ShapeKey is the metadata key of a Mimir Model file that holds a learned
@@ -40,6 +43,11 @@ type Learner struct {
 	// for a number). It returns the model as a module and its shape for
 	// Build. progress, when not nil, is told how far it is.
 	Fit func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(done, total int)) (nn.Module, string, error)
+	// FitColumns, when set, is called in place of Fit with the input
+	// columns the table's numbers come from, for a learner that treats
+	// some of them specially, such as trees reading a category column as
+	// categories rather than as separate yes-or-no columns.
+	FitColumns func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(done, total int)) (nn.Module, string, error)
 	// Cells, set in place of Fit, learns from a table's cells themselves,
 	// for a model whose questions aren't the table's rows, or that has no
 	// answer column: it says what its questions name and its answers are.
@@ -73,9 +81,46 @@ func shapeJSON(v any) (string, error) {
 	return string(b), err
 }
 
-var boosting = &Learner{
-	Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
+// withColumns returns a Learner that fits as fit does, with the columns
+// when they are known and without when they are not.
+func withColumns(fit func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(int, int)) (nn.Module, string, error), build func(string) (nn.Module, error)) *Learner {
+	return &Learner{
+		Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
+			return fit(ctx, d, task, classes, nil, progress)
+		},
+		FitColumns: fit,
+		Build:      build,
+	}
+}
+
+// categories returns the category columns of cols as trees read them:
+// each one's run of yes-or-no columns, one per value, split on as one
+// column of categories.
+func categories(cols []schema.Column) []tree.Category {
+	var out []tree.Category
+	at := 0
+	for _, c := range cols {
+		if w := c.Width(); c.Kind == schema.Category && w >= 2 && w <= tree.MaxCategories {
+			out = append(out, tree.Category{Feature: at, Width: w})
+		}
+		at += c.Width()
+	}
+	return out
+}
+
+// categoryOption returns the tree option for cols' category columns, or
+// nil when there are none or the columns don't match d.
+func categoryOption(cols []schema.Column, d tabular.Data) []tree.Option {
+	if cats := categories(cols); len(cats) > 0 && schema.Width(cols) == d.Features {
+		return []tree.Option{tree.Categorical(cats...)}
+	}
+	return nil
+}
+
+var boosting = withColumns(
+	func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(int, int)) (nn.Module, string, error) {
 		opts := []tree.Option{tree.Trees(boostTrees), tree.LearningRate(0.05), tree.MinLeaf(5)}
+		opts = append(opts, categoryOption(cols, d)...)
 		if classes > 0 {
 			opts = append(opts, tree.Classes(classes))
 		}
@@ -94,13 +139,57 @@ var boosting = &Learner{
 		}
 		s, err := shapeJSON(m.Shape())
 		return m.Module(), s, err
-	},
-	Build: buildTree,
-}
+	}, buildTree)
 
-var forest = &Learner{
-	Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
+// counts learns a number that is never below 0 and often 0, such as
+// orders a week or a claim's cost, with boosted trees on its log: Poisson
+// for whole numbers, Tweedie for amounts. A plain number model can
+// answer below 0 for such numbers, and is pulled about by the few large
+// ones.
+var counts = withColumns(
+	func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(int, int)) (nn.Module, string, error) {
+		whole, any := true, false
+		for _, y := range d.Y {
+			if y < 0 {
+				return nil, "", fmt.Errorf("a count or amount can't be below 0, and one row has %v", y)
+			}
+			whole = whole && y == float32(math.Trunc(float64(y)))
+			any = any || y > 0
+		}
+		if !any {
+			return nil, "", fmt.Errorf("every row's answer is 0, so there is nothing to learn")
+		}
+		loss := tree.Tweedie(countPower)
+		if whole {
+			loss = tree.Poisson()
+		}
+		opts := []tree.Option{tree.Trees(boostTrees), tree.LearningRate(0.05), tree.MinLeaf(5), tree.Loss(loss)}
+		opts = append(opts, categoryOption(cols, d)...)
+		if progress != nil {
+			opts = append(opts, tree.Progress(progress))
+		}
+		train := d
+		if d.Rows() >= 50 {
+			var val tabular.Data
+			train, val = d.Split(holdBack, 7)
+			opts = append(opts, tree.Validation(val, 50))
+		}
+		m, err := tree.GradientBoosting(ctx, train, tabular.Regression, opts...)
+		if err != nil {
+			return nil, "", err
+		}
+		s, err := shapeJSON(m.Shape())
+		return m.Module(), s, err
+	}, buildTree)
+
+// countPower is the Tweedie power for amounts: midway between Poisson
+// counts and amounts that are never 0, which suits most.
+const countPower = 1.5
+
+var forest = withColumns(
+	func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, cols []schema.Column, progress func(int, int)) (nn.Module, string, error) {
 		opts := []tree.Option{tree.Trees(200), tree.MinLeaf(2)}
+		opts = append(opts, categoryOption(cols, d)...)
 		if classes > 0 {
 			opts = append(opts, tree.Classes(classes))
 		}
@@ -113,9 +202,7 @@ var forest = &Learner{
 		}
 		s, err := shapeJSON(m.Shape())
 		return m.Module(), s, err
-	},
-	Build: buildTree,
-}
+	}, buildTree)
 
 func buildTree(shape string) (nn.Module, error) {
 	var s tree.Shape
@@ -255,7 +342,7 @@ const (
 // which kind won.
 var auto = &Learner{
 	Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
-		opts := []automl.Option{automl.Trials(autoTrials), automl.Budget(autoBudget)}
+		opts := []automl.Option{automl.Trials(autoTrials), automl.Budget(autoBudget), automl.Stack(autoStack)}
 		if classes > 0 {
 			opts = append(opts, automl.Classes(classes))
 		}
@@ -266,21 +353,9 @@ var auto = &Learner{
 		if err != nil {
 			return nil, "", err
 		}
-		var mod nn.Module
-		var shape any
-		switch m := r.Best.(type) {
-		case *tree.Model:
-			mod, shape = m.Module(), autoShape{Kind: "tree", Tree: ptr(m.Shape())}
-		case *linear.Model:
-			mod, shape = m.Module(), autoShape{Kind: "linear", Linear: ptr(m.Shape())}
-		case *svm.Model:
-			mod, shape = m.Module(), autoShape{Kind: "svm", SVM: ptr(m.Shape())}
-		case *neighbors.Model:
-			mod, shape = m.Module(), autoShape{Kind: "knn", Neighbors: ptr(m.Shape())}
-		case *bayes.Model:
-			mod, shape = m.Module(), autoShape{Kind: "bayes", Bayes: ptr(m.Shape())}
-		default:
-			return nil, "", fmt.Errorf("auto: a model of type %T", r.Best)
+		mod, shape, err := autoModule(r.Best, classes)
+		if err != nil {
+			return nil, "", err
 		}
 		s, err := shapeJSON(shape)
 		return mod, s, err
@@ -290,30 +365,84 @@ var auto = &Learner{
 		if err := json.Unmarshal([]byte(shape), &s); err != nil {
 			return nil, fmt.Errorf("an automatic model's shape: %w", err)
 		}
-		switch {
-		case s.Kind == "tree" && s.Tree != nil:
-			return tree.NewModule(*s.Tree), nil
-		case s.Kind == "linear" && s.Linear != nil:
-			return linear.NewModule(*s.Linear), nil
-		case s.Kind == "svm" && s.SVM != nil:
-			return svm.NewModule(*s.SVM), nil
-		case s.Kind == "knn" && s.Neighbors != nil:
-			return neighbors.NewModule(*s.Neighbors), nil
-		case s.Kind == "bayes" && s.Bayes != nil:
-			return bayes.NewModule(*s.Bayes), nil
-		}
-		return nil, fmt.Errorf("an automatic model of kind %q", s.Kind)
+		return buildAuto(s)
 	},
 }
 
-// autoShape is the shape of the model auto picked.
+// autoStack is how many of the best candidates a search may blend.
+const autoStack = 3
+
+// autoModule returns m, a model an automatic search kept, as a module and
+// its shape.
+func autoModule(best tabular.Model, classes int) (nn.Module, autoShape, error) {
+	switch m := best.(type) {
+	case *tree.Model:
+		return m.Module(), autoShape{Kind: "tree", Tree: ptr(m.Shape())}, nil
+	case *linear.Model:
+		return m.Module(), autoShape{Kind: "linear", Linear: ptr(m.Shape())}, nil
+	case *svm.Model:
+		return m.Module(), autoShape{Kind: "svm", SVM: ptr(m.Shape())}, nil
+	case *neighbors.Model:
+		return m.Module(), autoShape{Kind: "knn", Neighbors: ptr(m.Shape())}, nil
+	case *bayes.Model:
+		return m.Module(), autoShape{Kind: "bayes", Bayes: ptr(m.Shape())}, nil
+	case *automl.Blend:
+		s := autoShape{Kind: "stack", Classes: classes}
+		var parts []nn.Module
+		for _, p := range m.Models {
+			mod, ps, err := autoModule(p, classes)
+			if err != nil {
+				return nil, s, err
+			}
+			parts, s.Parts = append(parts, mod), append(s.Parts, ps)
+		}
+		mod, err := automl.StackOf(parts, m.Weights, classes)
+		return mod, s, err
+	}
+	return nil, autoShape{}, fmt.Errorf("auto: a model of type %T", best)
+}
+
+// buildAuto returns an empty module of shape s, for saved weights to load
+// into.
+func buildAuto(s autoShape) (nn.Module, error) {
+	switch {
+	case s.Kind == "tree" && s.Tree != nil:
+		return tree.NewModule(*s.Tree), nil
+	case s.Kind == "linear" && s.Linear != nil:
+		return linear.NewModule(*s.Linear), nil
+	case s.Kind == "svm" && s.SVM != nil:
+		return svm.NewModule(*s.SVM), nil
+	case s.Kind == "knn" && s.Neighbors != nil:
+		return neighbors.NewModule(*s.Neighbors), nil
+	case s.Kind == "bayes" && s.Bayes != nil:
+		return bayes.NewModule(*s.Bayes), nil
+	case s.Kind == "stack" && len(s.Parts) > 0:
+		parts := make([]nn.Module, len(s.Parts))
+		for i, p := range s.Parts {
+			if p.Kind == "stack" {
+				return nil, fmt.Errorf("an automatic blend within a blend")
+			}
+			var err error
+			if parts[i], err = buildAuto(p); err != nil {
+				return nil, err
+			}
+		}
+		return automl.NewStackModule(parts, s.Classes), nil
+	}
+	return nil, fmt.Errorf("an automatic model of kind %q", s.Kind)
+}
+
 type autoShape struct {
-	Kind      string           `json:"kind"` // "tree", "linear", "svm", "knn" or "bayes"
+	Kind      string           `json:"kind"` // "tree", "linear", "svm", "knn", "bayes" or "stack"
 	Tree      *tree.Shape      `json:"tree,omitempty"`
 	Linear    *linear.Shape    `json:"linear,omitempty"`
 	SVM       *svm.Shape       `json:"svm,omitempty"`
 	Neighbors *neighbors.Shape `json:"knn,omitempty"`
 	Bayes     *bayes.Shape     `json:"bayes,omitempty"`
+	// Parts, for a blend of the best few, are each part's shape, and
+	// Classes the categories it picks between, 0 for a number.
+	Parts   []autoShape `json:"parts,omitempty"`
+	Classes int         `json:"classes,omitempty"`
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -324,14 +453,20 @@ var learned = []Architecture{
 	{
 		Name:        "table-auto",
 		Title:       "Best of several (automatic)",
-		Description: "Tries boosted trees, random forests, logistic regression, a support vector machine, nearest neighbours and naive Bayes with a range of settings, scores each on rows it didn't learn from, and keeps the best. Takes longer than one of them alone.",
+		Description: "Tries boosted trees, random forests, logistic regression, a support vector machine, nearest neighbours and naive Bayes with a range of settings, scores each on rows it didn't learn from, and keeps the best, or a mix of the best three when the mix does better. Takes longer than one of them alone.",
 		Input:       Table, AnyText: true, Learner: auto,
 	},
 	{
 		Name:        "number-auto",
 		Title:       "Best of several for a number (automatic)",
-		Description: "Tries boosted trees, random forests, linear regression, a support vector machine and nearest neighbours with a range of settings, scores each on rows it didn't learn from, and keeps the best. Takes longer than one of them alone.",
+		Description: "Tries boosted trees, random forests, linear regression, a support vector machine and nearest neighbours with a range of settings, scores each on rows it didn't learn from, and keeps the best, or a mix of the best three when the mix does better. Takes longer than one of them alone.",
 		Input:       Table, AnyText: true, Output: Number, Learner: auto,
+	},
+	{
+		Name:        "number-counts",
+		Title:       "Counts and amounts with many zeros",
+		Description: "Boosted trees for a number that is never below 0 and is often exactly 0, like orders a week, visits a month or the cost of a claim. It never answers below 0, and a few very large values don't pull the other answers about.",
+		Input:       Table, AnyText: true, Output: Number, Learner: counts,
 	},
 	{
 		Name:        "table-boost",
@@ -474,7 +609,7 @@ var learned = []Architecture{
 	{
 		Name:        "forecast",
 		Title:       "Forecast over time",
-		Description: "Learns from a value's history, one row per day, hour, week or month, and says what comes next, up to a month of days ahead. With a column like store, it forecasts each one, and their total.",
+		Description: "Learns from a value's history, one row per day, hour, week or month, and says what comes next, up to a month of days ahead. With a column like store, it forecasts each one, and their total. Something that sells only now and then, like a spare part, gets a steady amount per day to plan stock for.",
 		Input:       Table, AnyText: true, Output: Number, Target: ValueTarget, Learner: forecaster,
 	},
 }
