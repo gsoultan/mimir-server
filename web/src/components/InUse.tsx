@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { Model } from "../api/gen/mimir/v1/model_pb";
 import { modelQuality } from "../api/queries";
 import { score } from "../lib/training";
+import { locale, t } from "../i18n";
+import { count } from "../lib/templates";
 
 const day = 86_400_000;
 
@@ -18,24 +20,22 @@ export function InUse({ model: m, number }: { model: Model; number: boolean }) {
   const curl = `curl ${location.origin}/mimir.v1.PredictService/SendFeedback \\
   -H 'Authorization: Bearer mimir_...' \\
   -H 'Content-Type: application/json' \\
-  -d '{"predictionId": "<from the prediction>", ${number ? `"value": 42.5` : `"label": "${m.labels[0] ?? "the right answer"}"`}}'`;
+  -d '{"predictionId": "<from the prediction>", ${number ? `"value": 42.5` : `"label": "${m.labels[0] ?? t("the right answer")}"`}}'`;
 
   return (
     <Card withBorder radius="lg" padding="lg">
-      <Text fw={700} mb="sm">How it does in use, the last 30 days</Text>
+      <Text fw={700} mb="sm">{t("How it does in use, the last 30 days")}</Text>
       {data?.dropped && (
-        <Alert color="orange" icon={<IconAlertTriangle />} mb="sm">
-          It got {Math.round(data.weekAccuracy * 100)} of 100 right this week, by the answers apps sent back, against {Math.round(m.accuracy * 100)} when it was trained. Look at its versions, or teach it again with newer examples.
-        </Alert>
+        <Alert color="orange" icon={<IconAlertTriangle />} mb="sm">{t("It got")}{" "}{Math.round(data.weekAccuracy * 100)}{" "}{t("of 100 right this week, by the answers apps sent back, against")}{" "}{Math.round(m.accuracy * 100)}{" "}{t("when it was trained. Look at its versions, or teach it again with newer examples.")}</Alert>
       )}
-      <div className="flex h-16 items-end gap-[2px]" role="img" aria-label="Answers each day for the last 30 days">
-        {span.map((t) => {
-          const d = days.get(t);
+      <div className="flex h-16 items-end gap-[2px]" role="img" aria-label={t("Answers each day for the last 30 days")}>
+        {span.map((tick) => {
+          const d = days.get(tick);
           const answers = Number(d?.answers ?? 0n), fb = Number(d?.feedback ?? 0n), ok = Number(d?.correct ?? 0n);
           const most = Math.max(1, ...[...days.values()].map((x) => Number(x.answers)));
-          const label = `${new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}: ${answers} answers${fb > 0 ? `, ${score(ok / fb, number)} of ${fb} checked` : ""}`;
+          const label = `${new Date(tick).toLocaleDateString(locale, { month: "short", day: "numeric" })}: ${count(answers, "answer")}${fb > 0 ? t(", {n1} of {fb} checked", { n1: score(ok / fb, number), fb }) : ""}`;
           return (
-            <Tooltip key={t} label={label} withinPortal>
+            <Tooltip key={tick} label={label} withinPortal>
               <div className="flex h-full flex-1 flex-col justify-end">
                 <div
                   className="rounded-sm"
@@ -49,10 +49,8 @@ export function InUse({ model: m, number }: { model: Model; number: boolean }) {
           );
         })}
       </div>
-      <Text size="xs" c="dimmed" mt={4} mb="sm">Last 30 days. Green days got about as many right as in training, orange fewer, grey had no answers sent back.</Text>
-      <Text size="sm" c="dimmed" mb="xs">
-        Each prediction comes back with a predictionId. When your app learns the right answer, send it back, within 30 days:
-      </Text>
+      <Text size="xs" c="dimmed" mt={4} mb="sm">{t("Last 30 days. Green days got about as many right as in training, orange fewer, grey had no answers sent back.")}</Text>
+      <Text size="sm" c="dimmed" mb="xs">{t("Each prediction comes back with a predictionId. When your app learns the right answer, send it back, within 30 days:")}</Text>
       <Code block>{curl}</Code>
     </Card>
   );

@@ -16,6 +16,7 @@ import { allDocumentQueries, getCollection, listModels, whoAmI } from "../../../
 import { Page } from "../../../components/Page";
 import { ago, bytes } from "../../../lib/format";
 import { cited, documentStatus, documentTypes, maxDocumentBytes, readable, reading } from "../../../lib/documents";
+import { t } from "../../../i18n";
 
 const documents = createClient(DocumentService, transport);
 
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/_app/documents/$id")({
   ]),
   errorComponent: ({ error }) => (
     <Alert color="red" icon={<IconAlertCircle />} className="mx-auto max-w-5xl">
-      {message(error)} <Link to="/documents">Back to your documents</Link>
+      {message(error)} <Link to="/documents">{t("Back to your documents")}</Link>
     </Alert>
   ),
   component: CollectionPage,
@@ -51,7 +52,7 @@ function CollectionPage() {
       await navigate({ to: "/documents" });
       queryClient.removeQueries({ queryKey: getCollection(id).queryKey });
       await refresh();
-      notifications.show({ message: `${c.name} was deleted.` });
+      notifications.show({ message: t("{name} was deleted.", { name: c.name }) });
     },
   });
   const removeDoc = useMutation(DocumentService.method.deleteDocument, { onSuccess: refresh });
@@ -73,13 +74,13 @@ function CollectionPage() {
   return (
     <Page
       title={c.name}
-      crumbs={[{ label: "Documents", to: "/documents" }, { label: c.name }]}
-      intro={<>{c.documents} {c.documents === 1 ? "document" : "documents"} · answered by {c.languageModelName || "a deleted model"} · apps ask it as <Text span ff="monospace" fz="inherit">{c.apiName}</Text></>}
+      crumbs={[{ label: t("Documents"), to: "/documents" }, { label: c.name }]}
+      intro={<>{c.documents} {c.documents === 1 ? "document" : "documents"}{" "}{t("· answered by")}{" "}{c.languageModelName || t("a deleted model")}{" "}{t("· apps ask it as")}{" "}<Text span ff="monospace" fz="inherit">{c.apiName}</Text></>}
       actions={canWrite && (
         <Group gap="xs">
-          <Button variant="default" leftSection={<IconSettings size={18} />} onClick={() => setEditing(true)}>Settings</Button>
+          <Button variant="default" leftSection={<IconSettings size={18} />} onClick={() => setEditing(true)}>{t("Settings")}</Button>
           <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} loading={remove.isPending}
-            onClick={() => window.confirm(`Delete ${c.name} and its ${c.documents} documents?`) && remove.mutate({ id })}>Delete</Button>
+            onClick={() => window.confirm(t("Delete {name} and its {n} documents?", { name: c.name, n: c.documents })) && remove.mutate({ id })}>{t("Delete")}</Button>
         </Group>
       )}
     >
@@ -88,23 +89,23 @@ function CollectionPage() {
         <Ask collection={c} empty={c.passages === 0n} />
         <Card withBorder padding="lg">
             <Group justify="space-between" mb="xs">
-              <Text fw={650}>Documents</Text>
+              <Text fw={650}>{t("Documents")}</Text>
               <Text size="sm" c="dimmed">{data.documents.length}</Text>
             </Group>
             {canWrite && (
               <Dropzone mb="sm" maxSize={maxDocumentBytes} loading={uploading > 0}
                 accept={{ "text/plain": documentTypes, "text/markdown": [".md"], "text/html": [".html", ".htm"], "application/pdf": [".pdf"], "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"] }}
                 onDrop={(files) => void add(files.filter((f) => readable(f.name)))}
-                onReject={(rs) => notifications.show({ color: "red", message: `${rs.map((r) => r.file.name).join(", ")}: add PDF, Word, Markdown, web page or text files of up to 64 MB.` })}>
+                onReject={(rs) => notifications.show({ color: "red", message: t("{n1}: add PDF, Word, Markdown, web page or text files of up to 64 MB.", { n1: rs.map((r) => r.file.name).join(", ") }) })}>
                 <Stack align="center" gap={2} py="sm" className="pointer-events-none">
                   <IconFileText size={28} stroke={1.5} />
-                  <Text fw={600} size="sm">Drop files here, or click to choose</Text>
-                  <Text size="xs" c="dimmed">PDF, Word, Markdown, web pages or text, up to 64 MB each</Text>
+                  <Text fw={600} size="sm">{t("Drop files here, or click to choose")}</Text>
+                  <Text size="xs" c="dimmed">{t("PDF, Word, Markdown, web pages or text, up to 64 MB each")}</Text>
                 </Stack>
               </Dropzone>
             )}
             {data.documents.length === 0 ? (
-              <Text size="sm" c="dimmed">No documents yet.</Text>
+              <Text size="sm" c="dimmed">{t("No documents yet.")}</Text>
             ) : (
               <div className="row-list">
                 {data.documents.map((d) => (
@@ -113,13 +114,13 @@ function CollectionPage() {
                     <div className="min-w-0 flex-1">
                       <Text size="sm" fw={500} truncate>{d.name}</Text>
                       <Text size="xs" c={d.error ? "red" : "dimmed"} lineClamp={2}>
-                        {d.error || `${documentStatus(d)} · ${bytes(d.bytes)} · added ${ago(d.createTime)}`}
+                        {d.error || t("{d} · {bytes} · added {createTime}", { d: documentStatus(d), bytes: bytes(d.bytes), createTime: ago(d.createTime) })}
                       </Text>
                     </div>
                     {reading(d)
                       ? <Loader size="xs" />
                       : canWrite && (
-                        <ActionIcon variant="subtle" color="gray" aria-label={`Delete ${d.name}`} onClick={() => removeDoc.mutate({ id: d.id })}>
+                        <ActionIcon variant="subtle" color="gray" aria-label={t("Delete {name}", { name: d.name })} onClick={() => removeDoc.mutate({ id: d.id })}>
                           <IconTrash size={16} />
                         </ActionIcon>
                       )}
@@ -164,12 +165,12 @@ function Ask({ collection, empty }: { collection: Collection; empty: boolean }) 
         messages: asked.map((t) => ({ role: t.role, content: t.content })),
       }, { signal: ctl.signal })) {
         answer = { ...answer, content: answer.content + res.text, sources: res.sources.length > 0 ? res.sources : answer.sources };
-        if (res.done && !res.finished) answer.note = "Cut off before the end";
+        if (res.done && !res.finished) answer.note = t("Cut off before the end");
         setTurns([...asked, answer]);
       }
     } catch (err) {
       if (ConnectError.from(err).code === Code.Canceled) {
-        setTurns([...asked, { ...answer, note: "Stopped" }]);
+        setTurns([...asked, { ...answer, note: t("Stopped") }]);
       } else {
         setError(message(err));
         setTurns(turns);
@@ -184,9 +185,9 @@ function Ask({ collection, empty }: { collection: Collection; empty: boolean }) 
   return (
     <Card withBorder padding={0} className="flex flex-col" h="min(640px, calc(100dvh - 260px))" mih={420}>
       <Group justify="space-between" px="lg" py="sm" className="border-b" style={{ borderColor: "var(--mimir-line)" }}>
-        <Text fw={650}>Ask</Text>
+        <Text fw={650}>{t("Ask")}</Text>
         {turns.length > 0 && (
-          <Button variant="subtle" size="xs" leftSection={<IconMessagePlus size={16} />} onClick={() => { stop.current?.abort(); setTurns([]); setError(undefined); }}>New chat</Button>
+          <Button variant="subtle" size="xs" leftSection={<IconMessagePlus size={16} />} onClick={() => { stop.current?.abort(); setTurns([]); setError(undefined); }}>{t("New chat")}</Button>
         )}
       </Group>
       <ScrollArea className="flex-1" px="lg" py="md">
@@ -194,7 +195,7 @@ function Ask({ collection, empty }: { collection: Collection; empty: boolean }) 
           <Stack align="center" gap={6} mt={48} c="dimmed">
             <IconMessagePlus size={28} stroke={1.5} />
             <Text c="dimmed" ta="center" maw={360}>
-            {empty ? "Add documents, then ask about them here." : "Ask anything your documents answer. Each answer shows the passages it came from."}
+            {empty ? t("Add documents, then ask about them here.") : t("Ask anything your documents answer. Each answer shows the passages it came from.")}
             </Text>
           </Stack>
         )}
@@ -208,12 +209,12 @@ function Ask({ collection, empty }: { collection: Collection; empty: boolean }) 
       <Stack gap="xs" p="md" className="border-t" style={{ borderColor: "var(--mimir-line)" }}>
         {error && <Alert color="red" icon={<IconAlertCircle />} py="xs">{error}</Alert>}
         <Group gap="xs" wrap="nowrap" align="flex-end">
-          <Textarea className="flex-1" placeholder="Ask a question, like “How many days of leave do we get?”" autosize minRows={1} maxRows={6} value={draft} disabled={empty}
+          <Textarea className="flex-1" placeholder={t("Ask a question, like “How many days of leave do we get?”")} autosize minRows={1} maxRows={6} value={draft} disabled={empty}
             onChange={(e) => setDraft(e.currentTarget.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
           {writing
-            ? <ActionIcon size={36} variant="default" aria-label="Stop" onClick={() => stop.current?.abort()}><IconPlayerStopFilled size={16} /></ActionIcon>
-            : <ActionIcon size={36} aria-label="Send" disabled={!draft.trim() || empty} onClick={() => void send()}><IconArrowUp size={18} /></ActionIcon>}
+            ? <ActionIcon size={36} variant="default" aria-label={t("Stop")} onClick={() => stop.current?.abort()}><IconPlayerStopFilled size={16} /></ActionIcon>
+            : <ActionIcon size={36} aria-label={t("Send")} disabled={!draft.trim() || empty} onClick={() => void send()}><IconArrowUp size={18} /></ActionIcon>}
         </Group>
       </Stack>
     </Card>
@@ -225,7 +226,7 @@ function AnswerView({ turn, writing }: { turn: Turn; writing: boolean }) {
   return (
     <div>
       {turn.content === "" && writing
-        ? <Group gap="xs"><Loader size="xs" type="dots" /><Text size="sm" c="dimmed">Looking through your documents</Text></Group>
+        ? <Group gap="xs"><Loader size="xs" type="dots" /><Text size="sm" c="dimmed">{t("Looking through your documents")}</Text></Group>
         : (
           <Text style={{ whiteSpace: "pre-wrap" }}>
             {cited(turn.content, sources.length).map((p, k) => "text" in p
@@ -236,7 +237,7 @@ function AnswerView({ turn, writing }: { turn: Turn; writing: boolean }) {
       {turn.note && <Text size="xs" c="dimmed" mt={4}>{turn.note}</Text>}
       {sources.length > 0 && (
         <Group gap={6} mt="xs">
-          <Text size="xs" c="dimmed">From</Text>
+          <Text size="xs" c="dimmed">{t("From")}</Text>
           {sources.map((p, k) => <Source key={p.id} n={k + 1} passage={p} label={`${k + 1}. ${p.documentName}`} />)}
         </Group>
       )}
@@ -255,7 +256,7 @@ function Source({ n, passage, label }: { n: number; passage?: Passage; label?: s
         </Tooltip>
       </Popover.Target>
       <Popover.Dropdown>
-        <Text size="xs" c="dimmed" mb={4}>{passage.documentName}, passage {passage.number}</Text>
+        <Text size="xs" c="dimmed" mb={4}>{passage.documentName}{t(", passage")}{" "}{passage.number}</Text>
         <ScrollArea.Autosize mah={260}><Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{passage.text}</Text></ScrollArea.Autosize>
       </Popover.Dropdown>
     </Popover>
@@ -272,23 +273,23 @@ function Settings({ collection: c, open, onClose }: { collection: Collection; op
   const save = useMutation(DocumentService.method.updateCollection, {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: allDocumentQueries });
-      notifications.show({ message: "Saved." });
+      notifications.show({ message: t("Saved.") });
       onClose();
     },
   });
   return (
-    <Modal opened={open} onClose={onClose} title="Settings" radius="lg" size="lg" centered>
+    <Modal opened={open} onClose={onClose} title={t("Settings")} radius="lg" size="lg" centered>
       <Stack gap="md">
         {save.error && <Alert color="red" icon={<IconAlertCircle />}>{message(save.error)}</Alert>}
-        <TextInput label="Name" maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} />
-        <Select label="Model that answers" data={language} value={model} onChange={setModel} allowDeselect={false} searchable />
-        <TextInput label="Model that reads the documents" value={c.embeddingModelName} disabled
-          description="Fixed: the passages were read by it. Make a new collection to use another." />
-        <Textarea label="Instructions" autosize minRows={2} maxLength={8000} value={instructions} onChange={(e) => setInstructions(e.currentTarget.value)} />
+        <TextInput label={t("Name")} maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} />
+        <Select label={t("Model that answers")} data={language} value={model} onChange={setModel} allowDeselect={false} searchable />
+        <TextInput label={t("Model that reads the documents")} value={c.embeddingModelName} disabled
+          description={t("Fixed: the passages were read by it. Make a new collection to use another.")} />
+        <Textarea label={t("Instructions")} autosize minRows={2} maxLength={8000} value={instructions} onChange={(e) => setInstructions(e.currentTarget.value)} />
         <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>Cancel</Button>
+          <Button variant="default" onClick={onClose}>{t("Cancel")}</Button>
           <Button loading={save.isPending} disabled={!name.trim() || !model}
-            onClick={() => save.mutate({ id: c.id, name: name.trim(), languageModelId: model!, instructions })}>Save</Button>
+            onClick={() => save.mutate({ id: c.id, name: name.trim(), languageModelId: model!, instructions })}>{t("Save")}</Button>
         </Group>
       </Stack>
     </Modal>

@@ -1,14 +1,15 @@
 import type { RunReport } from "../api/gen/mimir/v1/training_pb";
+import { locale, t } from "../i18n";
 
 // number shows a measurement with sensible digits: "12.4", "0.913",
 // "15,737".
 export function number(n: number, digits = 2) {
-  return n.toLocaleString(undefined, { maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : digits });
+  return n.toLocaleString(locale, { maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : digits });
 }
 
 // short shows an axis value briefly: "160K", "1.2M", "0.5".
 export function short(n: number) {
-  return n.toLocaleString(undefined, { notation: "compact", maximumFractionDigits: 1 });
+  return n.toLocaleString(locale, { notation: "compact", maximumFractionDigits: 1 });
 }
 
 // balanced says one answer is rare (under a fifth of the examples), so
@@ -23,10 +24,10 @@ export function balanced(r: RunReport) {
 export function headline(r: RunReport) {
   switch (r.kind) {
     case "number":
-      return `usually off by about ${number(r.mae)}`;
+      return t("usually off by about {mae}", { mae: number(r.mae) });
     case "ranked":
-      return `the right one is in its top ${r.k} for ${Math.round((r.hitAt.at(-1) ?? 0) * 100)} of 100`;
+      return t("the right one is in its top {k} for {n2} of 100", { k: r.k, n2: Math.round((r.hitAt.at(-1) ?? 0) * 100) });
     default:
-      return `gets ${Math.round(r.accuracy * 100)} of 100 right`;
+      return t("gets {n1} of 100 right", { n1: Math.round(r.accuracy * 100) });
   }
 }

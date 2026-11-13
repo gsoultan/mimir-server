@@ -13,6 +13,7 @@ import { Row, RowList, StatusPill } from "../../components/ui";
 import { ago } from "../../lib/format";
 import { answerWord, rightWord } from "../../lib/models";
 import { active, progress } from "../../lib/training";
+import { t } from "../../i18n";
 
 export const Route = createFileRoute("/_app/")({
   loader: ({ context }) => Promise.all([
@@ -26,7 +27,7 @@ const day = 86_400_000;
 
 function greeting() {
   const h = new Date().getHours();
-  return h < 5 ? "Good evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  return h < 5 ? t("Good evening") : h < 12 ? t("Good morning") : h < 18 ? t("Good afternoon") : t("Good evening");
 }
 
 function Home() {
@@ -54,9 +55,9 @@ function Home() {
     if (q?.dropped) {
       attention.push(
         <Row key={"drop" + m.id} tone="warn" icon={<IconAlertTriangle size={20} />}
-          title={`${m.name} is getting fewer answers right`}
-          detail={`${Math.round(q.weekAccuracy * 100)} of 100 right this week, against ${Math.round(m.accuracy * 100)} when it was taught. Newer examples would help.`}>
-          <ButtonLink size="xs" variant="default" to="/models/$id" params={{ id: m.id }}>Look into it</ButtonLink>
+          title={t("{name} is getting fewer answers right", { name: m.name })}
+          detail={t("{n1} of 100 right this week, against {n2} when it was taught. Newer examples would help.", { n1: Math.round(q.weekAccuracy * 100), n2: Math.round(m.accuracy * 100) })}>
+          <ButtonLink size="xs" variant="default" to="/models/$id" params={{ id: m.id }}>{t("Look into it")}</ButtonLink>
         </Row>,
       );
     }
@@ -65,51 +66,51 @@ function Home() {
     if (active(j)) {
       attention.push(
         <Row key={j.id} tone="busy" icon={<IconLoader2 size={20} className="animate-spin [animation-duration:2s]" />}
-          title={`${j.name} is ${j.status === JobStatus.QUEUED ? "waiting to start" : "learning"}`}
-          detail={`Pass ${Math.min(j.epoch + 1, j.settings?.epochs ?? 1)} of ${j.settings?.epochs ?? 1} · started ${ago(j.createTime)}`}
-          extra={<Progress value={progress(j)} color="violet" size="sm" mt={8} maw={380} animated aria-label="Progress" />}>
-          <ButtonLink size="xs" variant="subtle" to="/training/$id" params={{ id: j.id }}>Watch</ButtonLink>
+          title={j.status === JobStatus.QUEUED ? t("{name} is waiting to start", { name: j.name }) : t("{name} is learning", { name: j.name })}
+          detail={t("Pass {n1} of {n2} · started {createTime}", { n1: Math.min(j.epoch + 1, j.settings?.epochs ?? 1), n2: j.settings?.epochs ?? 1, createTime: ago(j.createTime) })}
+          extra={<Progress value={progress(j)} color="violet" size="sm" mt={8} maw={380} animated aria-label={t("Progress")} />}>
+          <ButtonLink size="xs" variant="subtle" to="/training/$id" params={{ id: j.id }}>{t("Watch")}</ButtonLink>
         </Row>,
       );
     } else if (j.status === JobStatus.SUCCEEDED && recent(j.endTime)) {
       attention.push(
-        <Row key={j.id} tone="ok" icon={<IconCircleCheck size={20} />} title={`${j.name} finished learning`}
-          detail={`Gets ${Math.round(j.accuracy * 100)} of 100 right · ${ago(j.endTime)}`}>
-          <ButtonLink size="xs" variant="default" to="/try" search={{ model: j.modelId }}>Try it</ButtonLink>
+        <Row key={j.id} tone="ok" icon={<IconCircleCheck size={20} />} title={t("{name} finished learning", { name: j.name })}
+          detail={t("Gets {n1} of 100 right · {endTime}", { n1: Math.round(j.accuracy * 100), endTime: ago(j.endTime) })}>
+          <ButtonLink size="xs" variant="default" to="/try" search={{ model: j.modelId }}>{t("Try it")}</ButtonLink>
         </Row>,
       );
     } else if (j.status === JobStatus.FAILED && recent(j.endTime ?? j.createTime)) {
       attention.push(
-        <Row key={j.id} tone="bad" icon={<IconX size={20} />} title={`${j.name} didn't finish`} detail={j.error || "It stopped with an error."}>
-          <ButtonLink size="xs" variant="default" to="/training/$id" params={{ id: j.id }}>See why</ButtonLink>
+        <Row key={j.id} tone="bad" icon={<IconX size={20} />} title={t("{name} didn't finish", { name: j.name })} detail={j.error || t("It stopped with an error.")}>
+          <ButtonLink size="xs" variant="default" to="/training/$id" params={{ id: j.id }}>{t("See why")}</ButtonLink>
         </Row>,
       );
     }
   }
   const dropped = shown.filter((m) => qualityOf(m.id)?.dropped).length;
-  const summary = `${models.length} ${models.length === 1 ? "model is" : "models are"} ready to answer.${dropped > 0 ? ` ${dropped === 1 ? "One needs" : `${dropped} need`} a look.` : ""}`;
+  const summary = t("{models} {n2} ready to answer.{n3}", { models: models.length, n2: models.length === 1 ? t("model is") : t("models are"), n3: dropped > 0 ? t(" {n1} a look.", { n1: dropped === 1 ? t("One needs") : t("{dropped} need", { dropped }) }) : "" });
 
   return (
     <Page
       title={`${greeting()}${first ? `, ${first}` : ""}`}
       intro={summary}
-      actions={canWrite && <ButtonLink to="/models/build" leftSection={<IconPlus size={18} />}>Build a model</ButtonLink>}
+      actions={canWrite && <ButtonLink to="/models/build" leftSection={<IconPlus size={18} />}>{t("Build a model")}</ButtonLink>}
     >
       {attention.length > 0 && <RowList>{attention.slice(0, 6)}</RowList>}
 
       <section>
         <Group justify="space-between" mb="sm">
-          <Title order={2}>Your models</Title>
-          {models.length > 6 && <Anchor component={Link} to="/models" fw={650} size="sm">See all {models.length} <IconArrowRight size={14} className="inline" /></Anchor>}
+          <Title order={2}>{t("Your models")}</Title>
+          {models.length > 6 && <Anchor component={Link} to="/models" fw={650} size="sm">{t("See all")}{" "}{models.length} <IconArrowRight size={14} className="inline" /></Anchor>}
         </Group>
         <Card withBorder padding={0}>
           <Table highlightOnHover>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Model</Table.Th>
-                <Table.Th visibleFrom="sm">What it answers</Table.Th>
-                <Table.Th>Right</Table.Th>
-                <Table.Th visibleFrom="md">Answers this week</Table.Th>
+                <Table.Th>{t("Model")}</Table.Th>
+                <Table.Th visibleFrom="sm">{t("What it answers")}</Table.Th>
+                <Table.Th>{t("Right")}</Table.Th>
+                <Table.Th visibleFrom="md">{t("Answers this week")}</Table.Th>
                 <Table.Th visibleFrom="sm" />
               </Table.Tr>
             </Table.Thead>
@@ -128,7 +129,7 @@ function Home() {
                     <Table.Td>{right ? <StatusPill tone={q?.dropped ? "warn" : "ok"}>{right}</StatusPill> : <Text c="dimmed" size="sm">–</Text>}</Table.Td>
                     <Table.Td visibleFrom="md" c="dimmed">{q ? Number(q.weekAnswers).toLocaleString() : "–"}</Table.Td>
                     <Table.Td visibleFrom="sm" ta="right">
-                      <ButtonLink size="xs" variant="subtle" leftSection={<IconPlayerPlay size={14} />} to="/try" search={{ model: m.id }}>Try</ButtonLink>
+                      <ButtonLink size="xs" variant="subtle" leftSection={<IconPlayerPlay size={14} />} to="/try" search={{ model: m.id }}>{t("Try")}</ButtonLink>
                     </Table.Td>
                   </Table.Tr>
                 );
@@ -139,13 +140,13 @@ function Home() {
       </section>
 
       <section>
-        <Title order={2} mb="sm">Quick start</Title>
+        <Title order={2} mb="sm">{t("Quick start")}</Title>
         <SimpleGrid cols={{ base: 1, sm: 3 }}>
-          <QuickStart to="/try" icon={<IconMessageCircle size={20} />} title="Ask a model" text="Type a question or drop in a file and see the answer." />
+          <QuickStart to="/try" icon={<IconMessageCircle size={20} />} title={t("Ask a model")} text={t("Type a question or drop in a file and see the answer.")} />
           {canWrite
-            ? <QuickStart to="/templates" icon={<IconBooks size={20} />} title="Start from a template" text="Real problems with example data you can try right away." />
-            : <QuickStart to="/documents" icon={<IconBooks size={20} />} title="Ask your documents" text="Questions answered from your own files, with sources." />}
-          <QuickStart to="/apps" icon={<IconPlugConnected size={20} />} title="Connect an app" text="Make a key and copy a ready request." />
+            ? <QuickStart to="/templates" icon={<IconBooks size={20} />} title={t("Start from a template")} text={t("Real problems with example data you can try right away.")} />
+            : <QuickStart to="/documents" icon={<IconBooks size={20} />} title={t("Ask your documents")} text={t("Questions answered from your own files, with sources.")} />}
+          <QuickStart to="/apps" icon={<IconPlugConnected size={20} />} title={t("Connect an app")} text={t("Make a key and copy a ready request.")} />
         </SimpleGrid>
       </section>
     </Page>
@@ -166,22 +167,22 @@ function QuickStart({ to, icon, title, text }: { to: "/try" | "/templates" | "/d
 function FirstRun({ canWrite, name }: { canWrite: boolean; name: string }) {
   if (!canWrite) {
     return (
-      <Page title={`Welcome${name ? `, ${name}` : ""}`} intro="No models have been shared with you yet. Ask an editor or admin to give you access.">
+      <Page title={name ? t("Welcome, {name}", { name }) : t("Welcome")} intro={t("No models have been shared with you yet. Ask an editor or admin to give you access.")}>
         <Card withBorder padding="xl">
-          <Text fw={650}>While you wait</Text>
-          <Text c="dimmed" size="sm" mt={4}>You can already ask questions of your team's documents.</Text>
-          <ButtonLink mt="md" variant="default" to="/documents">Ask your documents</ButtonLink>
+          <Text fw={650}>{t("While you wait")}</Text>
+          <Text c="dimmed" size="sm" mt={4}>{t("You can already ask questions of your team's documents.")}</Text>
+          <ButtonLink mt="md" variant="default" to="/documents">{t("Ask your documents")}</ButtonLink>
         </Card>
       </Page>
     );
   }
   const ways = [
-    { to: "/templates" as const, icon: <IconBooks size={20} />, title: "Start from a template", text: "Pick a real problem, bring data shaped like the example, and we teach it. You can try it with made-up data first.", cta: "Browse templates", primary: true },
-    { to: "/models/new" as const, icon: <IconUpload size={20} />, title: "Add a model you have", text: "Upload a Mimir Model, ONNX or GGUF file. It takes a minute.", cta: "Upload a file", primary: false },
-    { to: "/models/build" as const, icon: <IconSparkles size={20} />, title: "Not sure?", text: "Say what you want to know and we show the easiest way there, step by step.", cta: "Build a model", primary: false },
+    { to: "/templates" as const, icon: <IconBooks size={20} />, title: t("Start from a template"), text: t("Pick a real problem, bring data shaped like the example, and we teach it. You can try it with made-up data first."), cta: t("Browse templates"), primary: true },
+    { to: "/models/new" as const, icon: <IconUpload size={20} />, title: t("Add a model you have"), text: t("Upload a Mimir Model, ONNX or GGUF file. It takes a minute."), cta: t("Upload a file"), primary: false },
+    { to: "/models/build" as const, icon: <IconSparkles size={20} />, title: t("Not sure?"), text: t("Say what you want to know and we show the easiest way there, step by step."), cta: t("Build a model"), primary: false },
   ];
   return (
-    <Page title={`Welcome to mimir${name ? `, ${name}` : ""}`} intro="mimir runs your models and lets your apps ask them questions. Start with one of these.">
+    <Page title={t("Welcome to mimir{n1}", { n1: name ? `, ${name}` : "" })} intro={t("mimir runs your models and lets your apps ask them questions. Start with one of these.")}>
       <SimpleGrid cols={{ base: 1, md: 3 }}>
         {ways.map((w) => (
           <Card key={w.to} withBorder padding="xl" className="flex flex-col">

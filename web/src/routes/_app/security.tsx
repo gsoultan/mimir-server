@@ -14,6 +14,7 @@ import { AuthService, type Session } from "../../api/gen/mimir/v1/access_pb";
 import { allAuthQueries, listSessions, whoAmI } from "../../api/queries";
 import { Page } from "../../components/Page";
 import { ago } from "../../lib/format";
+import { t } from "../../i18n";
 
 export const Route = createFileRoute("/_app/security")({
   loader: ({ context }) => context.queryClient.ensureQueryData(listSessions),
@@ -26,30 +27,28 @@ function Security() {
   const [turningOff, off] = useDisclosure();
   const on = me.user?.twoFactor ?? false;
   return (
-    <Page title="Security" intro="Keep your account yours: a second step at sign-in, and a look at where you're signed in.">
+    <Page title={t("Security")} intro={t("Keep your account yours: a second step at sign-in, and a look at where you're signed in.")}>
       {me.mustSetUpTwoFactor && (
-        <Alert color="yellow" icon={<IconAlertCircle />} title="Two-step verification is required here" mb="md">
-          An admin asks everyone with your role to use it. Set it up below; the rest of mimir unlocks right after.
-        </Alert>
+        <Alert color="yellow" icon={<IconAlertCircle />} title={t("Two-step verification is required here")} mb="md">{t("An admin asks everyone with your role to use it. Set it up below; the rest of mimir unlocks right after.")}</Alert>
       )}
       <Stack gap="md">
         <Card withBorder radius="lg" padding="lg">
           <Group justify="space-between" align="flex-start" wrap="nowrap">
             <div>
               <Group gap="xs">
-                <Title order={3} fz="lg">Two-step verification</Title>
-                {on ? <Badge color="teal" variant="light" leftSection={<IconShieldCheck size={12} />}>On</Badge> : <Badge color="gray" variant="light" leftSection={<IconShieldOff size={12} />}>Off</Badge>}
+                <Title order={3} fz="lg">{t("Two-step verification")}</Title>
+                {on ? <Badge color="teal" variant="light" leftSection={<IconShieldCheck size={12} />}>{t("On")}</Badge> : <Badge color="gray" variant="light" leftSection={<IconShieldOff size={12} />}>{t("Off")}</Badge>}
               </Group>
               <Text c="dimmed" size="sm" mt={4}>
                 {on
-                  ? "Signing in takes your password and a six-digit code from your authenticator app. A stolen password alone can't get in."
-                  : "Add a six-digit code from an authenticator app (Google Authenticator, Authy, 1Password, Microsoft Authenticator) to every sign-in."}
+                  ? t("Signing in takes your password and a six-digit code from your authenticator app. A stolen password alone can't get in.")
+                  : t("Add a six-digit code from an authenticator app (Google Authenticator, Authy, 1Password, Microsoft Authenticator) to every sign-in.")}
               </Text>
             </div>
             {on ? (
-              <Button variant="default" onClick={off.open}>Turn off</Button>
+              <Button variant="default" onClick={off.open}>{t("Turn off")}</Button>
             ) : (
-              <Button onClick={setup.open}>Turn on</Button>
+              <Button onClick={setup.open}>{t("Turn on")}</Button>
             )}
           </Group>
         </Card>
@@ -77,44 +76,44 @@ function SetupModal({ opened, onClose }: { opened: boolean; onClose: () => void 
     QRCode.toDataURL(url, { margin: 1, width: 220 }).then(setQr).catch(() => setQr(""));
   }, [url]);
   const codes = enable.data?.recoveryCodes;
-  const finish = () => { onClose(); notifications.show({ color: "teal", message: "Two-step verification is on. Other devices were signed out." }); };
+  const finish = () => { onClose(); notifications.show({ color: "teal", message: t("Two-step verification is on. Other devices were signed out.") }); };
 
   return (
-    <Modal opened={opened} onClose={codes ? finish : onClose} title={codes ? "Save your recovery codes" : "Turn on two-step verification"} centered size="md" closeOnClickOutside={!codes}>
+    <Modal opened={opened} onClose={codes ? finish : onClose} title={codes ? t("Save your recovery codes") : t("Turn on two-step verification")} centered size="md" closeOnClickOutside={!codes}>
       {codes ? (
         <Stack>
-          <Alert color="yellow" icon={<IconAlertCircle />}>If you lose your phone, one of these codes gets you in. Each works once. Keep them somewhere safe; they won't be shown again.</Alert>
+          <Alert color="yellow" icon={<IconAlertCircle />}>{t("If you lose your phone, one of these codes gets you in. Each works once. Keep them somewhere safe; they won't be shown again.")}</Alert>
           <SimpleGrid cols={2} spacing="xs">
             {codes.map((c) => <Code key={c} fz="md" p="xs" ta="center">{c}</Code>)}
           </SimpleGrid>
           <Group justify="space-between">
             <CopyButton value={codes.join("\n")}>
-              {({ copied, copy }) => <Button variant="default" leftSection={copied ? <IconCheck size={16} /> : undefined} onClick={copy}>{copied ? "Copied" : "Copy all"}</Button>}
+              {({ copied, copy }) => <Button variant="default" leftSection={copied ? <IconCheck size={16} /> : undefined} onClick={copy}>{copied ? t("Copied") : t("Copy all")}</Button>}
             </CopyButton>
-            <Button onClick={finish}>I saved them</Button>
+            <Button onClick={finish}>{t("I saved them")}</Button>
           </Group>
         </Stack>
       ) : !start.data ? (
         <form onSubmit={(e) => { e.preventDefault(); start.mutate({ password }); }}>
           <Stack>
-            <Text size="sm" c="dimmed">First, confirm it's you.</Text>
-            <PasswordInput label="Your password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} data-autofocus />
+            <Text size="sm" c="dimmed">{t("First, confirm it's you.")}</Text>
+            <PasswordInput label={t("Your password")} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} data-autofocus />
             {start.error && <Alert color="red" icon={<IconAlertCircle />}>{message(start.error)}</Alert>}
-            <Button type="submit" loading={start.isPending}>Continue</Button>
+            <Button type="submit" loading={start.isPending}>{t("Continue")}</Button>
           </Stack>
         </form>
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); enable.mutate({ code }); }}>
           <Stack>
-            <Text size="sm"><b>1.</b> Open your authenticator app and scan this code.</Text>
+            <Text size="sm"><b>1.</b>{" "}{t("Open your authenticator app and scan this code.")}</Text>
             <div className="flex justify-center">
-              {qr ? <img src={qr} alt="QR code for your authenticator app" width={220} height={220} className="rounded-md" /> : <div style={{ width: 220, height: 220 }} />}
+              {qr ? <img src={qr} alt={t("QR code for your authenticator app")} width={220} height={220} className="rounded-md" /> : <div style={{ width: 220, height: 220 }} />}
             </div>
-            <Text size="xs" c="dimmed" ta="center">Can't scan? Type this key instead: <Code>{start.data.secret}</Code></Text>
-            <Text size="sm"><b>2.</b> Type the six digits the app shows.</Text>
-            <PinInput length={6} type="number" oneTimeCode autoFocus value={code} onChange={setCode} aria-label="Six-digit code" className="justify-center" />
+            <Text size="xs" c="dimmed" ta="center">{t("Can't scan? Type this key instead:")}{" "}<Code>{start.data.secret}</Code></Text>
+            <Text size="sm"><b>2.</b>{" "}{t("Type the six digits the app shows.")}</Text>
+            <PinInput length={6} type="number" oneTimeCode autoFocus value={code} onChange={setCode} aria-label={t("Six-digit code")} className="justify-center" />
             {enable.error && <Alert color="red" icon={<IconAlertCircle />}>{message(enable.error)}</Alert>}
-            <Button type="submit" loading={enable.isPending} disabled={code.length < 6}>Turn on</Button>
+            <Button type="submit" loading={enable.isPending} disabled={code.length < 6}>{t("Turn on")}</Button>
           </Stack>
         </form>
       )}
@@ -134,30 +133,30 @@ function TurnOffModal({ opened, onClose }: { opened: boolean; onClose: () => voi
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: allAuthQueries });
       setPassword(""); setCode(""); setRecovery(false); onClose();
-      notifications.show({ message: "Two-step verification is off." });
+      notifications.show({ message: t("Two-step verification is off.") });
     },
   });
   return (
-    <Modal opened={opened} onClose={onClose} title="Turn off two-step verification?" centered>
+    <Modal opened={opened} onClose={onClose} title={t("Turn off two-step verification?")} centered>
       <form onSubmit={(e) => { e.preventDefault(); disable.mutate({ password, code }); }}>
         <Stack>
-          <Text size="sm" c="dimmed">Your password alone will sign you in again. Your recovery codes stop working.</Text>
-          <PasswordInput label="Your password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} data-autofocus />
+          <Text size="sm" c="dimmed">{t("Your password alone will sign you in again. Your recovery codes stop working.")}</Text>
+          <PasswordInput label={t("Your password")} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} data-autofocus />
           {recovery ? (
-            <TextInput label="Recovery code" placeholder="xxxx-xxxx-xxxx" autoComplete="one-time-code" required value={code} onChange={(e) => setCode(e.currentTarget.value)} />
+            <TextInput label={t("Recovery code")} placeholder="xxxx-xxxx-xxxx" autoComplete="one-time-code" required value={code} onChange={(e) => setCode(e.currentTarget.value)} />
           ) : (
             <Stack gap={4}>
-              <Text size="sm" fw={500}>Code from your authenticator app</Text>
-              <PinInput length={6} type="number" oneTimeCode value={code} onChange={setCode} aria-label="Six-digit code" />
+              <Text size="sm" fw={500}>{t("Code from your authenticator app")}</Text>
+              <PinInput length={6} type="number" oneTimeCode value={code} onChange={setCode} aria-label={t("Six-digit code")} />
             </Stack>
           )}
           <Anchor component="button" type="button" size="sm" ta="left" onClick={() => { setRecovery(!recovery); setCode(""); }}>
-            {recovery ? "Use the app instead" : "Lost your phone? Use a recovery code"}
+            {recovery ? t("Use the app instead") : t("Lost your phone? Use a recovery code")}
           </Anchor>
           {disable.error && <Alert color="red" icon={<IconAlertCircle />}>{message(disable.error)}</Alert>}
           <Group justify="flex-end">
-            <Button variant="default" onClick={onClose}>Keep it on</Button>
-            <Button color="red" type="submit" loading={disable.isPending} disabled={!recovery && code.length < 6}>Turn off</Button>
+            <Button variant="default" onClick={onClose}>{t("Keep it on")}</Button>
+            <Button color="red" type="submit" loading={disable.isPending} disabled={!recovery && code.length < 6}>{t("Turn off")}</Button>
           </Group>
         </Stack>
       </form>
@@ -170,7 +169,7 @@ function Sessions({ currentId }: { currentId: string }) {
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: allAuthQueries });
   const revoke = useMutation(AuthService.method.revokeSessions, {
-    onSuccess: async (res) => { await refresh(); notifications.show({ message: res.revoked === 1 ? "Signed out on that device." : `Signed out on ${res.revoked} devices.` }); },
+    onSuccess: async (res) => { await refresh(); notifications.show({ message: res.revoked === 1 ? t("Signed out on that device.") : t("Signed out on {revoked} devices.", { revoked: res.revoked }) }); },
   });
   const others = data.sessions.filter((s) => s.id !== currentId);
   const [all, setAll] = useState(false);
@@ -181,17 +180,17 @@ function Sessions({ currentId }: { currentId: string }) {
     <Card withBorder radius="lg" padding="lg">
       <Group justify="space-between" align="flex-start" mb="sm">
         <div>
-          <Title order={3} fz="lg">Where you're signed in</Title>
-          <Text c="dimmed" size="sm" mt={4}>Each browser gets its own sign-in. Sign out of any you don't recognise.</Text>
+          <Title order={3} fz="lg">{t("Where you're signed in")}</Title>
+          <Text c="dimmed" size="sm" mt={4}>{t("Each browser gets its own sign-in. Sign out of any you don't recognise.")}</Text>
         </div>
-        {others.length > 0 && <Button variant="default" loading={revoke.isPending} onClick={() => revoke.mutate({})}>Sign out everywhere else</Button>}
+        {others.length > 0 && <Button variant="default" loading={revoke.isPending} onClick={() => revoke.mutate({})}>{t("Sign out everywhere else")}</Button>}
       </Group>
       {revoke.error && <Alert color="red" icon={<IconAlertCircle />} mb="sm">{message(revoke.error)}</Alert>}
       <div className="row-list">
         {shown.map((s) => <SessionRow key={s.id} session={s} current={s.id === currentId} onRevoke={() => revoke.mutate({ id: s.id })} />)}
       </div>
       {sorted.length > 5 && (
-        <Button variant="subtle" size="compact-sm" mt="sm" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${sorted.length}`}</Button>
+        <Button variant="subtle" size="compact-sm" mt="sm" onClick={() => setAll(!all)}>{all ? t("Show fewer") : t("Show all {sorted}", { sorted: sorted.length })}</Button>
       )}
     </Card>
   );
@@ -205,16 +204,16 @@ function SessionRow({ session: s, current, onRevoke }: { session: Session; curre
         <div className="min-w-0">
           <Group gap="xs">
             <Text fw={600} size="sm">{s.device}</Text>
-            {current && <Badge size="xs" variant="light" color="teal">This device</Badge>}
+            {current && <Badge size="xs" variant="light" color="teal">{t("This device")}</Badge>}
           </Group>
           <Text size="xs" c="dimmed">
             {s.ip && `${s.ip} · `}
-            {s.lastSeenTime && `Active ${ago(s.lastSeenTime)}`}
-            {s.createTime && ` · Signed in ${timestampDate(s.createTime).toLocaleDateString()}`}
+            {s.lastSeenTime && t("Active {lastSeenTime}", { lastSeenTime: ago(s.lastSeenTime) })}
+            {s.createTime && t(" · Signed in {n1}", { n1: timestampDate(s.createTime).toLocaleDateString() })}
           </Text>
         </div>
       </Group>
-      {!current && <Button size="xs" variant="subtle" color="red" onClick={onRevoke}>Sign out</Button>}
+      {!current && <Button size="xs" variant="subtle" color="red" onClick={onRevoke}>{t("Sign out")}</Button>}
     </Group>
   );
 }

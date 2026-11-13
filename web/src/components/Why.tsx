@@ -5,6 +5,7 @@ import { IconAlertCircle, IconBulb } from "@tabler/icons-react";
 import { message } from "../api/client";
 import { PredictService, type ExplainResponse, type Model } from "../api/gen/mimir/v1/model_pb";
 import { answerText, because, effectText } from "../lib/explain";
+import { locale, t } from "../i18n";
 
 // Effects shows how much each column pushed an answer up or down: a bar
 // to the right for up, to the left for down, against the biggest.
@@ -20,7 +21,7 @@ export function Effects({ x }: { x: ExplainResponse }) {
             <Group wrap="nowrap" gap="sm">
               <div className="w-36 min-w-0 shrink-0">
                 <Text size="sm" fw={600} truncate>{c.column}</Text>
-                <Text size="xs" c="dimmed" truncate>{c.value === "" ? "empty" : c.value} · typical {c.typical}</Text>
+                <Text size="xs" c="dimmed" truncate>{c.value === "" ? t("empty") : c.value}{" "}{t("· typical")}{" "}{c.typical}</Text>
               </div>
               <Box className="relative h-3 flex-1 rounded-full" bg="var(--mantine-color-default-hover)">
                 <Box className="absolute top-0 h-3 rounded-full" bg={up ? "teal" : "red"}
@@ -44,22 +45,19 @@ export function WhyAnswer({ model, fields, label }: { model: Model; fields: Reco
     return (
       <Stack gap="xs" mt="md">
         {explain.error && <Alert color="red" icon={<IconAlertCircle />}>{message(explain.error)}</Alert>}
-        <Button variant="light" leftSection={<IconBulb size={18} />} loading={explain.isPending} onClick={() => explain.mutate({ modelId: model.id, fields, label: label ?? "" })}>
-          Why this answer?
-        </Button>
+        <Button variant="light" leftSection={<IconBulb size={18} />} loading={explain.isPending} onClick={() => explain.mutate({ modelId: model.id, fields, label: label ?? "" })}>{t("Why this answer?")}</Button>
       </Stack>
     );
   }
-  const what = x.number ? "the answer" : `the chance of ${x.label}`;
+  const what = x.number ? t("the answer") : t("the chance of {label}", { label: x.label });
   return (
     <Stack gap="sm" mt="lg">
-      <Text size="sm" fw={600}>Why this answer</Text>
-      <Text size="sm" c="dimmed">
-        For a typical row {what} is {answerText(x.typical, x.number)}; for this one it is {answerText(x.value, x.number)}.
-        {x.contributions.length === 0 ? " Every column is the same as in the typical row." : " These columns made the difference:"}
+      <Text size="sm" fw={600}>{t("Why this answer")}</Text>
+      <Text size="sm" c="dimmed">{t("For a typical row")}{" "}{what}{" "}{t("is")}{" "}{answerText(x.typical, x.number)}{t("; for this one it is")}{" "}{answerText(x.value, x.number)}.
+        {x.contributions.length === 0 ? t(" Every column is the same as in the typical row.") : t(" These columns made the difference:")}
       </Text>
       <Effects x={x} />
-      {!x.exact && <Text size="xs" c="dimmed">Estimated from a sample of the ways the columns could combine.</Text>}
+      {!x.exact && <Text size="xs" c="dimmed">{t("Estimated from a sample of the ways the columns could combine.")}</Text>}
     </Stack>
   );
 }
@@ -71,21 +69,21 @@ export function ColumnsThatMatter({ model }: { model: Model }) {
   const x = explain.data;
   return (
     <Card withBorder radius="lg" padding="lg">
-      <Text fw={700} mb={4}>Columns that matter</Text>
+      <Text fw={700} mb={4}>{t("Columns that matter")}</Text>
       {!x ? (
         <Stack gap="sm" align="flex-start">
-          <Text size="sm" c="dimmed">See which columns move its answers most, from the questions it was asked lately or the examples it learned from.</Text>
+          <Text size="sm" c="dimmed">{t("See which columns move its answers most, from the questions it was asked lately or the examples it learned from.")}</Text>
           {explain.error && <Alert color="red" icon={<IconAlertCircle />} w="100%">{message(explain.error)}</Alert>}
-          <Button variant="default" leftSection={<IconBulb size={18} />} loading={explain.isPending} onClick={() => explain.mutate({ modelId: model.id })}>Work it out</Button>
+          <Button variant="default" leftSection={<IconBulb size={18} />} loading={explain.isPending} onClick={() => explain.mutate({ modelId: model.id })}>{t("Work it out")}</Button>
         </Stack>
       ) : (
         <Stack gap={8}>
-          <Text size="sm" c="dimmed" mb={4}>{x.source === "answers" ? (x.rows === 1 ? "From the latest question" : `From ${x.rows} recent questions`) : `From ${x.rows} of the examples it learned from`}: how much each column moves {x.number ? "its answer" : "the chance of its answer"} on average.</Text>
+          <Text size="sm" c="dimmed" mb={4}>{x.source === "answers" ? (x.rows === 1 ? t("From the latest question") : t("From {rows} recent questions", { rows: x.rows })) : t("From {rows} of the examples it learned from", { rows: x.rows })}{t(": how much each column moves")}{" "}{x.number ? t("its answer") : t("the chance of its answer")}{" "}{t("on average.")}</Text>
           {x.columns.map((c) => (
             <Group key={c.column} wrap="nowrap" gap="sm">
               <Text w={140} size="sm" fw={600} truncate>{c.column}</Text>
               <Progress value={c.share * 100} className="flex-1" size="lg" radius="xl" aria-label={`${c.column}: ${Math.round(c.share * 100)}%`} />
-              <Text w={64} size="sm" ta="right">{x.number ? c.importance.toLocaleString(undefined, { maximumFractionDigits: 2 }) : `${Math.round(c.importance * 100)} pts`}</Text>
+              <Text w={64} size="sm" ta="right">{x.number ? c.importance.toLocaleString(locale, { maximumFractionDigits: 2 }) : t("{n1} pts", { n1: Math.round(c.importance * 100) })}</Text>
             </Group>
           ))}
         </Stack>

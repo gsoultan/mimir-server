@@ -11,11 +11,12 @@ import { listArchitectures, listTemplates } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { categoryColor, columnKinds, download, kindColor, kindLabel } from "../../../lib/templates";
+import { t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/templates/$id")({
   loader: async ({ context, params }) => {
     const data = await context.queryClient.ensureQueryData(listTemplates);
-    if (!data.templates.some((t) => t.id === params.id)) throw notFound();
+    if (!data.templates.some((tm) => tm.id === params.id)) throw notFound();
     return data;
   },
   component: Detail,
@@ -24,23 +25,23 @@ export const Route = createFileRoute("/_app/templates/$id")({
 function Detail() {
   const { id } = Route.useParams();
   const { data } = useSuspenseQuery(listTemplates);
-  const t = data.templates.find((x) => x.id === id)!;
-  const cat = data.categories.find((c) => c.id === t.category);
-  const [bg, fg] = categoryColor(t.category);
-  const photos = t.data === "photos";
+  const tm = data.templates.find((x) => x.id === id)!;
+  const cat = data.categories.find((c) => c.id === tm.category);
+  const [bg, fg] = categoryColor(tm.category);
+  const photos = tm.data === "photos";
   const example = useMutation(TemplateService.method.getTemplateExample, {
     onSuccess: (res) => download(res.fileName, res.contentType, res.data),
   });
-  const unit = photos ? "photos per answer" : "rows";
-  const algo = useQuery(listArchitectures).data?.architectures.find((a) => a.name === t.architecture);
+  const unit = photos ? t("photos per answer") : t("rows");
+  const algo = useQuery(listArchitectures).data?.architectures.find((a) => a.name === tm.architecture);
 
   return (
     <Page
-      title={t.name}
-      intro={t.question}
-      crumbs={[{ label: "Templates", to: "/templates" }, { label: t.name }]}
-      badge={<Badge variant="light" color={kindColor(t.kind)}>{kindLabel(t.kind)}</Badge>}
-      actions={<ButtonLink to="/models/teach" search={{ template: t.id }}>Use this template</ButtonLink>}
+      title={tm.name}
+      intro={tm.question}
+      crumbs={[{ label: t("Templates"), to: "/templates" }, { label: tm.name }]}
+      badge={<Badge variant="light" color={kindColor(tm.kind)}>{kindLabel(tm.kind)}</Badge>}
+      actions={<ButtonLink to="/models/teach" search={{ template: tm.id }}>{t("Use this template")}</ButtonLink>}
     >
       <Group gap={6} mt={-8}>
         <Badge style={{ background: bg, color: fg }}>{cat?.label}</Badge>
@@ -50,24 +51,24 @@ function Detail() {
         <Stack gap="lg">
           <Card withBorder radius="lg" padding="lg">
             <SimpleGrid cols={{ base: 1, sm: 3 }}>
-              <Fact label="The model answers" value={t.predicts} />
-              <Fact label={photos ? "One photo is" : "One row is"} value={t.rowMeans} />
-              <Fact label="Usually found in" value={t.source} />
+              <Fact label={t("The model answers")} value={tm.predicts} />
+              <Fact label={photos ? t("One photo is") : t("One row is")} value={tm.rowMeans} />
+              <Fact label={t("Usually found in")} value={tm.source} />
             </SimpleGrid>
           </Card>
 
-          {photos ? <PhotoNeeds t={t} onExample={() => example.mutate({ templateId: t.id })} loading={example.isPending} /> : <TableNeeds t={t} onExample={() => example.mutate({ templateId: t.id })} loading={example.isPending} />}
+          {photos ? <PhotoNeeds t={tm} onExample={() => example.mutate({ templateId: tm.id })} loading={example.isPending} /> : <TableNeeds t={tm} onExample={() => example.mutate({ templateId: tm.id })} loading={example.isPending} />}
           {example.error && <Alert color="red" icon={<IconAlertCircle />}>{message(example.error)}</Alert>}
         </Stack>
 
         <Stack gap="lg">
           <Card withBorder radius="lg" padding="lg">
-            <Title order={2} fz="lg">How much data?</Title>
+            <Title order={2} fz="lg">{t("How much data?")}</Title>
             <Stack gap="xs" mt="sm">
               {[
-                [t.rowsMin, `${unit} to start`, 34],
-                [t.rowsGood, `${unit}, good`, 67],
-                [t.rowsGreat, `${unit}, best`, 100],
+                [tm.rowsMin, t("{unit} to start", { unit }), 34],
+                [tm.rowsGood, t("{unit}, good", { unit }), 67],
+                [tm.rowsGreat, t("{unit}, best", { unit }), 100],
               ].map(([n, what, w]) => (
                 <div key={String(what)}>
                   <Group justify="space-between" gap={4}><Text fw={700}>{Number(n).toLocaleString()}</Text><Text size="sm" c="dimmed">{what}</Text></Group>
@@ -75,29 +76,29 @@ function Detail() {
                 </div>
               ))}
             </Stack>
-            <Text size="sm" c="dimmed" mt="sm">{t.balance}</Text>
+            <Text size="sm" c="dimmed" mt="sm">{tm.balance}</Text>
           </Card>
           {algo && (
             <Card withBorder radius="lg" padding="lg">
-              <Title order={2} fz="lg">How it learns</Title>
+              <Title order={2} fz="lg">{t("How it learns")}</Title>
               <Text fw={600} size="sm" mt="sm">{algo.title}</Text>
               {algo.algorithm && <Text size="sm" mt={4}>{algo.algorithm}</Text>}
               <Text size="sm" c="dimmed" mt="xs">{algo.description}</Text>
-              <Text size="xs" c="dimmed" mt="xs">You can pick another model type when you teach.</Text>
+              <Text size="xs" c="dimmed" mt="xs">{t("You can pick another model type when you teach.")}</Text>
             </Card>
           )}
           <Card withBorder radius="lg" padding="lg">
-            <Title order={2} fz="lg">Ready to try it?</Title>
+            <Title order={2} fz="lg">{t("Ready to try it?")}</Title>
             <Stack gap="sm" mt="sm">
-              <ButtonLink to="/models/teach" search={{ template: t.id }} size="md">Use this template</ButtonLink>
-              <ButtonLink to="/models/teach" search={{ template: t.id, example: true }} variant="default" size="md">Try it with the example data first</ButtonLink>
-              <Text size="xs" c="dimmed">Nothing is shared. Your data stays on this server.</Text>
+              <ButtonLink to="/models/teach" search={{ template: tm.id }} size="md">{t("Use this template")}</ButtonLink>
+              <ButtonLink to="/models/teach" search={{ template: tm.id, example: true }} variant="default" size="md">{t("Try it with the example data first")}</ButtonLink>
+              <Text size="xs" c="dimmed">{t("Nothing is shared. Your data stays on this server.")}</Text>
             </Stack>
           </Card>
           <Card withBorder radius="lg" padding="lg">
-            <Text fw={700}>Tips for this template</Text>
+            <Text fw={700}>{t("Tips for this template")}</Text>
             <Stack gap={6} mt="xs">
-              {t.tips.map((tip) => (
+              {tm.tips.map((tip) => (
                 <Group key={tip} wrap="nowrap" align="flex-start" gap="xs">
                   <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--mantine-color-teal-6)]" />
                   <Text size="sm">{tip}</Text>
@@ -126,18 +127,18 @@ function Head({ title, hint, children }: { title: string; hint: string; children
 
 const tones = ["#DDE5E1", "#E8E2D6", "#D9E0EA", "#E6DCE8"];
 
-function PhotoNeeds({ t, onExample, loading }: { t: Template; onExample: () => void; loading: boolean }) {
-  const tree = "my-photos/\n" + t.folders.map((f, i) => `${i === t.folders.length - 1 ? "└── " : "├── "}${f.name}/`).join("\n");
+function PhotoNeeds({ t: tm, onExample, loading }: { t: Template; onExample: () => void; loading: boolean }) {
+  const tree = "my-photos/\n" + tm.folders.map((f, i) => `${i === tm.folders.length - 1 ? "└── " : "├── "}${f.name}/`).join("\n");
   return (
     <>
       <Card withBorder radius="lg" padding="lg">
-        <Head title="The photos you need" hint="Put the photos in one folder per answer. The folder name is the answer. Then zip the top folder, or drop the whole folder in.">
-          <Button variant="default" leftSection={<IconDownload size={18} />} loading={loading} onClick={onExample}>Download example photos (ZIP)</Button>
+        <Head title={t("The photos you need")} hint={t("Put the photos in one folder per answer. The folder name is the answer. Then zip the top folder, or drop the whole folder in.")}>
+          <Button variant="default" leftSection={<IconDownload size={18} />} loading={loading} onClick={onExample}>{t("Download example photos (ZIP)")}</Button>
         </Head>
         <div className="mt-4 grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
           <pre className="m-0 rounded-lg bg-[var(--mantine-color-default-hover)] p-3 font-mono text-sm">{tree}</pre>
           <Stack gap="sm">
-            {t.folders.map((f, i) => (
+            {tm.folders.map((f, i) => (
               <Group key={f.name} justify="space-between" wrap="nowrap" gap="sm">
                 <div className="min-w-0"><Text fw={700} ff="monospace" size="sm">{f.name}/</Text><Text size="sm" c="dimmed">{f.meaning}</Text></div>
                 <Group gap={6} wrap="nowrap" aria-hidden="true" visibleFrom="xs">
@@ -149,16 +150,16 @@ function PhotoNeeds({ t, onExample, loading }: { t: Template; onExample: () => v
             ))}
           </Stack>
         </div>
-        <Text size="xs" c="dimmed" mt="sm">Grey boxes stand for the example photos. JPG, PNG and GIF work, any size; we resize them.</Text>
+        <Text size="xs" c="dimmed" mt="sm">{t("Grey boxes stand for the example photos. JPG, PNG and GIF work, any size; we resize them.")}</Text>
       </Card>
       <Card withBorder radius="lg" padding="lg">
-        <Title order={2} fz="lg">How to take good photos</Title>
+        <Title order={2} fz="lg">{t("How to take good photos")}</Title>
         <SimpleGrid cols={{ base: 1, sm: 2 }} mt="sm">
           {[
-            ["Same set-up every time", "Same camera, distance, angle and light as you'll use later."],
-            ["One thing per photo", "Fill the frame with the item. Crop out hands, tables and other parts."],
-            ["Include the hard cases", "Small faults and borderline items teach the most."],
-            ["Sort carefully", "A photo in the wrong folder teaches the wrong answer."],
+            [t("Same set-up every time"), t("Same camera, distance, angle and light as you'll use later.")],
+            [t("One thing per photo"), t("Fill the frame with the item. Crop out hands, tables and other parts.")],
+            [t("Include the hard cases"), t("Small faults and borderline items teach the most.")],
+            [t("Sort carefully"), t("A photo in the wrong folder teaches the wrong answer.")],
           ].map(([a, b]) => <div key={a}><Text fw={600} size="sm">{a}</Text><Text size="sm" c="dimmed">{b}</Text></div>)}
         </SimpleGrid>
       </Card>
@@ -166,25 +167,25 @@ function PhotoNeeds({ t, onExample, loading }: { t: Template; onExample: () => v
   );
 }
 
-function TableNeeds({ t, onExample, loading }: { t: Template; onExample: () => void; loading: boolean }) {
+function TableNeeds({ t: tm, onExample, loading }: { t: Template; onExample: () => void; loading: boolean }) {
   const [sql, setSql] = useState(false);
-  const last = t.columns.length - 1;
-  const photo = t.columns.find((c) => c.kind === "photo");
+  const last = tm.columns.length - 1;
+  const photo = tm.columns.find((c) => c.kind === "photo");
   const pack = `my-data.zip\n├── data.csv\n└── photos/\n    ├── ${photo?.examples[0]?.replace("photos/", "") ?? ""}\n    ├── ${photo?.examples[1]?.replace("photos/", "") ?? ""}\n    └── ...`;
-  const header = t.columns.map((c) => c.name).join(",");
+  const header = tm.columns.map((c) => c.name).join(",");
   return (
     <>
       <Card withBorder radius="lg" padding="lg">
-        <Head title="The data you need" hint="One column per line below. Names can differ in your file; we help you match them later. The highlighted column is the answer the model learns to give. Optional columns and any others you have make answers more specific." />
+        <Head title={t("The data you need")} hint={t("One column per line below. Names can differ in your file; we help you match them later. The highlighted column is the answer the model learns to give. Optional columns and any others you have make answers more specific.")} />
         <Table.ScrollContainer minWidth={560} mt="sm">
           <Table verticalSpacing="sm">
-            <Table.Thead><Table.Tr><Table.Th>Column</Table.Th><Table.Th>What it means</Table.Th><Table.Th>Kind of value</Table.Th><Table.Th>Example</Table.Th></Table.Tr></Table.Thead>
+            <Table.Thead><Table.Tr><Table.Th>{t("Column")}</Table.Th><Table.Th>{t("What it means")}</Table.Th><Table.Th>{t("Kind of value")}</Table.Th><Table.Th>{t("Example")}</Table.Th></Table.Tr></Table.Thead>
             <Table.Tbody>
-              {t.columns.map((c, i) => (
+              {tm.columns.map((c, i) => (
                 <Table.Tr key={c.name} bg={i === last ? "var(--mantine-color-teal-light)" : undefined}>
-                  <Table.Td><Text ff="monospace" size="sm" fw={600}>{c.name}</Text>{i === last && <Text size="xs" c="teal.8" fw={700}>The answer</Text>}{c.optional && <Text size="xs" c="dimmed">Optional, makes answers more specific</Text>}</Table.Td>
+                  <Table.Td><Text ff="monospace" size="sm" fw={600}>{c.name}</Text>{i === last && <Text size="xs" c="teal.8" fw={700}>{t("The answer")}</Text>}{c.optional && <Text size="xs" c="dimmed">{t("Optional, makes answers more specific")}</Text>}</Table.Td>
                   <Table.Td><Text size="sm">{c.meaning}</Text></Table.Td>
-                  <Table.Td><Badge variant="light" color={columnKinds[c.kind]?.color} radius="xl">{columnKinds[c.kind]?.label ?? c.kind}</Badge></Table.Td>
+                  <Table.Td><Badge variant="light" color={columnKinds[c.kind]?.color} radius="xl" className="shrink-0" styles={{ root: { overflow: "visible" }, label: { overflow: "visible" } }}>{columnKinds[c.kind]?.label ?? c.kind}</Badge></Table.Td>
                   <Table.Td><Text size="sm" ff="monospace">{c.examples[0]}</Text></Table.Td>
                 </Table.Tr>
               ))}
@@ -192,60 +193,58 @@ function TableNeeds({ t, onExample, loading }: { t: Template; onExample: () => v
           </Table>
         </Table.ScrollContainer>
         <Group gap="md" mt="sm">
-          {Object.entries(columnKinds).filter(([k]) => t.columns.some((c) => c.kind === k)).map(([k, v]) => (
+          {Object.entries(columnKinds).filter(([k]) => tm.columns.some((c) => c.kind === k)).map(([k, v]) => (
             <Text key={k} size="xs" c="dimmed"><b>{v.label}</b> {v.hint}</Text>
           ))}
         </Group>
       </Card>
 
-      {t.data === "photo_table" && (
+      {tm.data === "photo_table" && (
         <Card withBorder radius="lg" padding="lg">
-          <Head title="How to pack photos with details" hint="Put the table and a photos folder in one ZIP. Each row names its photo in the photo column." />
+          <Head title={t("How to pack photos with details")} hint={t("Put the table and a photos folder in one ZIP. Each row names its photo in the photo column.")} />
           <div className="mt-4 grid gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
             <pre className="m-0 rounded-lg bg-[var(--mantine-color-default-hover)] p-3 font-mono text-sm">{pack}</pre>
             <Stack gap="sm">
-              <div><Text fw={600} size="sm">1. Make the table</Text><Text size="sm" c="dimmed">Same columns as above, saved as data.csv. In the {photo?.name} column, write the photo&apos;s path, like {photo?.examples[0]}.</Text></div>
-              <div><Text fw={600} size="sm">2. Add the photos folder</Text><Text size="sm" c="dimmed">Next to the table. One photo per row; file names must match exactly.</Text></div>
-              <div><Text fw={600} size="sm">3. Zip both and upload</Text><Text size="sm" c="dimmed">Rows whose photo is missing are left out, and we list them for you.</Text></div>
+              <div><Text fw={600} size="sm">{t("1. Make the table")}</Text><Text size="sm" c="dimmed">{t("Same columns as above, saved as data.csv. In the")}{" "}{photo?.name}{" "}{t("column, write the photo's path, like")}{" "}{photo?.examples[0]}.</Text></div>
+              <div><Text fw={600} size="sm">{t("2. Add the photos folder")}</Text><Text size="sm" c="dimmed">{t("Next to the table. One photo per row; file names must match exactly.")}</Text></div>
+              <div><Text fw={600} size="sm">{t("3. Zip both and upload")}</Text><Text size="sm" c="dimmed">{t("Rows whose photo is missing are left out, and we list them for you.")}</Text></div>
             </Stack>
           </div>
         </Card>
       )}
 
-      {t.columns.some((c) => c.kind === "text") && (
-        <Alert color="cyan" variant="light" title="About the text columns">
-          Put each piece of text in one cell, as people wrote it. No need to clean it up. Very long texts are read up to the first 500 words. Remove names and phone numbers if the text is about people.
-        </Alert>
+      {tm.columns.some((c) => c.kind === "text") && (
+        <Alert color="cyan" variant="light" title={t("About the text columns")}>{t("Put each piece of text in one cell, as people wrote it. No need to clean it up. Very long texts are read up to the first 500 words. Remove names and phone numbers if the text is about people.")}</Alert>
       )}
 
       <Card withBorder radius="lg" padding="lg">
-        <Head title="What your file should look like" hint="The first rows of the example file. A header row on top, then one row per example.">
+        <Head title={t("What your file should look like")} hint={t("The first rows of the example file. A header row on top, then one row per example.")}>
           <Group gap="xs">
-            <Button variant="default" leftSection={<IconDownload size={18} />} loading={loading} onClick={onExample}>{t.data === "photo_table" ? "Download example ZIP" : "Download example CSV"}</Button>
+            <Button variant="default" leftSection={<IconDownload size={18} />} loading={loading} onClick={onExample}>{tm.data === "photo_table" ? t("Download example ZIP") : t("Download example CSV")}</Button>
             <CopyButton value={header}>
-              {({ copied, copy }) => <Button variant="subtle" leftSection={copied ? <IconCheck size={18} /> : <IconCopy size={18} />} onClick={copy}>{copied ? "Copied" : "Copy header row"}</Button>}
+              {({ copied, copy }) => <Button variant="subtle" leftSection={copied ? <IconCheck size={18} /> : <IconCopy size={18} />} onClick={copy}>{copied ? t("Copied") : t("Copy header row")}</Button>}
             </CopyButton>
           </Group>
         </Head>
         <Table.ScrollContainer minWidth={560} mt="sm">
           <Table withTableBorder fz="sm">
-            <Table.Thead><Table.Tr>{t.columns.map((c, i) => <Table.Th key={c.name} ff="monospace" bg={i === last ? "var(--mantine-color-teal-light)" : undefined}>{c.name}</Table.Th>)}</Table.Tr></Table.Thead>
+            <Table.Thead><Table.Tr>{tm.columns.map((c, i) => <Table.Th key={c.name} ff="monospace" bg={i === last ? "var(--mantine-color-teal-light)" : undefined}>{c.name}</Table.Th>)}</Table.Tr></Table.Thead>
             <Table.Tbody>
               {[0, 1, 2].map((r) => (
-                <Table.Tr key={r}>{t.columns.map((c, i) => <Table.Td key={c.name} fw={i === last ? 600 : undefined} bg={i === last ? "var(--mantine-color-teal-light)" : undefined}>{c.examples[r]}</Table.Td>)}</Table.Tr>
+                <Table.Tr key={r}>{tm.columns.map((c, i) => <Table.Td key={c.name} fw={i === last ? 600 : undefined} bg={i === last ? "var(--mantine-color-teal-light)" : undefined}>{c.examples[r]}</Table.Td>)}</Table.Tr>
               ))}
             </Table.Tbody>
           </Table>
         </Table.ScrollContainer>
-        <Text size="xs" c="dimmed" mt="sm">The example file has {t.data === "photo_table" ? "600 rows with photos" : "2,000 rows"}, made up but enough to teach a working model, so you can see how it behaves before using your own data.</Text>
+        <Text size="xs" c="dimmed" mt="sm">{t("The example file has")}{" "}{tm.data === "photo_table" ? t("600 rows with photos") : t("2,000 rows")}{t(", made up but enough to teach a working model, so you can see how it behaves before using your own data.")}</Text>
       </Card>
 
-      {t.query && t.data !== "photo_table" && (
+      {tm.query && tm.data !== "photo_table" && (
         <Card withBorder radius="lg" padding="lg">
-          <Head title="Data in a database?" hint="A starting query. Change the table and column names to match yours; we test it before anything is saved.">
-            <Button variant="default" onClick={() => setSql(!sql)}>{sql ? "Hide the query" : "Show a starting query"}</Button>
+          <Head title={t("Data in a database?")} hint={t("A starting query. Change the table and column names to match yours; we test it before anything is saved.")}>
+            <Button variant="default" onClick={() => setSql(!sql)}>{sql ? t("Hide the query") : t("Show a starting query")}</Button>
           </Head>
-          {sql && <Code block mt="sm">{t.query}</Code>}
+          {sql && <Code block mt="sm">{tm.query}</Code>}
         </Card>
       )}
     </>

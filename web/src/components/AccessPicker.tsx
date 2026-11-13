@@ -4,6 +4,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Role, type Access } from "../api/gen/mimir/v1/access_pb";
 import { listModels } from "../api/queries";
 import { roles } from "../lib/roles";
+import { t } from "../i18n";
 
 export type AccessValue = { role: Role; allModels: boolean; modelIds: string[] };
 
@@ -22,7 +23,7 @@ export function AccessPicker({ value, onChange, maxRole, subject, otherTeam = fa
   const manager = value.role >= Role.ADMIN;
   return (
     <Stack gap="md">
-      <Radio.Group label={`What can ${subject} do?`} value={String(value.role)} onChange={(r) => onChange({ ...value, role: Number(r) as Role })}>
+      <Radio.Group label={t("What can {subject} do?", { subject })} value={String(value.role)} onChange={(r) => onChange({ ...value, role: Number(r) as Role })}>
         <Stack gap="xs" mt="xs">
           {roles.filter((r) => r.value <= maxRole).map((r) => (
             <Radio key={r.value} value={String(r.value)} label={r.label} description={r.blurb} />
@@ -30,19 +31,19 @@ export function AccessPicker({ value, onChange, maxRole, subject, otherTeam = fa
         </Stack>
       </Radio.Group>
       <Radio.Group
-        label="Which models?"
-        description={manager ? "Admins and owners always reach every model in their team." : otherTeam ? "All of their team's models. To pick some, move yourself to that team first." : undefined}
+        label={t("Which models?")}
+        description={manager ? t("Admins and owners always reach every model in their team.") : otherTeam ? t("All of their team's models. To pick some, move yourself to that team first.") : undefined}
         value={value.allModels || manager ? "all" : "some"}
         onChange={(v) => onChange({ ...value, allModels: v === "all" })}
       >
         <Stack gap="xs" mt="xs">
-          <Radio value="all" label="All models, including ones added later" disabled={manager} />
-          <Radio value="some" label="Only the models I pick" disabled={manager || otherTeam} />
+          <Radio value="all" label={t("All models, including ones added later")} disabled={manager} />
+          <Radio value="some" label={t("Only the models I pick")} disabled={manager || otherTeam} />
         </Stack>
       </Radio.Group>
       {!value.allModels && !manager && (
         data.models.length === 0 ? (
-          <Text size="sm" c="dimmed">There are no models to pick yet.</Text>
+          <Text size="sm" c="dimmed">{t("There are no models to pick yet.")}</Text>
         ) : (
           <Checkbox.Group value={value.modelIds} onChange={(ids) => onChange({ ...value, modelIds: ids })}>
             <Stack gap="xs" className="max-h-48 overflow-y-auto rounded-md border border-[var(--mantine-color-default-border)] p-3">
@@ -59,9 +60,9 @@ export function AccessPicker({ value, onChange, maxRole, subject, otherTeam = fa
 // models) it counts them instead of naming them.
 export function describe(a: Access | undefined, modelNames?: Map<string, string>): string {
   if (!a) return "";
-  const role = roles.find((r) => r.value === a.role)?.label ?? "Unknown";
-  if (a.allModels) return `${role} · all models`;
-  if (!modelNames) return `${role} · ${a.modelIds.length === 1 ? "1 model" : `${a.modelIds.length} models`}`;
-  const names = a.modelIds.map((id) => modelNames.get(id) ?? "a deleted model");
-  return `${role} · ${names.length === 0 ? "no models" : names.length <= 2 ? names.join(", ") : `${names.length} models`}`;
+  const role = roles.find((r) => r.value === a.role)?.label ?? t("Unknown");
+  if (a.allModels) return t("{role} · all models", { role });
+  if (!modelNames) return `${role} · ${a.modelIds.length === 1 ? t("1 model") : t("{length} models", { length: a.modelIds.length })}`;
+  const names = a.modelIds.map((id) => modelNames.get(id) ?? t("a deleted model"));
+  return `${role} · ${names.length === 0 ? t("no models") : names.length <= 2 ? names.join(", ") : t("{names} models", { names: names.length })}`;
 }

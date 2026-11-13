@@ -25,6 +25,7 @@ import { dataTypeOf, dataTypeOfKind, dataTypes, datasetKindOf, kindLabel, type D
 import { layersOf, type Size, type Step } from "../../../lib/shape";
 import { repeatChoices, repeatChoicesFor } from "../../../lib/training";
 import { pathOf, zip } from "../../../lib/zip";
+import { t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/models/teach")({
   validateSearch: z.object({
@@ -49,9 +50,9 @@ const MaxZip = 200 * 1024 * 1024;
 
 // How long to teach for. Plain words up front, the numbers underneath.
 const presets = [
-  { value: "quick", label: "Quick look", epochs: 3, hint: "A few minutes. Good for a first try." },
-  { value: "normal", label: "Normal", epochs: 10, hint: "The usual choice." },
-  { value: "thorough", label: "Thorough", epochs: 30, hint: "Takes longer; squeezes out the last few points." },
+  { value: "quick", label: t("Quick look"), epochs: 3, hint: t("A few minutes. Good for a first try.") },
+  { value: "normal", label: t("Normal"), epochs: 10, hint: t("The usual choice.") },
+  { value: "thorough", label: t("Thorough"), epochs: 30, hint: t("Takes longer; squeezes out the last few points.") },
 ];
 
 type Source = "existing" | "upload" | "database" | "storage" | "digits" | "example";
@@ -63,9 +64,9 @@ const drivers = [
 ];
 // Where the examples live in S3-compatible storage. AWS and R2 fill in the address.
 const providers = [
-  { value: "r2", label: "Cloudflare R2" },
-  { value: "s3", label: "AWS S3" },
-  { value: "other", label: "Other S3-compatible" },
+  { value: "r2", label: t("Cloudflare R2") },
+  { value: "s3", label: t("AWS S3") },
+  { value: "other", label: t("Other S3-compatible") },
 ];
 type Bucket = { provider: string; accountId: string; region: string; endpoint: string; bucket: string; accessKeyId: string; secretAccessKey: string };
 const noBucket: Bucket = { provider: "r2", accountId: "", region: "", endpoint: "", bucket: "", accessKeyId: "", secretAccessKey: "" };
@@ -90,7 +91,7 @@ function tableBatch(rows: number) {
 function Teach() {
   const search = Route.useSearch();
   const { data: templates } = useSuspenseQuery(listTemplates);
-  const tpl = templates.templates.find((t) => t.id === search.template);
+  const tpl = templates.templates.find((tm) => tm.id === search.template);
   const data = (tpl?.data ?? search.data) as DataType | undefined;
   if (!data) return <PickData />;
   return <Wizard key={`${tpl?.id}-${data}`} data={data} />;
@@ -101,38 +102,38 @@ function PickData() {
   const { data: templates } = useSuspenseQuery(listTemplates);
   const [picked, setPicked] = useState<DataType>("table");
   const d = dataTypeOf(picked);
-  const fits = templates.templates.filter((t) => t.data === picked);
+  const fits = templates.templates.filter((tm) => tm.data === picked);
   const label = (id: string) => templates.categories.find((c) => c.id === id)?.label ?? id;
   return (
-    <Page title="Teach a new model" crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Teach" }]} intro="First, what does your data look like? Pick the closest one. You can change it later.">
+    <Page title={t("Teach a new model")} crumbs={[{ label: t("Build a model"), to: "/models/build" }, { label: t("Teach") }]} intro={t("First, what does your data look like? Pick the closest one. You can change it later.")}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          {dataTypes.map((t) => (
+          {dataTypes.map((kind) => (
             <UnstyledButton
-              key={t.id}
-              onClick={() => setPicked(t.id)}
-              aria-pressed={picked === t.id}
-              className={`flex flex-col gap-1.5 rounded-2xl border-2 bg-[var(--mantine-color-body)] p-4 text-left ${picked === t.id ? "border-[var(--mantine-color-teal-7)] ring-4 ring-[var(--mantine-color-teal-light)]" : "border-[var(--mantine-color-default-border)]"}`}
+              key={kind.id}
+              onClick={() => setPicked(kind.id)}
+              aria-pressed={picked === kind.id}
+              className={`flex flex-col gap-1.5 rounded-2xl border-2 bg-[var(--mantine-color-body)] p-4 text-left ${picked === kind.id ? "border-[var(--mantine-color-teal-7)] ring-4 ring-[var(--mantine-color-teal-light)]" : "border-[var(--mantine-color-default-border)]"}`}
             >
-              <pre aria-hidden="true" className="m-0 overflow-hidden rounded-lg bg-[var(--mantine-color-default-hover)] p-2.5 font-mono text-xs leading-relaxed">{t.pic}</pre>
-              <Text fw={700} fz="lg">{t.title}</Text>
-              <Text size="sm" c="dimmed">{t.hint}</Text>
-              <Text size="xs" c="dimmed">For example: {t.examples}</Text>
+              <pre aria-hidden="true" className="m-0 overflow-hidden rounded-lg bg-[var(--mantine-color-default-hover)] p-2.5 font-mono text-xs leading-relaxed">{kind.pic}</pre>
+              <Text fw={700} fz="lg">{kind.title}</Text>
+              <Text size="sm" c="dimmed">{kind.hint}</Text>
+              <Text size="xs" c="dimmed">{t("For example:")}{" "}{kind.examples}</Text>
             </UnstyledButton>
           ))}
         </SimpleGrid>
         <Card withBorder radius="lg" padding="lg" className="self-start">
-          <Text fw={700}>Start from a template for {d.title.toLowerCase()}</Text>
+          <Text fw={700}>{t("Start from a template for")}{" "}{d.title.toLowerCase()}</Text>
           <Stack gap={6} mt="sm">
-            {fits.slice(0, 6).map((t) => (
-              <Link key={t.id} to="/templates/$id" params={{ id: t.id }} className="block rounded-lg text-inherit no-underline border border-[var(--mantine-color-default-border)] px-3 py-2 hover:border-[var(--mantine-color-teal-6)]">
-                <Text size="sm" fw={600}>{t.name}</Text>
-                <Text size="xs" c="dimmed">{label(t.category)} · {kindLabel(t.kind)}</Text>
+            {fits.slice(0, 6).map((tm) => (
+              <Link key={tm.id} to="/templates/$id" params={{ id: tm.id }} className="block rounded-lg text-inherit no-underline border border-[var(--mantine-color-default-border)] px-3 py-2 hover:border-[var(--mantine-color-teal-6)]">
+                <Text size="sm" fw={600}>{tm.name}</Text>
+                <Text size="xs" c="dimmed">{label(tm.category)} · {kindLabel(tm.kind)}</Text>
               </Link>
             ))}
           </Stack>
-          <ButtonLink to="/templates" search={{ data: picked }} variant="subtle" mt="xs" px={0}>See all {fits.length} templates for this</ButtonLink>
-          <Text size="sm" c="dimmed" mt="md">Nothing fits?</Text>
+          <ButtonLink to="/templates" search={{ data: picked }} variant="subtle" mt="xs" px={0}>{t("See all")}{" "}{fits.length}{" "}{t("templates for this")}</ButtonLink>
+          <Text size="sm" c="dimmed" mt="md">{t("Nothing fits?")}</Text>
           <ButtonLink to="/models/teach" search={{ data: picked }} mt={6} fullWidth>{d.scratch}</ButtonLink>
         </Card>
       </div>
@@ -147,7 +148,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const { data: templates } = useSuspenseQuery(listTemplates);
   const { data: me } = useSuspenseQuery(whoAmI);
   const { data: models } = useSuspenseQuery(listModels);
-  const tpl = templates.templates.find((t) => t.id === search.template);
+  const tpl = templates.templates.find((tm) => tm.id === search.template);
   // A model type asked for up front, such as Find groups, may read the
   // answer column as something else, or need none.
   const presetArch = archs.architectures.find((a) => a.name === search.arch);
@@ -218,7 +219,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const createJob = useMutation(TrainingService.method.createJob, {
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: allTrainingQueries });
-      notifications.show({ color: "teal", icon: <IconCheck size={18} />, message: "Teaching has started. You can watch it learn." });
+      notifications.show({ color: "teal", icon: <IconCheck size={18} />, message: t("Teaching has started. You can watch it learn.") });
       await navigate({ to: "/training/$id", params: { id: res.job!.id } });
     },
   });
@@ -236,7 +237,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
       // Trying several and keeping the best is the safest first choice.
       return (allowed.find((a) => a.name.endsWith("-auto")) ?? allowed[0])?.name ?? "";
     });
-    if (!name) setName(d.kind === DatasetKind.MNIST ? "My digits model" : `${d.name.replace(/\.(csv|zip)$/i, "")} model`);
+    if (!name) setName(d.kind === DatasetKind.MNIST ? t("My digits model") : t("{n1} model", { n1: d.name.replace(/\.(csv|zip)$/i, "") }));
     if (d.kind === DatasetKind.MNIST) { setBatch(64); setRate(0.001); }
     if (d.kind === DatasetKind.TABLE) setBatch(tableBatch(Number(d.rows)));
     if (!c) setStep(1);
@@ -266,29 +267,29 @@ function Wizard({ data: dataType }: { data: DataType }) {
     if (files.length === 0) return;
     if (!archive) {
       const file = files[0]!;
-      if (file.size > MaxCSV) return setFileError(`That file is ${bytes(file.size)}. The limit is ${bytes(MaxCSV)}.`);
+      if (file.size > MaxCSV) return setFileError(t("That file is {size}. The limit is {MaxCSV}.", { size: bytes(file.size), MaxCSV: bytes(MaxCSV) }));
       const buf = new Uint8Array(await file.arrayBuffer());
       const whole = buf.length <= PeekBytes;
       const p = parse(new TextDecoder().decode(buf.subarray(0, PeekBytes)), { maxRows: PeekRows, cut: !whole });
-      if (p.columns.length < 2) return setFileError("The first row should name at least two columns, separated by commas.");
-      if (p.rows.length === 0) return setFileError("There are no rows under the header. Each row is one example.");
-      setUpload({ name: file.name, size: file.size, bytes: buf, columns: p.columns, rows: p.rows, total: whole ? p.rows.length : undefined, summary: `${bytes(file.size)} · ${p.columns.length} columns${whole ? ` · ${p.rows.length.toLocaleString()} rows` : ""}`, zip: false });
+      if (p.columns.length < 2) return setFileError(t("The first row should name at least two columns, separated by commas."));
+      if (p.rows.length === 0) return setFileError(t("There are no rows under the header. Each row is one example."));
+      setUpload({ name: file.name, size: file.size, bytes: buf, columns: p.columns, rows: p.rows, total: whole ? p.rows.length : undefined, summary: t("{size} · {length} columns{n3}", { size: bytes(file.size), length: p.columns.length, n3: whole ? t(" · {n1} rows", { n1: p.rows.length.toLocaleString() }) : "" }), zip: false });
       setTarget(guessTarget(p.columns, p.rows, role));
       return;
     }
     // A ZIP as it is, or a dropped folder packed into one.
     if (files.length === 1 && /\.zip$/i.test(files[0]!.name)) {
       const f = files[0]!;
-      if (f.size > MaxZip) return setFileError(`That file is ${bytes(f.size)}. The limit is ${bytes(MaxZip)}.`);
+      if (f.size > MaxZip) return setFileError(t("That file is {size}. The limit is {MaxZip}.", { size: bytes(f.size), MaxZip: bytes(MaxZip) }));
       setUpload({ name: f.name, size: f.size, bytes: new Uint8Array(await f.arrayBuffer()), columns: [], rows: [], summary: bytes(f.size), zip: true });
       return;
     }
     const total = files.reduce((n, f) => n + f.size, 0);
-    if (total > MaxZip) return setFileError(`Those files come to ${bytes(total)}. The limit is ${bytes(MaxZip)}.`);
+    if (total > MaxZip) return setFileError(t("Those files come to {total}. The limit is {MaxZip}.", { total: bytes(total), MaxZip: bytes(MaxZip) }));
     const entries = await Promise.all(files.map(async (f) => ({ path: pathOf(f), data: new Uint8Array(await f.arrayBuffer()) })));
     const folders = new Set(entries.map((e) => e.path.split("/").slice(0, -1).join("/")).filter(Boolean));
     const top = entries[0]?.path.split("/")[0] ?? "photos";
-    setUpload({ name: `${top}.zip`, size: total, bytes: zip(entries), columns: [], rows: [], summary: `${files.length.toLocaleString()} files in ${folders.size.toLocaleString()} folders`, zip: true });
+    setUpload({ name: `${top}.zip`, size: total, bytes: zip(entries), columns: [], rows: [], summary: t("{n1} files in {n2} folders", { n1: files.length.toLocaleString(), n2: folders.size.toLocaleString() }), zip: true });
   }
 
   function next() {
@@ -299,7 +300,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
       if (d && tpl) checkDataset.mutate({ datasetId: d.id, templateId });
       else if (d) chose(d);
     } else if (source === "database" && (tested.data || tpl)) {
-      createDataset.mutate({ name: examplesName.trim() || (tpl ? `${tpl.name} data` : "Examples from a query"), kind: DatasetKind.TABLE, connection: { driver, dsn }, query, target: tpl ? "" : target, templateId });
+      createDataset.mutate({ name: examplesName.trim() || (tpl ? t("{name} data", { name: tpl.name }) : t("Examples from a query")), kind: DatasetKind.TABLE, connection: { driver, dsn }, query, target: tpl ? "" : target, templateId });
     } else if (source === "storage") {
       const where = `${bucket.bucket.trim()}/${bucketPath.trim().replace(/^\/+/, "")}`.replace(/\/+$/, "");
       createDataset.mutate({ name: examplesName.trim() || where, kind: kindToMake, bucket, path: bucketPath.trim(), target: tpl || archive ? "" : target, templateId });
@@ -311,7 +312,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
     } else if (source === "digits") {
       const have = sets.datasets.find((d) => d.kind === DatasetKind.MNIST);
       if (have) chose(have);
-      else createDataset.mutate({ name: "Handwritten digits", kind: DatasetKind.MNIST });
+      else createDataset.mutate({ name: t("Handwritten digits"), kind: DatasetKind.MNIST });
     } else if (source === "example" && tpl) {
       started.current = false;
       reset();
@@ -336,8 +337,8 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const suggested = (allowed.find((a) => a.name.endsWith("-auto")) ?? allowed[0])?.name ?? "";
   const ordered = [...allowed].sort((a, b) => Number(b.name === suggested) - Number(a.name === suggested));
   const why = (a: typeof allowed[number]) => a.name !== suggested ? undefined
-    : a.name.endsWith("-auto") ? "Tries several kinds on your rows and keeps the one that scores best. The safe choice when you're not sure; it takes a little longer."
-    : allowed.length > 1 ? "The usual choice for this kind of data." : undefined;
+    : a.name.endsWith("-auto") ? t("Tries several kinds on your rows and keeps the one that scores best. The safe choice when you're not sure; it takes a little longer.")
+    : allowed.length > 1 ? t("The usual choice for this kind of data.") : undefined;
   const chosenArch = archs.architectures.find((a) => a.name === arch);
   const earlier = models.models.filter((m) => m.architecture === arch);
   const picked = !!tpl && !!dataset && dataset.architectures.includes(tpl.architecture);
@@ -349,8 +350,8 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const fromQuery = !!dataset?.query || !!dataset?.storage;
   const inputs = Number((dataset?.inputShape ?? []).reduce((n, d) => n * d, 1n));
   const answers = dataset?.numberTarget
-    ? { what: "a number", count: 1 }
-    : { what: dataset?.labels.length === 2 ? dataset.labels.join(" or ") : `one of ${dataset?.labels.length ?? 0} answers`, count: dataset?.labels.length ?? 2 };
+    ? { what: t("a number"), count: 1 }
+    : { what: dataset?.labels.length === 2 ? dataset.labels.join(t(" or ")) : t("one of {n1} answers", { n1: dataset?.labels.length ?? 0 }), count: dataset?.labels.length ?? 2 };
   const chosenEpochs = expert ? Number(epochs) : presets.find((p) => p.value === preset)!.epochs;
   const start = () => dataset && createJob.mutate({
     name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n, minNewRows: fromQuery && repeat !== "0" ? BigInt(waitRows) : 0n, workerId: runOn, startFromModelId: earlier.some((m) => m.id === startFrom) ? startFrom : "",
@@ -360,42 +361,42 @@ function Wizard({ data: dataType }: { data: DataType }) {
       layers: chosenArch?.designable ? layersOf(size, shapeSteps, inputs) : [],
     },
   });
-  const steps = tpl ? ["Your data", "Name it", "How long"] : ["The examples", "What kind", "How long"];
+  const steps = tpl ? [t("Your data"), t("Name it"), t("How long")] : [t("The examples"), t("What kind"), t("How long")];
   const dt = dataTypeOf(dataType);
-  const uploadTitle = { table: "Upload a table", text: "Upload a table with text", photos: "Upload your photos", photo_table: "Upload a ZIP", sounds: "Upload your sounds", boxes: "Upload your photos and boxes" }[dataType];
+  const uploadTitle = { table: t("Upload a table"), text: t("Upload a table with text"), photos: t("Upload your photos"), photo_table: t("Upload a ZIP"), sounds: t("Upload your sounds"), boxes: t("Upload your photos and boxes") }[dataType];
   const uploadHint = {
-    table: "A .csv file with a header row, exported from Excel, Google Sheets or your app. One column holds the answer.",
-    text: "A .csv file with a header row. Each text sits in one cell, next to its answer.",
-    photos: "A ZIP file, or drop the top folder with one folder per answer inside.",
-    photo_table: "The table as data.csv and a photos folder, zipped together. Or drop the folder that holds both.",
-    sounds: "A ZIP file of WAV recordings, or drop the top folder with one folder per answer inside.",
-    boxes: "The photos and a boxes.csv (photo, what, left, top, width, height), zipped together. Or drop the folder that holds both.",
+    table: t("A .csv file with a header row, exported from Excel, Google Sheets or your app. One column holds the answer."),
+    text: t("A .csv file with a header row. Each text sits in one cell, next to its answer."),
+    photos: t("A ZIP file, or drop the top folder with one folder per answer inside."),
+    photo_table: t("The table as data.csv and a photos folder, zipped together. Or drop the folder that holds both."),
+    sounds: t("A ZIP file of WAV recordings, or drop the top folder with one folder per answer inside."),
+    boxes: t("The photos and a boxes.csv (photo, what, left, top, width, height), zipped together. Or drop the folder that holds both."),
   }[dataType];
 
   return (
-    <Page title="Teach a new model" crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Teach" }]} intro={tpl ? undefined : `${dt.title}. Give it examples, pick what kind of model, and watch it learn.`}>
+    <Page title={t("Teach a new model")} crumbs={[{ label: t("Build a model"), to: "/models/build" }, { label: t("Teach") }]} intro={tpl ? undefined : t("{title}. Give it examples, pick what kind of model, and watch it learn.", { title: dt.title })}>
       {tpl ? (
         <Alert color="teal" variant="light" icon={<IconSparkles />}>
           <Group justify="space-between" gap="sm">
-            <Text size="sm"><b>Using the template {tpl.name}.</b> We filled in what we could and will check your data against it.</Text>
-            <ButtonLink to="/templates" variant="white" size="xs">Change template</ButtonLink>
+            <Text size="sm"><b>{t("Using the template")}{" "}{tpl.name}.</b>{" "}{t("We filled in what we could and will check your data against it.")}</Text>
+            <ButtonLink to="/templates" variant="white" size="xs">{t("Change template")}</ButtonLink>
           </Group>
         </Alert>
       ) : (
         <Group gap="xs">
-          <Text size="sm" c="dimmed">Your data: <b>{dt.title}</b>.</Text>
-          <ButtonLink to="/models/teach" search={{}} variant="subtle" size="compact-sm">Change</ButtonLink>
+          <Text size="sm" c="dimmed">{t("Your data:")}{" "}<b>{dt.title}</b>.</Text>
+          <ButtonLink to="/models/teach" search={{}} variant="subtle" size="compact-sm">{t("Change")}</ButtonLink>
         </Group>
       )}
       <Card withBorder radius="lg" padding="xl">
         <Stepper active={step} onStepClick={(s) => s < step && setStep(s)} size="sm">
-          <Stepper.Step label={steps[0]} description={tpl ? "Where it is" : "What to learn from"}>
-            <Radio.Group value={source} onChange={(v) => { setSource(v as Source); reset(); }} label={tpl ? "Where is your data?" : "Where are the examples?"} mt="md">
+          <Stepper.Step label={steps[0]} description={tpl ? t("Where it is") : t("What to learn from")}>
+            <Radio.Group value={source} onChange={(v) => { setSource(v as Source); reset(); }} label={tpl ? t("Where is your data?") : t("Where are the examples?")} mt="md">
               <Stack gap="sm" mt="sm">
                 {fitting.length > 0 && (
-                  <Choice value="existing" icon={<IconTable size={22} />} title="Examples already here" hint="Reuse examples you added before.">
+                  <Choice value="existing" icon={<IconTable size={22} />} title={t("Examples already here")} hint={t("Reuse examples you added before.")}>
                     {source === "existing" && (
-                      <Select mt="sm" data={fitting.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} ${d.kind === DatasetKind.SOUNDS ? "sounds" : archiveKind(d.kind) ? "photos" : "rows"}${d.query ? " · from a database" : d.storage ? " · from storage" : ""}` }))} value={existing} onChange={(v) => { if (v) { setExisting(v); reset(); } }} allowDeselect={false} aria-label="Examples" />
+                      <Select mt="sm" data={fitting.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} ${d.kind === DatasetKind.SOUNDS ? t("sounds") : archiveKind(d.kind) ? t("photos") : t("rows")}${d.query ? t(" · from a database") : d.storage ? t(" · from storage") : ""}` }))} value={existing} onChange={(v) => { if (v) { setExisting(v); reset(); } }} allowDeselect={false} aria-label={t("Examples")} />
                     )}
                   </Choice>
                 )}
@@ -404,21 +405,21 @@ function Wizard({ data: dataType }: { data: DataType }) {
                     <Stack mt="sm" gap="sm">
                       <Dropzone
                         onDrop={pick}
-                        onReject={() => setFileError(archive ? "Pick a .zip file, or drop a folder of photos." : "Pick a single .csv file.")}
+                        onReject={() => setFileError(archive ? t("Pick a .zip file, or drop a folder of photos.") : t("Pick a single .csv file."))}
                         maxFiles={archive ? 100_000 : 1}
                         multiple={archive}
                         accept={dataType === "sounds" ? ["application/zip", ".zip", "audio/wav", "audio/x-wav", ".wav"] : archive ? ["application/zip", ".zip", "image/jpeg", "image/png", "image/gif", "text/csv", ".csv"] : ["text/csv", ".csv"]}
                         radius="md"
                       >
                         <Stack align="center" gap={2} py="md" className="pointer-events-none">
-                          <Text fw={600}>{upload ? upload.name : archive ? `Drop your .zip file or ${dataType === "sounds" ? "sound" : "photo"} folder here` : "Drop your .csv file here"}</Text>
-                          <Text size="sm" c="dimmed">{upload ? upload.summary : "or click to choose one"}</Text>
+                          <Text fw={600}>{upload ? upload.name : archive ? (dataType === "sounds" ? t("Drop your .zip file or sound folder here") : t("Drop your .zip file or photo folder here")) : t("Drop your .csv file here")}</Text>
+                          <Text size="sm" c="dimmed">{upload ? upload.summary : t("or click to choose one")}</Text>
                         </Stack>
                       </Dropzone>
                       {archive && (
                         <>
                           <input ref={folder} type="file" multiple hidden {...{ webkitdirectory: "" }} onChange={(e) => { const fs = Array.from(e.currentTarget.files ?? []); void pick(fs as FileWithPath[]); e.currentTarget.value = ""; }} />
-                          <Button variant="default" leftSection={<IconFolder size={18} />} className="self-start" onClick={() => folder.current?.click()}>Choose a folder instead</Button>
+                          <Button variant="default" leftSection={<IconFolder size={18} />} className="self-start" onClick={() => folder.current?.click()}>{t("Choose a folder instead")}</Button>
                         </>
                       )}
                       {fileError && <Alert color="red" icon={<IconAlertCircle />}>{fileError}</Alert>}
@@ -429,23 +430,23 @@ function Wizard({ data: dataType }: { data: DataType }) {
                   )}
                 </Choice>
                 {canConnect && (
-                  <Choice value="database" icon={<IconDatabase size={22} />} title="From a database" hint={tpl ? "We start the query for you. It can keep learning as rows change." : "Run a query on PostgreSQL, MySQL or SQLite. The rows become the examples, and the model can keep learning as they change."}>
+                  <Choice value="database" icon={<IconDatabase size={22} />} title={t("From a database")} hint={tpl ? t("We start the query for you. It can keep learning as rows change.") : t("Run a query on PostgreSQL, MySQL or SQLite. The rows become the examples, and the model can keep learning as they change.")}>
                     {source === "database" && (
                       <Stack mt="sm" gap="sm">
                         <SegmentedControl value={driver} onChange={(v) => { setDriver(v); tested.reset(); }} data={drivers.map((d) => ({ value: d.value, label: d.label }))} />
                         {driver === "sqlite" ? (
-                          <TextInput label="Database file" description="The path to the file on the server, for example /srv/data/shop.db." value={dsn} onChange={(e) => { setDsn(e.currentTarget.value); tested.reset(); }} />
-                        ) : <PasswordInput label="Connection" description={`For example ${drivers.find((d) => d.value === driver)!.example}. Kept on the server; never shown again.`} value={dsn} onChange={(e) => { setDsn(e.currentTarget.value); tested.reset(); }} />}
-                        <Textarea label={tpl ? "Query, started from the template" : "Query"} description={tpl ? "Change the table and column names to match your database." : "One row per example: the columns to learn from, plus the answer column."} placeholder="SELECT weight_grams, height_cm, sweetness, fruit FROM harvest" autosize minRows={3} value={query} onChange={(e) => { setQuery(e.currentTarget.value); tested.reset(); reset(); }} classNames={{ input: "font-mono" }} />
-                        <Group><Button variant="default" loading={tested.isPending} disabled={!dsn.trim() || !query.trim()} onClick={() => tested.mutate({ connection: { driver, dsn }, query })}>Try the query</Button></Group>
+                          <TextInput label={t("Database file")} description={t("The path to the file on the server, for example /srv/data/shop.db.")} value={dsn} onChange={(e) => { setDsn(e.currentTarget.value); tested.reset(); }} />
+                        ) : <PasswordInput label={t("Connection")} description={t("For example {example}. Kept on the server; never shown again.", { example: drivers.find((d) => d.value === driver)!.example })} value={dsn} onChange={(e) => { setDsn(e.currentTarget.value); tested.reset(); }} />}
+                        <Textarea label={tpl ? t("Query, started from the template") : t("Query")} description={tpl ? t("Change the table and column names to match your database.") : t("One row per example: the columns to learn from, plus the answer column.")} placeholder="SELECT weight_grams, height_cm, sweetness, fruit FROM harvest" autosize minRows={3} value={query} onChange={(e) => { setQuery(e.currentTarget.value); tested.reset(); reset(); }} classNames={{ input: "font-mono" }} />
+                        <Group><Button variant="default" loading={tested.isPending} disabled={!dsn.trim() || !query.trim()} onClick={() => tested.mutate({ connection: { driver, dsn }, query })}>{t("Try the query")}</Button></Group>
                         {tested.error && <Alert color="red" icon={<IconAlertCircle />}>{message(tested.error)}</Alert>}
                         {tested.data && (
                           <>
-                            <Alert color="teal" icon={<IconCheck />}>{tested.data.rows.toLocaleString()} rows, {tested.data.columns.length} columns.</Alert>
+                            <Alert color="teal" icon={<IconCheck />}>{tested.data.rows.toLocaleString()}{" "}{t("rows,")}{" "}{tested.data.columns.length}{" "}{t("columns.")}</Alert>
                             {tpl
                               ? <Preview columns={tested.data.columns} rows={tested.data.sample.map((r) => r.values)} />
                               : <ColumnPicker columns={tested.data.columns} rows={tested.data.sample.map((r) => r.values)} total={Number(tested.data.rows)} role={role} value={target} onChange={setTarget} />}
-                            <TextInput label="Name these examples" placeholder="Harvest from the shop database" maxLength={100} value={examplesName} onChange={(e) => setExamplesName(e.currentTarget.value)} />
+                            <TextInput label={t("Name these examples")} placeholder={t("Harvest from the shop database")} maxLength={100} value={examplesName} onChange={(e) => setExamplesName(e.currentTarget.value)} />
                           </>
                         )}
                       </Stack>
@@ -453,35 +454,35 @@ function Wizard({ data: dataType }: { data: DataType }) {
                   </Choice>
                 )}
                 {canStore && (
-                  <Choice value="storage" icon={<IconBucket size={22} />} title="From storage" hint={archive ? `Read a .zip, or a folder of ${dataType === "sounds" ? "sounds" : "photos"}, from Cloudflare R2, AWS S3 or other S3-compatible storage.` : "Read a .csv, or a folder of them, from Cloudflare R2, AWS S3 or other S3-compatible storage. The model can keep learning as new files land."}>
+                  <Choice value="storage" icon={<IconBucket size={22} />} title={t("From storage")} hint={archive ? (dataType === "sounds" ? t("Read a .zip, or a folder of sounds, from Cloudflare R2, AWS S3 or other S3-compatible storage.") : t("Read a .zip, or a folder of photos, from Cloudflare R2, AWS S3 or other S3-compatible storage.")) : t("Read a .csv, or a folder of them, from Cloudflare R2, AWS S3 or other S3-compatible storage. The model can keep learning as new files land.")}>
                     {source === "storage" && (
                       <Stack mt="sm" gap="sm">
                         <SegmentedControl value={bucket.provider} onChange={(v) => editBucket({ provider: v })} data={providers} />
                         <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                          {bucket.provider === "r2" && <TextInput label="Account ID" description="On the R2 page of your Cloudflare dashboard." value={bucket.accountId} onChange={(e) => editBucket({ accountId: e.currentTarget.value })} />}
-                          {bucket.provider === "s3" && <TextInput label="Region" placeholder="us-east-1" description="Where the bucket lives." value={bucket.region} onChange={(e) => editBucket({ region: e.currentTarget.value })} />}
-                          {bucket.provider === "other" && <TextInput label="Address" placeholder="https://minio.example.com" description="The storage's S3 address." value={bucket.endpoint} onChange={(e) => editBucket({ endpoint: e.currentTarget.value })} />}
-                          <TextInput label="Bucket" placeholder="training-data" value={bucket.bucket} onChange={(e) => editBucket({ bucket: e.currentTarget.value })} />
-                          {bucket.provider === "other" && <TextInput label="Region" placeholder="us-east-1" description="Leave empty if the storage doesn't use one." value={bucket.region} onChange={(e) => editBucket({ region: e.currentTarget.value })} />}
-                          <TextInput label="Access key ID" value={bucket.accessKeyId} onChange={(e) => editBucket({ accessKeyId: e.currentTarget.value })} autoComplete="off" />
-                          <PasswordInput label="Secret access key" description="Kept on the server; never shown again. Read access is enough." value={bucket.secretAccessKey} onChange={(e) => editBucket({ secretAccessKey: e.currentTarget.value })} autoComplete="off" />
+                          {bucket.provider === "r2" && <TextInput label={t("Account ID")} description={t("On the R2 page of your Cloudflare dashboard.")} value={bucket.accountId} onChange={(e) => editBucket({ accountId: e.currentTarget.value })} />}
+                          {bucket.provider === "s3" && <TextInput label={t("Region")} placeholder="us-east-1" description={t("Where the bucket lives.")} value={bucket.region} onChange={(e) => editBucket({ region: e.currentTarget.value })} />}
+                          {bucket.provider === "other" && <TextInput label={t("Address")} placeholder="https://minio.example.com" description={t("The storage's S3 address.")} value={bucket.endpoint} onChange={(e) => editBucket({ endpoint: e.currentTarget.value })} />}
+                          <TextInput label={t("Bucket")} placeholder="training-data" value={bucket.bucket} onChange={(e) => editBucket({ bucket: e.currentTarget.value })} />
+                          {bucket.provider === "other" && <TextInput label={t("Region")} placeholder="us-east-1" description={t("Leave empty if the storage doesn't use one.")} value={bucket.region} onChange={(e) => editBucket({ region: e.currentTarget.value })} />}
+                          <TextInput label={t("Access key ID")} value={bucket.accessKeyId} onChange={(e) => editBucket({ accessKeyId: e.currentTarget.value })} autoComplete="off" />
+                          <PasswordInput label={t("Secret access key")} description={t("Kept on the server; never shown again. Read access is enough.")} value={bucket.secretAccessKey} onChange={(e) => editBucket({ secretAccessKey: e.currentTarget.value })} autoComplete="off" />
                         </SimpleGrid>
                         <TextInput
-                          label="File or folder"
+                          label={t("File or folder")}
                           placeholder={dataType === "sounds" ? "sounds/machines/" : archive ? "photos/pets/" : "exports/sales.csv"}
                           description={archive
-                            ? (dataType === "photos" || dataType === "sounds" ? `A .zip, or a folder with one folder of ${dataType} per answer inside.` : dataType === "boxes" ? "A .zip, or a folder holding boxes.csv and the photos it names." : "A .zip, or a folder holding data.csv and the photos it names.")
-                            : "A .csv file, or a folder of .csv files with the same header row. Empty reads the whole bucket."}
+                            ? (dataType === "photos" || dataType === "sounds" ? t("A .zip, or a folder with one folder of {dataType} per answer inside.", { dataType }) : dataType === "boxes" ? t("A .zip, or a folder holding boxes.csv and the photos it names.") : t("A .zip, or a folder holding data.csv and the photos it names."))
+                            : t("A .csv file, or a folder of .csv files with the same header row. Empty reads the whole bucket.")}
                           value={bucketPath}
                           onChange={(e) => { setBucketPath(e.currentTarget.value); looked.reset(); reset(); }}
                           classNames={{ input: "font-mono" }}
                         />
-                        <Group><Button variant="default" loading={looked.isPending} disabled={!bucketFilled(bucket)} onClick={() => looked.mutate({ bucket, path: bucketPath.trim(), kind: kindToMake })}>Look in the bucket</Button></Group>
+                        <Group><Button variant="default" loading={looked.isPending} disabled={!bucketFilled(bucket)} onClick={() => looked.mutate({ bucket, path: bucketPath.trim(), kind: kindToMake })}>{t("Look in the bucket")}</Button></Group>
                         {looked.error && <Alert color="red" icon={<IconAlertCircle />}>{message(looked.error)}</Alert>}
                         {looked.data && (
                           <>
                             <Alert color="teal" icon={<IconCheck />}>
-                              {looked.data.files === 1n ? "1 file" : `${looked.data.files.toLocaleString()} files`}, {bytes(Number(looked.data.sizeBytes))}{looked.data.columns.length > 0 && `: ${looked.data.rows.toLocaleString()} rows, ${looked.data.columns.length} columns`}.
+                              {looked.data.files === 1n ? t("1 file") : t("{n1} files", { n1: looked.data.files.toLocaleString() })}, {bytes(Number(looked.data.sizeBytes))}{looked.data.columns.length > 0 && t(": {rows} rows, {columns} columns", { rows: looked.data.rows.toLocaleString(), columns: looked.data.columns.length })}.
                               {looked.data.columns.length === 0 && looked.data.names.length > 0 && <Text size="xs" c="dimmed" mt={4} className="font-mono">{looked.data.names.slice(0, 5).join(", ")}{looked.data.files > 5n ? ", …" : ""}</Text>}
                             </Alert>
                             {looked.data.columns.length > 0 && (
@@ -491,7 +492,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                                   : <ColumnPicker columns={looked.data.columns} rows={looked.data.sample.map((r) => r.values)} total={Number(looked.data.rows)} role={role} value={target} onChange={setTarget} />}
                               </>
                             )}
-                            <TextInput label="Name these examples" placeholder={`${bucket.bucket || "bucket"}/${bucketPath}`.replace(/\/+$/, "")} maxLength={100} value={examplesName} onChange={(e) => setExamplesName(e.currentTarget.value)} />
+                            <TextInput label={t("Name these examples")} placeholder={`${bucket.bucket || "bucket"}/${bucketPath}`.replace(/\/+$/, "")} maxLength={100} value={examplesName} onChange={(e) => setExamplesName(e.currentTarget.value)} />
                           </>
                         )}
                       </Stack>
@@ -499,12 +500,12 @@ function Wizard({ data: dataType }: { data: DataType }) {
                   </Choice>
                 )}
                 {tpl && (
-                  <Choice value="example" icon={<IconSparkles size={22} />} title={photos ? "The example photos" : "The example data"} hint={`${photos ? `${tpl.folders.length * 60} photos` : tpl.data === "photo_table" ? "600 rows with photos" : "2,000 rows"}, made up. Good for a first look.`}>{null}</Choice>
+                  <Choice value="example" icon={<IconSparkles size={22} />} title={photos ? t("The example photos") : t("The example data")} hint={t("{n1}, made up. Good for a first look.", { n1: photos ? t("{n1} photos", { n1: tpl.folders.length * 60 }) : tpl.data === "photo_table" ? t("600 rows with photos") : t("2,000 rows") })}>{null}</Choice>
                 )}
-                {photos && !tpl && <Choice value="digits" icon={<IconNumbers size={22} />} title="Handwritten digits" hint="70,000 pictures of the numbers 0 to 9, built in. Downloaded once on first use.">{null}</Choice>}
+                {photos && !tpl && <Choice value="digits" icon={<IconNumbers size={22} />} title={t("Handwritten digits")} hint={t("70,000 pictures of the numbers 0 to 9, built in. Downloaded once on first use.")}>{null}</Choice>}
               </Stack>
             </Radio.Group>
-            {busy && !dataset && <Text size="sm" c="dimmed" mt="md">Reading and checking your data…</Text>}
+            {busy && !dataset && <Text size="sm" c="dimmed" mt="md">{t("Reading and checking your data…")}</Text>}
             {createDataset.error && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{message(createDataset.error)}</Alert>}
             {checkDataset.error && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{message(checkDataset.error)}</Alert>}
             {dataset && check && (
@@ -514,25 +515,25 @@ function Wizard({ data: dataType }: { data: DataType }) {
             )}
           </Stepper.Step>
 
-          <Stepper.Step label={steps[1]} description={tpl ? "And what it's for" : "Pick the model type"}>
+          <Stepper.Step label={steps[1]} description={tpl ? t("And what it's for") : t("Pick the model type")}>
             {dataset && (
               <Alert mt="md" color="teal" icon={<IconCheck />}>
-                {dataset.name}: {dataset.rows.toLocaleString()} {role ? "rows" : "examples"}{dataset.labels.length > 0 && !dataset.numberTarget && !role ? `, ${dataset.labels.length} possible answers` : ""}.
+                {dataset.name}: {dataset.rows.toLocaleString()} {role ? t("rows") : t("examples")}{dataset.labels.length > 0 && !dataset.numberTarget && !role ? t(", {length} possible answers", { length: dataset.labels.length }) : ""}.
               </Alert>
             )}
             {picked ? (
               <Card withBorder radius="md" mt="md" padding="md">
-                <Text size="sm">The template picked the kind of model for you: <b>{chosenArch?.title}</b>. {chosenArch?.description}</Text>
+                <Text size="sm">{t("The template picked the kind of model for you:")}{" "}<b>{chosenArch?.title}</b>. {chosenArch?.description}</Text>
               </Card>
             ) : (
-              <Radio.Group value={arch} onChange={setArch} label="What kind of model?" description={allowed.length > 1 ? "The recommended one suits most tables. The others are for when you know what you want, or want to see why it answers as it does." : undefined} mt="md">
+              <Radio.Group value={arch} onChange={setArch} label={t("What kind of model?")} description={allowed.length > 1 ? t("The recommended one suits most tables. The others are for when you know what you want, or want to see why it answers as it does.") : undefined} mt="md">
                 <Stack gap="sm" mt="sm">
                   {ordered.filter((a) => moreKinds || allowed.length <= 2 || a.name === suggested || a.name === arch).map((a) => (
                     <Radio.Card key={a.name} value={a.name} radius="md" p="md">
                       <Group wrap="nowrap" align="flex-start">
                         <Radio.Indicator />
                         <div>
-                          <Group gap="xs"><Text fw={600}>{a.title}</Text>{a.name === suggested && allowed.length > 1 && <Badge size="sm">Recommended</Badge>}{a.output === "number" && <Badge size="sm" variant="light" color="orange">Answers a number</Badge>}{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group>
+                          <Group gap="xs"><Text fw={600}>{a.title}</Text>{a.name === suggested && allowed.length > 1 && <Badge size="sm">{t("Recommended")}</Badge>}{a.output === "number" && <Badge size="sm" variant="light" color="orange">{t("Answers a number")}</Badge>}{a.custom && <Badge size="sm" variant="light" color="grape">{t("Your own code")}</Badge>}</Group>
                           {why(a) && <Text size="sm" fw={500} c="teal.8">{why(a)}</Text>}
                           <Text size="sm" c="dimmed">{a.description}</Text>
                         </div>
@@ -541,7 +542,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                   ))}
                   {allowed.length > 2 && (
                     <Button variant="subtle" size="compact-sm" className="self-start" onClick={toggleKinds}>
-                      {moreKinds ? "Show fewer kinds" : `Choose another kind (${allowed.length - 1} more)`}
+                      {moreKinds ? t("Show fewer kinds") : t("Choose another kind ({n1} more)", { n1: allowed.length - 1 })}
                     </Button>
                   )}
                 </Stack>
@@ -550,9 +551,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
             {chosenArch && !chosenArch.learned && earlier.length > 0 && (
               <Select
                 mt="md"
-                label="Start from an earlier model"
-                description="It keeps what that model learned to see and learns these answers on top, so it needs fewer examples and less time."
-                data={[{ value: "", label: "No, start fresh" }, ...earlier.map((m) => ({ value: m.id, label: m.name }))]}
+                label={t("Start from an earlier model")}
+                description={t("It keeps what that model learned to see and learns these answers on top, so it needs fewer examples and less time.")}
+                data={[{ value: "", label: t("No, start fresh") }, ...earlier.map((m) => ({ value: m.id, label: m.name }))]}
                 value={startFrom}
                 onChange={(v) => setStartFrom(v ?? "")}
                 allowDeselect={false}
@@ -570,39 +571,39 @@ function Wizard({ data: dataType }: { data: DataType }) {
               />
             )}
             <Stack mt="lg">
-              <TextInput label="Name" required maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} />
-              <Textarea label="Description" description="Optional. What is it for?" maxLength={500} autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
+              <TextInput label={t("Name")} required maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} />
+              <Textarea label={t("Description")} description={t("Optional. What is it for?")} maxLength={500} autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
             </Stack>
           </Stepper.Step>
 
-          <Stepper.Step label={steps[2]} description="Then start">
+          <Stepper.Step label={steps[2]} description={t("Then start")}>
             {chosenArch?.learned ? (
-              <Text mt="md" size="sm">{chosenArch.title} learns from the whole table in one go{chosenArch.target ? "" : ", and stops on its own once more would not help"}, so there is nothing to choose here.</Text>
+              <Text mt="md" size="sm">{chosenArch.title}{" "}{t("learns from the whole table in one go")}{chosenArch.target ? "" : t(", and stops on its own once more would not help")}{t(", so there is nothing to choose here.")}</Text>
             ) : (
-            <Radio.Group value={preset} onChange={setPreset} label="How hard should it study?" mt="md">
+            <Radio.Group value={preset} onChange={setPreset} label={t("How hard should it study?")} mt="md">
               <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm">
                 {presets.map((p) => (
                   <Radio.Card key={p.value} value={p.value} radius="md" p="md" disabled={expert}>
                     <Group wrap="nowrap" align="flex-start">
                       <Radio.Indicator />
-                      <div><Text fw={600}>{p.label}</Text><Text size="sm" c="dimmed">{p.epochs} passes over the examples. {tpl && p.value === "normal" ? "The template's pick." : p.hint}</Text></div>
+                      <div><Text fw={600}>{p.label}</Text><Text size="sm" c="dimmed">{p.epochs}{" "}{t("passes over the examples.")}{" "}{tpl && p.value === "normal" ? t("The template's pick.") : p.hint}</Text></div>
                     </Group>
                   </Radio.Card>
                 ))}
               </SimpleGrid>
             </Radio.Group>
             )}
-            <UnstyledButton mt="md" onClick={toggle} className="text-sm text-[var(--mantine-color-teal-7)] underline">{expert ? "Hide expert settings" : "Expert settings"}</UnstyledButton>
+            <UnstyledButton mt="md" onClick={toggle} className="text-sm text-[var(--mantine-color-teal-7)] underline">{expert ? t("Hide expert settings") : t("Expert settings")}</UnstyledButton>
             <Collapse expanded={expert}>
               <SimpleGrid cols={{ base: 1, sm: 2 }} mt="sm">
                 {!chosenArch?.learned && (
                   <>
-                    <NumberInput label="Passes over the examples" description="Epochs" min={1} max={1000} value={epochs} onChange={setEpochs} />
-                    <NumberInput label="Examples per step" description="Batch size" min={1} max={4096} value={batch} onChange={setBatch} />
-                    <NumberInput label="Learning rate" description="How big each adjustment is" min={0.000001} max={1} step={0.0005} decimalScale={6} value={rate} onChange={setRate} />
+                    <NumberInput label={t("Passes over the examples")} description={t("Epochs")} min={1} max={1000} value={epochs} onChange={setEpochs} />
+                    <NumberInput label={t("Examples per step")} description={t("Batch size")} min={1} max={4096} value={batch} onChange={setBatch} />
+                    <NumberInput label={t("Learning rate")} description={t("How big each adjustment is")} min={0.000001} max={1} step={0.0005} decimalScale={6} value={rate} onChange={setRate} />
                   </>
                 )}
-                <NumberInput label="Kept aside for scoring" description="Percent of examples the model never learns from, used to measure it honestly" min={0} max={50} suffix="%" value={holdOut} onChange={setHoldOut} />
+                <NumberInput label={t("Kept aside for scoring")} description={t("Percent of examples the model never learns from, used to measure it honestly")} min={0} max={50} suffix="%" value={holdOut} onChange={setHoldOut} />
               </SimpleGrid>
             </Collapse>
             {workers.length > 0 && (
@@ -612,22 +613,22 @@ function Wizard({ data: dataType }: { data: DataType }) {
                   value={runOn}
                   onChange={setRunOn}
                   forTraining
-                  label="Train on"
-                  description={runOn ? (workers.find((w) => w.id === runOn)?.trainingOnly ? "It trains there; the model then answers wherever there's room. If it's offline, the run waits for it." : "It trains there and answers there afterwards. If it's offline, the run waits for it.") : "The least busy worker that can teach starts it."}
+                  label={t("Train on")}
+                  description={runOn ? (workers.find((w) => w.id === runOn)?.trainingOnly ? t("It trains there; the model then answers wherever there's room. If it's offline, the run waits for it.") : t("It trains there and answers there afterwards. If it's offline, the run waits for it.")) : t("The least busy worker that can teach starts it.")}
                 />
               </div>
             )}
             {fromQuery && (
               <Stack gap={4} mt="lg">
-                <Text fw={500} size="sm">Keep learning</Text>
-                <Text size="xs" c="dimmed">{dataset?.storage ? "Read the files again on a schedule" : "Run the query again on a schedule"} and continue teaching the same model with the new rows. The model is only replaced when the new pass scores at least as well.</Text>
+                <Text fw={500} size="sm">{t("Keep learning")}</Text>
+                <Text size="xs" c="dimmed">{dataset?.storage ? t("Read the files again on a schedule") : t("Run the query again on a schedule")}{" "}{t("and continue teaching the same model with the new rows. The model is only replaced when the new pass scores at least as well.")}</Text>
                 <SegmentedControl value={repeat} onChange={setRepeat} data={repeatChoicesFor(waitRows)} className="self-start" />
                 {repeat !== "0" && (
                   <NumberInput
                     mt="xs"
                     maw={320}
-                    label="Wait for new rows"
-                    description={waitRows > 0 ? `It looks ${repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase()} and only learns again once there are ${waitRows.toLocaleString()} more rows than last time.` : "0 learns on every schedule. Set a number to learn only once that many new rows have arrived."}
+                    label={t("Wait for new rows")}
+                    description={waitRows > 0 ? t("It looks {n1} and only learns again once there are {n2} more rows than last time.", { n1: repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase(), n2: waitRows.toLocaleString() }) : t("0 learns on every schedule. Set a number to learn only once that many new rows have arrived.")}
                     min={0}
                     max={1_000_000_000}
                     step={100}
@@ -642,28 +643,31 @@ function Wizard({ data: dataType }: { data: DataType }) {
               </Stack>
             )}
             <Text size="sm" c="dimmed" mt="md">
-              {name || "The model"} will learn from {dataset?.rows.toLocaleString()} examples {chosenArch?.learned ? "in one go" : `over ${chosenEpochs} passes`}{fromQuery && repeat !== "0" && `, then keep learning ${repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase()}${waitRows > 0 ? ` once ${waitRows.toLocaleString()} new rows are in` : ""}`}. When it&apos;s done you can try it with one {archive ? "photo" : "row"}, or send it new ones from your apps. You can stop it any time and pick up later.
-            </Text>
+              {t("{name} will learn from {rows} examples {how}{repeat}.", {
+                name: name || t("The model"),
+                rows: dataset?.rows.toLocaleString(),
+                how: chosenArch?.learned ? t("in one go") : t("over {chosenEpochs} passes", { chosenEpochs }),
+                repeat: fromQuery && repeat !== "0" ? t(", then keep learning {n1}{n2}", { n1: repeatChoices.find((c) => c.value === repeat)!.label.toLowerCase(), n2: waitRows > 0 ? t(" once {n1} new rows are in", { n1: waitRows.toLocaleString() }) : "" }) : "",
+              })}{" "}{archive ? t("When it's done you can try it with one photo, or send it new ones from your apps.") : t("When it's done you can try it with one row, or send it new ones from your apps.")}{" "}{t("You can stop it any time and pick up later.")}</Text>
             {createJob.error && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{message(createJob.error)}</Alert>}
           </Stepper.Step>
         </Stepper>
 
         <Group justify="space-between" mt="xl">
           {step === 0 && tpl
-            ? <ButtonLink variant="default" to="/templates/$id" params={{ id: tpl.id }}>Back</ButtonLink>
-            : <Button variant="default" onClick={() => setStep(step - 1)} disabled={step === 0 || createJob.isPending}>Back</Button>}
+            ? <ButtonLink variant="default" to="/templates/$id" params={{ id: tpl.id }}>{t("Back")}</ButtonLink>
+            : <Button variant="default" onClick={() => setStep(step - 1)} disabled={step === 0 || createJob.isPending}>{t("Back")}</Button>}
           {step === 0 && (
             <Button onClick={next} loading={busy} disabled={!ready0}>
-              {dataset ? (check?.verdict === "bad" ? "Fix the data first" : "Continue") : source === "existing" && !tpl ? "Next" : "Check my data"}
+              {dataset ? (check?.verdict === "bad" ? t("Fix the data first") : t("Continue")) : source === "existing" && !tpl ? t("Next") : t("Check my data")}
             </Button>
           )}
-          {step === 1 && <Button onClick={() => setStep(2)} disabled={!arch || !name.trim()}>Continue</Button>}
-          {step === 2 && <Button loading={createJob.isPending} disabled={!dataset || !arch || !name.trim()} onClick={start}>Start teaching</Button>}
+          {step === 1 && <Button onClick={() => setStep(2)} disabled={!arch || !name.trim()}>{t("Continue")}</Button>}
+          {step === 2 && <Button loading={createJob.isPending} disabled={!dataset || !arch || !name.trim()} onClick={start}>{t("Start teaching")}</Button>}
         </Group>
       </Card>
       {!tpl && (
-        <Text size="sm" c="dimmed">
-          Not sure how to shape your data? <Link to="/templates" search={dataType ? { data: dataType } : {}}>Start from a template</Link>.
+        <Text size="sm" c="dimmed">{t("Not sure how to shape your data?")}{" "}<Link to="/templates" search={dataType ? { data: dataType } : {}}>{t("Start from a template")}</Link>.
         </Text>
       )}
     </Page>

@@ -9,6 +9,7 @@ import { listTemplates } from "../../../api/queries";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
 import { categoryColor, count, dataTypeOf, dataTypes, kindColor, kindLabel, kinds, matches } from "../../../lib/templates";
+import { t } from "../../../i18n";
 
 const search = z.object({
   kind: z.enum(["yes_no", "group", "number", "ranked"]).optional(),
@@ -30,59 +31,59 @@ function Gallery() {
   const set = (patch: z.infer<typeof search>) => void navigate({ search: (cur) => ({ ...cur, ...patch }), replace: true });
   const label = (id: string) => data.categories.find((c) => c.id === id)?.label ?? id;
 
-  const fits = (t: Template, ignore?: "data" | "cat") =>
-    (!s.kind || t.kind === s.kind) &&
-    (ignore === "data" || !s.data || t.data === s.data) &&
-    (ignore === "cat" || !s.cat || t.category === s.cat) &&
-    matches(t, label(t.category), s.q ?? "");
-  const shown = data.templates.filter((t) => fits(t));
+  const fits = (tm: Template, ignore?: "data" | "cat") =>
+    (!s.kind || tm.kind === s.kind) &&
+    (ignore === "data" || !s.data || tm.data === s.data) &&
+    (ignore === "cat" || !s.cat || tm.category === s.cat) &&
+    matches(tm, label(tm.category), s.q ?? "");
+  const shown = data.templates.filter((tm) => fits(tm));
   const groups = data.categories
-    .map((c) => ({ ...c, items: shown.filter((t) => t.category === c.id) }))
+    .map((c) => ({ ...c, items: shown.filter((tm) => tm.category === c.id) }))
     .filter((g) => g.items.length > 0);
 
   const kind = kinds.find((k) => k.id === s.kind);
   return (
     <Page
-      title="Start from a template"
-      intro="Real problems with example data. Bring data shaped like the example and we teach it."
-      crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Templates" }]}
-      actions={<ButtonLink to="/models/teach" variant="default">Start from scratch</ButtonLink>}
+      title={t("Start from a template")}
+      intro={t("Real problems with example data. Bring data shaped like the example and we teach it.")}
+      crumbs={[{ label: t("Build a model"), to: "/models/build" }, { label: t("Templates") }]}
+      actions={<ButtonLink to="/models/teach" variant="default">{t("Start from scratch")}</ButtonLink>}
     >
       <Stack gap="sm">
         <TextInput
           size="md"
           leftSection={<IconSearch size={18} />}
-          placeholder='What do you want to know? For example "who will cancel" or "spot bad parts"'
-          aria-label="Search templates"
+          placeholder={t("What do you want to know? For example \"who will cancel\" or \"spot bad parts\"")}
+          aria-label={t("Search templates")}
           value={s.q ?? ""}
           onChange={(e) => set({ q: e.currentTarget.value || undefined })}
         />
         <Chips
-          label="Your data"
-          items={[{ id: undefined, label: "Any" }, ...dataTypes.map((d) => ({ id: d.id, label: d.chip }))].map((d) => ({
-            ...d, count: data.templates.filter((t) => fits(t, "data") && (!d.id || t.data === d.id)).length,
+          label={t("Your data")}
+          items={[{ id: undefined, label: t("Any") }, ...dataTypes.map((d) => ({ id: d.id, label: d.chip }))].map((d) => ({
+            ...d, count: data.templates.filter((tm) => fits(tm, "data") && (!d.id || tm.data === d.id)).length,
           }))}
           value={s.data}
           onChange={(v) => set({ data: v as z.infer<typeof search>["data"] })}
         />
         <Chips
-          label="Your work"
-          items={[{ id: undefined, label: "All" }, ...data.categories.map((c) => ({ id: c.id, label: c.label }))].map((c) => ({
-            ...c, count: data.templates.filter((t) => fits(t, "cat") && (!c.id || t.category === c.id)).length,
+          label={t("Your work")}
+          items={[{ id: undefined, label: t("All") }, ...data.categories.map((c) => ({ id: c.id, label: c.label }))].map((c) => ({
+            ...c, count: data.templates.filter((tm) => fits(tm, "cat") && (!c.id || tm.category === c.id)).length,
           }))}
           value={s.cat}
           onChange={(v) => set({ cat: v })}
         />
         {kind && (
           <Group gap="xs">
-            <Text size="sm" c="dimmed">Only templates that answer</Text>
-            <Badge size="lg" variant="light" color={kindColor(kind.id)} rightSection={<CloseButton size="xs" aria-label="Show every kind" onClick={() => set({ kind: undefined })} />}>{kind.label}</Badge>
+            <Text size="sm" c="dimmed">{t("Only templates that answer")}</Text>
+            <Badge size="lg" variant="light" color={kindColor(kind.id)} rightSection={<CloseButton size="xs" aria-label={t("Show every kind")} onClick={() => set({ kind: undefined })} />}>{kind.label}</Badge>
           </Group>
         )}
       </Stack>
 
       {groups.length === 0 && (
-        <Card withBorder radius="lg" padding="lg"><Text c="dimmed">No template fits all of that. Clear a filter, or start from scratch below.</Text></Card>
+        <Card withBorder radius="lg" padding="lg"><Text c="dimmed">{t("No template fits all of that. Clear a filter, or start from scratch below.")}</Text></Card>
       )}
       {groups.map((g) => {
         const [bg, fg] = categoryColor(g.id);
@@ -95,7 +96,7 @@ function Gallery() {
               <div><Title order={2}>{g.label}</Title><Text size="sm" c="dimmed">{g.blurb}</Text></div>
             </Group>
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-              {g.items.map((t) => <TemplateCard key={t.id} t={t} />)}
+              {g.items.map((tm) => <TemplateCard key={tm.id} t={tm} />)}
             </SimpleGrid>
           </Stack>
         );
@@ -104,10 +105,10 @@ function Gallery() {
       <Card withBorder padding="lg">
         <Group justify="space-between" gap="md">
           <div className="max-w-xl">
-            <Text fw={700}>Your problem isn&apos;t here?</Text>
-            <Text size="sm" c="dimmed">Start from scratch with your own table, text, photos, or photos with details. We ask what your data looks like and guide you from there.</Text>
+            <Text fw={700}>{t("Your problem isn't here?")}</Text>
+            <Text size="sm" c="dimmed">{t("Start from scratch with your own table, text, photos, or photos with details. We ask what your data looks like and guide you from there.")}</Text>
           </div>
-          <ButtonLink to="/models/teach" variant="default">Start from scratch</ButtonLink>
+          <ButtonLink to="/models/teach" variant="default">{t("Start from scratch")}</ButtonLink>
         </Group>
       </Card>
     </Page>
@@ -140,23 +141,23 @@ function Chips({ label, items, value, onChange }: { label: string; items: { id?:
   );
 }
 
-export function TemplateCard({ t }: { t: Template }) {
-  const photos = t.data === "photos";
+export function TemplateCard({ t: tm }: { t: Template }) {
+  const photos = tm.data === "photos";
   return (
     <Link
       to="/templates/$id"
-      params={{ id: t.id }}
+      params={{ id: tm.id }}
       className="group flex flex-col gap-1.5 rounded-xl border border-[var(--mimir-line)] bg-[var(--mimir-surface)] p-5 text-left text-inherit no-underline shadow-[var(--mimir-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--mantine-primary-color-filled)]"
     >
       <Group gap={8}>
-        <Text size="sm" fw={650} c={`var(--mantine-color-${kindColor(t.kind)}-light-color)`}>{kindLabel(t.kind)}</Text>
-        {t.data !== "table" && <Badge variant="light" color="yellow" size="sm">{dataTypeOf(t.data).chip}</Badge>}
+        <Text size="sm" fw={650} c={`var(--mantine-color-${kindColor(tm.kind)}-light-color)`}>{kindLabel(tm.kind)}</Text>
+        {tm.data !== "table" && <Badge variant="light" color="yellow" size="sm">{dataTypeOf(tm.data).chip}</Badge>}
       </Group>
-      <Text fw={700} fz="lg" lh={1.25}>{t.name}</Text>
-      <Text size="sm" c="dimmed" className="flex-1">{t.question}</Text>
+      <Text fw={700} fz="lg" lh={1.25}>{tm.name}</Text>
+      <Text size="sm" c="dimmed" className="flex-1">{tm.question}</Text>
       <Group justify="space-between" wrap="nowrap" mt={6}>
         <Text size="xs" c="dimmed">
-          {photos ? count(t.folders.length, "answer") : count(t.columns.length, "column")} · {photos ? `${t.rowsMin.toLocaleString()}+ photos each` : `${t.rowsMin.toLocaleString()}+ rows`} · From {t.sourceShort}
+          {photos ? count(tm.folders.length, "answer") : count(tm.columns.length, "column")} · {photos ? t("{n1}+ photos each", { n1: tm.rowsMin.toLocaleString() }) : t("{n1}+ rows", { n1: tm.rowsMin.toLocaleString() })}{" "}{t("· From")}{" "}{tm.sourceShort}
         </Text>
         <IconArrowRight size={16} className="shrink-0 opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
       </Group>

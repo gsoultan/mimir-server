@@ -18,6 +18,7 @@ import { TrainingChart } from "../../../components/TrainingChart";
 import { maxCompare } from "../../../lib/compare";
 import { ago } from "../../../lib/format";
 import { active, jobTone, keepWord, progress, repeatChoicesFor, repeatWord, score, statusColor, statusWord } from "../../../lib/training";
+import { locale, t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/training/$id")({
   loader: ({ context, params }) => Promise.all([
@@ -26,13 +27,13 @@ export const Route = createFileRoute("/_app/training/$id")({
   ]),
   errorComponent: ({ error }) => (
     <Alert color="red" icon={<IconAlertCircle />} className="mx-auto max-w-5xl">
-      {message(error)} <Link to="/training">Back to training</Link>
+      {message(error)} <Link to="/training">{t("Back to training")}</Link>
     </Alert>
   ),
   component: Run,
 });
 
-const round = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+const round = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
 
 function Run() {
   const { id } = Route.useParams();
@@ -49,10 +50,10 @@ function Run() {
   const cancel = useMutation(TrainingService.method.cancelJob, { onSuccess: refresh });
   const resume = useMutation(TrainingService.method.resumeJob, { onSuccess: refresh });
   const setRepeat = useMutation(TrainingService.method.setRepeat, {
-    onSuccess: async (res) => { await refresh(); notifications.show({ message: res.job && res.job.repeatSeconds > 0n ? `It ${keepWord(res.job)}.` : "It won't learn again on its own." }); },
+    onSuccess: async (res) => { await refresh(); notifications.show({ message: res.job && res.job.repeatSeconds > 0n ? `It ${keepWord(res.job)}.` : t("It won't learn again on its own.") }); },
   });
   const remove = useMutation(TrainingService.method.deleteJob, {
-    onSuccess: async () => { await navigate({ to: "/training" }); await refresh(); notifications.show({ message: "Run deleted." }); },
+    onSuccess: async () => { await navigate({ to: "/training" }); await refresh(); notifications.show({ message: t("Run deleted.") }); },
   });
   const epochs = j.settings?.epochs ?? 0;
   const last = j.history.at(-1);
@@ -69,15 +70,15 @@ function Run() {
   return (
     <Page
       title={j.name}
-      crumbs={[{ label: "Training", to: "/training" }, { label: j.name }]}
+      crumbs={[{ label: t("Training"), to: "/training" }, { label: j.name }]}
       badge={<StatusPill tone={jobTone[j.status]}>{statusWord[j.status]}</StatusPill>}
-      intro={<>{arch?.title ?? j.architecture} learning from {j.datasetName || "deleted examples"}{j.worker && ` on worker ${j.worker}`} · started by {j.createdBy} {ago(j.createTime)}</>}
+      intro={<>{arch?.title ?? j.architecture}{" "}{t("learning from")}{" "}{j.datasetName || t("deleted examples")}{j.worker && t(" on worker {worker}", { worker: j.worker })}{" "}{t("· started by")}{" "}{j.createdBy} {ago(j.createTime)}</>}
       actions={
         <Group gap="xs">
-          {active(j) && <Button variant="default" loading={cancel.isPending} onClick={() => cancel.mutate({ id })}>Stop</Button>}
-          {(j.status === JobStatus.CANCELLED || j.status === JobStatus.FAILED) && <Button loading={resume.isPending} onClick={() => resume.mutate({ id })}>Resume</Button>}
-          {j.status === JobStatus.SUCCEEDED && <ButtonLink to="/try" search={{ model: j.modelId }} leftSection={<IconPlayerPlay size={18} />}>Try it</ButtonLink>}
-          {!active(j) && <Button variant="subtle" color="red" loading={remove.isPending} onClick={() => remove.mutate({ id })}>Delete</Button>}
+          {active(j) && <Button variant="default" loading={cancel.isPending} onClick={() => cancel.mutate({ id })}>{t("Stop")}</Button>}
+          {(j.status === JobStatus.CANCELLED || j.status === JobStatus.FAILED) && <Button loading={resume.isPending} onClick={() => resume.mutate({ id })}>{t("Resume")}</Button>}
+          {j.status === JobStatus.SUCCEEDED && <ButtonLink to="/try" search={{ model: j.modelId }} leftSection={<IconPlayerPlay size={18} />}>{t("Try it")}</ButtonLink>}
+          {!active(j) && <Button variant="subtle" color="red" loading={remove.isPending} onClick={() => remove.mutate({ id })}>{t("Delete")}</Button>}
         </Group>
       }
     >
@@ -88,16 +89,16 @@ function Run() {
             <Group gap="sm" wrap="nowrap" align="flex-start">
               <IconRefresh size={22} className="mt-0.5 shrink-0" />
               <div>
-                <Text fw={600}>{j.repeatSeconds > 0n ? `Keeps learning ${repeatWord(j.repeatSeconds)}` : "Keep learning is off for this run"}</Text>
+                <Text fw={600}>{j.repeatSeconds > 0n ? t("Keeps learning {repeatSeconds}", { repeatSeconds: repeatWord(j.repeatSeconds) }) : t("Keep learning is off for this run")}</Text>
                 <Text size="sm" c="dimmed">
                   {j.repeatSeconds > 0n
                     ? j.minNewRows > 0n
-                      ? <>Next look {ago(j.nextRunTime)}: it fetches the examples again, and once there are {j.minNewRows.toLocaleString()} more rows than the {j.trainedRows.toLocaleString()} this pass learned from, it continues from the model, replacing it only if it scores at least as well.</>
-                      : <>Next pass {ago(j.nextRunTime)}: it fetches the examples again and continues from the model, replacing it only if it scores at least as well.</>
-                    : j.parentId ? <>This was one pass of a model that keeps learning. <Link to="/training/$id" params={{ id: j.parentId }}>See the first run</Link>.</> : null}
+                      ? <>{t("Next look")}{" "}{ago(j.nextRunTime)}{t(": it fetches the examples again, and once there are")}{" "}{j.minNewRows.toLocaleString()}{" "}{t("more rows than the")}{" "}{j.trainedRows.toLocaleString()}{" "}{t("this pass learned from, it continues from the model, replacing it only if it scores at least as well.")}</>
+                      : <>{t("Next pass")}{" "}{ago(j.nextRunTime)}{t(": it fetches the examples again and continues from the model, replacing it only if it scores at least as well.")}</>
+                    : j.parentId ? <>{t("This was one pass of a model that keeps learning.")}{" "}<Link to="/training/$id" params={{ id: j.parentId }}>{t("See the first run")}</Link>.</> : null}
                 </Text>
                 {j.note && <Text size="sm" mt={4}>{j.note}</Text>}
-                {j.repeatSeconds > 0n && j.checkTime && j.checkNote && <Text size="sm" mt={4}>Looked {ago(j.checkTime)}: {j.checkNote}</Text>}
+                {j.repeatSeconds > 0n && j.checkTime && j.checkNote && <Text size="sm" mt={4}>{t("Looked")}{" "}{ago(j.checkTime)}: {j.checkNote}</Text>}
               </div>
             </Group>
             <Stack gap="xs" align="flex-start" className="max-w-full">
@@ -114,25 +115,22 @@ function Run() {
         <Group justify="space-between" mb="xs">
           <Group gap="xs">
             <StatusPill tone={jobTone[j.status]}>{statusWord[j.status]}</StatusPill>
-            {j.status === JobStatus.RUNNING && <Text size="sm" c="dimmed">Pass {Math.min(j.epoch + 1, epochs)} of {epochs}{j.stepsPerEpoch > 0 && `, step ${j.step} of ${j.stepsPerEpoch}`}</Text>}
-            {j.status === JobStatus.QUEUED && <Text size="sm" c="dimmed">{waitingFor ? (waitingFor.online ? `It starts on ${waitingFor.name} when that worker has room.` : `It waits for ${waitingFor.name}, which is offline. It starts as soon as that worker connects.`) : "Another run is ahead of it, or it's about to begin."}</Text>}
-            {j.status === JobStatus.CANCELLED && <Text size="sm" c="dimmed">Stopped after {j.epoch} of {epochs} passes. Resume to carry on from there.</Text>}
-            {j.status === JobStatus.SUCCEEDED && <Text size="sm" c="dimmed">Finished {ago(j.endTime)} after {epochs} passes.</Text>}
+            {j.status === JobStatus.RUNNING && <Text size="sm" c="dimmed">{t("Pass")}{" "}{Math.min(j.epoch + 1, epochs)}{" "}{t("of")}{" "}{epochs}{j.stepsPerEpoch > 0 && t(", step {step} of {stepsPerEpoch}", { step: j.step, stepsPerEpoch: j.stepsPerEpoch })}</Text>}
+            {j.status === JobStatus.QUEUED && <Text size="sm" c="dimmed">{waitingFor ? (waitingFor.online ? t("It starts on {name} when that worker has room.", { name: waitingFor.name }) : t("It waits for {name}, which is offline. It starts as soon as that worker connects.", { name: waitingFor.name })) : t("Another run is ahead of it, or it's about to begin.")}</Text>}
+            {j.status === JobStatus.CANCELLED && <Text size="sm" c="dimmed">{t("Stopped after")}{" "}{j.epoch}{" "}{t("of")}{" "}{epochs}{" "}{t("passes. Resume to carry on from there.")}</Text>}
+            {j.status === JobStatus.SUCCEEDED && <Text size="sm" c="dimmed">{t("Finished")}{" "}{ago(j.endTime)}{" "}{t("after")}{" "}{epochs}{" "}{t("passes.")}</Text>}
           </Group>
           {last && last.accuracy > 0 && <Title order={3} fz="lg">{score(last.accuracy, number)}</Title>}
         </Group>
-        {active(j) && <Progress value={progress(j)} size="lg" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label="Progress" mb="md" />}
+        {active(j) && <Progress value={progress(j)} size="lg" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label={t("Progress")} mb="md" />}
         {j.status === JobStatus.FAILED && <Alert color="red" icon={<IconAlertCircle />} mb="md">{j.error}</Alert>}
         {j.status === JobStatus.SUCCEEDED && j.architecture === "language-model" && (
-          <Alert color="teal" mb="md">
-            The fine-tune is ready. It writes {Math.round(j.accuracy * 100)} of 100 word pieces of {j.settings && j.settings.holdOut > 0 ? "examples it never saw while learning" : "your examples"} the way they go on.{" "}
-            <Link to="/models/$id" params={{ id: j.modelId }}>See the model</Link>, or chat with it under Try.
-          </Alert>
+          <Alert color="teal" mb="md">{t("The fine-tune is ready. It writes")}{" "}{Math.round(j.accuracy * 100)}{" "}{t("of 100 word pieces of")}{" "}{j.settings && j.settings.holdOut > 0 ? t("examples it never saw while learning") : t("your examples")}{" "}{t("the way they go on.")}{" "}
+            <Link to="/models/$id" params={{ id: j.modelId }}>{t("See the model")}</Link>{t(", or chat with it under Try.")}</Alert>
         )}
         {j.status === JobStatus.SUCCEEDED && j.architecture !== "language-model" && (
-          <Alert color="teal" mb="md">
-            The model is ready. It {score(j.accuracy, number)} on {j.settings && j.settings.holdOut > 0 ? "examples it never saw while learning" : "the examples it learned from"}{number && last && last.typicalError > 0 ? `, and is usually off by about ${round(last.typicalError)}` : ""}.{number && " Close means within a tenth of the real answer."}{" "}
-            <Link to="/models/$id" params={{ id: j.modelId }}>See the model</Link>.
+          <Alert color="teal" mb="md">{t("The model is ready. It")}{" "}{score(j.accuracy, number)}{" "}{t("on")}{" "}{j.settings && j.settings.holdOut > 0 ? t("examples it never saw while learning") : t("the examples it learned from")}{number && last && last.typicalError > 0 ? t(", and is usually off by about {typicalError}", { typicalError: round(last.typicalError) }) : ""}.{number && t(" Close means within a tenth of the real answer.")}{" "}
+            <Link to="/models/$id" params={{ id: j.modelId }}>{t("See the model")}</Link>.
           </Alert>
         )}
         <TrainingChart history={j.history} epochs={epochs} number={number} />
@@ -140,17 +138,17 @@ function Run() {
 
       {j.report && (
         <Card withBorder radius="lg" padding="lg">
-          <Title order={3} fz="lg" mb="sm">How it did</Title>
+          <Title order={3} fz="lg" mb="sm">{t("How it did")}</Title>
           <RunReport report={j.report} />
         </Card>
       )}
 
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Card withBorder radius="lg" padding="lg">
-          <Title order={3} fz="lg" mb="sm">Each pass</Title>
-          {j.history.length === 0 ? <Text c="dimmed" size="sm">Nothing yet.</Text> : (
+          <Title order={3} fz="lg" mb="sm">{t("Each pass")}</Title>
+          {j.history.length === 0 ? <Text c="dimmed" size="sm">{t("Nothing yet.")}</Text> : (
             <Table verticalSpacing="xs" fz="sm">
-              <Table.Thead><Table.Tr><Table.Th>Pass</Table.Th><Table.Th>{number ? "Close answers" : "Right answers"}</Table.Th>{number && <Table.Th>Usually off by</Table.Th>}<Table.Th>Loss</Table.Th><Table.Th>Took</Table.Th></Table.Tr></Table.Thead>
+              <Table.Thead><Table.Tr><Table.Th>{t("Pass")}</Table.Th><Table.Th>{number ? t("Close answers") : t("Right answers")}</Table.Th>{number && <Table.Th>{t("Usually off by")}</Table.Th>}<Table.Th>{t("Loss")}</Table.Th><Table.Th>{t("Took")}</Table.Th></Table.Tr></Table.Thead>
               <Table.Tbody>
                 {j.history.map((e) => (
                   <Table.Tr key={e.epoch}>
@@ -166,16 +164,16 @@ function Run() {
           )}
         </Card>
         <Card withBorder radius="lg" padding="lg">
-          <Title order={3} fz="lg" mb="sm">Settings</Title>
+          <Title order={3} fz="lg" mb="sm">{t("Settings")}</Title>
           <Stack gap={6}>
-            <Fact label="Passes over the examples" value={String(epochs)} />
-            <Fact label="Examples per step" value={String(j.settings?.batchSize)} />
-            <Fact label="Learning rate" value={String(j.settings?.learningRate)} />
-            <Fact label="Kept aside for scoring" value={`${Math.round((j.settings?.holdOut ?? 0) * 100)}%`} />
+            <Fact label={t("Passes over the examples")} value={String(epochs)} />
+            <Fact label={t("Examples per step")} value={String(j.settings?.batchSize)} />
+            <Fact label={t("Learning rate")} value={String(j.settings?.learningRate)} />
+            <Fact label={t("Kept aside for scoring")} value={`${Math.round((j.settings?.holdOut ?? 0) * 100)}%`} />
             {(j.settings?.layers.length ?? 0) > 0 && (
-              <Fact label="Shape, designed" value={j.settings!.layers.map((l) => (l.kind === "dense" ? `${l.units} units` : `forget ${Math.round(l.rate * 100)}%`)).join(" → ")} />
+              <Fact label={t("Shape, designed")} value={j.settings!.layers.map((l) => (l.kind === "dense" ? `${l.units} units` : `forget ${Math.round(l.rate * 100)}%`)).join(" → ")} />
             )}
-            {j.description && <Fact label="Description" value={j.description} />}
+            {j.description && <Fact label={t("Description")} value={j.description} />}
           </Stack>
         </Card>
       </SimpleGrid>
@@ -190,8 +188,8 @@ function WaitForRows({ job, pending, onSave }: { job: Job; pending: boolean; onS
   const n = BigInt(Math.max(0, Math.floor(Number(rows) || 0)));
   return (
     <Group gap="xs" align="flex-end" wrap="nowrap">
-      <NumberInput size="xs" w={170} label="Wait for new rows" min={0} max={1_000_000_000} step={100} thousandSeparator="," value={rows} onChange={setRows} />
-      <Button size="xs" variant="default" disabled={n === job.minNewRows} loading={pending} onClick={() => onSave(n)}>Save</Button>
+      <NumberInput size="xs" w={170} label={t("Wait for new rows")} min={0} max={1_000_000_000} step={100} thousandSeparator="," value={rows} onChange={setRows} />
+      <Button size="xs" variant="default" disabled={n === job.minNewRows} loading={pending} onClick={() => onSave(n)}>{t("Save")}</Button>
     </Group>
   );
 }
@@ -205,14 +203,13 @@ function Passes({ job, number }: { job: Job; number: boolean }) {
   return (
     <Card withBorder radius="lg" padding="lg">
       <Group justify="space-between" mb="sm">
-        <Title order={3} fz="lg">Every pass</Title>
-        <ButtonLink size="xs" variant="default" to="/training/compare" search={{ ids: passes.slice(0, maxCompare).map((p) => p.id).join(",") }}>
-          Compare the latest {Math.min(passes.length, maxCompare)}
+        <Title order={3} fz="lg">{t("Every pass")}</Title>
+        <ButtonLink size="xs" variant="default" to="/training/compare" search={{ ids: passes.slice(0, maxCompare).map((p) => p.id).join(",") }}>{t("Compare the latest")}{" "}{Math.min(passes.length, maxCompare)}
         </ButtonLink>
       </Group>
       <Table.ScrollContainer minWidth={560}>
         <Table verticalSpacing="xs" fz="sm">
-          <Table.Thead><Table.Tr><Table.Th>Started</Table.Th><Table.Th>Status</Table.Th><Table.Th>Rows</Table.Th><Table.Th>{number ? "Close answers" : "Right answers"}</Table.Th><Table.Th>What happened</Table.Th></Table.Tr></Table.Thead>
+          <Table.Thead><Table.Tr><Table.Th>{t("Started")}</Table.Th><Table.Th>{t("Status")}</Table.Th><Table.Th>{t("Rows")}</Table.Th><Table.Th>{number ? t("Close answers") : t("Right answers")}</Table.Th><Table.Th>{t("What happened")}</Table.Th></Table.Tr></Table.Thead>
           <Table.Tbody>
             {passes.map((p) => (
               <Table.Tr key={p.id}>
@@ -220,7 +217,7 @@ function Passes({ job, number }: { job: Job; number: boolean }) {
                 <Table.Td><Badge color={statusColor[p.status]} variant="light">{statusWord[p.status]}</Badge></Table.Td>
                 <Table.Td>{p.trainedRows > 0n ? p.trainedRows.toLocaleString() : "–"}</Table.Td>
                 <Table.Td>{p.accuracy > 0 ? `${(p.accuracy * 100).toFixed(1)}%` : "–"}</Table.Td>
-                <Table.Td>{p.status === JobStatus.FAILED ? p.error : p.note || (p.id === root ? "The first run." : "")}</Table.Td>
+                <Table.Td>{p.status === JobStatus.FAILED ? p.error : p.note || (p.id === root ? t("The first run.") : "")}</Table.Td>
               </Table.Tr>
             ))}
           </Table.Tbody>

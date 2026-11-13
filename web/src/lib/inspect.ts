@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 // A quick look inside a model file, so the upload screen can say what's in
 // it before sending anything: a Mimir Model (.mim) file, or an ONNX or GGUF
 // model the server converts to one. The server does the real check.
@@ -72,7 +73,7 @@ function inspectMim(view: DataView): Inspection {
   return counted(tensors, parameters);
 }
 
-const noWeights: Inspection = { ok: false, reason: "This file has no weights in it." };
+const noWeights: Inspection = { ok: false, reason: t("This file has no weights in it.") };
 
 function counted(tensors: number, parameters: number): Inspection {
   if (tensors === 0) return noWeights;
@@ -80,5 +81,5 @@ function counted(tensors: number, parameters: number): Inspection {
 }
 
 function bad(): Inspection {
-  return { ok: false, reason: "This isn't a .mim, ONNX or GGUF model file." };
+  return { ok: false, reason: t("This isn't a .mim, ONNX or GGUF model file.") };
 }
