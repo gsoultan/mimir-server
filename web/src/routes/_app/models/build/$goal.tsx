@@ -187,7 +187,7 @@ function Write({ goal }: { goal: Goal }) {
         action={<ButtonLink to="/models/new" search={{ kind: "language-model" }}>Upload a GGUF file</ButtonLink>}
       >
         <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm" spacing="xs">
-          <Stat k="Works with" v="Llama, TinyLlama, Mistral, SmolLM, Qwen 2" />
+          <Stat k="Works with" v="Llama, Mistral, SmolLM, Qwen 2 and 3, Gemma 2 and 3, Phi 3 and 4" />
           <Stat k="Pick the file ending" v="Q4_K_M or Q8_0" />
           <Stat k="A good start" v="1 to 3 billion parameters" />
         </SimpleGrid>
