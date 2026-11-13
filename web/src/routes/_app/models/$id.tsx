@@ -176,7 +176,7 @@ function ModelDetails() {
         </Tabs.Panel>
 
         <Tabs.Panel value="versions">
-          <Versions model={m} number={number} canWrite={canWrite} />
+          <Versions model={m} number={number} canWrite={canWrite} trialable={!writes && arch?.output !== "boxes"} />
         </Tabs.Panel>
 
         {!writes && (

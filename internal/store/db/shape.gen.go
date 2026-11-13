@@ -50,6 +50,8 @@ func _assertAnswerShape(m m0.Answer) {
 		m.TruthLabel,
 		m.TruthValue,
 		m.Correct,
+		m.ShadowOf,
+		m.Agrees,
 	}
 }
 
@@ -251,6 +253,11 @@ func _assertModelShape(m m0.Model) {
 		m.OnDevice,
 		m.VersionID,
 		m.BaseModelID,
+		m.TrialVersionID,
+		m.TrialShare,
+		m.TrialShadow,
+		m.TrialStart,
+		m.NewVersionShare,
 	}
 }
 

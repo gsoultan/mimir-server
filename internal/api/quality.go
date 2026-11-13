@@ -125,7 +125,9 @@ func (s *Service) SendFeedback(ctx context.Context, req *connect.Request[mimirv1
 		}
 		a, err = s.store.GetAnswer(ctx, id)
 	}
-	if errors.Is(err, store.ErrAnswerNotFound) {
+	if errors.Is(err, store.ErrAnswerNotFound) || err == nil && a.ShadowOf != "" {
+		// A shadow answer's id is never handed out; its feedback comes
+		// with the live answer's.
 		return nil, predictionNotFound(id)
 	}
 	if err != nil {

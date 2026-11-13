@@ -40,6 +40,25 @@ type Answer struct {
 	TruthLabel   string
 	TruthValue   float64
 	Correct      bool
+	// ShadowOf is, for an answer a version on trial gave to a copy of a
+	// question, the id of the live version's answer, which the asker got;
+	// Agrees says the two answers were the same. Shadow answers count in
+	// a trial's results only, not in the model's answers.
+	ShadowOf string
+	Agrees   bool
+}
+
+// Aggregates: a model's answers by the version that gave them, with the
+// feedback on them and, for shadow answers, how many agreed with the
+// live version, for a trial's results.
+func (a *Answer) Aggregates(g *storm.Aggregates) {
+	v := g.Named("PerVersion")
+	v.By(&a.VersionID)
+	v.Count("Answers")
+	v.Count("Feedback").Filter(g.IsNotNull(&a.FeedbackTime))
+	v.Count("Correct").Filter(g.Eq(&a.Correct, true))
+	v.Count("Agree").Filter(g.Eq(&a.Agrees, true))
+	v.Count("Shadow").Filter(g.Ne(&a.ShadowOf, ""))
 }
 
 func (a *Answer) Schema(t *storm.Table) {
@@ -54,6 +73,11 @@ func (a *Answer) Schema(t *storm.Table) {
 	t.Col(&a.TruthLabel).Default("''")
 	t.Col(&a.TruthValue).Default("0")
 	t.Col(&a.Correct).Default("false")
+	t.Col(&a.ShadowOf).Default("''")
+	t.Col(&a.Agrees).Default("false")
+	// The shadow answers to judge with a live answer's feedback. Partial:
+	// most answers shadow none.
+	t.Index(&a.ShadowOf).Where(storm.RawSQL(`shadow_of <> ''`))
 	// The retention trim; rows arrive in time order.
 	t.Index(&a.CreateTime).Using(storm.BRIN)
 	t.Check(storm.RawSQL(`length(label) <= 200`))
