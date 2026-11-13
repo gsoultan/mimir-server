@@ -243,7 +243,18 @@ func TestVisitPlanJob(t *testing.T) {
 		}
 		visits += len(d.GetVisits())
 	}
-	if len(one.Msg.GetSalesperson().GetDays()) != 5 || visits != int(one.Msg.GetSalesperson().GetSalesperson().GetVisits()) {
+	// Five days from the plan's start, less any Sunday among them.
+	start, err := time.Parse(time.DateOnly, p.GetStartDate())
+	if err != nil {
+		t.Fatalf("start date %q: %v", p.GetStartDate(), err)
+	}
+	days := 0
+	for i := range 5 {
+		if start.AddDate(0, 0, i).Weekday() != time.Sunday {
+			days++
+		}
+	}
+	if len(one.Msg.GetSalesperson().GetDays()) != days || visits != int(one.Msg.GetSalesperson().GetSalesperson().GetVisits()) {
 		t.Fatalf("salesperson %v", one.Msg.GetSalesperson())
 	}
 	// A salesperson's app can ask with only their own id.
