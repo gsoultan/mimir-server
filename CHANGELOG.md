@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+### Try new versions first
+
+- A model version can be tried on part of the questions (5 to 50%) or on
+  a copy of every question on the side, before it answers everyone. The
+  Versions tab compares it with the live version on real answers, and puts
+  it live or stops the trial in one click.
+- Keep-learning can try each better pass on a share of the questions
+  first, instead of putting it live at once.
+
+### Warn when the questions change
+
+- Every hour the server compares the last week's questions to each table
+  model with the examples its live version learned from, column by
+  column, with no feedback needed. When a column looks a lot different
+  (a number range that moved, values it never saw, a column left empty)
+  the model's page says so in plain words, the home page lists it under
+  what needs a look, owners get an email or Telegram alert, and a
+  `model.data_changed` webhook goes out, once per change.
+  `ModelService.GetModelQuality` returns the same check.
+
+### AI assistants and agents
+
+- **MCP server.** Claude, ChatGPT, Cursor and other MCP clients can use
+  the models at `/mcp` with a mimir API key: list the models and
+  collections, ask a model about one row, score a table of up to 1,000
+  rows, and search or ask a collection of documents.
+- **Tool calling** in the OpenAI-compatible chat API: `tools`,
+  `tool_choice`, `parallel_tool_calls`, assistant `tool_calls` and `tool`
+  messages, streamed or not, so agent frameworks work with mimir's
+  language models.
+
 ### More model types
 
 - **What goes together** lists, for any product, the products bought in

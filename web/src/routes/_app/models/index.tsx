@@ -39,7 +39,7 @@ function Models() {
   const q = useDeferredValue(query).trim().toLowerCase();
   const archOf = (m: Model) => archs.architectures.find((a) => a.name === m.architecture);
   const quality = useQueries({ queries: data.models.map((m) => ({ ...modelQuality(m.id), staleTime: 60_000 })) });
-  const dropped = (i: number) => quality[i]?.data?.dropped ?? false;
+  const dropped = (i: number) => !!(quality[i]?.data?.dropped || quality[i]?.data?.dataChanged);
   const looks = data.models.filter((_, i) => dropped(i)).length;
 
   const shown = data.models

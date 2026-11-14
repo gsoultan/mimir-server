@@ -187,7 +187,8 @@ func TestVisitPlanJob(t *testing.T) {
 		people += fmt.Sprintf("%s,%s,%s,%f,%f\n", sp.GetId(), sp.GetName(), sp.GetArea(), sp.GetStartLatitude(), sp.GetStartLongitude())
 	}
 	people += "s-9,Nobody,North,-6.2,106.8\n" // has no customers
-	set := &mimirv1.VisitPlanSettings{CustomersCsv: []byte(planCustomers(6, 80, "")), SalespeopleCsv: []byte(people), Days: 5, SkipWeekdays: []int32{0}}
+	// Start on a Monday, so the five days skip no Sunday whatever day the test runs.
+	set := &mimirv1.VisitPlanSettings{CustomersCsv: []byte(planCustomers(6, 80, "")), SalespeopleCsv: []byte(people), Days: 5, SkipWeekdays: []int32{0}, StartDate: "2026-11-09"}
 	if _, err := vc.CreateVisitPlan(ctx, connect.NewRequest(&mimirv1.CreateVisitPlanRequest{Settings: set, RepeatSeconds: 86400})); connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("an upload made again: %v", err)
 	}

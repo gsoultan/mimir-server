@@ -13,7 +13,7 @@ import { Row, RowList, StatusPill } from "../../components/ui";
 import { ago } from "../../lib/format";
 import { answerWord, rightWord } from "../../lib/models";
 import { active, progress } from "../../lib/training";
-import { t } from "../../i18n";
+import { locale, t } from "../../i18n";
 
 export const Route = createFileRoute("/_app/")({
   loader: ({ context }) => Promise.all([
@@ -61,6 +61,18 @@ function Home() {
         </Row>,
       );
     }
+    if (q?.dataChanged) {
+      const cols = q.dataChanges.filter((c) => c.aLot).map((c) => c.column);
+      attention.push(
+        <Row key={"data" + m.id} tone="warn" icon={<IconAlertTriangle size={20} />}
+          title={t("{name} is being asked different questions", { name: m.name })}
+          detail={cols.length === 1
+            ? t("{columns} looks different from the examples it learned from, so its answers may be less reliable.", { columns: cols[0] })
+            : t("{columns} look different from the examples it learned from, so its answers may be less reliable.", { columns: cols.join(", ") })}>
+          <ButtonLink size="xs" variant="default" to="/models/$id" params={{ id: m.id }}>{t("Look into it")}</ButtonLink>
+        </Row>,
+      );
+    }
   }
   for (const j of jobs?.jobs ?? []) {
     if (active(j)) {
@@ -87,8 +99,11 @@ function Home() {
       );
     }
   }
-  const dropped = shown.filter((m) => qualityOf(m.id)?.dropped).length;
-  const summary = t("{models} {n2} ready to answer.{n3}", { models: models.length, n2: models.length === 1 ? t("model is") : t("models are"), n3: dropped > 0 ? t(" {n1} a look.", { n1: dropped === 1 ? t("One needs") : t("{dropped} need", { dropped }) }) : "" });
+  const needsLook = (q?: { dropped: boolean; dataChanged: boolean }) => !!q && (q.dropped || q.dataChanged);
+  const dropped = shown.filter((m) => needsLook(qualityOf(m.id))).length;
+  const ready = models.length === 1 ? t("1 model is ready to answer.") : t("{n} models are ready to answer.", { n: models.length.toLocaleString(locale) });
+  const look = dropped === 0 ? "" : dropped === 1 ? t("One needs a look.") : t("{n} need a look.", { n: dropped.toLocaleString(locale) });
+  const summary = look ? `${ready} ${look}` : ready;
 
   return (
     <Page
@@ -126,7 +141,7 @@ function Home() {
                       <Text size="xs" c="dimmed" hiddenFrom="sm">{answerWord(arch, m)}</Text>
                     </Table.Td>
                     <Table.Td visibleFrom="sm" c="dimmed">{answerWord(arch, m)}</Table.Td>
-                    <Table.Td>{right ? <StatusPill tone={q?.dropped ? "warn" : "ok"}>{right}</StatusPill> : <Text c="dimmed" size="sm">–</Text>}</Table.Td>
+                    <Table.Td>{right ? <StatusPill tone={needsLook(q) ? "warn" : "ok"}>{right}</StatusPill> : <Text c="dimmed" size="sm">–</Text>}</Table.Td>
                     <Table.Td visibleFrom="md" c="dimmed">{q ? Number(q.weekAnswers).toLocaleString() : "–"}</Table.Td>
                     <Table.Td visibleFrom="sm" ta="right">
                       <ButtonLink size="xs" variant="subtle" leftSection={<IconPlayerPlay size={14} />} to="/try" search={{ model: m.id }}>{t("Try")}</ButtonLink>

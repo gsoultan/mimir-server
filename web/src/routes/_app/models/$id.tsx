@@ -104,7 +104,7 @@ function ModelDetails() {
     <Page
       title={m.name}
       crumbs={[{ label: t("Models"), to: "/models" }, { label: m.name }]}
-      badge={quality?.dropped ? <StatusPill tone="warn">{t("Needs a look")}</StatusPill> : <StatusPill tone="ok">{t("Ready")}</StatusPill>}
+      badge={quality?.dropped || quality?.dataChanged ? <StatusPill tone="warn">{t("Needs a look")}</StatusPill> : <StatusPill tone="ok">{t("Ready")}</StatusPill>}
       intro={t("{n1}{n2} · {sizeBytes} · added {createTime}{n5}", { n1: arch?.title ?? m.architecture, n2: m.baseModelName ? t(", fine-tuned from {name}", { name: m.baseModelName }) : "", sizeBytes: bytes(m.sizeBytes), createTime: ago(m.createTime), n5: m.updateTime && m.createTime && m.updateTime.seconds - m.createTime.seconds > 60n ? t(" · last learned {updateTime}", { updateTime: ago(m.updateTime) }) : "" })}
       actions={
         <Group gap="xs">
@@ -177,7 +177,7 @@ function ModelDetails() {
         </Tabs.Panel>
 
         <Tabs.Panel value="versions">
-          <Versions model={m} number={number} canWrite={canWrite} />
+          <Versions model={m} number={number} canWrite={canWrite} trialable={!writes && arch?.output !== "boxes"} />
         </Tabs.Panel>
 
         {!writes && (

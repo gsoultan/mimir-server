@@ -377,7 +377,8 @@ func run() error {
 	bg.Go(func() { memory.Run(bgCtx) })
 	bg.Go(func() { safe.Loop(bgCtx, log, "webhook dispatcher", func() { dispatcher.Run(bgCtx, 5*time.Second) }) })
 	bg.Go(func() { safe.Loop(bgCtx, log, "janitor", func() { janitor(bgCtx, st, log) }) })
-	// Models doing worse in use than when trained are flagged once an hour.
+	// Models doing worse in use than when trained, or asked questions
+	// unlike their examples, are flagged once an hour.
 	bg.Go(func() {
 		t := time.NewTicker(time.Hour)
 		defer t.Stop()
@@ -389,6 +390,11 @@ func run() error {
 				case <-t.C:
 					if err := svc.CheckQuality(bgCtx); err != nil {
 						log.Error("quality: check", "error", err)
+					}
+					// Questions that stop looking like the examples, which
+					// needs no feedback.
+					if err := svc.CheckData(bgCtx); err != nil {
+						log.Error("data: check", "error", err)
 					}
 				}
 			}

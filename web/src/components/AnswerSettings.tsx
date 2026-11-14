@@ -30,7 +30,7 @@ export function AnswerSettings({ opened, onClose, name, value, defaults, canSave
     seed: seed === "" ? undefined : Number(seed),
   });
   return (
-    <Drawer opened={opened} onClose={onClose} position="right" size={440} title={<Text fw={700} fz="lg">{t("How")}{" "}{name}{" "}{t("answers")}</Text>}>
+    <Drawer opened={opened} onClose={onClose} position="right" size={440} title={<Text fw={700} fz="lg">{t("How {name} answers", { name })}</Text>}>
       <Stack>
         <Textarea
           label={t("Instructions")}

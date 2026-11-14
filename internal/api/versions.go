@@ -70,6 +70,9 @@ func (s *Service) UseModelVersion(ctx context.Context, req *connect.Request[mimi
 	if err != nil {
 		return nil, s.internal(ctx, err)
 	}
+	if old.Trial.On() {
+		s.forgetTrial(old.ID) // putting a version live ended the trial
+	}
 	// Workers and the cache load weights by version, so the next question
 	// gets these; warming them now spares it the wait.
 	s.WarmModel(m.ID)

@@ -19,6 +19,7 @@ const eventWords: Record<string, string> = {
   "model.updated": t("A model is renamed or described"),
   "model.deleted": t("A model is deleted"),
   "model.accuracy_dropped": t("A model gets fewer answers right in use"),
+  "model.data_changed": t("The questions a model gets look different from what it learned from"),
   "training.queued": t("A training run is queued"),
   "training.finished": t("A training run finishes"),
   "training.failed": t("A training run fails"),
