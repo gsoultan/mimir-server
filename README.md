@@ -721,6 +721,32 @@ In the API, `ModelService.ListModelVersions` lists them and
 `ModelService.UseModelVersion` puts one live; the switch is in the audit
 log and sends a `model.updated` webhook with the version.
 
+#### Try a version on part of the questions first
+
+**Try it first** on a version puts it on trial instead of live for
+everyone. It either answers a share of the questions (5, 10, 25 or 50%),
+and those apps get its answer, or answers a copy of every question **on
+the side**, while apps keep getting the live version's answers. The
+Versions tab then shows both versions next to each other since the trial
+began: how many answers each gave, how many of those your apps sent the
+right answer back for, and how many it got right; on the side, also how
+often the two agreed. With 20 checked answers each it says whether the new
+version looks ready. **Answer every question with version N** puts it live
+(ending the trial), and **Stop trying it** goes back to the live version
+alone. Only answers from `Predict` take part: scoring a list, explanations
+and on-device answers use the live version.
+
+A model can also try what keep-learning makes: set **When it keeps
+learning and does at least as well** to try new versions on 10, 25 or 50%
+of the questions first, and a better pass starts a trial instead of going
+live.
+
+In the API: `ModelService.StartModelTrial` (a version, and a `share` or
+`shadow`), `StopModelTrial`, `GetModelTrial` for the results, and
+`SetNewVersionShare` for keep-learning. A model's `trial` field says what
+is on trial. Feedback (`SendFeedback`) on a live answer also judges the
+shadow answer to the same question.
+
 ### How a model does in use
 
 A held-out score says how a model did on examples it was trained with;
@@ -746,6 +772,21 @@ once a day per model; its versions and the keep-learning schedule are the
 places to act. `ModelService.GetModelQuality` returns the same counts.
 Answers are written in batches every few seconds; daily counts are kept
 for 400 days.
+
+Most apps never send the right answers back, so the server also watches
+the questions themselves. Every hour it compares the last 7 days'
+questions to each table model (up to 2,000 of the newest, from at least
+100) with the examples its live version learned from, column by column:
+how often a column is empty, which ranges its numbers fall in, how often
+each value comes up and how often one it never saw does. A column whose
+recent questions differ a lot (a population stability index of 0.25,
+after taking off what chance alone gives a sample that size) shows on
+the model's page in plain words, such as "Mostly 20 to 80 in the
+examples it learned from; mostly 150 to 400 in recent questions", alerts
+owners and sends a `model.data_changed` webhook. Each change alerts once,
+and again after a week if it lasts. `GetModelQuality` returns the check
+in its `data_*` fields. Uploaded models, whose examples the server never
+saw, aren't checked.
 
 ## Use it from your app
 
@@ -833,9 +874,22 @@ It serves `GET /v1/models`, `POST /v1/chat/completions`,
 `stream` (server-sent events, ending in `data: [DONE]`, and
 `stream_options.include_usage`), `max_tokens` or
 `max_completion_tokens`, `temperature`, `seed` and `stop` (up to four
-strings). System and developer messages become the instructions. Tools,
-images, `n` above 1 and log probabilities aren't supported and are refused
-with a 400.
+strings). System and developer messages become the instructions. Images,
+`n` above 1 and log probabilities aren't supported and are refused with a
+400.
+
+Chats take `tools` (functions with a JSON schema), `tool_choice` (`auto`,
+`none`, `required` or one function) and `parallel_tool_calls`, so agent
+frameworks work too. The model is shown the tools in the format most open
+chat models learned (`<tools>` and `<tool_call>`, as Qwen and Hermes write
+them; a bare call object, as Llama 3.1 writes it, is read too). Its calls
+come back as `tool_calls` with `finish_reason` `tool_calls`, streamed as
+one `tool_calls` delta once the call is complete; earlier calls and `tool`
+messages with their answers are passed back to the model. How well a model
+calls tools depends on whether it was taught to: Qwen 2.5 and later, Hermes
+and Llama 3.1 and later do it well; small models often don't. Collections
+call no tools: they leave offered tools unused and refuse a chat that
+requires one.
 
 `/v1/embeddings` turns `input`, a string or a list of up to 256, into an
 embedding each, for search and grouping: the mean of the model's last
@@ -851,6 +905,33 @@ curl localhost:8080/v1/embeddings \
   -H 'Content-Type: application/json' \
   -d '{"model": "tiny-llama", "input": ["Where is my order?", "Shipping times"]}'
 ```
+
+### MCP: models for AI assistants
+
+Claude, ChatGPT, Cursor and other assistants that speak the Model Context
+Protocol can use the models at `/mcp` (the Streamable HTTP transport) with
+a mimir API key sent as `Authorization: Bearer mimir_...`. Keys,
+per-model access and limits apply as for every other call. The tools are:
+
+- `list_models`: the models and document collections the key may use,
+  what each model answers, and its columns.
+- `predict`: ask a model about one case, given by column name (and a
+  photo, in base64, for a model that looks at photos).
+- `score_table`: ask a model about up to 1,000 rows at once; a row it
+  can't read gets an error of its own.
+- `search_documents`: the passages of a collection that best match a query.
+- `ask_documents`: an answer written from a collection, with its sources.
+
+Models and collections are named by name or id. For Claude Code, for
+example:
+
+```sh
+claude mcp add --transport http mimir http://localhost:8080/mcp \
+  --header "Authorization: Bearer mimir_..."
+```
+
+The server keeps no session: it answers POST only, and GET is refused with
+a 405 as the transport allows.
 
 gRPC runs over unencrypted HTTP/2 here; put a TLS proxy in front for
 anything public.
