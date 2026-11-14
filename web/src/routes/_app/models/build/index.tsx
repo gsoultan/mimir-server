@@ -9,6 +9,7 @@ import { listTemplates } from "../../../../api/queries";
 import { GoalCard, WayCard, ways, type WayId } from "../../../../components/Goals";
 import { Page } from "../../../../components/Page";
 import { goals, isTemplateKind, type Goal } from "../../../../lib/goals";
+import { t } from "../../../../i18n";
 
 export const Route = createFileRoute("/_app/models/build/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(listTemplates),
@@ -25,15 +26,15 @@ function Build() {
   const how = (g: Goal) => {
     if (isTemplateKind(g.id)) {
       const n = data.templates.filter((t) => t.kind === g.id).length;
-      return n === 1 ? "1 template" : `${n} templates`;
+      return n === 1 ? t("1 template") : t("{n} templates", { n });
     }
-    return g.learn ? "From a table, no code" : g.ready === "file" ? "Bring a model file" : "Guide and starter code";
+    return g.learn ? t("From a table, no code") : g.ready === "file" ? t("Bring a model file") : t("Guide and starter code");
   };
 
   return (
-    <Page title="Build a model" crumbs={[{ label: "Models", to: "/models" }, { label: "Build a model" }]} intro="Tell us what you want to know. We show the easiest way to get there, step by step.">
+    <Page title={t("Build a model")} crumbs={[{ label: t("Models"), to: "/models" }, { label: t("Build a model") }]} intro={t("Tell us what you want to know. We show the easiest way to get there, step by step.")}>
       <Stack gap="sm">
-        <Title order={2} fz="lg">1. What should the model do?</Title>
+        <Title order={2} fz="lg">{t("1. What should the model do?")}</Title>
         <SimpleGrid cols={{ base: 2, md: 4 }} spacing={{ base: "sm", md: "md" }}>
           {goals.map((g) => (
             <Link key={g.id} to="/models/build/$goal" params={{ goal: g.id }} className="text-inherit no-underline">
@@ -42,14 +43,12 @@ function Build() {
           ))}
         </SimpleGrid>
       </Stack>
-      <Button variant="default" hiddenFrom="sm" rightSection={<IconArrowRight size={16} className={more ? "rotate-90" : undefined} />} onClick={toggle}>
-        Other ways to build
-      </Button>
+      <Button variant="default" hiddenFrom="sm" rightSection={<IconArrowRight size={16} className={more ? "rotate-90" : undefined} />} onClick={toggle}>{t("Other ways to build")}</Button>
       {(!phone || more) && (
         <Stack gap="sm">
           <Group justify="space-between" align="flex-end">
-            <Title order={2} fz="lg">Or go straight to a way of building</Title>
-            <Text size="sm" c="dimmed" visibleFrom="sm">Not sure? Pick a goal above and we suggest one.</Text>
+            <Title order={2} fz="lg">{t("Or go straight to a way of building")}</Title>
+            <Text size="sm" c="dimmed" visibleFrom="sm">{t("Not sure? Pick a goal above and we suggest one.")}</Text>
           </Group>
           <SimpleGrid cols={{ base: 1, md: 2 }}>
             {ways.map((w) => <WayLink key={w.id} id={w.id}><WayCard {...w} /></WayLink>)}

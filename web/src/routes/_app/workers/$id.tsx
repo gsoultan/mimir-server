@@ -18,11 +18,12 @@ import { Page } from "../../../components/Page";
 import { StatusPill } from "../../../components/ui";
 import { TokenModal } from "../../../components/Workers";
 import { ago, bytes, duration, loadColor, share } from "../../../lib/format";
+import { t } from "../../../i18n";
 
 const ranges = [
-  { value: "1", label: "Last hour" },
-  { value: "24", label: "Last day" },
-  { value: "168", label: "Last week" },
+  { value: "1", label: t("Last hour") },
+  { value: "24", label: t("Last day") },
+  { value: "168", label: t("Last week") },
 ];
 
 export const Route = createFileRoute("/_app/workers/$id")({
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/_app/workers/$id")({
   ]),
   errorComponent: ({ error }) => (
     <Alert color="red" icon={<IconAlertCircle />} className="mx-auto max-w-5xl">
-      {message(error)} <Link to="/settings" search={{ tab: "workers" }}>Back to workers</Link>
+      {message(error)} <Link to="/settings" search={{ tab: "workers" }}>{t("Back to workers")}</Link>
     </Alert>
   ),
   component: WorkerPage,
@@ -57,7 +58,7 @@ function WorkerPage() {
       await navigate({ to: "/settings", search: { tab: "workers" } });
       await refresh();
       await queryClient.invalidateQueries({ queryKey: allModelQueries });
-      notifications.show({ message: "Worker removed. Its token no longer works, and its models run wherever there's room." });
+      notifications.show({ message: t("Worker removed. Its token no longer works, and its models run wherever there's room.") });
     },
   });
   const newToken = useMutation(WorkerService.method.replaceWorkerToken, {
@@ -68,7 +69,7 @@ function WorkerPage() {
       await refresh();
       await queryClient.invalidateQueries({ queryKey: allModelQueries });
       const w = res.worker;
-      notifications.show({ color: "teal", message: w?.tasks === "train" ? `${w.name} now only teaches. Models that ran only there run wherever there's room.` : w?.tasks === "serve" ? `${w.name} now only answers. Runs that waited for it go to any worker that teaches.` : w?.tasks === "all" ? `${w.name} now runs and teaches.` : `${w?.name} takes what it was started with.` });
+      notifications.show({ color: "teal", message: w?.tasks === "train" ? t("{name} now only teaches. Models that ran only there run wherever there's room.", { name: w.name }) : w?.tasks === "serve" ? t("{name} now only answers. Runs that waited for it go to any worker that teaches.", { name: w.name }) : w?.tasks === "all" ? t("{name} now runs and teaches.", { name: w.name }) : t("{name} takes what it was started with.", { name: w?.name }) });
     },
   });
   if (!data?.worker) return null;
@@ -80,84 +81,87 @@ function WorkerPage() {
   return (
     <Page
       title={w.name}
-      crumbs={[{ label: "Settings", to: "/settings" }, { label: "Workers" }, { label: w.name }]}
-      badge={<StatusPill tone={!w.online ? "idle" : full ? "busy" : "ok"}>{!w.online ? "Offline" : full ? "Busy" : "Online"}</StatusPill>}
+      crumbs={[{ label: t("Settings"), to: "/settings" }, { label: t("Workers") }, { label: w.name }]}
+      badge={<StatusPill tone={!w.online ? "idle" : full ? "busy" : "ok"}>{!w.online ? t("Offline") : full ? t("Busy") : t("Online")}</StatusPill>}
       intro={w.online
-        ? `Connected${w.connectTime ? ` for ${duration((Date.now() - timestampDate(w.connectTime).getTime()) / 1000)}` : ""} · ${w.device}${w.gpus > 1 ? ` · ${w.gpus} GPUs, each run on all of them` : ""}${w.version ? ` · version ${w.version}` : ""}`
-        : w.lastSeen ? `Offline since ${ago(w.lastSeen)}` : "Hasn't connected yet"}
+        ? `${t("Connected")}${w.connectTime ? t(" for {n1}", { n1: duration((Date.now() - timestampDate(w.connectTime).getTime()) / 1000) }) : ""} · ${w.device}${w.gpus > 1 ? t(" · {gpus} GPUs, each run on all of them", { gpus: w.gpus }) : ""}${w.version ? t(" · version {version}", { version: w.version }) : ""}`
+        : w.lastSeen ? t("Offline since {lastSeen}", { lastSeen: ago(w.lastSeen) }) : t("Hasn't connected yet")}
       actions={
         <Group>
-          <Button variant="subtle" color="gray" leftSection={<IconArrowLeft size={16} />} onClick={() => navigate({ to: "/settings", search: { tab: "workers" } })}>All workers</Button>
-          <Button variant="default" leftSection={<IconKey size={16} />} onClick={replace.open}>New token</Button>
-          <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={confirm.open}>Remove</Button>
+          <Button variant="subtle" color="gray" leftSection={<IconArrowLeft size={16} />} onClick={() => navigate({ to: "/settings", search: { tab: "workers" } })}>{t("All workers")}</Button>
+          <Button variant="default" leftSection={<IconKey size={16} />} onClick={replace.open}>{t("New token")}</Button>
+          <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={confirm.open}>{t("Remove")}</Button>
         </Group>
       }
     >
       {!w.online && (w.models > 0 || w.waiting > 0) && (
-        <Alert color="yellow" icon={<IconAlertCircle />}>
-          While it's offline, {w.models > 0 && `${w.models} model${w.models === 1 ? " can't" : "s can't"} answer`}{w.models > 0 && w.waiting > 0 && " and "}{w.waiting > 0 && `${w.waiting} run${w.waiting === 1 ? " waits" : "s wait"}`}. Start it again, or move them to another worker.
-        </Alert>
+        <Alert color="yellow" icon={<IconAlertCircle />}>{t("While it's offline, {what}. Start it again, or move them to another worker.", {
+          what: [
+            w.models > 0 ? (w.models === 1 ? t("1 model can't answer") : t("{n} models can't answer", { n: w.models })) : "",
+            w.waiting > 0 ? (w.waiting === 1 ? t("1 run waits") : t("{n} runs wait", { n: w.waiting })) : "",
+          ].filter(Boolean).join(t(" and ")),
+        })}</Alert>
       )}
 
       <SimpleGrid cols={{ base: 2, sm: 4 }}>
-        <Gauge label="CPU" pct={s?.cpuPercent ?? 0} off={!w.online} detail={w.online ? `${w.cpus} CPUs${s && s.loadAverage > 0 ? ` · load ${s.loadAverage.toFixed(1)}` : ""}` : "offline"} />
-        <Gauge label="Memory" pct={share(s?.memoryUsedBytes ?? 0n, s?.memoryTotalBytes ?? 0n)} off={!w.online} detail={s && w.online ? `${bytes(s.memoryUsedBytes)} of ${bytes(s.memoryTotalBytes)}` : "offline"} />
-        <Gauge label="Storage" pct={share(s?.diskUsedBytes ?? 0n, s?.diskTotalBytes ?? 0n)} off={!w.online || !s?.diskTotalBytes} detail={s && w.online && s.diskTotalBytes > 0n ? `${bytes(s.diskTotalBytes - s.diskUsedBytes)} free of ${bytes(s.diskTotalBytes)}` : w.online ? "not reported" : "offline"} />
-        <Gauge label="Tasks" pct={share(w.busy, w.capacity)} off={!w.online} center={w.online ? `${w.busy}/${w.capacity}` : undefined} detail={w.online ? `${w.busy} running, room for ${w.capacity}` : "offline"} />
+        <Gauge label="CPU" pct={s?.cpuPercent ?? 0} off={!w.online} detail={w.online ? t("{cpus} CPUs{n2}", { cpus: w.cpus, n2: s && s.loadAverage > 0 ? t(" · load {n1}", { n1: s.loadAverage.toFixed(1) }) : "" }) : t("offline")} />
+        <Gauge label={t("Memory")} pct={share(s?.memoryUsedBytes ?? 0n, s?.memoryTotalBytes ?? 0n)} off={!w.online} detail={s && w.online ? t("{n} of {total}", { n: bytes(s.memoryUsedBytes), total: bytes(s.memoryTotalBytes) }) : t("offline")} />
+        <Gauge label={t("Storage")} pct={share(s?.diskUsedBytes ?? 0n, s?.diskTotalBytes ?? 0n)} off={!w.online || !s?.diskTotalBytes} detail={s && w.online && s.diskTotalBytes > 0n ? t("{n1} free of {diskTotalBytes}", { n1: bytes(s.diskTotalBytes - s.diskUsedBytes), diskTotalBytes: bytes(s.diskTotalBytes) }) : w.online ? t("not reported") : t("offline")} />
+        <Gauge label={t("Tasks")} pct={share(w.busy, w.capacity)} off={!w.online} center={w.online ? `${w.busy}/${w.capacity}` : undefined} detail={w.online ? t("{busy} running, room for {capacity}", { busy: w.busy, capacity: w.capacity }) : t("offline")} />
       </SimpleGrid>
 
       <History data={data} hours={hours} onHours={(v) => navigate({ to: ".", search: { hours: v as "1" }, replace: true })} />
 
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Card withBorder padding="lg">
-          <Title order={2} mb="sm">Running now</Title>
-          {data.tasks.length === 0 ? <Text size="sm" c="dimmed">{w.online ? "Nothing right now. It's ready for work." : "Nothing, it's offline."}</Text> : (
+          <Title order={2} mb="sm">{t("Running now")}</Title>
+          {data.tasks.length === 0 ? <Text size="sm" c="dimmed">{w.online ? t("Nothing right now. It's ready for work.") : t("Nothing, it's offline.")}</Text> : (
             <Stack gap="xs">
-              {data.tasks.map((t) => (
-                <Group key={t.kind + t.jobId + t.modelId} justify="space-between" wrap="nowrap">
+              {data.tasks.map((task) => (
+                <Group key={task.kind + task.jobId + task.modelId} justify="space-between" wrap="nowrap">
                   <Text size="sm">
-                    {t.kind === "train"
-                      ? <>Teaching <AnchorLink to="/training/$id" params={{ id: t.jobId }} fw={600}>{t.jobName || "a run"}</AnchorLink></>
-                      : <>Answering <AnchorLink to="/models/$id" params={{ id: t.modelId }} fw={600}>{t.modelName || "a model"}</AnchorLink>{t.count > 1 && ` ×${t.count}`}</>}
+                    {task.kind === "train"
+                      ? <>{t("Teaching")}{" "}<AnchorLink to="/training/$id" params={{ id: task.jobId }} fw={600}>{task.jobName || t("a run")}</AnchorLink></>
+                      : <>{t("Answering")}{" "}<AnchorLink to="/models/$id" params={{ id: task.modelId }} fw={600}>{task.modelName || t("a model")}</AnchorLink>{task.count > 1 && ` ×${task.count}`}</>}
                   </Text>
-                  <Text size="xs" c="dimmed">{t.startTime && `for ${duration((Date.now() - timestampDate(t.startTime).getTime()) / 1000)}`}</Text>
+                  <Text size="xs" c="dimmed">{task.startTime && t("for {n1}", { n1: duration((Date.now() - timestampDate(task.startTime).getTime()) / 1000) })}</Text>
                 </Group>
               ))}
             </Stack>
           )}
           {w.online && w.architectures.length > 0 && (
-            <Text size="xs" c="dimmed" mt="md">{w.trainingOnly ? "Teaches only" : w.trains ? "Runs and teaches" : "Runs only"}: {w.architectures.map(title).join(", ")}</Text>
+            <Text size="xs" c="dimmed" mt="md">{w.trainingOnly ? t("Teaches only") : w.trains ? t("Runs and teaches") : t("Runs only")}: {w.architectures.map(title).join(", ")}</Text>
           )}
         </Card>
 
         <Card withBorder padding="lg">
-          <Title order={2} mb="sm">What it takes</Title>
-          <Text size="sm" c="dimmed" mb="sm">Keep training off the machines that answer: a worker that only teaches gets no predictions, and one that only answers gets no training runs. The change applies at once; work already on it finishes.</Text>
+          <Title order={2} mb="sm">{t("What it takes")}</Title>
+          <Text size="sm" c="dimmed" mb="sm">{t("Keep training off the machines that answer: a worker that only teaches gets no predictions, and one that only answers gets no training runs. The change applies at once; work already on it finishes.")}</Text>
           <Select
-            label="Work for this worker"
+            label={t("Work for this worker")}
             value={w.tasks}
             onChange={(v) => setTasks.mutate({ id: w.id, tasks: v ?? "" })}
             disabled={setTasks.isPending}
             allowDeselect={false}
             data={[
-              { value: "", label: "As started (its -tasks flag)" },
-              { value: "all", label: "Runs and teaches" },
-              { value: "train", label: "Teaches only" },
-              { value: "serve", label: "Answers only" },
+              { value: "", label: t("As started (its -tasks flag)") },
+              { value: "all", label: t("Runs and teaches") },
+              { value: "train", label: t("Teaches only") },
+              { value: "serve", label: t("Answers only") },
             ]}
           />
-          {w.online && w.tasks === "train" && !w.trains && <Alert color="yellow" icon={<IconAlertCircle />} mt="sm">This worker can't teach, so set to teach only it does nothing. Pick another choice.</Alert>}
+          {w.online && w.tasks === "train" && !w.trains && <Alert color="yellow" icon={<IconAlertCircle />} mt="sm">{t("This worker can't teach, so set to teach only it does nothing. Pick another choice.")}</Alert>}
           {setTasks.error && <Alert color="red" icon={<IconAlertCircle />} mt="sm">{message(setTasks.error)}</Alert>}
         </Card>
 
         <Card withBorder padding="lg">
-          <Title order={2} mb="sm">Placed here</Title>
+          <Title order={2} mb="sm">{t("Placed here")}</Title>
           {data.models.length === 0 && data.runs.length === 0 && (
-            <Text size="sm" c="dimmed">No models or runs are set to use only this worker. It takes work for any model set to Automatic.</Text>
+            <Text size="sm" c="dimmed">{t("No models or runs are set to use only this worker. It takes work for any model set to Automatic.")}</Text>
           )}
           {data.models.length > 0 && (
             <>
-              <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={4}>Models that run only here</Text>
+              <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={4}>{t("Models that run only here")}</Text>
               <Group gap="xs" mb="sm">
                 {data.models.map((m) => <Link key={m.id} to="/models/$id" params={{ id: m.id }}><Badge variant="light" className="cursor-pointer normal-case">{m.name}</Badge></Link>)}
               </Group>
@@ -165,7 +169,7 @@ function WorkerPage() {
           )}
           {data.runs.length > 0 && (
             <>
-              <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={4}>Training runs</Text>
+              <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={4}>{t("Training runs")}</Text>
               <Stack gap={4}>
                 {data.runs.map((r) => (
                   <Group key={r.id} justify="space-between" wrap="nowrap">
@@ -184,21 +188,21 @@ function WorkerPage() {
 
       <Connection w={w} data={data} />
 
-      <Modal opened={replacing} onClose={replace.close} title={`New token for ${w.name}?`} centered>
-        <Text mb="sm">The old token stops working at once and {w.name} disconnects. The console also forgets the key it joined with, so the machine you run the new token on becomes {w.name}.</Text>
-        <Text mb="lg" size="sm" c="dimmed">Do this if the token may have leaked, or the machine was rebuilt.</Text>
+      <Modal opened={replacing} onClose={replace.close} title={t("New token for {name}?", { name: w.name })} centered>
+        <Text mb="sm">{t("The old token stops working at once and")}{" "}{w.name}{" "}{t("disconnects. The console also forgets the key it joined with, so the machine you run the new token on becomes")}{" "}{w.name}.</Text>
+        <Text mb="lg" size="sm" c="dimmed">{t("Do this if the token may have leaked, or the machine was rebuilt.")}</Text>
         {newToken.error && <Alert color="red" mb="md" icon={<IconAlertCircle />}>{message(newToken.error)}</Alert>}
         <Group justify="flex-end">
-          <Button variant="default" onClick={replace.close}>Cancel</Button>
-          <Button loading={newToken.isPending} onClick={() => newToken.mutate({ id })}>Make a new token</Button>
+          <Button variant="default" onClick={replace.close}>{t("Cancel")}</Button>
+          <Button loading={newToken.isPending} onClick={() => newToken.mutate({ id })}>{t("Make a new token")}</Button>
         </Group>
       </Modal>
-      <Modal opened={confirming} onClose={confirm.close} title={`Remove ${w.name}?`} centered>
-        <Text mb="lg">Its token stops working and it disconnects. Models and runs placed on it go back to Automatic.</Text>
+      <Modal opened={confirming} onClose={confirm.close} title={t("Remove {name}?", { name: w.name })} centered>
+        <Text mb="lg">{t("Its token stops working and it disconnects. Models and runs placed on it go back to Automatic.")}</Text>
         {remove.error && <Alert color="red" mb="md" icon={<IconAlertCircle />}>{message(remove.error)}</Alert>}
         <Group justify="flex-end">
-          <Button variant="default" onClick={confirm.close}>Keep it</Button>
-          <Button color="red" loading={remove.isPending} onClick={() => remove.mutate({ id })}>Remove</Button>
+          <Button variant="default" onClick={confirm.close}>{t("Keep it")}</Button>
+          <Button color="red" loading={remove.isPending} onClick={() => remove.mutate({ id })}>{t("Remove")}</Button>
         </Group>
       </Modal>
       <TokenModal token={token} onClose={() => setToken(undefined)} />
@@ -206,7 +210,7 @@ function WorkerPage() {
   );
 }
 
-const runWord: Record<string, string> = { queued: "Waiting", running: "Learning", succeeded: "Done", failed: "Failed", cancelled: "Stopped" };
+const runWord: Record<string, string> = { queued: t("Waiting"), running: t("Learning"), succeeded: t("Done"), failed: t("Failed"), cancelled: t("Stopped") };
 const runColor: Record<string, string> = { queued: "gray", running: "blue", succeeded: "teal", failed: "red", cancelled: "gray" };
 
 function Gauge({ label, pct, detail, off, center }: { label: string; pct: number; detail: string; off?: boolean; center?: string }) {
@@ -230,7 +234,7 @@ function Gauge({ label, pct, detail, off, center }: { label: string; pct: number
 }
 
 function History({ data, hours, onHours }: { data: GetWorkerResponse; hours: number; onHours: (v: string) => void }) {
-  const at = (t: (typeof data.samples)[number]) => (t.time ? timestampDate(t.time).getTime() : 0);
+  const at = (sample: (typeof data.samples)[number]) => (sample.time ? timestampDate(sample.time).getTime() : 0);
   const span = hours * 3600_000;
   const series = {
     cpu: data.samples.map((x) => ({ t: at(x), v: x.cpuPercent })),
@@ -243,16 +247,16 @@ function History({ data, hours, onHours }: { data: GetWorkerResponse; hours: num
     <Card withBorder padding="lg">
       <Group justify="space-between" mb="md">
         <div>
-          <Title order={2}>Over time</Title>
-          <Text size="xs" c="dimmed">One reading a minute, kept for a week. Hover a chart to read it.</Text>
+          <Title order={2}>{t("Over time")}</Title>
+          <Text size="xs" c="dimmed">{t("One reading a minute, kept for a week. Hover a chart to read it.")}</Text>
         </div>
         <SegmentedControl size="xs" value={String(hours)} onChange={onHours} data={ranges} />
       </Group>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        <Chart title="CPU"><AreaChart points={series.cpu} max={100} span={span} color="var(--mantine-color-teal-6)" format={pct} label="CPU use over time" /></Chart>
-        <Chart title="Memory"><AreaChart points={series.mem} max={100} span={span} color="var(--mantine-color-blue-6)" format={pct} label="Memory use over time" /></Chart>
-        <Chart title="Storage"><AreaChart points={series.disk} max={100} span={span} color="var(--mantine-color-violet-6)" format={pct} label="Storage use over time" /></Chart>
-        <Chart title="Tasks running"><AreaChart points={series.busy} span={span} color="var(--mantine-color-orange-6)" format={(v) => String(Math.round(v * 10) / 10)} label="Tasks running over time" /></Chart>
+        <Chart title="CPU"><AreaChart points={series.cpu} max={100} span={span} color="var(--mantine-color-teal-6)" format={pct} label={t("CPU use over time")} /></Chart>
+        <Chart title={t("Memory")}><AreaChart points={series.mem} max={100} span={span} color="var(--mantine-color-blue-6)" format={pct} label={t("Memory use over time")} /></Chart>
+        <Chart title={t("Storage")}><AreaChart points={series.disk} max={100} span={span} color="var(--mantine-color-violet-6)" format={pct} label={t("Storage use over time")} /></Chart>
+        <Chart title={t("Tasks running")}><AreaChart points={series.busy} span={span} color="var(--mantine-color-orange-6)" format={(v) => String(Math.round(v * 10) / 10)} label={t("Tasks running over time")} /></Chart>
       </SimpleGrid>
     </Card>
   );
@@ -263,50 +267,50 @@ function Chart({ title, children }: { title: string; children: React.ReactNode }
 }
 
 const eventWord: Record<string, string> = {
-  "worker.join": "Joined for the first time",
-  "worker.refused": "Refused a connection",
-  "worker.address": "Connected from a new address",
-  "worker.token": "New token made",
-  "worker.create": "Added",
+  "worker.join": t("Joined for the first time"),
+  "worker.refused": t("Refused a connection"),
+  "worker.address": t("Connected from a new address"),
+  "worker.token": t("New token made"),
+  "worker.create": t("Added"),
 };
 
 const security: Record<string, { label: string; good: boolean; hint: string }> = {
-  tls: { label: "Encrypted", good: true, hint: "The console serves TLS itself." },
-  proxy: { label: "Encrypted by your proxy", good: true, hint: "Your https proxy encrypts the link to this console." },
-  local: { label: "Same machine", good: true, hint: "The worker runs on the console's own machine, so nothing crosses the network." },
-  plain: { label: "Not encrypted", good: false, hint: "Allowed with -allow-plain-workers. Use only on a network you trust." },
+  tls: { label: t("Encrypted"), good: true, hint: t("The console serves TLS itself.") },
+  proxy: { label: t("Encrypted by your proxy"), good: true, hint: t("Your https proxy encrypts the link to this console.") },
+  local: { label: t("Same machine"), good: true, hint: t("The worker runs on the console's own machine, so nothing crosses the network.") },
+  plain: { label: t("Not encrypted"), good: false, hint: t("Allowed with -allow-plain-workers. Use only on a network you trust.") },
 };
 
 function Connection({ w, data }: { w: Worker; data: GetWorkerResponse }) {
   const sec = security[w.security];
   return (
     <Card withBorder padding="lg">
-      <Title order={2} mb="sm">Connection</Title>
+      <Title order={2} mb="sm">{t("Connection")}</Title>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
         <Table withRowBorders={false} verticalSpacing={6} horizontalSpacing={0}>
           <Table.Tbody>
-            <Row label="Link">
+            <Row label={t("Link")}>
               {sec ? (
                 <Tooltip label={sec.hint} multiline w={260}>
                   <Badge variant="light" color={sec.good ? "teal" : "red"} leftSection={sec.good ? <IconLock size={12} /> : <IconLockOpen size={12} />}>
                     {sec.label}{w.tlsVersion && ` · ${w.tlsVersion}`}
                   </Badge>
                 </Tooltip>
-              ) : <Text size="sm" c="dimmed">Not connected</Text>}
+              ) : <Text size="sm" c="dimmed">{t("Not connected")}</Text>}
             </Row>
-            <Row label="Its key">
+            <Row label={t("Its key")}>
               {w.keyFingerprint
-                ? <Tooltip label="Only the machine holding this key can use the token. It proves it on every connection." multiline w={260}><Code>{w.keyFingerprint}</Code></Tooltip>
-                : <Text size="sm" c="dimmed">Not joined yet</Text>}
+                ? <Tooltip label={t("Only the machine holding this key can use the token. It proves it on every connection.")} multiline w={260}><Code>{w.keyFingerprint}</Code></Tooltip>
+                : <Text size="sm" c="dimmed">{t("Not joined yet")}</Text>}
             </Row>
-            <Row label="Connects from"><Text size="sm">{w.address || "–"}</Text></Row>
-            {w.connectTime && <Row label="Connected"><Text size="sm">{ago(w.connectTime)}</Text></Row>}
-            <Row label="Added"><Text size="sm">by {w.createdBy} {ago(w.createTime)}</Text></Row>
+            <Row label={t("Connects from")}><Text size="sm">{w.address || "–"}</Text></Row>
+            {w.connectTime && <Row label={t("Connected")}><Text size="sm">{ago(w.connectTime)}</Text></Row>}
+            <Row label={t("Added")}><Text size="sm">{t("by")}{" "}{w.createdBy} {ago(w.createTime)}</Text></Row>
           </Table.Tbody>
         </Table>
         <div>
-          <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={6}>Recent security events</Text>
-          {data.events.length === 0 ? <Text size="sm" c="dimmed">None yet.</Text> : (
+          <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={6}>{t("Recent security events")}</Text>
+          {data.events.length === 0 ? <Text size="sm" c="dimmed">{t("None yet.")}</Text> : (
             <Stack gap={6}>
               {data.events.map((e) => (
                 <div key={e.id}>

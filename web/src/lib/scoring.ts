@@ -1,6 +1,7 @@
 import type { Architecture } from "../api/gen/mimir/v1/model_pb";
 import { JobStatus } from "../api/gen/mimir/v1/training_pb";
 import type { Scoring } from "../api/gen/mimir/v1/scoring_pb";
+import { t } from "../i18n";
 
 // scores says whether a model of this architecture can answer the rows of
 // a table: it reads a row and answers with a label, a number or a ranked
@@ -19,10 +20,10 @@ export function plansVisits(a: Architecture | undefined): boolean {
 
 // How often a scoring from a database or storage can run again.
 export const repeats = [
-  { value: "0", label: "Just once" },
-  { value: "3600", label: "Every hour" },
-  { value: "86400", label: "Every day" },
-  { value: "604800", label: "Every week" },
+  { value: "0", label: t("Just once") },
+  { value: "3600", label: t("Every hour") },
+  { value: "86400", label: t("Every day") },
+  { value: "604800", label: t("Every week") },
 ];
 
 export const waiting = (s: Scoring) => s.status === JobStatus.QUEUED || s.status === JobStatus.RUNNING;
@@ -37,14 +38,14 @@ export function progress(s: Scoring): number {
 // statusText says where a scoring is, in words.
 export function statusText(s: Scoring): string {
   switch (s.status) {
-    case JobStatus.QUEUED: return "Waiting";
-    case JobStatus.RUNNING: return Number(s.rows) > 0 ? `Scoring: ${Number(s.done).toLocaleString()} of ${Number(s.rows).toLocaleString()} rows` : "Reading the rows";
+    case JobStatus.QUEUED: return t("Waiting");
+    case JobStatus.RUNNING: return Number(s.rows) > 0 ? t("Scoring: {n1} of {n2} rows", { n1: Number(s.done).toLocaleString(), n2: Number(s.rows).toLocaleString() }) : t("Reading the rows");
     case JobStatus.SUCCEEDED: {
       const failed = Number(s.failed);
-      return `${Number(s.done).toLocaleString()} rows answered${failed > 0 ? `, ${failed.toLocaleString()} couldn't be` : ""}`;
+      return t("{n1} rows answered{n2}", { n1: Number(s.done).toLocaleString(), n2: failed > 0 ? t(", {n1} couldn't be", { n1: failed.toLocaleString() }) : "" });
     }
-    case JobStatus.FAILED: return "Failed";
-    case JobStatus.CANCELLED: return "Cancelled";
+    case JobStatus.FAILED: return t("Failed");
+    case JobStatus.CANCELLED: return t("Cancelled");
   }
   return "";
 }

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import type { DataCheck as Check } from "../api/gen/mimir/v1/template_pb";
 import { count, download } from "../lib/templates";
+import { t } from "../i18n";
 
 const marks = {
   ok: { sign: "✓", cls: "bg-[var(--mantine-color-teal-light)] text-[var(--mantine-color-teal-8)]" },
@@ -25,10 +26,10 @@ function Row({ level, children }: { level: Level; children: ReactNode }) {
 
 // answers sums up the answer column in a sentence.
 function answers(c: Check) {
-  if (c.numberAnswer && c.answers.length >= 20) return "Every row has a number.";
+  if (c.numberAnswer && c.answers.length >= 20) return t("Every row has a number.");
   const top = c.answers.slice(0, 5).map((a) => `${a.value} (${a.count.toLocaleString()})`);
-  const more = c.answers.length > 5 ? ` and ${c.answers.length - 5} more` : "";
-  return `${count(c.answers.length, "answer")} found: ${top.join(", ")}${more}.`;
+  const more = c.answers.length > 5 ? t(" and {n1} more", { n1: c.answers.length - 5 }) : "";
+  return t("{count} found: {top}{more}.", { count: count(c.answers.length, "answer"), top: top.join(", "), more });
 }
 
 // DataCheck shows how well uploaded data fits, and lets people match
@@ -53,49 +54,49 @@ export function DataCheck({ check, template, photos, sounds, onMatch, busy }: {
   const fixes = check.notes.filter((n) => n.level === "bad").length;
   const tips = check.notes.filter((n) => n.level === "warn").length;
   const pill = check.verdict === "bad"
-    ? { color: "red", text: `${count(fixes, "thing")} to fix first` }
-    : tips > 0 ? { color: "orange", text: `Ready, ${count(tips, "thing")} to look at` } : { color: "teal", text: "Ready" };
+    ? { color: "red", text: t("{fixes} to fix first", { fixes: count(fixes, "thing") }) }
+    : tips > 0 ? { color: "orange", text: t("Ready, {tips} to look at", { tips: count(tips, "thing") }) } : { color: "teal", text: t("Ready") };
   const all = [...check.columns.filter((c) => c.found).map((c) => c.found), ...check.extraColumns];
   const choices = (keep: string) => [...new Set([...check.extraColumns, keep].filter(Boolean))];
 
   return (
     <Card withBorder radius="lg" padding="lg" aria-live="polite">
       <Group justify="space-between" mb="md">
-        <Text fw={700}>{template ? "Checking your data against the template" : "Checking your data"}</Text>
+        <Text fw={700}>{template ? t("Checking your data against the template") : t("Checking your data")}</Text>
         <Badge size="lg" radius="xl" variant="light" color={pill.color}>{pill.text}</Badge>
       </Group>
       <Stack gap="sm">
         {photos || sounds ? (
           <>
-            <Row level="ok"><b>{count(check.folders.length, "folder")} found.</b> Each folder becomes one answer.</Row>
+            <Row level="ok"><b>{count(check.folders.length, "folder")}{" "}{t("found.")}</b>{" "}{t("Each folder becomes one answer.")}</Row>
             <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
               {check.folders.map((f) => {
                 const low = f.photos < (check.rowsMin > 0 ? check.rowsMin : 20);
                 return (
                   <div key={f.name} className={`rounded-lg border px-3 py-2 ${low ? "border-[var(--mantine-color-orange-3)] bg-[var(--mantine-color-orange-light)]" : "border-[var(--mantine-color-default-border)]"}`}>
                     <Text ff="monospace" size="sm" fw={600} truncate>{f.name}/</Text>
-                    <Text size="xs" c="dimmed">{count(f.photos, unit)}{template && !f.expected ? " · new answer" : ""}</Text>
+                    <Text size="xs" c="dimmed">{count(f.photos, unit)}{template && !f.expected ? t(" · new answer") : ""}</Text>
                   </div>
                 );
               })}
             </SimpleGrid>
-            <Row level="ok"><b>{count(check.rows, unit)} in all.</b> {sounds ? "Each is heard as one second, from its middle; we convert every rate for you." : "They come in different sizes; we resize them for you."}</Row>
+            <Row level="ok"><b>{count(check.rows, unit)}{" "}{t("in all.")}</b> {sounds ? t("Each is heard as one second, from its middle; we convert every rate for you.") : t("They come in different sizes; we resize them for you.")}</Row>
           </>
         ) : (
           <>
-            {template && <Row level={lost.some((c) => !c.optional) ? "warn" : "ok"}><b>{found} of {check.columns.length} columns found</b>{lost.length || check.columns.some((c) => c.status === "renamed") ? "." : " by name."}</Row>}
+            {template && <Row level={lost.some((c) => !c.optional) ? "warn" : "ok"}><b>{found}{" "}{t("of")}{" "}{check.columns.length}{" "}{t("columns found")}</b>{lost.length || check.columns.some((c) => c.status === "renamed") ? "." : t(" by name.")}</Row>}
             {template && check.columns.filter((c) => c.status === "renamed" && !c.answer).map((c) => (
-              <Row key={c.name} level="ok"><b>{c.found}</b> is used as <code>{c.name}</code>.</Row>
+              <Row key={c.name} level="ok"><b>{c.found}</b>{" "}{t("is used as")}{" "}<code>{c.name}</code>.</Row>
             ))}
             {template && lost.filter((c) => c.name !== check.columns[check.columns.length - 1]?.name).map((c) => (
               <Row key={c.name} level={c.optional ? "info" : "warn"}>
-                <div><b><code>{c.name}</code> isn&apos;t in your file by that name.</b> {c.optional ? "It's optional and makes answers more specific. Is it there under another one?" : "Is it there under another one?"}</div>
+                <div><b><code>{c.name}</code>{" "}{t("isn't in your file by that name.")}</b> {c.optional ? t("It's optional and makes answers more specific. Is it there under another one?") : t("Is it there under another one?")}</div>
                 <Select
                   mt={6}
                   className="max-w-xs"
                   size="sm"
-                  aria-label={`Your column for ${c.name}`}
-                  placeholder="Not in my file"
+                  aria-label={t("Your column for {name}", { name: c.name })}
+                  placeholder={t("Not in my file")}
                   data={choices("")}
                   value={null}
                   disabled={busy || check.extraColumns.length === 0}
@@ -105,21 +106,21 @@ export function DataCheck({ check, template, photos, sounds, onMatch, busy }: {
             ))}
             {missingAnswer ? (
               <Row level="bad">
-                <div><b>Which column is the answer?</b> We couldn&apos;t find <code>{check.columns[check.columns.length - 1]?.name}</code>, so <code>{check.answerColumn}</code> is the answer for now.</div>
+                <div><b>{t("Which column is the answer?")}</b>{" "}{t("We couldn't find")}{" "}<code>{check.columns[check.columns.length - 1]?.name}</code>{t(", so")}{" "}<code>{check.answerColumn}</code>{" "}{t("is the answer for now.")}</div>
                 <Select
                   mt={6}
                   className="max-w-xs"
                   size="sm"
-                  aria-label="The answer column"
+                  aria-label={t("The answer column")}
                   data={[...new Set([check.answerColumn, ...all])]}
                   value={check.answerColumn}
                   disabled={busy}
                   onChange={(v) => v && onMatch?.(check.columns[check.columns.length - 1]!.name, v)}
                 />
-                {onMatch && <Button mt={6} size="xs" variant="light" loading={busy} onClick={() => onMatch(check.columns[check.columns.length - 1]!.name, check.answerColumn)}>Yes, {check.answerColumn} is the answer</Button>}
+                {onMatch && <Button mt={6} size="xs" variant="light" loading={busy} onClick={() => onMatch(check.columns[check.columns.length - 1]!.name, check.answerColumn)}>{t("Yes,")}{" "}{check.answerColumn}{" "}{t("is the answer")}</Button>}
               </Row>
             ) : (
-              <Row level="ok"><b>The answer column is {check.answerColumn}.</b> {answers(check)}</Row>
+              <Row level="ok"><b>{t("The answer column is")}{" "}{check.answerColumn}.</b> {answers(check)}</Row>
             )}
             {!check.notes.some((n) => /, (enough to start|fewer than)/.test(n.title)) && <Row level="ok"><b>{count(check.rows, "row")}.</b></Row>}
             {!template && <Columns check={check} />}
@@ -130,9 +131,7 @@ export function DataCheck({ check, template, photos, sounds, onMatch, busy }: {
             <b>{n.title}</b> {n.body}
             {check.missingPhotos.length > 0 && /no photo/.test(n.title) && (
               <div className="mt-1">
-                <Button size="compact-sm" variant="subtle" leftSection={<IconDownload size={14} />} onClick={() => download("missing-photos.txt", "text/plain", check.missingPhotos.join("\n") + "\n")}>
-                  Download the list
-                </Button>
+                <Button size="compact-sm" variant="subtle" leftSection={<IconDownload size={14} />} onClick={() => download("missing-photos.txt", "text/plain", check.missingPhotos.join("\n") + "\n")}>{t("Download the list")}</Button>
               </div>
             )}
           </Row>
@@ -145,13 +144,13 @@ export function DataCheck({ check, template, photos, sounds, onMatch, busy }: {
 // How the server reads a column, in plain words.
 function holds(c: Check["columns"][number], rows: bigint): string {
   const filled = rows - c.empty;
-  if (filled >= 20n && c.distinct >= (filled < 1001n ? filled : 1001n) && c.foundKind !== "number") return "an ID, different in every row";
+  if (filled >= 20n && c.distinct >= (filled < 1001n ? filled : 1001n) && c.foundKind !== "number") return t("an ID, different in every row");
   switch (c.foundKind) {
     case "number": return "numbers";
-    case "yesno": return "yes or no";
-    case "category": return c.distinct === 1n ? "always the same" : `one of ${c.distinct >= 1001n ? "1,000+" : c.distinct.toLocaleString()} values`;
-    case "text": return `text, about ${Math.round(c.words)} words`;
-    case "photo": return "photo names";
+    case "yesno": return t("yes or no");
+    case "category": return c.distinct === 1n ? t("always the same") : t("one of {n1} values", { n1: c.distinct >= 1001n ? "1,000+" : c.distinct.toLocaleString() });
+    case "text": return t("text, about {words} words", { words: Math.round(c.words) });
+    case "photo": return t("photo names");
   }
   return c.foundKind;
 }
@@ -164,15 +163,15 @@ function Columns({ check }: { check: Check }) {
   const empty = (c: Check["columns"][number]) => check.rows > 0n ? Number(c.empty) / Number(check.rows) : 0;
   return (
     <Row level="ok">
-      <b>The model learns from {count(cols.length, "column")}.</b>
+      <b>{t("The model learns from")}{" "}{count(cols.length, "column")}.</b>
       <Table.ScrollContainer minWidth={360} mt={6}>
         <Table fz="xs" withTableBorder verticalSpacing={4}>
-          <Table.Thead><Table.Tr><Table.Th>Column</Table.Th><Table.Th>Read as</Table.Th><Table.Th>Filled</Table.Th></Table.Tr></Table.Thead>
+          <Table.Thead><Table.Tr><Table.Th>{t("Column")}</Table.Th><Table.Th>{t("Read as")}</Table.Th><Table.Th>{t("Filled")}</Table.Th></Table.Tr></Table.Thead>
           <Table.Tbody>
             {cols.map((c) => (
               <Table.Tr key={c.name}>
                 <Table.Td ff="monospace">{c.name}</Table.Td>
-                <Table.Td>{holds(c, check.rows)}{c.tellsAnswer ? <Badge ml={6} size="xs" color="orange" variant="light">gives the answer away</Badge> : null}</Table.Td>
+                <Table.Td>{holds(c, check.rows)}{c.tellsAnswer ? <Badge ml={6} size="xs" color="orange" variant="light">{t("gives the answer away")}</Badge> : null}</Table.Td>
                 <Table.Td c={empty(c) > 0.2 ? "orange.8" : undefined}>{Math.round(100 * (1 - empty(c)))}%</Table.Td>
               </Table.Tr>
             ))}

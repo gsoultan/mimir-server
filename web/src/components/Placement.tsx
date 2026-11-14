@@ -8,6 +8,7 @@ import { message } from "../api/client";
 import { ModelService, type Model } from "../api/gen/mimir/v1/model_pb";
 import type { Worker } from "../api/gen/mimir/v1/worker_pb";
 import { allModelQueries, allWorkerQueries, listWorkerChoices } from "../api/queries";
+import { t } from "../i18n";
 
 // A small light for whether a worker is up.
 export function StatusDot({ online, busy, size = 10 }: { online: boolean; busy?: boolean; size?: number }) {
@@ -32,7 +33,7 @@ export function WorkerSelect({ workers, value, onChange, label, description, for
   workers: Worker[]; value: string; onChange: (id: string) => void; label: string; description: string; forTraining?: boolean; disabled?: boolean;
 }) {
   const data = [
-    { value: "", label: "Automatic: any worker with room" },
+    { value: "", label: t("Automatic: any worker with room") },
     ...workers.map((w) => ({
       value: w.id,
       label: w.name,
@@ -57,7 +58,7 @@ export function WorkerSelect({ workers, value, onChange, label, description, for
             <StatusDot online={w.online} busy={w.online && w.busy >= w.capacity} size={8} />
             <Text size="sm">{w.name}</Text>
             <Text size="xs" c="dimmed">
-              {!w.online ? "offline" : forTraining && !w.trains ? "can't teach" : !forTraining && w.trainingOnly ? "teaches only" : w.busy >= w.capacity ? "busy" : `${w.busy} of ${w.capacity} in use`}
+              {!w.online ? t("offline") : forTraining && !w.trains ? t("can't teach") : !forTraining && w.trainingOnly ? t("teaches only") : w.busy >= w.capacity ? t("busy") : t("{busy} of {capacity} in use", { busy: w.busy, capacity: w.capacity })}
             </Text>
           </Group>
         );
@@ -75,25 +76,25 @@ export function RunsOn({ model, canWrite }: { model: Model; canWrite: boolean })
       await queryClient.invalidateQueries({ queryKey: allModelQueries });
       await queryClient.invalidateQueries({ queryKey: allWorkerQueries });
       const w = workers.find((x) => x.id === res.model?.workerId);
-      notifications.show({ color: "teal", message: w ? `${model.name} now runs on ${w.name}.` : `${model.name} now runs wherever there's room.` });
+      notifications.show({ color: "teal", message: w ? t("{name} now runs on {name2}.", { name: model.name, name2: w.name }) : t("{name} now runs wherever there's room.", { name: model.name }) });
     },
   });
   if (!canWrite || workers.length === 0) return null;
   const chosen = workers.find((w) => w.id === model.workerId);
   return (
     <Card withBorder radius="lg" padding="lg">
-      <Text fw={700} mb={4}>Where it runs</Text>
-      <Text size="sm" c="dimmed" mb="sm">Keep this model on one machine, for example the one with a GPU, or let any worker answer.</Text>
+      <Text fw={700} mb={4}>{t("Where it runs")}</Text>
+      <Text size="sm" c="dimmed" mb="sm">{t("Keep this model on one machine, for example the one with a GPU, or let any worker answer.")}</Text>
       <WorkerSelect
         workers={workers}
         value={model.workerId}
         onChange={(workerId) => set.mutate({ id: model.id, workerId })}
-        label="Runs on"
-        description={chosen ? "Only this worker answers. If it's offline, apps get a clear error until it's back." : "Questions go to the least busy worker that can run it."}
+        label={t("Runs on")}
+        description={chosen ? t("Only this worker answers. If it's offline, apps get a clear error until it's back.") : t("Questions go to the least busy worker that can run it.")}
         disabled={set.isPending}
       />
       {chosen && !chosen.online && (
-        <Alert mt="sm" color="yellow" icon={<IconAlertTriangle />}>{chosen.name} is offline, so this model can't answer right now.</Alert>
+        <Alert mt="sm" color="yellow" icon={<IconAlertTriangle />}>{chosen.name}{" "}{t("is offline, so this model can't answer right now.")}</Alert>
       )}
       {set.error && <Alert mt="sm" color="red" icon={<IconAlertCircle />}>{message(set.error)}</Alert>}
     </Card>

@@ -10,6 +10,8 @@ import { Page } from "../../../components/Page";
 import { Row, RowList } from "../../../components/ui";
 import { ago } from "../../../lib/format";
 import { planDays, planProgress, planStatus, planWaiting, repeatText, visitsURL } from "../../../lib/visits";
+import { t } from "../../../i18n";
+import { count } from "../../../lib/templates";
 
 export const Route = createFileRoute("/_app/visits/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(listVisitPlans),
@@ -20,20 +22,20 @@ function VisitPlans() {
   const { data } = useSuspenseQuery({ ...listVisitPlans, refetchInterval: (q) => (q.state.data?.plans.some(planWaiting) ? 2000 : false) });
   const { data: me } = useSuspenseQuery(whoAmI);
   const canMake = me.permissions.includes("models.write");
-  const make = canMake && <ButtonLink to="/visits/new" leftSection={<IconRoute size={18} />}>Plan visits</ButtonLink>;
+  const make = canMake && <ButtonLink to="/visits/new" leftSection={<IconRoute size={18} />}>{t("Plan visits")}</ButtonLink>;
 
   return (
     <Page
-      title="Plan visits"
-      crumbs={[{ label: "Try a model", to: "/try" }, { label: "Plan visits" }]}
-      intro="Give each salesperson a route for the next 1 to 7 days: the customers most likely to order, in a sensible order, each day. Plans from a database can be made again every morning."
+      title={t("Plan visits")}
+      crumbs={[{ label: t("Try a model"), to: "/try" }, { label: t("Plan visits") }]}
+      intro={t("Give each salesperson a route for the next 1 to 7 days: the customers most likely to order, in a sensible order, each day. Plans from a database can be made again every morning.")}
       actions={data.plans.length > 0 && make}
     >
       {data.plans.length === 0 ? (
         <Card withBorder padding="xl" className="text-center">
           <ThemeIcon size={44} radius="xl" variant="light" mx="auto" mb="sm"><IconRoute size={22} /></ThemeIcon>
-          <Text fw={650}>No visit plans yet</Text>
-          <Text c="dimmed" mb="md">Bring your customers with their places and salespeople, and try a plan before you make it.</Text>
+          <Text fw={650}>{t("No visit plans yet")}</Text>
+          <Text c="dimmed" mb="md">{t("Bring your customers with their places and salespeople, and try a plan before you make it.")}</Text>
           {make && <Group justify="center">{make}</Group>}
         </Card>
       ) : (
@@ -48,15 +50,15 @@ function VisitPlans() {
                 {p.repeatSeconds > 0n && <Badge variant="light" color="gray">{repeatText(p)}</Badge>}
               </Group>}
               detail={<>
-                {planDays(p) || `${p.days} ${p.days === 1 ? "day" : "days"}`} · {p.modelName || "by priority"} · {p.endTime ? `made ${ago(p.endTime)}` : `asked ${ago(p.createTime)}`}<br />
+                {planDays(p) || count(p.days, "day")} · {p.modelName || t("by priority")} · {p.endTime ? t("made {endTime}", { endTime: ago(p.endTime) }) : t("asked {createTime}", { createTime: ago(p.createTime) })}<br />
                 <Text span c={p.error ? "red" : undefined} size="sm">
                   {p.error || planStatus(p)}
-                  {!planWaiting(p) && Number(p.needLook) > 0 ? ` · ${Number(p.needLook).toLocaleString()} need a look` : ""}
+                  {!planWaiting(p) && Number(p.needLook) > 0 ? t(" · {n1} need a look", { n1: Number(p.needLook).toLocaleString() }) : ""}
                 </Text>
               </>}
-              extra={planWaiting(p) && <Progress value={planProgress(p)} color="violet" size="sm" mt={8} maw={380} animated aria-label="Progress" />}
+              extra={planWaiting(p) && <Progress value={planProgress(p)} color="violet" size="sm" mt={8} maw={380} animated aria-label={t("Progress")} />}
             >
-              {p.runs > 0 && !planWaiting(p) && <Button size="xs" variant="default" component="a" href={visitsURL(p.id)} download leftSection={<IconDownload size={14} />}>Download</Button>}
+              {p.runs > 0 && !planWaiting(p) && <Button size="xs" variant="default" component="a" href={visitsURL(p.id)} download leftSection={<IconDownload size={14} />}>{t("Download")}</Button>}
             </Row>
           ))}
         </RowList>

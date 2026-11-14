@@ -1,12 +1,13 @@
 import { JobStatus } from "../api/gen/mimir/v1/training_pb";
 import type { VisitPlan } from "../api/gen/mimir/v1/visit_pb";
+import { locale, t } from "../i18n";
 
 // How often a plan whose customers come from a database is made again.
 export const planRepeats = [
-  { value: "0", label: "Just once" },
-  { value: "schedule", label: "At a time I choose" },
-  { value: "86400", label: "Every day, from now" },
-  { value: "604800", label: "Every week, from now" },
+  { value: "0", label: t("Just once") },
+  { value: "schedule", label: t("At a time I choose") },
+  { value: "86400", label: t("Every day, from now") },
+  { value: "604800", label: t("Every week, from now") },
 ];
 
 // Repeat is how a plan is made again: a planRepeats value, and for
@@ -32,13 +33,13 @@ export function repeatRequest(r: Repeat): { repeatSeconds: bigint; schedule?: { 
 export function repeatText(p: VisitPlan): string {
   if (p.repeatSeconds <= 0n) return "";
   if (p.schedule) {
-    const days = p.schedule.weekdays.length === 0 || p.schedule.weekdays.length === 7 ? "every day" : "on " + p.schedule.weekdays.map((d) => weekdays[d]).join(", ");
+    const days = p.schedule.weekdays.length === 0 || p.schedule.weekdays.length === 7 ? t("every day") : t("on {days}", { days: p.schedule.weekdays.map((d) => weekdays[d]).join(", ") });
     return `${clock(p.schedule.atMinute)} ${days}`;
   }
-  return planRepeats.find((r) => r.value === p.repeatSeconds.toString())?.label ?? "On a schedule";
+  return planRepeats.find((r) => r.value === p.repeatSeconds.toString())?.label ?? t("On a schedule");
 }
 
-export const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export const weekdays = [t("Sun"), t("Mon"), t("Tue"), t("Wed"), t("Thu"), t("Fri"), t("Sat")];
 
 export const planWaiting = (p: VisitPlan) => p.status === JobStatus.QUEUED || p.status === JobStatus.RUNNING;
 
@@ -52,11 +53,11 @@ export function planProgress(p: VisitPlan): number {
 // planStatus says where a plan is, in words.
 export function planStatus(p: VisitPlan): string {
   switch (p.status) {
-    case JobStatus.QUEUED: return "Waiting";
-    case JobStatus.RUNNING: return Number(p.total) > 0 ? `${p.stage || "Planning"}: ${Number(p.done).toLocaleString()} of ${Number(p.total).toLocaleString()}` : (p.stage || "Reading the customers");
-    case JobStatus.SUCCEEDED: return `${Number(p.visits).toLocaleString()} visits for ${Number(p.salespeople).toLocaleString()} salespeople`;
-    case JobStatus.FAILED: return "Failed";
-    case JobStatus.CANCELLED: return "Stopped";
+    case JobStatus.QUEUED: return t("Waiting");
+    case JobStatus.RUNNING: return Number(p.total) > 0 ? t("{stage}: {n} of {total}", { stage: p.stage || t("Planning"), n: Number(p.done).toLocaleString(), total: Number(p.total).toLocaleString() }) : (p.stage || t("Reading the customers"));
+    case JobStatus.SUCCEEDED: return t("{n1} visits for {n2} salespeople", { n1: Number(p.visits).toLocaleString(), n2: Number(p.salespeople).toLocaleString() });
+    case JobStatus.FAILED: return t("Failed");
+    case JobStatus.CANCELLED: return t("Stopped");
   }
   return "";
 }
@@ -64,7 +65,7 @@ export function planStatus(p: VisitPlan): string {
 // planDays says which days a plan covers: "Mon 9 Nov to Sun 15 Nov".
 export function planDays(p: { startDate: string; endDate: string }): string {
   if (!p.startDate) return "";
-  const show = (d: string) => new Date(d + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  const show = (d: string) => new Date(d + "T00:00:00").toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
   return p.startDate === p.endDate ? show(p.startDate) : `${show(p.startDate)} to ${show(p.endDate)}`;
 }
 
