@@ -13,6 +13,17 @@
   `model.data_changed` webhook goes out, once per change.
   `ModelService.GetModelQuality` returns the same check.
 
+### AI assistants and agents
+
+- **MCP server.** Claude, ChatGPT, Cursor and other MCP clients can use
+  the models at `/mcp` with a mimir API key: list the models and
+  collections, ask a model about one row, score a table of up to 1,000
+  rows, and search or ask a collection of documents.
+- **Tool calling** in the OpenAI-compatible chat API: `tools`,
+  `tool_choice`, `parallel_tool_calls`, assistant `tool_calls` and `tool`
+  messages, streamed or not, so agent frameworks work with mimir's
+  language models.
+
 ### More model types
 
 - **What goes together** lists, for any product, the products bought in

@@ -32,6 +32,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/api"
 	"github.com/gsoultan/mimir-server/internal/auth"
 	"github.com/gsoultan/mimir-server/internal/gpucloud"
+	"github.com/gsoultan/mimir-server/internal/mcp"
 	"github.com/gsoultan/mimir-server/internal/memguard"
 	"github.com/gsoultan/mimir-server/internal/obs"
 	"github.com/gsoultan/mimir-server/internal/openai"
@@ -114,6 +115,7 @@ func Handler(svc *api.Service, st *store.Store, ui fs.FS, log *slog.Logger, opts
 	mux.Handle("GET "+api.VisitPlanPath, svc.VisitPlanHandler())
 	mux.Handle("GET "+gpucloud.ProgramPath, svc.ProgramHandler())
 	mux.Handle("/v1/", openai.Handler(svc, st, log))
+	mux.Handle(mcp.Path, mcp.Handler(svc, st, log))
 	mux.Handle(grpchealth.NewHandler(newHealthChecker(st.Ping), connect.WithInterceptors(metrics.Interceptor())))
 	mux.Handle("GET /healthz", liveHandler())
 	mux.Handle("GET /readyz", readyHandler(st.Ping, svc.Memory(), log))
@@ -174,6 +176,8 @@ func route(r *http.Request) string {
 		return "rpc"
 	case strings.HasPrefix(p, "/v1/"):
 		return "openai"
+	case p == mcp.Path:
+		return "mcp"
 	case strings.HasPrefix(p, api.SSOPath):
 		return "sso"
 	}
