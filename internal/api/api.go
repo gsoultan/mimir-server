@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"os"
 	"strings"
 	"sync"
@@ -57,7 +58,8 @@ type Service struct {
 	cache   *runtime.Cache
 	meter   *meter
 	log     *slog.Logger
-	setupMu sync.Mutex // serialises Setup so only one first owner is made
+	setupMu sync.Mutex   // serialises Setup so only one first owner is made
+	shadows atomic.Int32 // shadow answers running now (see shadowAsk)
 	// setupToken must come with Setup; empty means Setup is closed. Set by
 	// PrepareSetup, cleared once the first owner exists. Guarded by setupMu.
 	setupToken string
@@ -566,6 +568,7 @@ func (s *Service) DeleteModel(ctx context.Context, req *connect.Request[mimirv1.
 	// Let the model go first: its weights file is mapped while it is
 	// loaded, and some systems refuse to delete a mapped file.
 	s.cache.Forget(id)
+	s.forgetTrial(id)
 	err = s.store.Delete(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, notFound(id)
@@ -624,66 +627,34 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 			return nil, err
 		}
 	}
-	load := func() ([]byte, error) { return s.store.Weights(m.ID) }
-	open := func() (runtime.Weights, error) { return s.store.OpenWeights(m.ID) }
+	// A version on trial answers its share of the questions; the rest,
+	// and every question of a shadow trial, get the live version's answer.
+	ans, key := m, m.ID
+	if t := m.Trial; t.On() && !t.Shadow && rand.IntN(100) < t.Share {
+		if tm, tin, ok := s.trialAsk(ctx, m, a, questionOf(msg)); ok {
+			ans, key, input = tm, trialKey(m.ID), tin
+			spec = arch.Resolve(a, arch.Spec{InputShape: tm.InputShape, Labels: tm.Labels})
+		}
+	}
 	timeout := s.PredictTimeout
 	if timeout <= 0 {
 		timeout = DefaultPredictTimeout
 	}
 	pctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	var r runtime.Result
-	var err2 error
-	ran := false
-	// A worker takes the prediction when this server doesn't run models
-	// itself; otherwise local is faster for the small models here.
-	// A model placed on one worker only runs there.
-	pin, pinned := m.PinnedWorker()
-	// A custom model's own code runs only on workers.
-	if s.Pool != nil && (!s.Local || pinned || a.Custom) {
-		var worker string
-		r, worker, ran, err2 = s.Pool.Predict(pctx, m.ID, m.WeightsVersion(), pin, a, spec, load, input)
-		if ran && err2 != nil {
-			s.log.WarnContext(ctx, "predict: worker failed", "worker", worker, "model_id", m.ID, "error", err2)
+	r, err := s.run(ctx, pctx, ans, key, a, spec, input)
+	if err != nil {
+		if pctx.Err() != nil && ctx.Err() == nil {
+			return nil, connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("The prediction took longer than %v and was stopped.", timeout))
 		}
-	}
-	if !ran && pinned {
-		if s.trainingOnly(pin) {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("This model is set to run on %s, which only teaches models. Change where the model runs on its page.", s.workerName(ctx, pin)))
-		}
-		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("This model runs on %s, which is offline or full right now. Wait for it, or change where the model runs on its page.", s.workerName(ctx, pin)))
-	}
-	if !ran {
-		if a.Custom {
-			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("No worker that runs %s is connected right now. Start one with its code, or check Settings → Workers.", a.Name))
-		}
-		if !s.Local {
-			return nil, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
-		}
-		r, err2 = s.cache.Predict(pctx, m.ID, m.WeightsVersion(), a, spec, open, input)
-	}
-	switch {
-	case err2 != nil && ctx.Err() != nil:
-		return nil, ctx.Err() // the caller gave up; connect maps it to its code
-	case err2 != nil && pctx.Err() != nil:
-		return nil, connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("The prediction took longer than %v and was stopped.", timeout))
-	case errors.Is(err2, runtime.ErrBadInput):
-		return nil, invalid("%v", err2)
-	case tooBig(err2):
-		return nil, tooBigError(err2)
-	case errors.Is(err2, memguard.ErrLowMemory):
-		return nil, lowMemory()
-	case errors.Is(err2, cluster.ErrWorkerFailed), errors.Is(err2, cluster.ErrLinkLost):
-		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("The worker couldn't answer: %v", err2))
-	case err2 != nil:
-		return nil, s.internal(ctx, err2)
+		return nil, err
 	}
 	res := &mimirv1.PredictResponse{
 		Output:         &mimirv1.Tensor{Shape: []int64{int64(len(r.Output))}, Values: r.Output},
 		Probabilities:  &mimirv1.Tensor{Shape: []int64{int64(len(r.Probability))}, Values: r.Probability},
 		DurationMicros: time.Since(start).Microseconds(),
 	}
-	kept := store.Answer{ModelID: m.ID, VersionID: m.VersionID, Time: time.Now(), Fields: keptFields(msg.GetFields())}
+	kept := store.Answer{ModelID: m.ID, VersionID: ans.VersionID, Time: time.Now(), Fields: keptFields(msg.GetFields())}
 	if a.Answers() == arch.Number || a.Answers() == arch.Several {
 		res.Number = true
 		if len(r.Output) > 0 {
@@ -698,6 +669,7 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 		}
 		kept.Number, kept.Value = true, res.Value
 		res.PredictionId = s.keepAnswer(kept)
+		s.shadowAsk(m, a, questionOf(msg), kept, res.PredictionId)
 		return connect.NewResponse(res), nil
 	}
 	if a.Answers() == arch.Boxes {
@@ -713,8 +685,76 @@ func (s *Service) Predict(ctx context.Context, req *connect.Request[mimirv1.Pred
 	if len(res.Guesses) > 0 {
 		kept.Label, kept.Confidence = res.Guesses[0].Label, float64(res.Guesses[0].Probability)
 		res.PredictionId = s.keepAnswer(kept)
+		s.shadowAsk(m, a, questionOf(msg), kept, res.PredictionId)
 	}
 	return connect.NewResponse(res), nil
+}
+
+// run answers input with model m's weights, on a worker or here, under
+// key in the caches: the model's id for its live version, trialKey for
+// one on trial. ctx is the caller's and pctx it bounded by the server's
+// timeout; the error is one for the caller.
+func (s *Service) run(ctx, pctx context.Context, m store.Model, key string, a arch.Architecture, spec arch.Spec, input []float32) (runtime.Result, error) {
+	live := key == m.ID
+	load := func() ([]byte, error) {
+		if live {
+			return s.store.Weights(m.ID)
+		}
+		return s.store.VersionWeights(m.VersionID)
+	}
+	open := func() (runtime.Weights, error) {
+		if live {
+			return s.store.OpenWeights(m.ID)
+		}
+		return s.store.OpenVersionWeights(m.VersionID)
+	}
+	var r runtime.Result
+	var err2 error
+	ran := false
+	// A worker takes the prediction when this server doesn't run models
+	// itself; otherwise local is faster for the small models here.
+	// A model placed on one worker only runs there.
+	pin, pinned := m.PinnedWorker()
+	// A custom model's own code runs only on workers.
+	if s.Pool != nil && (!s.Local || pinned || a.Custom) {
+		var worker string
+		r, worker, ran, err2 = s.Pool.Predict(pctx, key, m.WeightsVersion(), pin, a, spec, load, input)
+		if ran && err2 != nil {
+			s.log.WarnContext(ctx, "predict: worker failed", "worker", worker, "model_id", m.ID, "error", err2)
+		}
+	}
+	if !ran && pinned {
+		if s.trainingOnly(pin) {
+			return r, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("This model is set to run on %s, which only teaches models. Change where the model runs on its page.", s.workerName(ctx, pin)))
+		}
+		return r, connect.NewError(connect.CodeUnavailable, fmt.Errorf("This model runs on %s, which is offline or full right now. Wait for it, or change where the model runs on its page.", s.workerName(ctx, pin)))
+	}
+	if !ran {
+		if a.Custom {
+			return r, connect.NewError(connect.CodeUnavailable, fmt.Errorf("No worker that runs %s is connected right now. Start one with its code, or check Settings → Workers.", a.Name))
+		}
+		if !s.Local {
+			return r, connect.NewError(connect.CodeUnavailable, errors.New("No worker is connected that can run this model. Check Settings → Workers."))
+		}
+		r, err2 = s.cache.Predict(pctx, key, m.WeightsVersion(), a, spec, open, input)
+	}
+	switch {
+	case err2 != nil && ctx.Err() != nil:
+		return r, ctx.Err() // the caller gave up; connect maps it to its code
+	case err2 != nil && pctx.Err() != nil:
+		return r, pctx.Err()
+	case errors.Is(err2, runtime.ErrBadInput):
+		return r, invalid("%v", err2)
+	case tooBig(err2):
+		return r, tooBigError(err2)
+	case errors.Is(err2, memguard.ErrLowMemory):
+		return r, lowMemory()
+	case errors.Is(err2, cluster.ErrWorkerFailed), errors.Is(err2, cluster.ErrLinkLost):
+		return r, connect.NewError(connect.CodeUnavailable, fmt.Errorf("The worker couldn't answer: %v", err2))
+	case err2 != nil:
+		return r, s.internal(ctx, err2)
+	}
+	return r, nil
 }
 
 // encode turns a question asked by column name, and a photo or a sound,
@@ -833,6 +873,11 @@ func toProto(m store.Model) *mimirv1.Model {
 		Version:      m.WeightsVersion(),
 		VersionId:    m.VersionID,
 		BaseModelId:  m.BaseModelID,
+
+		NewVersionShare: int32(m.NewVersionShare),
+	}
+	if t := m.Trial; t.On() {
+		out.Trial = &mimirv1.ModelTrial{VersionId: t.VersionID, Share: int32(t.Share), Shadow: t.Shadow, StartTime: timestamppb.New(t.Start)}
 	}
 	spec := arch.Spec{InputShape: m.InputShape, Labels: m.Labels}
 	if a, ok := arch.Lookup(m.Architecture); ok {

@@ -60,6 +60,16 @@ function Home() {
         </Row>,
       );
     }
+    if (q?.dataChanged) {
+      const cols = q.dataChanges.filter((c) => c.aLot).map((c) => c.column);
+      attention.push(
+        <Row key={"data" + m.id} tone="warn" icon={<IconAlertTriangle size={20} />}
+          title={`${m.name} is being asked different questions`}
+          detail={`${cols.join(", ")} ${cols.length === 1 ? "looks" : "look"} different from the examples it learned from, so its answers may be less reliable.`}>
+          <ButtonLink size="xs" variant="default" to="/models/$id" params={{ id: m.id }}>Look into it</ButtonLink>
+        </Row>,
+      );
+    }
   }
   for (const j of jobs?.jobs ?? []) {
     if (active(j)) {
@@ -86,7 +96,8 @@ function Home() {
       );
     }
   }
-  const dropped = shown.filter((m) => qualityOf(m.id)?.dropped).length;
+  const needsLook = (q?: { dropped: boolean; dataChanged: boolean }) => !!q && (q.dropped || q.dataChanged);
+  const dropped = shown.filter((m) => needsLook(qualityOf(m.id))).length;
   const summary = `${models.length} ${models.length === 1 ? "model is" : "models are"} ready to answer.${dropped > 0 ? ` ${dropped === 1 ? "One needs" : `${dropped} need`} a look.` : ""}`;
 
   return (
@@ -125,7 +136,7 @@ function Home() {
                       <Text size="xs" c="dimmed" hiddenFrom="sm">{answerWord(arch, m)}</Text>
                     </Table.Td>
                     <Table.Td visibleFrom="sm" c="dimmed">{answerWord(arch, m)}</Table.Td>
-                    <Table.Td>{right ? <StatusPill tone={q?.dropped ? "warn" : "ok"}>{right}</StatusPill> : <Text c="dimmed" size="sm">–</Text>}</Table.Td>
+                    <Table.Td>{right ? <StatusPill tone={needsLook(q) ? "warn" : "ok"}>{right}</StatusPill> : <Text c="dimmed" size="sm">–</Text>}</Table.Td>
                     <Table.Td visibleFrom="md" c="dimmed">{q ? Number(q.weekAnswers).toLocaleString() : "–"}</Table.Td>
                     <Table.Td visibleFrom="sm" ta="right">
                       <ButtonLink size="xs" variant="subtle" leftSection={<IconPlayerPlay size={14} />} to="/try" search={{ model: m.id }}>Try</ButtonLink>
