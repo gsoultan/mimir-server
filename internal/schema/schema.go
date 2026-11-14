@@ -408,6 +408,12 @@ func parseNumber(v string) (float64, bool) {
 	return f, true
 }
 
+// ParseYesNo reads a yes-or-no cell; empty or other cells are not ok.
+func ParseYesNo(v string) (yes, ok bool) {
+	f, ok := parseYesNo(v)
+	return f == 1, ok
+}
+
 // parseYesNo reads yes/no words as 1 or 0.
 func parseYesNo(v string) (float32, bool) {
 	switch strings.ToLower(strings.TrimSpace(v)) {

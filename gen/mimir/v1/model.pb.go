@@ -263,7 +263,21 @@ type GetModelQualityResponse struct {
 	WeekAccuracy float64 `protobuf:"fixed64,4,opt,name=week_accuracy,json=weekAccuracy,proto3" json:"week_accuracy,omitempty"`
 	// dropped says the last 7 days' accuracy, over at least 20 answers with
 	// feedback, is more than 10 points below the model's held-out score.
-	Dropped       bool `protobuf:"varint,5,opt,name=dropped,proto3" json:"dropped,omitempty"`
+	Dropped bool `protobuf:"varint,5,opt,name=dropped,proto3" json:"dropped,omitempty"`
+	// The last 7 days' questions against the examples the live version
+	// learned from, column by column, checked every hour. This needs no
+	// feedback. data_checked says the model can be checked: it reads a
+	// table and its examples are known. data_questions is how many
+	// questions the last check compared (at most 2,000 of the newest);
+	// under 100 aren't enough to tell, and nothing is reported.
+	DataChecked   bool                   `protobuf:"varint,6,opt,name=data_checked,json=dataChecked,proto3" json:"data_checked,omitempty"`
+	DataQuestions int64                  `protobuf:"varint,7,opt,name=data_questions,json=dataQuestions,proto3" json:"data_questions,omitempty"`
+	DataCheckTime *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=data_check_time,json=dataCheckTime,proto3" json:"data_check_time,omitempty"`
+	// data_changes are the columns that look different, biggest change
+	// first; data_changed says at least one changed a lot, which alerts
+	// owners and sends a model.data_changed webhook.
+	DataChanges   []*DataChange `protobuf:"bytes,9,rep,name=data_changes,json=dataChanges,proto3" json:"data_changes,omitempty"`
+	DataChanged   bool          `protobuf:"varint,10,opt,name=data_changed,json=dataChanged,proto3" json:"data_changed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -333,6 +347,116 @@ func (x *GetModelQualityResponse) GetDropped() bool {
 	return false
 }
 
+func (x *GetModelQualityResponse) GetDataChecked() bool {
+	if x != nil {
+		return x.DataChecked
+	}
+	return false
+}
+
+func (x *GetModelQualityResponse) GetDataQuestions() int64 {
+	if x != nil {
+		return x.DataQuestions
+	}
+	return 0
+}
+
+func (x *GetModelQualityResponse) GetDataCheckTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataCheckTime
+	}
+	return nil
+}
+
+func (x *GetModelQualityResponse) GetDataChanges() []*DataChange {
+	if x != nil {
+		return x.DataChanges
+	}
+	return nil
+}
+
+func (x *GetModelQualityResponse) GetDataChanged() bool {
+	if x != nil {
+		return x.DataChanged
+	}
+	return false
+}
+
+// DataChange is an input column whose recent questions look different
+// from the examples the model learned from.
+type DataChange struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Column string                 `protobuf:"bytes,1,opt,name=column,proto3" json:"column,omitempty"`
+	// a_lot says the change is big enough to alert about; otherwise it is
+	// a little.
+	ALot bool `protobuf:"varint,2,opt,name=a_lot,json=aLot,proto3" json:"a_lot,omitempty"`
+	// score is the population stability index, less what chance gives a
+	// sample that size: 0.1 is a little, 0.25 a lot.
+	Score float64 `protobuf:"fixed64,3,opt,name=score,proto3" json:"score,omitempty"`
+	// summary says what changed, in plain words.
+	Summary       string `protobuf:"bytes,4,opt,name=summary,proto3" json:"summary,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DataChange) Reset() {
+	*x = DataChange{}
+	mi := &file_mimir_v1_model_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DataChange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DataChange) ProtoMessage() {}
+
+func (x *DataChange) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_model_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DataChange.ProtoReflect.Descriptor instead.
+func (*DataChange) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *DataChange) GetColumn() string {
+	if x != nil {
+		return x.Column
+	}
+	return ""
+}
+
+func (x *DataChange) GetALot() bool {
+	if x != nil {
+		return x.ALot
+	}
+	return false
+}
+
+func (x *DataChange) GetScore() float64 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *DataChange) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
 // ModelVersion is one set of weights a model has had. A server keeps a
 // model's 20 newest, and always the live one.
 type ModelVersion struct {
@@ -360,7 +484,7 @@ type ModelVersion struct {
 
 func (x *ModelVersion) Reset() {
 	*x = ModelVersion{}
-	mi := &file_mimir_v1_model_proto_msgTypes[3]
+	mi := &file_mimir_v1_model_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -372,7 +496,7 @@ func (x *ModelVersion) String() string {
 func (*ModelVersion) ProtoMessage() {}
 
 func (x *ModelVersion) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[3]
+	mi := &file_mimir_v1_model_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -385,7 +509,7 @@ func (x *ModelVersion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelVersion.ProtoReflect.Descriptor instead.
 func (*ModelVersion) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{3}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ModelVersion) GetId() string {
@@ -467,7 +591,7 @@ type ListModelVersionsRequest struct {
 
 func (x *ListModelVersionsRequest) Reset() {
 	*x = ListModelVersionsRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[4]
+	mi := &file_mimir_v1_model_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -479,7 +603,7 @@ func (x *ListModelVersionsRequest) String() string {
 func (*ListModelVersionsRequest) ProtoMessage() {}
 
 func (x *ListModelVersionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[4]
+	mi := &file_mimir_v1_model_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -492,7 +616,7 @@ func (x *ListModelVersionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelVersionsRequest.ProtoReflect.Descriptor instead.
 func (*ListModelVersionsRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{4}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListModelVersionsRequest) GetModelId() string {
@@ -511,7 +635,7 @@ type ListModelVersionsResponse struct {
 
 func (x *ListModelVersionsResponse) Reset() {
 	*x = ListModelVersionsResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[5]
+	mi := &file_mimir_v1_model_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -523,7 +647,7 @@ func (x *ListModelVersionsResponse) String() string {
 func (*ListModelVersionsResponse) ProtoMessage() {}
 
 func (x *ListModelVersionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[5]
+	mi := &file_mimir_v1_model_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -536,7 +660,7 @@ func (x *ListModelVersionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelVersionsResponse.ProtoReflect.Descriptor instead.
 func (*ListModelVersionsResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{5}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListModelVersionsResponse) GetVersions() []*ModelVersion {
@@ -556,7 +680,7 @@ type UseModelVersionRequest struct {
 
 func (x *UseModelVersionRequest) Reset() {
 	*x = UseModelVersionRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[6]
+	mi := &file_mimir_v1_model_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -568,7 +692,7 @@ func (x *UseModelVersionRequest) String() string {
 func (*UseModelVersionRequest) ProtoMessage() {}
 
 func (x *UseModelVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[6]
+	mi := &file_mimir_v1_model_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -581,7 +705,7 @@ func (x *UseModelVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UseModelVersionRequest.ProtoReflect.Descriptor instead.
 func (*UseModelVersionRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{6}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UseModelVersionRequest) GetModelId() string {
@@ -607,7 +731,7 @@ type UseModelVersionResponse struct {
 
 func (x *UseModelVersionResponse) Reset() {
 	*x = UseModelVersionResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[7]
+	mi := &file_mimir_v1_model_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -619,7 +743,7 @@ func (x *UseModelVersionResponse) String() string {
 func (*UseModelVersionResponse) ProtoMessage() {}
 
 func (x *UseModelVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[7]
+	mi := &file_mimir_v1_model_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -632,7 +756,7 @@ func (x *UseModelVersionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UseModelVersionResponse.ProtoReflect.Descriptor instead.
 func (*UseModelVersionResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{7}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UseModelVersionResponse) GetModel() *Model {
@@ -663,7 +787,7 @@ type SaveArchitectureRequest struct {
 
 func (x *SaveArchitectureRequest) Reset() {
 	*x = SaveArchitectureRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[8]
+	mi := &file_mimir_v1_model_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -675,7 +799,7 @@ func (x *SaveArchitectureRequest) String() string {
 func (*SaveArchitectureRequest) ProtoMessage() {}
 
 func (x *SaveArchitectureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[8]
+	mi := &file_mimir_v1_model_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -688,7 +812,7 @@ func (x *SaveArchitectureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveArchitectureRequest.ProtoReflect.Descriptor instead.
 func (*SaveArchitectureRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{8}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SaveArchitectureRequest) GetName() string {
@@ -742,7 +866,7 @@ type SaveArchitectureResponse struct {
 
 func (x *SaveArchitectureResponse) Reset() {
 	*x = SaveArchitectureResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[9]
+	mi := &file_mimir_v1_model_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -754,7 +878,7 @@ func (x *SaveArchitectureResponse) String() string {
 func (*SaveArchitectureResponse) ProtoMessage() {}
 
 func (x *SaveArchitectureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[9]
+	mi := &file_mimir_v1_model_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -767,7 +891,7 @@ func (x *SaveArchitectureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveArchitectureResponse.ProtoReflect.Descriptor instead.
 func (*SaveArchitectureResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{9}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SaveArchitectureResponse) GetArchitecture() *Architecture {
@@ -786,7 +910,7 @@ type DeleteArchitectureRequest struct {
 
 func (x *DeleteArchitectureRequest) Reset() {
 	*x = DeleteArchitectureRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[10]
+	mi := &file_mimir_v1_model_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -798,7 +922,7 @@ func (x *DeleteArchitectureRequest) String() string {
 func (*DeleteArchitectureRequest) ProtoMessage() {}
 
 func (x *DeleteArchitectureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[10]
+	mi := &file_mimir_v1_model_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -811,7 +935,7 @@ func (x *DeleteArchitectureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteArchitectureRequest.ProtoReflect.Descriptor instead.
 func (*DeleteArchitectureRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{10}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DeleteArchitectureRequest) GetName() string {
@@ -829,7 +953,7 @@ type DeleteArchitectureResponse struct {
 
 func (x *DeleteArchitectureResponse) Reset() {
 	*x = DeleteArchitectureResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[11]
+	mi := &file_mimir_v1_model_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -841,7 +965,7 @@ func (x *DeleteArchitectureResponse) String() string {
 func (*DeleteArchitectureResponse) ProtoMessage() {}
 
 func (x *DeleteArchitectureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[11]
+	mi := &file_mimir_v1_model_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -854,7 +978,7 @@ func (x *DeleteArchitectureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteArchitectureResponse.ProtoReflect.Descriptor instead.
 func (*DeleteArchitectureResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{11}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{12}
 }
 
 type SetModelWorkerRequest struct {
@@ -869,7 +993,7 @@ type SetModelWorkerRequest struct {
 
 func (x *SetModelWorkerRequest) Reset() {
 	*x = SetModelWorkerRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[12]
+	mi := &file_mimir_v1_model_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -881,7 +1005,7 @@ func (x *SetModelWorkerRequest) String() string {
 func (*SetModelWorkerRequest) ProtoMessage() {}
 
 func (x *SetModelWorkerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[12]
+	mi := &file_mimir_v1_model_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -894,7 +1018,7 @@ func (x *SetModelWorkerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetModelWorkerRequest.ProtoReflect.Descriptor instead.
 func (*SetModelWorkerRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{12}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SetModelWorkerRequest) GetId() string {
@@ -920,7 +1044,7 @@ type SetModelWorkerResponse struct {
 
 func (x *SetModelWorkerResponse) Reset() {
 	*x = SetModelWorkerResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[13]
+	mi := &file_mimir_v1_model_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -932,7 +1056,7 @@ func (x *SetModelWorkerResponse) String() string {
 func (*SetModelWorkerResponse) ProtoMessage() {}
 
 func (x *SetModelWorkerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[13]
+	mi := &file_mimir_v1_model_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -945,7 +1069,7 @@ func (x *SetModelWorkerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetModelWorkerResponse.ProtoReflect.Descriptor instead.
 func (*SetModelWorkerResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{13}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SetModelWorkerResponse) GetModel() *Model {
@@ -969,7 +1093,7 @@ type ExplainRequest struct {
 
 func (x *ExplainRequest) Reset() {
 	*x = ExplainRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[14]
+	mi := &file_mimir_v1_model_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -981,7 +1105,7 @@ func (x *ExplainRequest) String() string {
 func (*ExplainRequest) ProtoMessage() {}
 
 func (x *ExplainRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[14]
+	mi := &file_mimir_v1_model_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -994,7 +1118,7 @@ func (x *ExplainRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExplainRequest.ProtoReflect.Descriptor instead.
 func (*ExplainRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{14}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ExplainRequest) GetModelId() string {
@@ -1040,7 +1164,7 @@ type ExplainResponse struct {
 
 func (x *ExplainResponse) Reset() {
 	*x = ExplainResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[15]
+	mi := &file_mimir_v1_model_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1052,7 +1176,7 @@ func (x *ExplainResponse) String() string {
 func (*ExplainResponse) ProtoMessage() {}
 
 func (x *ExplainResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[15]
+	mi := &file_mimir_v1_model_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1065,7 +1189,7 @@ func (x *ExplainResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExplainResponse.ProtoReflect.Descriptor instead.
 func (*ExplainResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{15}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ExplainResponse) GetLabel() string {
@@ -1126,7 +1250,7 @@ type Contribution struct {
 
 func (x *Contribution) Reset() {
 	*x = Contribution{}
-	mi := &file_mimir_v1_model_proto_msgTypes[16]
+	mi := &file_mimir_v1_model_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1138,7 +1262,7 @@ func (x *Contribution) String() string {
 func (*Contribution) ProtoMessage() {}
 
 func (x *Contribution) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[16]
+	mi := &file_mimir_v1_model_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1151,7 +1275,7 @@ func (x *Contribution) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Contribution.ProtoReflect.Descriptor instead.
 func (*Contribution) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{16}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Contribution) GetColumn() string {
@@ -1191,7 +1315,7 @@ type ExplainModelRequest struct {
 
 func (x *ExplainModelRequest) Reset() {
 	*x = ExplainModelRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[17]
+	mi := &file_mimir_v1_model_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1203,7 +1327,7 @@ func (x *ExplainModelRequest) String() string {
 func (*ExplainModelRequest) ProtoMessage() {}
 
 func (x *ExplainModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[17]
+	mi := &file_mimir_v1_model_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1216,7 +1340,7 @@ func (x *ExplainModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExplainModelRequest.ProtoReflect.Descriptor instead.
 func (*ExplainModelRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{17}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ExplainModelRequest) GetModelId() string {
@@ -1241,7 +1365,7 @@ type ExplainModelResponse struct {
 
 func (x *ExplainModelResponse) Reset() {
 	*x = ExplainModelResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[18]
+	mi := &file_mimir_v1_model_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1253,7 +1377,7 @@ func (x *ExplainModelResponse) String() string {
 func (*ExplainModelResponse) ProtoMessage() {}
 
 func (x *ExplainModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[18]
+	mi := &file_mimir_v1_model_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1266,7 +1390,7 @@ func (x *ExplainModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExplainModelResponse.ProtoReflect.Descriptor instead.
 func (*ExplainModelResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{18}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ExplainModelResponse) GetColumns() []*ColumnImportance {
@@ -1311,7 +1435,7 @@ type ColumnImportance struct {
 
 func (x *ColumnImportance) Reset() {
 	*x = ColumnImportance{}
-	mi := &file_mimir_v1_model_proto_msgTypes[19]
+	mi := &file_mimir_v1_model_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1323,7 +1447,7 @@ func (x *ColumnImportance) String() string {
 func (*ColumnImportance) ProtoMessage() {}
 
 func (x *ColumnImportance) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[19]
+	mi := &file_mimir_v1_model_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1336,7 +1460,7 @@ func (x *ColumnImportance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ColumnImportance.ProtoReflect.Descriptor instead.
 func (*ColumnImportance) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{19}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ColumnImportance) GetColumn() string {
@@ -1374,7 +1498,7 @@ type SendFeedbackRequest struct {
 
 func (x *SendFeedbackRequest) Reset() {
 	*x = SendFeedbackRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[20]
+	mi := &file_mimir_v1_model_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1386,7 +1510,7 @@ func (x *SendFeedbackRequest) String() string {
 func (*SendFeedbackRequest) ProtoMessage() {}
 
 func (x *SendFeedbackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[20]
+	mi := &file_mimir_v1_model_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1399,7 +1523,7 @@ func (x *SendFeedbackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendFeedbackRequest.ProtoReflect.Descriptor instead.
 func (*SendFeedbackRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{20}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SendFeedbackRequest) GetPredictionId() string {
@@ -1434,7 +1558,7 @@ type SendFeedbackResponse struct {
 
 func (x *SendFeedbackResponse) Reset() {
 	*x = SendFeedbackResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[21]
+	mi := &file_mimir_v1_model_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1446,7 +1570,7 @@ func (x *SendFeedbackResponse) String() string {
 func (*SendFeedbackResponse) ProtoMessage() {}
 
 func (x *SendFeedbackResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[21]
+	mi := &file_mimir_v1_model_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1459,7 +1583,7 @@ func (x *SendFeedbackResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendFeedbackResponse.ProtoReflect.Descriptor instead.
 func (*SendFeedbackResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{21}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SendFeedbackResponse) GetCorrect() bool {
@@ -1520,7 +1644,7 @@ type Architecture struct {
 
 func (x *Architecture) Reset() {
 	*x = Architecture{}
-	mi := &file_mimir_v1_model_proto_msgTypes[22]
+	mi := &file_mimir_v1_model_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1532,7 +1656,7 @@ func (x *Architecture) String() string {
 func (*Architecture) ProtoMessage() {}
 
 func (x *Architecture) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[22]
+	mi := &file_mimir_v1_model_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1545,7 +1669,7 @@ func (x *Architecture) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Architecture.ProtoReflect.Descriptor instead.
 func (*Architecture) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{22}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Architecture) GetName() string {
@@ -1662,7 +1786,7 @@ type Column struct {
 
 func (x *Column) Reset() {
 	*x = Column{}
-	mi := &file_mimir_v1_model_proto_msgTypes[23]
+	mi := &file_mimir_v1_model_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1674,7 +1798,7 @@ func (x *Column) String() string {
 func (*Column) ProtoMessage() {}
 
 func (x *Column) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[23]
+	mi := &file_mimir_v1_model_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1687,7 +1811,7 @@ func (x *Column) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Column.ProtoReflect.Descriptor instead.
 func (*Column) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{23}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Column) GetName() string {
@@ -1772,7 +1896,7 @@ type Model struct {
 
 func (x *Model) Reset() {
 	*x = Model{}
-	mi := &file_mimir_v1_model_proto_msgTypes[24]
+	mi := &file_mimir_v1_model_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1784,7 +1908,7 @@ func (x *Model) String() string {
 func (*Model) ProtoMessage() {}
 
 func (x *Model) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[24]
+	mi := &file_mimir_v1_model_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1797,7 +1921,7 @@ func (x *Model) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Model.ProtoReflect.Descriptor instead.
 func (*Model) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{24}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *Model) GetId() string {
@@ -1974,7 +2098,7 @@ type LanguageSettings struct {
 
 func (x *LanguageSettings) Reset() {
 	*x = LanguageSettings{}
-	mi := &file_mimir_v1_model_proto_msgTypes[25]
+	mi := &file_mimir_v1_model_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1986,7 +2110,7 @@ func (x *LanguageSettings) String() string {
 func (*LanguageSettings) ProtoMessage() {}
 
 func (x *LanguageSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[25]
+	mi := &file_mimir_v1_model_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1999,7 +2123,7 @@ func (x *LanguageSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LanguageSettings.ProtoReflect.Descriptor instead.
 func (*LanguageSettings) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{25}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *LanguageSettings) GetInstructions() string {
@@ -2041,7 +2165,7 @@ type Tensor struct {
 
 func (x *Tensor) Reset() {
 	*x = Tensor{}
-	mi := &file_mimir_v1_model_proto_msgTypes[26]
+	mi := &file_mimir_v1_model_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2053,7 +2177,7 @@ func (x *Tensor) String() string {
 func (*Tensor) ProtoMessage() {}
 
 func (x *Tensor) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[26]
+	mi := &file_mimir_v1_model_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2066,7 +2190,7 @@ func (x *Tensor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tensor.ProtoReflect.Descriptor instead.
 func (*Tensor) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{26}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *Tensor) GetShape() []int64 {
@@ -2094,7 +2218,7 @@ type Guess struct {
 
 func (x *Guess) Reset() {
 	*x = Guess{}
-	mi := &file_mimir_v1_model_proto_msgTypes[27]
+	mi := &file_mimir_v1_model_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2106,7 +2230,7 @@ func (x *Guess) String() string {
 func (*Guess) ProtoMessage() {}
 
 func (x *Guess) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[27]
+	mi := &file_mimir_v1_model_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2119,7 +2243,7 @@ func (x *Guess) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Guess.ProtoReflect.Descriptor instead.
 func (*Guess) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{27}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *Guess) GetLabel() string {
@@ -2152,7 +2276,7 @@ type Box struct {
 
 func (x *Box) Reset() {
 	*x = Box{}
-	mi := &file_mimir_v1_model_proto_msgTypes[28]
+	mi := &file_mimir_v1_model_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2164,7 +2288,7 @@ func (x *Box) String() string {
 func (*Box) ProtoMessage() {}
 
 func (x *Box) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[28]
+	mi := &file_mimir_v1_model_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2177,7 +2301,7 @@ func (x *Box) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Box.ProtoReflect.Descriptor instead.
 func (*Box) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{28}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Box) GetLabel() string {
@@ -2230,7 +2354,7 @@ type ListArchitecturesRequest struct {
 
 func (x *ListArchitecturesRequest) Reset() {
 	*x = ListArchitecturesRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[29]
+	mi := &file_mimir_v1_model_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2242,7 +2366,7 @@ func (x *ListArchitecturesRequest) String() string {
 func (*ListArchitecturesRequest) ProtoMessage() {}
 
 func (x *ListArchitecturesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[29]
+	mi := &file_mimir_v1_model_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2255,7 +2379,7 @@ func (x *ListArchitecturesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListArchitecturesRequest.ProtoReflect.Descriptor instead.
 func (*ListArchitecturesRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{29}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{30}
 }
 
 type ListArchitecturesResponse struct {
@@ -2267,7 +2391,7 @@ type ListArchitecturesResponse struct {
 
 func (x *ListArchitecturesResponse) Reset() {
 	*x = ListArchitecturesResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[30]
+	mi := &file_mimir_v1_model_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2279,7 +2403,7 @@ func (x *ListArchitecturesResponse) String() string {
 func (*ListArchitecturesResponse) ProtoMessage() {}
 
 func (x *ListArchitecturesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[30]
+	mi := &file_mimir_v1_model_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2292,7 +2416,7 @@ func (x *ListArchitecturesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListArchitecturesResponse.ProtoReflect.Descriptor instead.
 func (*ListArchitecturesResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{30}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListArchitecturesResponse) GetArchitectures() []*Architecture {
@@ -2310,7 +2434,7 @@ type ListModelsRequest struct {
 
 func (x *ListModelsRequest) Reset() {
 	*x = ListModelsRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[31]
+	mi := &file_mimir_v1_model_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2322,7 +2446,7 @@ func (x *ListModelsRequest) String() string {
 func (*ListModelsRequest) ProtoMessage() {}
 
 func (x *ListModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[31]
+	mi := &file_mimir_v1_model_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2335,7 +2459,7 @@ func (x *ListModelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelsRequest.ProtoReflect.Descriptor instead.
 func (*ListModelsRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{31}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{32}
 }
 
 type ListModelsResponse struct {
@@ -2347,7 +2471,7 @@ type ListModelsResponse struct {
 
 func (x *ListModelsResponse) Reset() {
 	*x = ListModelsResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[32]
+	mi := &file_mimir_v1_model_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2359,7 +2483,7 @@ func (x *ListModelsResponse) String() string {
 func (*ListModelsResponse) ProtoMessage() {}
 
 func (x *ListModelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[32]
+	mi := &file_mimir_v1_model_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2372,7 +2496,7 @@ func (x *ListModelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelsResponse.ProtoReflect.Descriptor instead.
 func (*ListModelsResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{32}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListModelsResponse) GetModels() []*Model {
@@ -2391,7 +2515,7 @@ type GetModelRequest struct {
 
 func (x *GetModelRequest) Reset() {
 	*x = GetModelRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[33]
+	mi := &file_mimir_v1_model_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2403,7 +2527,7 @@ func (x *GetModelRequest) String() string {
 func (*GetModelRequest) ProtoMessage() {}
 
 func (x *GetModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[33]
+	mi := &file_mimir_v1_model_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2416,7 +2540,7 @@ func (x *GetModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModelRequest.ProtoReflect.Descriptor instead.
 func (*GetModelRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{33}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetModelRequest) GetId() string {
@@ -2435,7 +2559,7 @@ type GetModelResponse struct {
 
 func (x *GetModelResponse) Reset() {
 	*x = GetModelResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[34]
+	mi := &file_mimir_v1_model_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2447,7 +2571,7 @@ func (x *GetModelResponse) String() string {
 func (*GetModelResponse) ProtoMessage() {}
 
 func (x *GetModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[34]
+	mi := &file_mimir_v1_model_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2460,7 +2584,7 @@ func (x *GetModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModelResponse.ProtoReflect.Descriptor instead.
 func (*GetModelResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{34}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *GetModelResponse) GetModel() *Model {
@@ -2499,7 +2623,7 @@ type CreateModelRequest struct {
 
 func (x *CreateModelRequest) Reset() {
 	*x = CreateModelRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[35]
+	mi := &file_mimir_v1_model_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2511,7 +2635,7 @@ func (x *CreateModelRequest) String() string {
 func (*CreateModelRequest) ProtoMessage() {}
 
 func (x *CreateModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[35]
+	mi := &file_mimir_v1_model_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2524,7 +2648,7 @@ func (x *CreateModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateModelRequest.ProtoReflect.Descriptor instead.
 func (*CreateModelRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{35}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CreateModelRequest) GetName() string {
@@ -2585,7 +2709,7 @@ type CreateModelResponse struct {
 
 func (x *CreateModelResponse) Reset() {
 	*x = CreateModelResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[36]
+	mi := &file_mimir_v1_model_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2597,7 +2721,7 @@ func (x *CreateModelResponse) String() string {
 func (*CreateModelResponse) ProtoMessage() {}
 
 func (x *CreateModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[36]
+	mi := &file_mimir_v1_model_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2610,7 +2734,7 @@ func (x *CreateModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateModelResponse.ProtoReflect.Descriptor instead.
 func (*CreateModelResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{36}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CreateModelResponse) GetModel() *Model {
@@ -2637,7 +2761,7 @@ type UpdateModelRequest struct {
 
 func (x *UpdateModelRequest) Reset() {
 	*x = UpdateModelRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[37]
+	mi := &file_mimir_v1_model_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2649,7 +2773,7 @@ func (x *UpdateModelRequest) String() string {
 func (*UpdateModelRequest) ProtoMessage() {}
 
 func (x *UpdateModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[37]
+	mi := &file_mimir_v1_model_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2662,7 +2786,7 @@ func (x *UpdateModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateModelRequest.ProtoReflect.Descriptor instead.
 func (*UpdateModelRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{37}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *UpdateModelRequest) GetId() string {
@@ -2709,7 +2833,7 @@ type UpdateModelResponse struct {
 
 func (x *UpdateModelResponse) Reset() {
 	*x = UpdateModelResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[38]
+	mi := &file_mimir_v1_model_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2721,7 +2845,7 @@ func (x *UpdateModelResponse) String() string {
 func (*UpdateModelResponse) ProtoMessage() {}
 
 func (x *UpdateModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[38]
+	mi := &file_mimir_v1_model_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2734,7 +2858,7 @@ func (x *UpdateModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateModelResponse.ProtoReflect.Descriptor instead.
 func (*UpdateModelResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{38}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *UpdateModelResponse) GetModel() *Model {
@@ -2753,7 +2877,7 @@ type DeleteModelRequest struct {
 
 func (x *DeleteModelRequest) Reset() {
 	*x = DeleteModelRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[39]
+	mi := &file_mimir_v1_model_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2765,7 +2889,7 @@ func (x *DeleteModelRequest) String() string {
 func (*DeleteModelRequest) ProtoMessage() {}
 
 func (x *DeleteModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[39]
+	mi := &file_mimir_v1_model_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2778,7 +2902,7 @@ func (x *DeleteModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteModelRequest.ProtoReflect.Descriptor instead.
 func (*DeleteModelRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{39}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *DeleteModelRequest) GetId() string {
@@ -2796,7 +2920,7 @@ type DeleteModelResponse struct {
 
 func (x *DeleteModelResponse) Reset() {
 	*x = DeleteModelResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[40]
+	mi := &file_mimir_v1_model_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2808,7 +2932,7 @@ func (x *DeleteModelResponse) String() string {
 func (*DeleteModelResponse) ProtoMessage() {}
 
 func (x *DeleteModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[40]
+	mi := &file_mimir_v1_model_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2821,7 +2945,7 @@ func (x *DeleteModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteModelResponse.ProtoReflect.Descriptor instead.
 func (*DeleteModelResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{40}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{41}
 }
 
 type PredictRequest struct {
@@ -2845,7 +2969,7 @@ type PredictRequest struct {
 
 func (x *PredictRequest) Reset() {
 	*x = PredictRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[41]
+	mi := &file_mimir_v1_model_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2857,7 +2981,7 @@ func (x *PredictRequest) String() string {
 func (*PredictRequest) ProtoMessage() {}
 
 func (x *PredictRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[41]
+	mi := &file_mimir_v1_model_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2870,7 +2994,7 @@ func (x *PredictRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PredictRequest.ProtoReflect.Descriptor instead.
 func (*PredictRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{41}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *PredictRequest) GetModelId() string {
@@ -2941,7 +3065,7 @@ type PredictResponse struct {
 
 func (x *PredictResponse) Reset() {
 	*x = PredictResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[42]
+	mi := &file_mimir_v1_model_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2953,7 +3077,7 @@ func (x *PredictResponse) String() string {
 func (*PredictResponse) ProtoMessage() {}
 
 func (x *PredictResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[42]
+	mi := &file_mimir_v1_model_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2966,7 +3090,7 @@ func (x *PredictResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PredictResponse.ProtoReflect.Descriptor instead.
 func (*PredictResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{42}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *PredictResponse) GetOutput() *Tensor {
@@ -3043,7 +3167,7 @@ type NamedValue struct {
 
 func (x *NamedValue) Reset() {
 	*x = NamedValue{}
-	mi := &file_mimir_v1_model_proto_msgTypes[43]
+	mi := &file_mimir_v1_model_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3055,7 +3179,7 @@ func (x *NamedValue) String() string {
 func (*NamedValue) ProtoMessage() {}
 
 func (x *NamedValue) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[43]
+	mi := &file_mimir_v1_model_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3068,7 +3192,7 @@ func (x *NamedValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamedValue.ProtoReflect.Descriptor instead.
 func (*NamedValue) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{43}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *NamedValue) GetLabel() string {
@@ -3104,7 +3228,7 @@ type GenerateRequest struct {
 
 func (x *GenerateRequest) Reset() {
 	*x = GenerateRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[44]
+	mi := &file_mimir_v1_model_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3116,7 +3240,7 @@ func (x *GenerateRequest) String() string {
 func (*GenerateRequest) ProtoMessage() {}
 
 func (x *GenerateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[44]
+	mi := &file_mimir_v1_model_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3129,7 +3253,7 @@ func (x *GenerateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateRequest.ProtoReflect.Descriptor instead.
 func (*GenerateRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{44}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *GenerateRequest) GetModelId() string {
@@ -3179,7 +3303,7 @@ type ChatMessage struct {
 
 func (x *ChatMessage) Reset() {
 	*x = ChatMessage{}
-	mi := &file_mimir_v1_model_proto_msgTypes[45]
+	mi := &file_mimir_v1_model_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3191,7 +3315,7 @@ func (x *ChatMessage) String() string {
 func (*ChatMessage) ProtoMessage() {}
 
 func (x *ChatMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[45]
+	mi := &file_mimir_v1_model_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3204,7 +3328,7 @@ func (x *ChatMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatMessage.ProtoReflect.Descriptor instead.
 func (*ChatMessage) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{45}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ChatMessage) GetRole() string {
@@ -3241,7 +3365,7 @@ type ChatRequest struct {
 
 func (x *ChatRequest) Reset() {
 	*x = ChatRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[46]
+	mi := &file_mimir_v1_model_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3253,7 +3377,7 @@ func (x *ChatRequest) String() string {
 func (*ChatRequest) ProtoMessage() {}
 
 func (x *ChatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[46]
+	mi := &file_mimir_v1_model_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3266,7 +3390,7 @@ func (x *ChatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatRequest.ProtoReflect.Descriptor instead.
 func (*ChatRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{46}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ChatRequest) GetModelId() string {
@@ -3332,7 +3456,7 @@ type ChatResponse struct {
 
 func (x *ChatResponse) Reset() {
 	*x = ChatResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[47]
+	mi := &file_mimir_v1_model_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3344,7 +3468,7 @@ func (x *ChatResponse) String() string {
 func (*ChatResponse) ProtoMessage() {}
 
 func (x *ChatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[47]
+	mi := &file_mimir_v1_model_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3357,7 +3481,7 @@ func (x *ChatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatResponse.ProtoReflect.Descriptor instead.
 func (*ChatResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{47}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ChatResponse) GetText() string {
@@ -3424,7 +3548,7 @@ type GenerateStreamRequest struct {
 
 func (x *GenerateStreamRequest) Reset() {
 	*x = GenerateStreamRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[48]
+	mi := &file_mimir_v1_model_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3436,7 +3560,7 @@ func (x *GenerateStreamRequest) String() string {
 func (*GenerateStreamRequest) ProtoMessage() {}
 
 func (x *GenerateStreamRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[48]
+	mi := &file_mimir_v1_model_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3449,7 +3573,7 @@ func (x *GenerateStreamRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateStreamRequest.ProtoReflect.Descriptor instead.
 func (*GenerateStreamRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{48}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *GenerateStreamRequest) GetModelId() string {
@@ -3508,7 +3632,7 @@ type GenerateStreamResponse struct {
 
 func (x *GenerateStreamResponse) Reset() {
 	*x = GenerateStreamResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[49]
+	mi := &file_mimir_v1_model_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3520,7 +3644,7 @@ func (x *GenerateStreamResponse) String() string {
 func (*GenerateStreamResponse) ProtoMessage() {}
 
 func (x *GenerateStreamResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[49]
+	mi := &file_mimir_v1_model_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3533,7 +3657,7 @@ func (x *GenerateStreamResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateStreamResponse.ProtoReflect.Descriptor instead.
 func (*GenerateStreamResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{49}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *GenerateStreamResponse) GetText() string {
@@ -3602,7 +3726,7 @@ type GenerateResponse struct {
 
 func (x *GenerateResponse) Reset() {
 	*x = GenerateResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[50]
+	mi := &file_mimir_v1_model_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3614,7 +3738,7 @@ func (x *GenerateResponse) String() string {
 func (*GenerateResponse) ProtoMessage() {}
 
 func (x *GenerateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[50]
+	mi := &file_mimir_v1_model_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3627,7 +3751,7 @@ func (x *GenerateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateResponse.ProtoReflect.Descriptor instead.
 func (*GenerateResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{50}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *GenerateResponse) GetText() string {
@@ -3674,7 +3798,7 @@ type GetDeviceModelRequest struct {
 
 func (x *GetDeviceModelRequest) Reset() {
 	*x = GetDeviceModelRequest{}
-	mi := &file_mimir_v1_model_proto_msgTypes[51]
+	mi := &file_mimir_v1_model_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3686,7 +3810,7 @@ func (x *GetDeviceModelRequest) String() string {
 func (*GetDeviceModelRequest) ProtoMessage() {}
 
 func (x *GetDeviceModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[51]
+	mi := &file_mimir_v1_model_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3699,7 +3823,7 @@ func (x *GetDeviceModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeviceModelRequest.ProtoReflect.Descriptor instead.
 func (*GetDeviceModelRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{51}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *GetDeviceModelRequest) GetId() string {
@@ -3721,7 +3845,7 @@ type GetDeviceModelResponse struct {
 
 func (x *GetDeviceModelResponse) Reset() {
 	*x = GetDeviceModelResponse{}
-	mi := &file_mimir_v1_model_proto_msgTypes[52]
+	mi := &file_mimir_v1_model_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3733,7 +3857,7 @@ func (x *GetDeviceModelResponse) String() string {
 func (*GetDeviceModelResponse) ProtoMessage() {}
 
 func (x *GetDeviceModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_model_proto_msgTypes[52]
+	mi := &file_mimir_v1_model_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3746,7 +3870,7 @@ func (x *GetDeviceModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeviceModelResponse.ProtoReflect.Descriptor instead.
 func (*GetDeviceModelResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_model_proto_rawDescGZIP(), []int{52}
+	return file_mimir_v1_model_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *GetDeviceModelResponse) GetModel() *Model {
@@ -3776,13 +3900,25 @@ const file_mimir_v1_model_proto_rawDesc = "" +
 	"\x03day\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x03day\x12\x18\n" +
 	"\aanswers\x18\x02 \x01(\x03R\aanswers\x12\x1a\n" +
 	"\bfeedback\x18\x03 \x01(\x03R\bfeedback\x12\x18\n" +
-	"\acorrect\x18\x04 \x01(\x03R\acorrect\"\xca\x01\n" +
+	"\acorrect\x18\x04 \x01(\x03R\acorrect\"\xb4\x03\n" +
 	"\x17GetModelQualityResponse\x12(\n" +
 	"\x04days\x18\x01 \x03(\v2\x14.mimir.v1.QualityDayR\x04days\x12!\n" +
 	"\fweek_answers\x18\x02 \x01(\x03R\vweekAnswers\x12#\n" +
 	"\rweek_feedback\x18\x03 \x01(\x03R\fweekFeedback\x12#\n" +
 	"\rweek_accuracy\x18\x04 \x01(\x01R\fweekAccuracy\x12\x18\n" +
-	"\adropped\x18\x05 \x01(\bR\adropped\"\xbb\x02\n" +
+	"\adropped\x18\x05 \x01(\bR\adropped\x12!\n" +
+	"\fdata_checked\x18\x06 \x01(\bR\vdataChecked\x12%\n" +
+	"\x0edata_questions\x18\a \x01(\x03R\rdataQuestions\x12B\n" +
+	"\x0fdata_check_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\rdataCheckTime\x127\n" +
+	"\fdata_changes\x18\t \x03(\v2\x14.mimir.v1.DataChangeR\vdataChanges\x12!\n" +
+	"\fdata_changed\x18\n" +
+	" \x01(\bR\vdataChanged\"i\n" +
+	"\n" +
+	"DataChange\x12\x16\n" +
+	"\x06column\x18\x01 \x01(\tR\x06column\x12\x13\n" +
+	"\x05a_lot\x18\x02 \x01(\bR\x04aLot\x12\x14\n" +
+	"\x05score\x18\x03 \x01(\x01R\x05score\x12\x18\n" +
+	"\asummary\x18\x04 \x01(\tR\asummary\"\xbb\x02\n" +
 	"\fModelVersion\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06number\x18\x02 \x01(\x05R\x06number\x124\n" +
@@ -4092,144 +4228,147 @@ func file_mimir_v1_model_proto_rawDescGZIP() []byte {
 }
 
 var file_mimir_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_mimir_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
+var file_mimir_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 56)
 var file_mimir_v1_model_proto_goTypes = []any{
 	(ModelVersionSource)(0),            // 0: mimir.v1.ModelVersionSource
 	(ModelStatus)(0),                   // 1: mimir.v1.ModelStatus
 	(*GetModelQualityRequest)(nil),     // 2: mimir.v1.GetModelQualityRequest
 	(*QualityDay)(nil),                 // 3: mimir.v1.QualityDay
 	(*GetModelQualityResponse)(nil),    // 4: mimir.v1.GetModelQualityResponse
-	(*ModelVersion)(nil),               // 5: mimir.v1.ModelVersion
-	(*ListModelVersionsRequest)(nil),   // 6: mimir.v1.ListModelVersionsRequest
-	(*ListModelVersionsResponse)(nil),  // 7: mimir.v1.ListModelVersionsResponse
-	(*UseModelVersionRequest)(nil),     // 8: mimir.v1.UseModelVersionRequest
-	(*UseModelVersionResponse)(nil),    // 9: mimir.v1.UseModelVersionResponse
-	(*SaveArchitectureRequest)(nil),    // 10: mimir.v1.SaveArchitectureRequest
-	(*SaveArchitectureResponse)(nil),   // 11: mimir.v1.SaveArchitectureResponse
-	(*DeleteArchitectureRequest)(nil),  // 12: mimir.v1.DeleteArchitectureRequest
-	(*DeleteArchitectureResponse)(nil), // 13: mimir.v1.DeleteArchitectureResponse
-	(*SetModelWorkerRequest)(nil),      // 14: mimir.v1.SetModelWorkerRequest
-	(*SetModelWorkerResponse)(nil),     // 15: mimir.v1.SetModelWorkerResponse
-	(*ExplainRequest)(nil),             // 16: mimir.v1.ExplainRequest
-	(*ExplainResponse)(nil),            // 17: mimir.v1.ExplainResponse
-	(*Contribution)(nil),               // 18: mimir.v1.Contribution
-	(*ExplainModelRequest)(nil),        // 19: mimir.v1.ExplainModelRequest
-	(*ExplainModelResponse)(nil),       // 20: mimir.v1.ExplainModelResponse
-	(*ColumnImportance)(nil),           // 21: mimir.v1.ColumnImportance
-	(*SendFeedbackRequest)(nil),        // 22: mimir.v1.SendFeedbackRequest
-	(*SendFeedbackResponse)(nil),       // 23: mimir.v1.SendFeedbackResponse
-	(*Architecture)(nil),               // 24: mimir.v1.Architecture
-	(*Column)(nil),                     // 25: mimir.v1.Column
-	(*Model)(nil),                      // 26: mimir.v1.Model
-	(*LanguageSettings)(nil),           // 27: mimir.v1.LanguageSettings
-	(*Tensor)(nil),                     // 28: mimir.v1.Tensor
-	(*Guess)(nil),                      // 29: mimir.v1.Guess
-	(*Box)(nil),                        // 30: mimir.v1.Box
-	(*ListArchitecturesRequest)(nil),   // 31: mimir.v1.ListArchitecturesRequest
-	(*ListArchitecturesResponse)(nil),  // 32: mimir.v1.ListArchitecturesResponse
-	(*ListModelsRequest)(nil),          // 33: mimir.v1.ListModelsRequest
-	(*ListModelsResponse)(nil),         // 34: mimir.v1.ListModelsResponse
-	(*GetModelRequest)(nil),            // 35: mimir.v1.GetModelRequest
-	(*GetModelResponse)(nil),           // 36: mimir.v1.GetModelResponse
-	(*CreateModelRequest)(nil),         // 37: mimir.v1.CreateModelRequest
-	(*CreateModelResponse)(nil),        // 38: mimir.v1.CreateModelResponse
-	(*UpdateModelRequest)(nil),         // 39: mimir.v1.UpdateModelRequest
-	(*UpdateModelResponse)(nil),        // 40: mimir.v1.UpdateModelResponse
-	(*DeleteModelRequest)(nil),         // 41: mimir.v1.DeleteModelRequest
-	(*DeleteModelResponse)(nil),        // 42: mimir.v1.DeleteModelResponse
-	(*PredictRequest)(nil),             // 43: mimir.v1.PredictRequest
-	(*PredictResponse)(nil),            // 44: mimir.v1.PredictResponse
-	(*NamedValue)(nil),                 // 45: mimir.v1.NamedValue
-	(*GenerateRequest)(nil),            // 46: mimir.v1.GenerateRequest
-	(*ChatMessage)(nil),                // 47: mimir.v1.ChatMessage
-	(*ChatRequest)(nil),                // 48: mimir.v1.ChatRequest
-	(*ChatResponse)(nil),               // 49: mimir.v1.ChatResponse
-	(*GenerateStreamRequest)(nil),      // 50: mimir.v1.GenerateStreamRequest
-	(*GenerateStreamResponse)(nil),     // 51: mimir.v1.GenerateStreamResponse
-	(*GenerateResponse)(nil),           // 52: mimir.v1.GenerateResponse
-	(*GetDeviceModelRequest)(nil),      // 53: mimir.v1.GetDeviceModelRequest
-	(*GetDeviceModelResponse)(nil),     // 54: mimir.v1.GetDeviceModelResponse
-	nil,                                // 55: mimir.v1.ExplainRequest.FieldsEntry
-	nil,                                // 56: mimir.v1.PredictRequest.FieldsEntry
-	(*timestamppb.Timestamp)(nil),      // 57: google.protobuf.Timestamp
+	(*DataChange)(nil),                 // 5: mimir.v1.DataChange
+	(*ModelVersion)(nil),               // 6: mimir.v1.ModelVersion
+	(*ListModelVersionsRequest)(nil),   // 7: mimir.v1.ListModelVersionsRequest
+	(*ListModelVersionsResponse)(nil),  // 8: mimir.v1.ListModelVersionsResponse
+	(*UseModelVersionRequest)(nil),     // 9: mimir.v1.UseModelVersionRequest
+	(*UseModelVersionResponse)(nil),    // 10: mimir.v1.UseModelVersionResponse
+	(*SaveArchitectureRequest)(nil),    // 11: mimir.v1.SaveArchitectureRequest
+	(*SaveArchitectureResponse)(nil),   // 12: mimir.v1.SaveArchitectureResponse
+	(*DeleteArchitectureRequest)(nil),  // 13: mimir.v1.DeleteArchitectureRequest
+	(*DeleteArchitectureResponse)(nil), // 14: mimir.v1.DeleteArchitectureResponse
+	(*SetModelWorkerRequest)(nil),      // 15: mimir.v1.SetModelWorkerRequest
+	(*SetModelWorkerResponse)(nil),     // 16: mimir.v1.SetModelWorkerResponse
+	(*ExplainRequest)(nil),             // 17: mimir.v1.ExplainRequest
+	(*ExplainResponse)(nil),            // 18: mimir.v1.ExplainResponse
+	(*Contribution)(nil),               // 19: mimir.v1.Contribution
+	(*ExplainModelRequest)(nil),        // 20: mimir.v1.ExplainModelRequest
+	(*ExplainModelResponse)(nil),       // 21: mimir.v1.ExplainModelResponse
+	(*ColumnImportance)(nil),           // 22: mimir.v1.ColumnImportance
+	(*SendFeedbackRequest)(nil),        // 23: mimir.v1.SendFeedbackRequest
+	(*SendFeedbackResponse)(nil),       // 24: mimir.v1.SendFeedbackResponse
+	(*Architecture)(nil),               // 25: mimir.v1.Architecture
+	(*Column)(nil),                     // 26: mimir.v1.Column
+	(*Model)(nil),                      // 27: mimir.v1.Model
+	(*LanguageSettings)(nil),           // 28: mimir.v1.LanguageSettings
+	(*Tensor)(nil),                     // 29: mimir.v1.Tensor
+	(*Guess)(nil),                      // 30: mimir.v1.Guess
+	(*Box)(nil),                        // 31: mimir.v1.Box
+	(*ListArchitecturesRequest)(nil),   // 32: mimir.v1.ListArchitecturesRequest
+	(*ListArchitecturesResponse)(nil),  // 33: mimir.v1.ListArchitecturesResponse
+	(*ListModelsRequest)(nil),          // 34: mimir.v1.ListModelsRequest
+	(*ListModelsResponse)(nil),         // 35: mimir.v1.ListModelsResponse
+	(*GetModelRequest)(nil),            // 36: mimir.v1.GetModelRequest
+	(*GetModelResponse)(nil),           // 37: mimir.v1.GetModelResponse
+	(*CreateModelRequest)(nil),         // 38: mimir.v1.CreateModelRequest
+	(*CreateModelResponse)(nil),        // 39: mimir.v1.CreateModelResponse
+	(*UpdateModelRequest)(nil),         // 40: mimir.v1.UpdateModelRequest
+	(*UpdateModelResponse)(nil),        // 41: mimir.v1.UpdateModelResponse
+	(*DeleteModelRequest)(nil),         // 42: mimir.v1.DeleteModelRequest
+	(*DeleteModelResponse)(nil),        // 43: mimir.v1.DeleteModelResponse
+	(*PredictRequest)(nil),             // 44: mimir.v1.PredictRequest
+	(*PredictResponse)(nil),            // 45: mimir.v1.PredictResponse
+	(*NamedValue)(nil),                 // 46: mimir.v1.NamedValue
+	(*GenerateRequest)(nil),            // 47: mimir.v1.GenerateRequest
+	(*ChatMessage)(nil),                // 48: mimir.v1.ChatMessage
+	(*ChatRequest)(nil),                // 49: mimir.v1.ChatRequest
+	(*ChatResponse)(nil),               // 50: mimir.v1.ChatResponse
+	(*GenerateStreamRequest)(nil),      // 51: mimir.v1.GenerateStreamRequest
+	(*GenerateStreamResponse)(nil),     // 52: mimir.v1.GenerateStreamResponse
+	(*GenerateResponse)(nil),           // 53: mimir.v1.GenerateResponse
+	(*GetDeviceModelRequest)(nil),      // 54: mimir.v1.GetDeviceModelRequest
+	(*GetDeviceModelResponse)(nil),     // 55: mimir.v1.GetDeviceModelResponse
+	nil,                                // 56: mimir.v1.ExplainRequest.FieldsEntry
+	nil,                                // 57: mimir.v1.PredictRequest.FieldsEntry
+	(*timestamppb.Timestamp)(nil),      // 58: google.protobuf.Timestamp
 }
 var file_mimir_v1_model_proto_depIdxs = []int32{
-	57, // 0: mimir.v1.QualityDay.day:type_name -> google.protobuf.Timestamp
+	58, // 0: mimir.v1.QualityDay.day:type_name -> google.protobuf.Timestamp
 	3,  // 1: mimir.v1.GetModelQualityResponse.days:type_name -> mimir.v1.QualityDay
-	0,  // 2: mimir.v1.ModelVersion.source:type_name -> mimir.v1.ModelVersionSource
-	57, // 3: mimir.v1.ModelVersion.create_time:type_name -> google.protobuf.Timestamp
-	5,  // 4: mimir.v1.ListModelVersionsResponse.versions:type_name -> mimir.v1.ModelVersion
-	26, // 5: mimir.v1.UseModelVersionResponse.model:type_name -> mimir.v1.Model
-	24, // 6: mimir.v1.SaveArchitectureResponse.architecture:type_name -> mimir.v1.Architecture
-	26, // 7: mimir.v1.SetModelWorkerResponse.model:type_name -> mimir.v1.Model
-	55, // 8: mimir.v1.ExplainRequest.fields:type_name -> mimir.v1.ExplainRequest.FieldsEntry
-	18, // 9: mimir.v1.ExplainResponse.contributions:type_name -> mimir.v1.Contribution
-	21, // 10: mimir.v1.ExplainModelResponse.columns:type_name -> mimir.v1.ColumnImportance
-	1,  // 11: mimir.v1.Model.status:type_name -> mimir.v1.ModelStatus
-	57, // 12: mimir.v1.Model.create_time:type_name -> google.protobuf.Timestamp
-	57, // 13: mimir.v1.Model.update_time:type_name -> google.protobuf.Timestamp
-	25, // 14: mimir.v1.Model.columns:type_name -> mimir.v1.Column
-	27, // 15: mimir.v1.Model.language:type_name -> mimir.v1.LanguageSettings
-	24, // 16: mimir.v1.ListArchitecturesResponse.architectures:type_name -> mimir.v1.Architecture
-	26, // 17: mimir.v1.ListModelsResponse.models:type_name -> mimir.v1.Model
-	26, // 18: mimir.v1.GetModelResponse.model:type_name -> mimir.v1.Model
-	26, // 19: mimir.v1.CreateModelResponse.model:type_name -> mimir.v1.Model
-	27, // 20: mimir.v1.UpdateModelRequest.language:type_name -> mimir.v1.LanguageSettings
-	26, // 21: mimir.v1.UpdateModelResponse.model:type_name -> mimir.v1.Model
-	28, // 22: mimir.v1.PredictRequest.input:type_name -> mimir.v1.Tensor
-	56, // 23: mimir.v1.PredictRequest.fields:type_name -> mimir.v1.PredictRequest.FieldsEntry
-	28, // 24: mimir.v1.PredictResponse.output:type_name -> mimir.v1.Tensor
-	29, // 25: mimir.v1.PredictResponse.guesses:type_name -> mimir.v1.Guess
-	28, // 26: mimir.v1.PredictResponse.probabilities:type_name -> mimir.v1.Tensor
-	30, // 27: mimir.v1.PredictResponse.boxes:type_name -> mimir.v1.Box
-	45, // 28: mimir.v1.PredictResponse.values:type_name -> mimir.v1.NamedValue
-	47, // 29: mimir.v1.ChatRequest.messages:type_name -> mimir.v1.ChatMessage
-	26, // 30: mimir.v1.GetDeviceModelResponse.model:type_name -> mimir.v1.Model
-	31, // 31: mimir.v1.ModelService.ListArchitectures:input_type -> mimir.v1.ListArchitecturesRequest
-	33, // 32: mimir.v1.ModelService.ListModels:input_type -> mimir.v1.ListModelsRequest
-	35, // 33: mimir.v1.ModelService.GetModel:input_type -> mimir.v1.GetModelRequest
-	37, // 34: mimir.v1.ModelService.CreateModel:input_type -> mimir.v1.CreateModelRequest
-	39, // 35: mimir.v1.ModelService.UpdateModel:input_type -> mimir.v1.UpdateModelRequest
-	41, // 36: mimir.v1.ModelService.DeleteModel:input_type -> mimir.v1.DeleteModelRequest
-	14, // 37: mimir.v1.ModelService.SetModelWorker:input_type -> mimir.v1.SetModelWorkerRequest
-	10, // 38: mimir.v1.ModelService.SaveArchitecture:input_type -> mimir.v1.SaveArchitectureRequest
-	53, // 39: mimir.v1.ModelService.GetDeviceModel:input_type -> mimir.v1.GetDeviceModelRequest
-	12, // 40: mimir.v1.ModelService.DeleteArchitecture:input_type -> mimir.v1.DeleteArchitectureRequest
-	6,  // 41: mimir.v1.ModelService.ListModelVersions:input_type -> mimir.v1.ListModelVersionsRequest
-	8,  // 42: mimir.v1.ModelService.UseModelVersion:input_type -> mimir.v1.UseModelVersionRequest
-	2,  // 43: mimir.v1.ModelService.GetModelQuality:input_type -> mimir.v1.GetModelQualityRequest
-	43, // 44: mimir.v1.PredictService.Predict:input_type -> mimir.v1.PredictRequest
-	46, // 45: mimir.v1.PredictService.Generate:input_type -> mimir.v1.GenerateRequest
-	50, // 46: mimir.v1.PredictService.GenerateStream:input_type -> mimir.v1.GenerateStreamRequest
-	48, // 47: mimir.v1.PredictService.Chat:input_type -> mimir.v1.ChatRequest
-	22, // 48: mimir.v1.PredictService.SendFeedback:input_type -> mimir.v1.SendFeedbackRequest
-	16, // 49: mimir.v1.PredictService.Explain:input_type -> mimir.v1.ExplainRequest
-	19, // 50: mimir.v1.PredictService.ExplainModel:input_type -> mimir.v1.ExplainModelRequest
-	32, // 51: mimir.v1.ModelService.ListArchitectures:output_type -> mimir.v1.ListArchitecturesResponse
-	34, // 52: mimir.v1.ModelService.ListModels:output_type -> mimir.v1.ListModelsResponse
-	36, // 53: mimir.v1.ModelService.GetModel:output_type -> mimir.v1.GetModelResponse
-	38, // 54: mimir.v1.ModelService.CreateModel:output_type -> mimir.v1.CreateModelResponse
-	40, // 55: mimir.v1.ModelService.UpdateModel:output_type -> mimir.v1.UpdateModelResponse
-	42, // 56: mimir.v1.ModelService.DeleteModel:output_type -> mimir.v1.DeleteModelResponse
-	15, // 57: mimir.v1.ModelService.SetModelWorker:output_type -> mimir.v1.SetModelWorkerResponse
-	11, // 58: mimir.v1.ModelService.SaveArchitecture:output_type -> mimir.v1.SaveArchitectureResponse
-	54, // 59: mimir.v1.ModelService.GetDeviceModel:output_type -> mimir.v1.GetDeviceModelResponse
-	13, // 60: mimir.v1.ModelService.DeleteArchitecture:output_type -> mimir.v1.DeleteArchitectureResponse
-	7,  // 61: mimir.v1.ModelService.ListModelVersions:output_type -> mimir.v1.ListModelVersionsResponse
-	9,  // 62: mimir.v1.ModelService.UseModelVersion:output_type -> mimir.v1.UseModelVersionResponse
-	4,  // 63: mimir.v1.ModelService.GetModelQuality:output_type -> mimir.v1.GetModelQualityResponse
-	44, // 64: mimir.v1.PredictService.Predict:output_type -> mimir.v1.PredictResponse
-	52, // 65: mimir.v1.PredictService.Generate:output_type -> mimir.v1.GenerateResponse
-	51, // 66: mimir.v1.PredictService.GenerateStream:output_type -> mimir.v1.GenerateStreamResponse
-	49, // 67: mimir.v1.PredictService.Chat:output_type -> mimir.v1.ChatResponse
-	23, // 68: mimir.v1.PredictService.SendFeedback:output_type -> mimir.v1.SendFeedbackResponse
-	17, // 69: mimir.v1.PredictService.Explain:output_type -> mimir.v1.ExplainResponse
-	20, // 70: mimir.v1.PredictService.ExplainModel:output_type -> mimir.v1.ExplainModelResponse
-	51, // [51:71] is the sub-list for method output_type
-	31, // [31:51] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	58, // 2: mimir.v1.GetModelQualityResponse.data_check_time:type_name -> google.protobuf.Timestamp
+	5,  // 3: mimir.v1.GetModelQualityResponse.data_changes:type_name -> mimir.v1.DataChange
+	0,  // 4: mimir.v1.ModelVersion.source:type_name -> mimir.v1.ModelVersionSource
+	58, // 5: mimir.v1.ModelVersion.create_time:type_name -> google.protobuf.Timestamp
+	6,  // 6: mimir.v1.ListModelVersionsResponse.versions:type_name -> mimir.v1.ModelVersion
+	27, // 7: mimir.v1.UseModelVersionResponse.model:type_name -> mimir.v1.Model
+	25, // 8: mimir.v1.SaveArchitectureResponse.architecture:type_name -> mimir.v1.Architecture
+	27, // 9: mimir.v1.SetModelWorkerResponse.model:type_name -> mimir.v1.Model
+	56, // 10: mimir.v1.ExplainRequest.fields:type_name -> mimir.v1.ExplainRequest.FieldsEntry
+	19, // 11: mimir.v1.ExplainResponse.contributions:type_name -> mimir.v1.Contribution
+	22, // 12: mimir.v1.ExplainModelResponse.columns:type_name -> mimir.v1.ColumnImportance
+	1,  // 13: mimir.v1.Model.status:type_name -> mimir.v1.ModelStatus
+	58, // 14: mimir.v1.Model.create_time:type_name -> google.protobuf.Timestamp
+	58, // 15: mimir.v1.Model.update_time:type_name -> google.protobuf.Timestamp
+	26, // 16: mimir.v1.Model.columns:type_name -> mimir.v1.Column
+	28, // 17: mimir.v1.Model.language:type_name -> mimir.v1.LanguageSettings
+	25, // 18: mimir.v1.ListArchitecturesResponse.architectures:type_name -> mimir.v1.Architecture
+	27, // 19: mimir.v1.ListModelsResponse.models:type_name -> mimir.v1.Model
+	27, // 20: mimir.v1.GetModelResponse.model:type_name -> mimir.v1.Model
+	27, // 21: mimir.v1.CreateModelResponse.model:type_name -> mimir.v1.Model
+	28, // 22: mimir.v1.UpdateModelRequest.language:type_name -> mimir.v1.LanguageSettings
+	27, // 23: mimir.v1.UpdateModelResponse.model:type_name -> mimir.v1.Model
+	29, // 24: mimir.v1.PredictRequest.input:type_name -> mimir.v1.Tensor
+	57, // 25: mimir.v1.PredictRequest.fields:type_name -> mimir.v1.PredictRequest.FieldsEntry
+	29, // 26: mimir.v1.PredictResponse.output:type_name -> mimir.v1.Tensor
+	30, // 27: mimir.v1.PredictResponse.guesses:type_name -> mimir.v1.Guess
+	29, // 28: mimir.v1.PredictResponse.probabilities:type_name -> mimir.v1.Tensor
+	31, // 29: mimir.v1.PredictResponse.boxes:type_name -> mimir.v1.Box
+	46, // 30: mimir.v1.PredictResponse.values:type_name -> mimir.v1.NamedValue
+	48, // 31: mimir.v1.ChatRequest.messages:type_name -> mimir.v1.ChatMessage
+	27, // 32: mimir.v1.GetDeviceModelResponse.model:type_name -> mimir.v1.Model
+	32, // 33: mimir.v1.ModelService.ListArchitectures:input_type -> mimir.v1.ListArchitecturesRequest
+	34, // 34: mimir.v1.ModelService.ListModels:input_type -> mimir.v1.ListModelsRequest
+	36, // 35: mimir.v1.ModelService.GetModel:input_type -> mimir.v1.GetModelRequest
+	38, // 36: mimir.v1.ModelService.CreateModel:input_type -> mimir.v1.CreateModelRequest
+	40, // 37: mimir.v1.ModelService.UpdateModel:input_type -> mimir.v1.UpdateModelRequest
+	42, // 38: mimir.v1.ModelService.DeleteModel:input_type -> mimir.v1.DeleteModelRequest
+	15, // 39: mimir.v1.ModelService.SetModelWorker:input_type -> mimir.v1.SetModelWorkerRequest
+	11, // 40: mimir.v1.ModelService.SaveArchitecture:input_type -> mimir.v1.SaveArchitectureRequest
+	54, // 41: mimir.v1.ModelService.GetDeviceModel:input_type -> mimir.v1.GetDeviceModelRequest
+	13, // 42: mimir.v1.ModelService.DeleteArchitecture:input_type -> mimir.v1.DeleteArchitectureRequest
+	7,  // 43: mimir.v1.ModelService.ListModelVersions:input_type -> mimir.v1.ListModelVersionsRequest
+	9,  // 44: mimir.v1.ModelService.UseModelVersion:input_type -> mimir.v1.UseModelVersionRequest
+	2,  // 45: mimir.v1.ModelService.GetModelQuality:input_type -> mimir.v1.GetModelQualityRequest
+	44, // 46: mimir.v1.PredictService.Predict:input_type -> mimir.v1.PredictRequest
+	47, // 47: mimir.v1.PredictService.Generate:input_type -> mimir.v1.GenerateRequest
+	51, // 48: mimir.v1.PredictService.GenerateStream:input_type -> mimir.v1.GenerateStreamRequest
+	49, // 49: mimir.v1.PredictService.Chat:input_type -> mimir.v1.ChatRequest
+	23, // 50: mimir.v1.PredictService.SendFeedback:input_type -> mimir.v1.SendFeedbackRequest
+	17, // 51: mimir.v1.PredictService.Explain:input_type -> mimir.v1.ExplainRequest
+	20, // 52: mimir.v1.PredictService.ExplainModel:input_type -> mimir.v1.ExplainModelRequest
+	33, // 53: mimir.v1.ModelService.ListArchitectures:output_type -> mimir.v1.ListArchitecturesResponse
+	35, // 54: mimir.v1.ModelService.ListModels:output_type -> mimir.v1.ListModelsResponse
+	37, // 55: mimir.v1.ModelService.GetModel:output_type -> mimir.v1.GetModelResponse
+	39, // 56: mimir.v1.ModelService.CreateModel:output_type -> mimir.v1.CreateModelResponse
+	41, // 57: mimir.v1.ModelService.UpdateModel:output_type -> mimir.v1.UpdateModelResponse
+	43, // 58: mimir.v1.ModelService.DeleteModel:output_type -> mimir.v1.DeleteModelResponse
+	16, // 59: mimir.v1.ModelService.SetModelWorker:output_type -> mimir.v1.SetModelWorkerResponse
+	12, // 60: mimir.v1.ModelService.SaveArchitecture:output_type -> mimir.v1.SaveArchitectureResponse
+	55, // 61: mimir.v1.ModelService.GetDeviceModel:output_type -> mimir.v1.GetDeviceModelResponse
+	14, // 62: mimir.v1.ModelService.DeleteArchitecture:output_type -> mimir.v1.DeleteArchitectureResponse
+	8,  // 63: mimir.v1.ModelService.ListModelVersions:output_type -> mimir.v1.ListModelVersionsResponse
+	10, // 64: mimir.v1.ModelService.UseModelVersion:output_type -> mimir.v1.UseModelVersionResponse
+	4,  // 65: mimir.v1.ModelService.GetModelQuality:output_type -> mimir.v1.GetModelQualityResponse
+	45, // 66: mimir.v1.PredictService.Predict:output_type -> mimir.v1.PredictResponse
+	53, // 67: mimir.v1.PredictService.Generate:output_type -> mimir.v1.GenerateResponse
+	52, // 68: mimir.v1.PredictService.GenerateStream:output_type -> mimir.v1.GenerateStreamResponse
+	50, // 69: mimir.v1.PredictService.Chat:output_type -> mimir.v1.ChatResponse
+	24, // 70: mimir.v1.PredictService.SendFeedback:output_type -> mimir.v1.SendFeedbackResponse
+	18, // 71: mimir.v1.PredictService.Explain:output_type -> mimir.v1.ExplainResponse
+	21, // 72: mimir.v1.PredictService.ExplainModel:output_type -> mimir.v1.ExplainModelResponse
+	53, // [53:73] is the sub-list for method output_type
+	33, // [33:53] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_model_proto_init() }
@@ -4237,15 +4376,15 @@ func file_mimir_v1_model_proto_init() {
 	if File_mimir_v1_model_proto != nil {
 		return
 	}
-	file_mimir_v1_model_proto_msgTypes[37].OneofWrappers = []any{}
-	file_mimir_v1_model_proto_msgTypes[46].OneofWrappers = []any{}
+	file_mimir_v1_model_proto_msgTypes[38].OneofWrappers = []any{}
+	file_mimir_v1_model_proto_msgTypes[47].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_model_proto_rawDesc), len(file_mimir_v1_model_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   55,
+			NumMessages:   56,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
