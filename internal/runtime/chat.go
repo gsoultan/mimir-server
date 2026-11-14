@@ -59,6 +59,38 @@ var (
 		stop:   []string{"<|im_end|>", "<|im_start|>"},
 		system: true,
 	}
+	// qwen3Chat is ChatML with Qwen 3's thinking turned off, as its
+	// template does for enable_thinking=false: each answer opens with an
+	// empty thought, so the model answers at once.
+	qwen3Chat = chatFormat{
+		name: "qwen3",
+		turn: func(r, c string) string {
+			if r == RoleAssistant {
+				return "<|im_start|>assistant\n<think>\n\n</think>\n\n" + c + "<|im_end|>\n"
+			}
+			return "<|im_start|>" + r + "\n" + c + "<|im_end|>\n"
+		},
+		reply:  "<|im_start|>assistant\n<think>\n\n</think>\n\n",
+		stop:   []string{"<|im_end|>", "<|im_start|>"},
+		system: true,
+	}
+	// phi4Chat is Phi 4's ChatML, with <|im_sep|> after the role.
+	phi4Chat = chatFormat{
+		name:   "phi4",
+		turn:   func(r, c string) string { return "<|im_start|>" + r + "<|im_sep|>" + c + "<|im_end|>" },
+		reply:  "<|im_start|>assistant<|im_sep|>",
+		stop:   []string{"<|im_end|>", "<|im_start|>"},
+		system: true,
+	}
+	// phi3Chat is Phi 3's and Phi 4 mini's, Zephyr's markers with turns
+	// that end in <|end|>.
+	phi3Chat = chatFormat{
+		name:   "phi3",
+		turn:   func(r, c string) string { return "<|" + r + "|>\n" + c + "<|end|>\n" },
+		reply:  "<|assistant|>\n",
+		stop:   []string{"<|end|>", "<|user|>", "<|system|>", "<|endoftext|>"},
+		system: true,
+	}
 	llama3Chat = chatFormat{
 		name: "llama3",
 		turn: func(r, c string) string {
@@ -120,12 +152,18 @@ func formatOf(template string, vocab []string) chatFormat {
 		return strings.Contains(template, marker) || (template == "" && slices.Contains(vocab, marker))
 	}
 	switch {
+	case has("<|im_sep|>"):
+		return phi4Chat
+	case has("<|im_start|>") && strings.Contains(template, "enable_thinking"):
+		return qwen3Chat
 	case has("<|im_start|>"):
 		return chatML
 	case has("<|start_header_id|>"):
 		return llama3Chat
 	case has("<start_of_turn>"):
 		return gemmaChat
+	case strings.Contains(template, "<|user|>") && strings.Contains(template, "<|end|>"):
+		return phi3Chat
 	case strings.Contains(template, "<|user|>"):
 		return zephyrChat
 	case strings.Contains(template, "[INST]"):
@@ -155,7 +193,7 @@ func (f chatFormat) render(msgs []Message) string {
 }
 
 // ChatFormat names the chat format the model is written to in: chatml,
-// llama3, zephyr, inst, gemma or plain.
+// qwen3, phi4, llama3, zephyr, phi3, inst, gemma or plain.
 func (lm *LanguageModel) ChatFormat() string { return lm.chat.name }
 
 // Chat writes the model's next turn in a chat. msgs must end with a user

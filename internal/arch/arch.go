@@ -366,7 +366,7 @@ var builtin = []Architecture{
 	{
 		Name:        LanguageModel,
 		Title:       "Language model",
-		Description: "Give it the start of a text and it carries on writing. Upload a GGUF file of a Llama, TinyLlama, Mistral, SmolLM or Qwen 2 model; it becomes a .mim file when you upload it. Fine-tune one on your own writing or chats to make it answer your way.",
+		Description: "Give it the start of a text and it carries on writing. Upload a GGUF file of a Llama, TinyLlama, Mistral, SmolLM, Qwen 2 or 3, Gemma 2 or 3, or Phi 3 or 4 model; it becomes a .mim file when you upload it. Fine-tune one on your own writing or chats to make it answer your way.",
 		Input:       Prompt,
 		Output:      Written,
 		File:        true,
