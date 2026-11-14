@@ -20,28 +20,33 @@ var (
 // Row is what a full read returns: the model struct with relations
 // replaced by their scalar foreign keys and *T rewritten to Null[T].
 type Row struct {
-	ID           string
-	CreateTime   time.Time
-	Name         string
-	TeamID       runtime.Null[string]
-	Description  string
-	Architecture string
-	SizeBytes    int64
-	Sha256       string
-	UpdateTime   time.Time
-	InputShape   []int64
-	Labels       []string
-	Features     []string
-	Columns      runtime.JSON
-	JobID        string
-	Accuracy     float64
-	WorkerID     string
-	Instructions string
-	Temperature  float64
-	MaxTokens    int32
-	OnDevice     bool
-	VersionID    string
-	BaseModelID  string
+	ID              string
+	CreateTime      time.Time
+	Name            string
+	TeamID          runtime.Null[string]
+	Description     string
+	Architecture    string
+	SizeBytes       int64
+	Sha256          string
+	UpdateTime      time.Time
+	InputShape      []int64
+	Labels          []string
+	Features        []string
+	Columns         runtime.JSON
+	JobID           string
+	Accuracy        float64
+	WorkerID        string
+	Instructions    string
+	Temperature     float64
+	MaxTokens       int32
+	OnDevice        bool
+	VersionID       string
+	BaseModelID     string
+	TrialVersionID  string
+	TrialShare      int32
+	TrialShadow     bool
+	TrialStart      runtime.Null[time.Time]
+	NewVersionShare int32
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -80,7 +85,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 22
+const nCols = 27
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -322,6 +327,41 @@ func (q *Query) cursor(col uint32, r Row) {
 		}
 		q.strs[q.ns] = r.BaseModelID
 		q.ns++
+	case 22:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.TrialVersionID
+		q.ns++
+	case 23:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.TrialShare)
+		q.nn++
+	case 24:
+		if int(q.nbo) >= len(q.bools) {
+			q.over = true
+			return
+		}
+		q.bools[q.nbo] = r.TrialShadow
+		q.nbo++
+	case 25:
+		if int(q.ntm) >= len(q.tims) {
+			q.over = true
+			return
+		}
+		q.tims[q.ntm] = r.TrialStart.V
+		q.ntm++
+	case 26:
+		if int(q.nn) >= len(q.nums) {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = int64(r.NewVersionShare)
+		q.nn++
 	}
 }
 
@@ -491,28 +531,33 @@ func b2i(b bool) int64 {
 // Typed column handles. The type of the handle is what makes
 // Age.Like(...) fail to compile.
 var (
-	ID           = TextCol{0}
-	CreateTime   = TimeCol{1}
-	Name         = TextCol{2}
-	TeamID       = NullTextCol{3}
-	Description  = TextCol{4}
-	Architecture = TextCol{5}
-	SizeBytes    = Int64Col{6}
-	Sha256       = TextCol{7}
-	UpdateTime   = TimeCol{8}
-	InputShape   = Int64ArrayCol{9}
-	Labels       = TextArrayCol{10}
-	Features     = TextArrayCol{11}
-	Columns      = JSONCol{12}
-	JobID        = TextCol{13}
-	Accuracy     = Float64Col{14}
-	WorkerID     = TextCol{15}
-	Instructions = TextCol{16}
-	Temperature  = Float64Col{17}
-	MaxTokens    = Int32Col{18}
-	OnDevice     = BoolCol{19}
-	VersionID    = TextCol{20}
-	BaseModelID  = TextCol{21}
+	ID              = TextCol{0}
+	CreateTime      = TimeCol{1}
+	Name            = TextCol{2}
+	TeamID          = NullTextCol{3}
+	Description     = TextCol{4}
+	Architecture    = TextCol{5}
+	SizeBytes       = Int64Col{6}
+	Sha256          = TextCol{7}
+	UpdateTime      = TimeCol{8}
+	InputShape      = Int64ArrayCol{9}
+	Labels          = TextArrayCol{10}
+	Features        = TextArrayCol{11}
+	Columns         = JSONCol{12}
+	JobID           = TextCol{13}
+	Accuracy        = Float64Col{14}
+	WorkerID        = TextCol{15}
+	Instructions    = TextCol{16}
+	Temperature     = Float64Col{17}
+	MaxTokens       = Int32Col{18}
+	OnDevice        = BoolCol{19}
+	VersionID       = TextCol{20}
+	BaseModelID     = TextCol{21}
+	TrialVersionID  = TextCol{22}
+	TrialShare      = Int32Col{23}
+	TrialShadow     = BoolCol{24}
+	TrialStart      = NullTimeCol{25}
+	NewVersionShare = Int32Col{26}
 )
 
 // TextCol addresses a text column.
@@ -752,6 +797,27 @@ func (h BoolCol) DescNullsLast() Sort {
 
 func (h BoolCol) Eq(v bool) Pred    { return Pred{col: h.c, op: opEq, bol: v} }
 func (h BoolCol) NotEq(v bool) Pred { return Pred{col: h.c, op: opNotEq, bol: v} }
+
+// NullTimeCol addresses a timestamptz column.
+type NullTimeCol struct{ c uint8 }
+
+func (h NullTimeCol) Asc() Sort  { return Sort(runtime.MakeOrder(runtime.Asc, uint32(h.c))) }
+func (h NullTimeCol) Desc() Sort { return Sort(runtime.MakeOrder(runtime.Desc, uint32(h.c))) }
+func (h NullTimeCol) AscNullsFirst() Sort {
+	return Sort(runtime.MakeOrder(runtime.AscNullsFirst, uint32(h.c)))
+}
+func (h NullTimeCol) DescNullsLast() Sort {
+	return Sort(runtime.MakeOrder(runtime.DescNullsLast, uint32(h.c)))
+}
+
+func (h NullTimeCol) Eq(v time.Time) Pred    { return Pred{col: h.c, op: opEq, tim: v} }
+func (h NullTimeCol) NotEq(v time.Time) Pred { return Pred{col: h.c, op: opNotEq, tim: v} }
+func (h NullTimeCol) Gt(v time.Time) Pred    { return Pred{col: h.c, op: opGt, tim: v} }
+func (h NullTimeCol) Gte(v time.Time) Pred   { return Pred{col: h.c, op: opGte, tim: v} }
+func (h NullTimeCol) Lt(v time.Time) Pred    { return Pred{col: h.c, op: opLt, tim: v} }
+func (h NullTimeCol) Lte(v time.Time) Pred   { return Pred{col: h.c, op: opLte, tim: v} }
+func (h NullTimeCol) IsNull() Pred           { return Pred{col: h.c, op: opIsNull} }
+func (h NullTimeCol) IsNotNull() Pred        { return Pred{col: h.c, op: opIsNotNull} }
 
 // Where applies predicates, ANDed together.
 func (q Query) Where(ps ...Pred) Query {
@@ -1013,6 +1079,27 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 22:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
+		case 23:
+			if int(q.nai32) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI32[q.nai32] = p.anyI32
+			q.nai32++
+		case 26:
+			if int(q.nai32) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI32[q.nai32] = p.anyI32
+			q.nai32++
 		}
 		q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 		return
@@ -1155,6 +1242,41 @@ func (q *Query) leaf(p Pred) {
 		}
 		q.strs[q.ns] = p.str
 		q.ns++
+	case 22:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 23:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
+	case 24:
+		if int(q.nbo) >= 4 {
+			q.over = true
+			return
+		}
+		q.bools[q.nbo] = p.bol
+		q.nbo++
+	case 25:
+		if int(q.ntm) >= 4 {
+			q.over = true
+			return
+		}
+		q.tims[q.ntm] = p.tim
+		q.ntm++
+	case 26:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
 	}
 	q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 }
@@ -1338,8 +1460,45 @@ func (q Query) BaseModelIDLike(v string) Query          { return q.Where(BaseMod
 func (q Query) BaseModelIDILike(v string) Query         { return q.Where(BaseModelID.ILike(v)) }
 func (q Query) BaseModelIDIn(v ...string) Query         { return q.Where(BaseModelID.In(v...)) }
 func (q Query) BaseModelIDNotIn(v ...string) Query      { return q.Where(BaseModelID.NotIn(v...)) }
+func (q Query) TrialVersionIDEq(v string) Query         { return q.Where(TrialVersionID.Eq(v)) }
+func (q Query) TrialVersionIDNotEq(v string) Query      { return q.Where(TrialVersionID.NotEq(v)) }
+func (q Query) TrialVersionIDGt(v string) Query         { return q.Where(TrialVersionID.Gt(v)) }
+func (q Query) TrialVersionIDGte(v string) Query        { return q.Where(TrialVersionID.Gte(v)) }
+func (q Query) TrialVersionIDLt(v string) Query         { return q.Where(TrialVersionID.Lt(v)) }
+func (q Query) TrialVersionIDLte(v string) Query        { return q.Where(TrialVersionID.Lte(v)) }
+func (q Query) TrialVersionIDEqLower(v string) Query    { return q.Where(TrialVersionID.EqLower(v)) }
+func (q Query) TrialVersionIDLike(v string) Query       { return q.Where(TrialVersionID.Like(v)) }
+func (q Query) TrialVersionIDILike(v string) Query      { return q.Where(TrialVersionID.ILike(v)) }
+func (q Query) TrialVersionIDIn(v ...string) Query      { return q.Where(TrialVersionID.In(v...)) }
+func (q Query) TrialVersionIDNotIn(v ...string) Query   { return q.Where(TrialVersionID.NotIn(v...)) }
+func (q Query) TrialShareEq(v int32) Query              { return q.Where(TrialShare.Eq(v)) }
+func (q Query) TrialShareNotEq(v int32) Query           { return q.Where(TrialShare.NotEq(v)) }
+func (q Query) TrialShareGt(v int32) Query              { return q.Where(TrialShare.Gt(v)) }
+func (q Query) TrialShareGte(v int32) Query             { return q.Where(TrialShare.Gte(v)) }
+func (q Query) TrialShareLt(v int32) Query              { return q.Where(TrialShare.Lt(v)) }
+func (q Query) TrialShareLte(v int32) Query             { return q.Where(TrialShare.Lte(v)) }
+func (q Query) TrialShareIn(v ...int32) Query           { return q.Where(TrialShare.In(v...)) }
+func (q Query) TrialShareNotIn(v ...int32) Query        { return q.Where(TrialShare.NotIn(v...)) }
+func (q Query) TrialShadowEq(v bool) Query              { return q.Where(TrialShadow.Eq(v)) }
+func (q Query) TrialShadowNotEq(v bool) Query           { return q.Where(TrialShadow.NotEq(v)) }
+func (q Query) TrialStartEq(v time.Time) Query          { return q.Where(TrialStart.Eq(v)) }
+func (q Query) TrialStartNotEq(v time.Time) Query       { return q.Where(TrialStart.NotEq(v)) }
+func (q Query) TrialStartGt(v time.Time) Query          { return q.Where(TrialStart.Gt(v)) }
+func (q Query) TrialStartGte(v time.Time) Query         { return q.Where(TrialStart.Gte(v)) }
+func (q Query) TrialStartLt(v time.Time) Query          { return q.Where(TrialStart.Lt(v)) }
+func (q Query) TrialStartLte(v time.Time) Query         { return q.Where(TrialStart.Lte(v)) }
+func (q Query) TrialStartIsNull() Query                 { return q.Where(TrialStart.IsNull()) }
+func (q Query) TrialStartIsNotNull() Query              { return q.Where(TrialStart.IsNotNull()) }
+func (q Query) NewVersionShareEq(v int32) Query         { return q.Where(NewVersionShare.Eq(v)) }
+func (q Query) NewVersionShareNotEq(v int32) Query      { return q.Where(NewVersionShare.NotEq(v)) }
+func (q Query) NewVersionShareGt(v int32) Query         { return q.Where(NewVersionShare.Gt(v)) }
+func (q Query) NewVersionShareGte(v int32) Query        { return q.Where(NewVersionShare.Gte(v)) }
+func (q Query) NewVersionShareLt(v int32) Query         { return q.Where(NewVersionShare.Lt(v)) }
+func (q Query) NewVersionShareLte(v int32) Query        { return q.Where(NewVersionShare.Lte(v)) }
+func (q Query) NewVersionShareIn(v ...int32) Query      { return q.Where(NewVersionShare.In(v...)) }
+func (q Query) NewVersionShareNotIn(v ...int32) Query   { return q.Where(NewVersionShare.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "version_id", "base_model_id" FROM "models"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "version_id", "base_model_id", "trial_version_id", "trial_share", "trial_shadow", "trial_start", "new_version_share" FROM "models"`
 const countPrefix = `SELECT count(*) FROM "models"`
 const existsPrefix = `SELECT 1 FROM "models"`
 const existsSuffix = ` LIMIT 1`
@@ -1508,6 +1667,36 @@ var orderTable = [nCols][4]string{
 		"\"base_model_id\" ASC NULLS FIRST",
 		"\"base_model_id\" DESC NULLS LAST",
 	},
+	{ // trial_version_id
+		"\"trial_version_id\"",
+		"\"trial_version_id\" DESC",
+		"\"trial_version_id\" ASC NULLS FIRST",
+		"\"trial_version_id\" DESC NULLS LAST",
+	},
+	{ // trial_share
+		"\"trial_share\"",
+		"\"trial_share\" DESC",
+		"\"trial_share\" ASC NULLS FIRST",
+		"\"trial_share\" DESC NULLS LAST",
+	},
+	{ // trial_shadow
+		"\"trial_shadow\"",
+		"\"trial_shadow\" DESC",
+		"\"trial_shadow\" ASC NULLS FIRST",
+		"\"trial_shadow\" DESC NULLS LAST",
+	},
+	{ // trial_start
+		"\"trial_start\"",
+		"\"trial_start\" DESC",
+		"\"trial_start\" ASC NULLS FIRST",
+		"\"trial_start\" DESC NULLS LAST",
+	},
+	{ // new_version_share
+		"\"new_version_share\"",
+		"\"new_version_share\" DESC",
+		"\"new_version_share\" ASC NULLS FIRST",
+		"\"new_version_share\" DESC NULLS LAST",
+	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
@@ -1535,6 +1724,11 @@ var identTable = [nCols]string{
 	"\"on_device\"",
 	"\"version_id\"",
 	"\"base_model_id\"",
+	"\"trial_version_id\"",
+	"\"trial_share\"",
+	"\"trial_shadow\"",
+	"\"trial_start\"",
+	"\"new_version_share\"",
 }
 
 var lowering = runtime.Lowering{
@@ -1567,7 +1761,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [22][28]runtime.Frag{
+var fragTable = [27][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -2228,6 +2422,156 @@ var fragTable = [22][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // trial_version_id
+		{}, // opNone
+		{A: "\"trial_version_id\" = $", B: ""},
+		{A: "\"trial_version_id\" <> $", B: ""},
+		{A: "\"trial_version_id\" > $", B: ""},
+		{A: "\"trial_version_id\" >= $", B: ""},
+		{A: "\"trial_version_id\" < $", B: ""},
+		{A: "\"trial_version_id\" <= $", B: ""},
+		{A: "lower(\"trial_version_id\") = lower($", B: ")"},
+		{A: "\"trial_version_id\" LIKE $", B: ""},
+		{A: "\"trial_version_id\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"trial_version_id\" = ANY($", B: ")"},
+		{A: "\"trial_version_id\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // trial_share
+		{}, // opNone
+		{A: "\"trial_share\" = $", B: ""},
+		{A: "\"trial_share\" <> $", B: ""},
+		{A: "\"trial_share\" > $", B: ""},
+		{A: "\"trial_share\" >= $", B: ""},
+		{A: "\"trial_share\" < $", B: ""},
+		{A: "\"trial_share\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"trial_share\" = ANY($", B: ")"},
+		{A: "\"trial_share\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // trial_shadow
+		{}, // opNone
+		{A: "\"trial_shadow\" = $", B: ""},
+		{A: "\"trial_shadow\" <> $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // trial_start
+		{}, // opNone
+		{A: "\"trial_start\" = $", B: ""},
+		{A: "\"trial_start\" <> $", B: ""},
+		{A: "\"trial_start\" > $", B: ""},
+		{A: "\"trial_start\" >= $", B: ""},
+		{A: "\"trial_start\" < $", B: ""},
+		{A: "\"trial_start\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"trial_start\" IS NULL", B: ""},
+		{A: "\"trial_start\" IS NOT NULL", B: ""},
+		{},
+		{},
+	},
+	{ // new_version_share
+		{}, // opNone
+		{A: "\"new_version_share\" = $", B: ""},
+		{A: "\"new_version_share\" <> $", B: ""},
+		{A: "\"new_version_share\" > $", B: ""},
+		{A: "\"new_version_share\" >= $", B: ""},
+		{A: "\"new_version_share\" < $", B: ""},
+		{A: "\"new_version_share\" <= $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"new_version_share\" = ANY($", B: ")"},
+		{A: "\"new_version_share\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 }
 
 func fragOf(op, col uint32) runtime.Frag {
@@ -2416,6 +2760,11 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.OnDevice = runtime.Bool(rv[19])
 	r.VersionID = sl.Str(rv[20])
 	r.BaseModelID = sl.Str(rv[21])
+	r.TrialVersionID = sl.Str(rv[22])
+	r.TrialShare = runtime.Int4(rv[23])
+	r.TrialShadow = runtime.Bool(rv[24])
+	r.TrialStart = runtime.Nullable(rv[25], runtime.Timestamptz)
+	r.NewVersionShare = runtime.Int4(rv[26])
 	return decErr
 }
 
@@ -2555,6 +2904,18 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 22:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
+			case 23:
+				b.anyI32[nai32] = q.anyI32[nai32]
+				v = append(v, &b.anyI32[nai32])
+				nai32++
+			case 26:
+				b.anyI32[nai32] = q.anyI32[nai32]
+				v = append(v, &b.anyI32[nai32])
+				nai32++
 			}
 			continue
 		}
@@ -2635,6 +2996,26 @@ func (q Query) bindPreds(b *binder) []any {
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
+		case 22:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 23:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
+		case 24:
+			b.bools[nbo] = q.bools[nbo]
+			v = append(v, &b.bools[nbo])
+			nbo++
+		case 25:
+			b.tims[ntm] = q.tims[ntm]
+			v = append(v, &b.tims[ntm])
+			ntm++
+		case 26:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
 		}
 	}
 	b.vals = v
@@ -2940,7 +3321,7 @@ var errPerWorkerOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "models" ("id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "version_id", "base_model_id") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "version_id", "base_model_id"`
+const insertSQL = `INSERT INTO "models" ("id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "version_id", "base_model_id", "trial_version_id", "trial_share", "trial_shadow", "trial_start", "new_version_share") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "size_bytes", "sha256", "update_time", "input_shape", "labels", "features", "columns", "job_id", "accuracy", "worker_id", "instructions", "temperature", "max_tokens", "on_device", "version_id", "base_model_id", "trial_version_id", "trial_share", "trial_shadow", "trial_start", "new_version_share"`
 
 const updatePrefix = `UPDATE "models" SET `
 const deletePrefix = `DELETE FROM "models"`
@@ -2948,50 +3329,60 @@ const deletePrefix = `DELETE FROM "models"`
 // Dirty bits. One per updatable column; the set of them is an UPDATE's
 // identity, exactly as a token stream is a SELECT's.
 const (
-	dName         uint64 = 1 << 0
-	dDescription  uint64 = 1 << 1
-	dArchitecture uint64 = 1 << 2
-	dSizeBytes    uint64 = 1 << 3
-	dSha256       uint64 = 1 << 4
-	dUpdateTime   uint64 = 1 << 5
-	dInputShape   uint64 = 1 << 6
-	dLabels       uint64 = 1 << 7
-	dFeatures     uint64 = 1 << 8
-	dColumns      uint64 = 1 << 9
-	dJobID        uint64 = 1 << 10
-	dAccuracy     uint64 = 1 << 11
-	dWorkerID     uint64 = 1 << 12
-	dInstructions uint64 = 1 << 13
-	dTemperature  uint64 = 1 << 14
-	dMaxTokens    uint64 = 1 << 15
-	dOnDevice     uint64 = 1 << 16
-	dVersionID    uint64 = 1 << 17
-	dBaseModelID  uint64 = 1 << 18
+	dName            uint64 = 1 << 0
+	dDescription     uint64 = 1 << 1
+	dArchitecture    uint64 = 1 << 2
+	dSizeBytes       uint64 = 1 << 3
+	dSha256          uint64 = 1 << 4
+	dUpdateTime      uint64 = 1 << 5
+	dInputShape      uint64 = 1 << 6
+	dLabels          uint64 = 1 << 7
+	dFeatures        uint64 = 1 << 8
+	dColumns         uint64 = 1 << 9
+	dJobID           uint64 = 1 << 10
+	dAccuracy        uint64 = 1 << 11
+	dWorkerID        uint64 = 1 << 12
+	dInstructions    uint64 = 1 << 13
+	dTemperature     uint64 = 1 << 14
+	dMaxTokens       uint64 = 1 << 15
+	dOnDevice        uint64 = 1 << 16
+	dVersionID       uint64 = 1 << 17
+	dBaseModelID     uint64 = 1 << 18
+	dTrialVersionID  uint64 = 1 << 19
+	dTrialShare      uint64 = 1 << 20
+	dTrialShadow     uint64 = 1 << 21
+	dTrialStart      uint64 = 1 << 22
+	dNewVersionShare uint64 = 1 << 23
 )
 
-const nUpdatable = 19
+const nUpdatable = 24
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
-	{A: "\"name\" = $", B: ""},          // name
-	{A: "\"description\" = $", B: ""},   // description
-	{A: "\"architecture\" = $", B: ""},  // architecture
-	{A: "\"size_bytes\" = $", B: ""},    // size_bytes
-	{A: "\"sha256\" = $", B: ""},        // sha256
-	{A: "\"update_time\" = $", B: ""},   // update_time
-	{A: "\"input_shape\" = $", B: ""},   // input_shape
-	{A: "\"labels\" = $", B: ""},        // labels
-	{A: "\"features\" = $", B: ""},      // features
-	{A: "\"columns\" = $", B: ""},       // columns
-	{A: "\"job_id\" = $", B: ""},        // job_id
-	{A: "\"accuracy\" = $", B: ""},      // accuracy
-	{A: "\"worker_id\" = $", B: ""},     // worker_id
-	{A: "\"instructions\" = $", B: ""},  // instructions
-	{A: "\"temperature\" = $", B: ""},   // temperature
-	{A: "\"max_tokens\" = $", B: ""},    // max_tokens
-	{A: "\"on_device\" = $", B: ""},     // on_device
-	{A: "\"version_id\" = $", B: ""},    // version_id
-	{A: "\"base_model_id\" = $", B: ""}, // base_model_id
+	{A: "\"name\" = $", B: ""},              // name
+	{A: "\"description\" = $", B: ""},       // description
+	{A: "\"architecture\" = $", B: ""},      // architecture
+	{A: "\"size_bytes\" = $", B: ""},        // size_bytes
+	{A: "\"sha256\" = $", B: ""},            // sha256
+	{A: "\"update_time\" = $", B: ""},       // update_time
+	{A: "\"input_shape\" = $", B: ""},       // input_shape
+	{A: "\"labels\" = $", B: ""},            // labels
+	{A: "\"features\" = $", B: ""},          // features
+	{A: "\"columns\" = $", B: ""},           // columns
+	{A: "\"job_id\" = $", B: ""},            // job_id
+	{A: "\"accuracy\" = $", B: ""},          // accuracy
+	{A: "\"worker_id\" = $", B: ""},         // worker_id
+	{A: "\"instructions\" = $", B: ""},      // instructions
+	{A: "\"temperature\" = $", B: ""},       // temperature
+	{A: "\"max_tokens\" = $", B: ""},        // max_tokens
+	{A: "\"on_device\" = $", B: ""},         // on_device
+	{A: "\"version_id\" = $", B: ""},        // version_id
+	{A: "\"base_model_id\" = $", B: ""},     // base_model_id
+	{A: "\"trial_version_id\" = $", B: ""},  // trial_version_id
+	{A: "\"trial_share\" = $", B: ""},       // trial_share
+	{A: "\"trial_shadow\" = $", B: ""},      // trial_shadow
+	{A: "\"trial_start\" = $", B: ""},       // trial_start
+	{A: "\"new_version_share\" = $", B: ""}, // new_version_share
 }
 
 // exprFrags is the SERVER-side assignment each column may take instead
@@ -3017,6 +3408,11 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{}, // on_device has no server-side form
 	{}, // version_id has no server-side form
 	{}, // base_model_id has no server-side form
+	{}, // trial_version_id has no server-side form
+	{A: "\"trial_share\" = \"trial_share\" + 1", B: ""}, // trial_share = its own value plus one
+	{},                                    // trial_shadow has no server-side form
+	{A: "\"trial_start\" = now()", B: ""}, // trial_start = the database's clock
+	{A: "\"new_version_share\" = \"new_version_share\" + 1", B: ""}, // new_version_share = its own value plus one
 }
 
 // pkFrags addresses one row.
@@ -3028,31 +3424,36 @@ var pkFrags = [1]runtime.Frag{
 // assigned, so every other column takes its database default — which is
 // the only way a DEFAULT gen_random_uuid() can ever fire.
 const (
-	iID           uint64 = 1 << 0
-	iCreateTime   uint64 = 1 << 1
-	iName         uint64 = 1 << 2
-	iTeamID       uint64 = 1 << 3
-	iDescription  uint64 = 1 << 4
-	iArchitecture uint64 = 1 << 5
-	iSizeBytes    uint64 = 1 << 6
-	iSha256       uint64 = 1 << 7
-	iUpdateTime   uint64 = 1 << 8
-	iInputShape   uint64 = 1 << 9
-	iLabels       uint64 = 1 << 10
-	iFeatures     uint64 = 1 << 11
-	iColumns      uint64 = 1 << 12
-	iJobID        uint64 = 1 << 13
-	iAccuracy     uint64 = 1 << 14
-	iWorkerID     uint64 = 1 << 15
-	iInstructions uint64 = 1 << 16
-	iTemperature  uint64 = 1 << 17
-	iMaxTokens    uint64 = 1 << 18
-	iOnDevice     uint64 = 1 << 19
-	iVersionID    uint64 = 1 << 20
-	iBaseModelID  uint64 = 1 << 21
+	iID              uint64 = 1 << 0
+	iCreateTime      uint64 = 1 << 1
+	iName            uint64 = 1 << 2
+	iTeamID          uint64 = 1 << 3
+	iDescription     uint64 = 1 << 4
+	iArchitecture    uint64 = 1 << 5
+	iSizeBytes       uint64 = 1 << 6
+	iSha256          uint64 = 1 << 7
+	iUpdateTime      uint64 = 1 << 8
+	iInputShape      uint64 = 1 << 9
+	iLabels          uint64 = 1 << 10
+	iFeatures        uint64 = 1 << 11
+	iColumns         uint64 = 1 << 12
+	iJobID           uint64 = 1 << 13
+	iAccuracy        uint64 = 1 << 14
+	iWorkerID        uint64 = 1 << 15
+	iInstructions    uint64 = 1 << 16
+	iTemperature     uint64 = 1 << 17
+	iMaxTokens       uint64 = 1 << 18
+	iOnDevice        uint64 = 1 << 19
+	iVersionID       uint64 = 1 << 20
+	iBaseModelID     uint64 = 1 << 21
+	iTrialVersionID  uint64 = 1 << 22
+	iTrialShare      uint64 = 1 << 23
+	iTrialShadow     uint64 = 1 << 24
+	iTrialStart      uint64 = 1 << 25
+	iNewVersionShare uint64 = 1 << 26
 )
 
-const nInsertable = 22
+const nInsertable = 27
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -3078,6 +3479,11 @@ var insCols = [nInsertable]string{
 	"\"on_device\"",
 	"\"version_id\"",
 	"\"base_model_id\"",
+	"\"trial_version_id\"",
+	"\"trial_share\"",
+	"\"trial_shadow\"",
+	"\"trial_start\"",
+	"\"new_version_share\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -3086,7 +3492,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"models\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\", \"version_id\", \"base_model_id\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\", \"version_id\", \"base_model_id\", \"trial_version_id\", \"trial_share\", \"trial_shadow\", \"trial_start\", \"new_version_share\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -3105,7 +3511,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\", \"version_id\", \"base_model_id\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"size_bytes\", \"sha256\", \"update_time\", \"input_shape\", \"labels\", \"features\", \"columns\", \"job_id\", \"accuracy\", \"worker_id\", \"instructions\", \"temperature\", \"max_tokens\", \"on_device\", \"version_id\", \"base_model_id\", \"trial_version_id\", \"trial_share\", \"trial_shadow\", \"trial_start\", \"new_version_share\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -3296,6 +3702,75 @@ func (m *Mut) SetBaseModelID(v string) {
 	m.row.BaseModelID = v
 	m.dirty |= dBaseModelID
 	m.expr &^= dBaseModelID
+}
+
+func (m *Mut) SetTrialVersionID(v string) {
+	m.row.TrialVersionID = v
+	m.dirty |= dTrialVersionID
+	m.expr &^= dTrialVersionID
+}
+
+func (m *Mut) SetTrialShare(v int32) {
+	m.row.TrialShare = v
+	m.dirty |= dTrialShare
+	m.expr &^= dTrialShare
+}
+
+// IncTrialShare adds one to the column's OWN value, in the database.
+//
+// Computing it in Go makes it a read-modify-write: two callers
+// who both read N both write N+1, and one increment is lost
+// with nothing to show that it happened.
+func (m *Mut) IncTrialShare() {
+	m.expr |= dTrialShare
+	m.dirty &^= dTrialShare
+}
+
+func (m *Mut) SetTrialShadow(v bool) {
+	m.row.TrialShadow = v
+	m.dirty |= dTrialShadow
+	m.expr &^= dTrialShadow
+}
+
+func (m *Mut) SetTrialStart(v time.Time) {
+	m.row.TrialStart = runtime.Null[time.Time]{V: v, Valid: true}
+	m.dirty |= dTrialStart
+	m.expr &^= dTrialStart
+}
+
+// SetTrialStartNow assigns the database's clock, not this process's.
+//
+// Binding time.Now() instead would record when THIS server
+// thought it was. Servers skew, so rows written seconds apart
+// can land out of order, and an event stamped by a fast clock
+// reads as preceding the thing that caused it.
+func (m *Mut) SetTrialStartNow() {
+	m.expr |= dTrialStart
+	m.dirty &^= dTrialStart
+}
+
+// SetTrialStartNull writes SQL NULL. It is a separate method because a
+// zero value and an absent value are different facts.
+func (m *Mut) SetTrialStartNull() {
+	m.row.TrialStart = runtime.Null[time.Time]{}
+	m.dirty |= dTrialStart
+	m.expr &^= dTrialStart
+}
+
+func (m *Mut) SetNewVersionShare(v int32) {
+	m.row.NewVersionShare = v
+	m.dirty |= dNewVersionShare
+	m.expr &^= dNewVersionShare
+}
+
+// IncNewVersionShare adds one to the column's OWN value, in the database.
+//
+// Computing it in Go makes it a read-modify-write: two callers
+// who both read N both write N+1, and one increment is lost
+// with nothing to show that it happened.
+func (m *Mut) IncNewVersionShare() {
+	m.expr |= dNewVersionShare
+	m.dirty &^= dNewVersionShare
 }
 
 // Ins stages a new row. Unlike Mut it has a setter for every insertable
@@ -3508,6 +3983,70 @@ func (n *Ins) SetBaseModelID(v string) {
 	n.set |= iBaseModelID
 }
 
+func (n *Ins) SetTrialVersionID(v string) {
+	n.row.TrialVersionID = v
+	n.set |= iTrialVersionID
+}
+
+func (n *Ins) SetTrialShare(v int32) {
+	n.row.TrialShare = v
+	n.set |= iTrialShare
+	n.add &^= iTrialShare
+}
+
+// AddTrialShareOnConflict inserts v, or — when the insert conflicts and an
+// OnConflict… target updates the row already there — ADDS v to it:
+//
+//	"trial_share" = "models"."trial_share" + EXCLUDED."trial_share"
+//
+// The sum is the database's, in the same statement, so two writers
+// counting into one row both land. Reading the row, adding in Go and
+// upserting the total loses one of them, with nothing to show it.
+// Without an OnConflict target, or with DoNothing, it is SetTrialShare.
+func (n *Ins) AddTrialShareOnConflict(v int32) {
+	n.row.TrialShare = v
+	n.set |= iTrialShare
+	n.add |= iTrialShare
+}
+
+func (n *Ins) SetTrialShadow(v bool) {
+	n.row.TrialShadow = v
+	n.set |= iTrialShadow
+}
+
+func (n *Ins) SetTrialStart(v time.Time) {
+	n.row.TrialStart = runtime.Null[time.Time]{V: v, Valid: true}
+	n.set |= iTrialStart
+}
+
+// SetTrialStartNull writes SQL NULL explicitly, which is not the same as
+// leaving the column unset and taking its default.
+func (n *Ins) SetTrialStartNull() {
+	n.row.TrialStart = runtime.Null[time.Time]{}
+	n.set |= iTrialStart
+}
+
+func (n *Ins) SetNewVersionShare(v int32) {
+	n.row.NewVersionShare = v
+	n.set |= iNewVersionShare
+	n.add &^= iNewVersionShare
+}
+
+// AddNewVersionShareOnConflict inserts v, or — when the insert conflicts and an
+// OnConflict… target updates the row already there — ADDS v to it:
+//
+//	"new_version_share" = "models"."new_version_share" + EXCLUDED."new_version_share"
+//
+// The sum is the database's, in the same statement, so two writers
+// counting into one row both land. Reading the row, adding in Go and
+// upserting the total loses one of them, with nothing to show it.
+// Without an OnConflict target, or with DoNothing, it is SetNewVersionShare.
+func (n *Ins) AddNewVersionShareOnConflict(v int32) {
+	n.row.NewVersionShare = v
+	n.set |= iNewVersionShare
+	n.add |= iNewVersionShare
+}
+
 // The conflict encoding. One byte holds both which unique index an
 // upsert names and what it does on collision, so the insert statement
 // cache stays keyed by one mask and one byte:
@@ -3557,7 +4096,7 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 19)
+	set := make([]string, 0, 24)
 	switch i {
 	case 0:
 		if mask&(1<<2) != 0 {
@@ -3616,6 +4155,21 @@ func assignable(i uint8, mask uint64) []string {
 		}
 		if mask&(1<<21) != 0 {
 			set = append(set, "base_model_id")
+		}
+		if mask&(1<<22) != 0 {
+			set = append(set, "trial_version_id")
+		}
+		if mask&(1<<23) != 0 {
+			set = append(set, "trial_share")
+		}
+		if mask&(1<<24) != 0 {
+			set = append(set, "trial_shadow")
+		}
+		if mask&(1<<25) != 0 {
+			set = append(set, "trial_start")
+		}
+		if mask&(1<<26) != 0 {
+			set = append(set, "new_version_share")
 		}
 	}
 	return set
@@ -3682,30 +4236,39 @@ func assignAdded(c string, add uint64) (string, bool) {
 		return "\"temperature\" = \"models\".\"temperature\" + EXCLUDED.\"temperature\"", add&iTemperature != 0
 	case "max_tokens":
 		return "\"max_tokens\" = \"models\".\"max_tokens\" + EXCLUDED.\"max_tokens\"", add&iMaxTokens != 0
+	case "trial_share":
+		return "\"trial_share\" = \"models\".\"trial_share\" + EXCLUDED.\"trial_share\"", add&iTrialShare != 0
+	case "new_version_share":
+		return "\"new_version_share\" = \"models\".\"new_version_share\" + EXCLUDED.\"new_version_share\"", add&iNewVersionShare != 0
 	}
 	return "", false
 }
 
 var assignFor = map[string]string{
-	"name":          "\"name\" = EXCLUDED.\"name\"",
-	"description":   "\"description\" = EXCLUDED.\"description\"",
-	"architecture":  "\"architecture\" = EXCLUDED.\"architecture\"",
-	"size_bytes":    "\"size_bytes\" = EXCLUDED.\"size_bytes\"",
-	"sha256":        "\"sha256\" = EXCLUDED.\"sha256\"",
-	"update_time":   "\"update_time\" = EXCLUDED.\"update_time\"",
-	"input_shape":   "\"input_shape\" = EXCLUDED.\"input_shape\"",
-	"labels":        "\"labels\" = EXCLUDED.\"labels\"",
-	"features":      "\"features\" = EXCLUDED.\"features\"",
-	"columns":       "\"columns\" = EXCLUDED.\"columns\"",
-	"job_id":        "\"job_id\" = EXCLUDED.\"job_id\"",
-	"accuracy":      "\"accuracy\" = EXCLUDED.\"accuracy\"",
-	"worker_id":     "\"worker_id\" = EXCLUDED.\"worker_id\"",
-	"instructions":  "\"instructions\" = EXCLUDED.\"instructions\"",
-	"temperature":   "\"temperature\" = EXCLUDED.\"temperature\"",
-	"max_tokens":    "\"max_tokens\" = EXCLUDED.\"max_tokens\"",
-	"on_device":     "\"on_device\" = EXCLUDED.\"on_device\"",
-	"version_id":    "\"version_id\" = EXCLUDED.\"version_id\"",
-	"base_model_id": "\"base_model_id\" = EXCLUDED.\"base_model_id\"",
+	"name":              "\"name\" = EXCLUDED.\"name\"",
+	"description":       "\"description\" = EXCLUDED.\"description\"",
+	"architecture":      "\"architecture\" = EXCLUDED.\"architecture\"",
+	"size_bytes":        "\"size_bytes\" = EXCLUDED.\"size_bytes\"",
+	"sha256":            "\"sha256\" = EXCLUDED.\"sha256\"",
+	"update_time":       "\"update_time\" = EXCLUDED.\"update_time\"",
+	"input_shape":       "\"input_shape\" = EXCLUDED.\"input_shape\"",
+	"labels":            "\"labels\" = EXCLUDED.\"labels\"",
+	"features":          "\"features\" = EXCLUDED.\"features\"",
+	"columns":           "\"columns\" = EXCLUDED.\"columns\"",
+	"job_id":            "\"job_id\" = EXCLUDED.\"job_id\"",
+	"accuracy":          "\"accuracy\" = EXCLUDED.\"accuracy\"",
+	"worker_id":         "\"worker_id\" = EXCLUDED.\"worker_id\"",
+	"instructions":      "\"instructions\" = EXCLUDED.\"instructions\"",
+	"temperature":       "\"temperature\" = EXCLUDED.\"temperature\"",
+	"max_tokens":        "\"max_tokens\" = EXCLUDED.\"max_tokens\"",
+	"on_device":         "\"on_device\" = EXCLUDED.\"on_device\"",
+	"version_id":        "\"version_id\" = EXCLUDED.\"version_id\"",
+	"base_model_id":     "\"base_model_id\" = EXCLUDED.\"base_model_id\"",
+	"trial_version_id":  "\"trial_version_id\" = EXCLUDED.\"trial_version_id\"",
+	"trial_share":       "\"trial_share\" = EXCLUDED.\"trial_share\"",
+	"trial_shadow":      "\"trial_shadow\" = EXCLUDED.\"trial_shadow\"",
+	"trial_start":       "\"trial_start\" = EXCLUDED.\"trial_start\"",
+	"new_version_share": "\"new_version_share\" = EXCLUDED.\"new_version_share\"",
 }
 
 func assignExcluded(c string) string { return assignFor[c] }
@@ -3800,6 +4363,16 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 			args = append(args, n.row.VersionID)
 		case 21:
 			args = append(args, n.row.BaseModelID)
+		case 22:
+			args = append(args, n.row.TrialVersionID)
+		case 23:
+			args = append(args, n.row.TrialShare)
+		case 24:
+			args = append(args, n.row.TrialShadow)
+		case 25:
+			args = append(args, n.row.TrialStart.Arg())
+		case 26:
+			args = append(args, n.row.NewVersionShare)
 		}
 	}
 	var out Row
@@ -3837,7 +4410,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 22)
+	args := make([]any, 0, 27)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -3860,6 +4433,11 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.OnDevice)
 	args = append(args, r.VersionID)
 	args = append(args, r.BaseModelID)
+	args = append(args, r.TrialVersionID)
+	args = append(args, r.TrialShare)
+	args = append(args, r.TrialShadow)
+	args = append(args, r.TrialStart.Arg())
+	args = append(args, r.NewVersionShare)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -3908,13 +4486,18 @@ var copyCols = []string{
 	"on_device",
 	"version_id",
 	"base_model_id",
+	"trial_version_id",
+	"trial_share",
+	"trial_shadow",
+	"trial_start",
+	"new_version_share",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [22]any
+	buf  [27]any
 }
 
 func (s *rowSource) Next() bool {
@@ -3954,6 +4537,11 @@ func (s *rowSource) Values() []any {
 	s.buf[19] = &r.OnDevice
 	s.buf[20] = &r.VersionID
 	s.buf[21] = &r.BaseModelID
+	s.buf[22] = &r.TrialVersionID
+	s.buf[23] = &r.TrialShare
+	s.buf[24] = &r.TrialShadow
+	s.buf[25] = r.TrialStart.Ptr()
+	s.buf[26] = &r.NewVersionShare
 	return s.buf[:]
 }
 
@@ -4006,8 +4594,13 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 19
 	mask |= 1 << 20
 	mask |= 1 << 21
+	mask |= 1 << 22
+	mask |= 1 << 23
+	mask |= 1 << 24
+	mask |= 1 << 25
+	mask |= 1 << 26
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 22)
+	args := make([]any, 0, 27)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -4030,6 +4623,11 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.OnDevice)
 	args = append(args, r.VersionID)
 	args = append(args, r.BaseModelID)
+	args = append(args, r.TrialVersionID)
+	args = append(args, r.TrialShare)
+	args = append(args, r.TrialShadow)
+	args = append(args, r.TrialStart.Arg())
+	args = append(args, r.NewVersionShare)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -4107,6 +4705,16 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 			args = append(args, n.row.VersionID)
 		case 21:
 			args = append(args, n.row.BaseModelID)
+		case 22:
+			args = append(args, n.row.TrialVersionID)
+		case 23:
+			args = append(args, n.row.TrialShare)
+		case 24:
+			args = append(args, n.row.TrialShadow)
+		case 25:
+			args = append(args, n.row.TrialStart.Arg())
+		case 26:
+			args = append(args, n.row.NewVersionShare)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
@@ -4200,6 +4808,16 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 			args = append(args, m.row.VersionID)
 		case 18:
 			args = append(args, m.row.BaseModelID)
+		case 19:
+			args = append(args, m.row.TrialVersionID)
+		case 20:
+			args = append(args, m.row.TrialShare)
+		case 21:
+			args = append(args, m.row.TrialShadow)
+		case 22:
+			args = append(args, m.row.TrialStart.Arg())
+		case 23:
+			args = append(args, m.row.NewVersionShare)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -4320,6 +4938,16 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 			args = append(args, m.row.VersionID)
 		case 18:
 			args = append(args, m.row.BaseModelID)
+		case 19:
+			args = append(args, m.row.TrialVersionID)
+		case 20:
+			args = append(args, m.row.TrialShare)
+		case 21:
+			args = append(args, m.row.TrialShadow)
+		case 22:
+			args = append(args, m.row.TrialStart.Arg())
+		case 23:
+			args = append(args, m.row.NewVersionShare)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -4506,6 +5134,16 @@ func (q Query) UpdateAll(ctx context.Context, ex runtime.Executor, m Mut) (int64
 			args = append(args, m.row.VersionID)
 		case 18:
 			args = append(args, m.row.BaseModelID)
+		case 19:
+			args = append(args, m.row.TrialVersionID)
+		case 20:
+			args = append(args, m.row.TrialShare)
+		case 21:
+			args = append(args, m.row.TrialShadow)
+		case 22:
+			args = append(args, m.row.TrialStart.Arg())
+		case 23:
+			args = append(args, m.row.NewVersionShare)
 		}
 	}
 	args = append(args, q.bindPreds(b)...)

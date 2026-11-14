@@ -715,6 +715,32 @@ In the API, `ModelService.ListModelVersions` lists them and
 `ModelService.UseModelVersion` puts one live; the switch is in the audit
 log and sends a `model.updated` webhook with the version.
 
+#### Try a version on part of the questions first
+
+**Try it first** on a version puts it on trial instead of live for
+everyone. It either answers a share of the questions (5, 10, 25 or 50%),
+and those apps get its answer, or answers a copy of every question **on
+the side**, while apps keep getting the live version's answers. The
+Versions tab then shows both versions next to each other since the trial
+began: how many answers each gave, how many of those your apps sent the
+right answer back for, and how many it got right; on the side, also how
+often the two agreed. With 20 checked answers each it says whether the new
+version looks ready. **Answer every question with version N** puts it live
+(ending the trial), and **Stop trying it** goes back to the live version
+alone. Only answers from `Predict` take part: scoring a list, explanations
+and on-device answers use the live version.
+
+A model can also try what keep-learning makes: set **When it keeps
+learning and does at least as well** to try new versions on 10, 25 or 50%
+of the questions first, and a better pass starts a trial instead of going
+live.
+
+In the API: `ModelService.StartModelTrial` (a version, and a `share` or
+`shadow`), `StopModelTrial`, `GetModelTrial` for the results, and
+`SetNewVersionShare` for keep-learning. A model's `trial` field says what
+is on trial. Feedback (`SendFeedback`) on a live answer also judges the
+shadow answer to the same question.
+
 ### How a model does in use
 
 A held-out score says how a model did on examples it was trained with;

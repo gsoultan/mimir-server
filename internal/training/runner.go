@@ -627,7 +627,20 @@ func (r *Runner) train(ctx context.Context, j store.Job) (string, error) {
 			note = fmt.Sprintf("Kept the previous version: it got %.0f%% right, this pass %.0f%%.", base.Accuracy*100, m.Accuracy*100)
 			kept = "Not put live: it did worse than the version answering then."
 		}
+		// A model set to try new versions first puts a better pass on
+		// trial on a share of its questions, for someone to put live.
+		try := live && base.NewVersionShare > 0
+		if try {
+			live, kept = false, "Made to be tried on part of the questions before it goes live."
+			note = fmt.Sprintf("Trying it on %d%% of the questions first; put it live from the model's page.", base.NewVersionShare)
+		}
 		v, err := r.st.AddVersion(ctx, base.ID, m, res.Weights, live, kept)
+		if err == nil && try {
+			if _, err := r.st.StartTrial(ctx, base.ID, v.ID, base.NewVersionShare, false); err != nil {
+				r.log.Warn("training: couldn't start the new version's trial", "model_id", base.ID, "err", err)
+				note = "Kept it as a new version, but couldn't start trying it; put it live from the model's page."
+			}
+		}
 		if err == nil {
 			setNote(fmt.Sprintf("%s This pass is version %d.", note, v.Number))
 			return base.ID, nil

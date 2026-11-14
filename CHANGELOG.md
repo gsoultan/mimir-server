@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Try new versions first
+
+- A model version can be tried on part of the questions (5 to 50%) or on
+  a copy of every question on the side, before it answers everyone. The
+  Versions tab compares it with the live version on real answers, and puts
+  it live or stops the trial in one click.
+- Keep-learning can try each better pass on a share of the questions
+  first, instead of putting it live at once.
+
 ### Warn when the questions change
 
 - Every hour the server compares the last week's questions to each table

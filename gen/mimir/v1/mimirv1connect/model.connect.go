@@ -72,6 +72,18 @@ const (
 	// ModelServiceGetModelQualityProcedure is the fully-qualified name of the ModelService's
 	// GetModelQuality RPC.
 	ModelServiceGetModelQualityProcedure = "/mimir.v1.ModelService/GetModelQuality"
+	// ModelServiceStartModelTrialProcedure is the fully-qualified name of the ModelService's
+	// StartModelTrial RPC.
+	ModelServiceStartModelTrialProcedure = "/mimir.v1.ModelService/StartModelTrial"
+	// ModelServiceStopModelTrialProcedure is the fully-qualified name of the ModelService's
+	// StopModelTrial RPC.
+	ModelServiceStopModelTrialProcedure = "/mimir.v1.ModelService/StopModelTrial"
+	// ModelServiceGetModelTrialProcedure is the fully-qualified name of the ModelService's
+	// GetModelTrial RPC.
+	ModelServiceGetModelTrialProcedure = "/mimir.v1.ModelService/GetModelTrial"
+	// ModelServiceSetNewVersionShareProcedure is the fully-qualified name of the ModelService's
+	// SetNewVersionShare RPC.
+	ModelServiceSetNewVersionShareProcedure = "/mimir.v1.ModelService/SetNewVersionShare"
 	// PredictServicePredictProcedure is the fully-qualified name of the PredictService's Predict RPC.
 	PredictServicePredictProcedure = "/mimir.v1.PredictService/Predict"
 	// PredictServiceGenerateProcedure is the fully-qualified name of the PredictService's Generate RPC.
@@ -128,6 +140,23 @@ type ModelServiceClient interface {
 	// many of those it got right, and whether the questions it is asked
 	// still look like the examples it learned from.
 	GetModelQuality(context.Context, *connect.Request[v1.GetModelQualityRequest]) (*connect.Response[v1.GetModelQualityResponse], error)
+	// StartModelTrial tries one of a model's versions on part of its
+	// questions before it goes live for everyone: it answers a share of
+	// them, or a copy of every one (shadow) while the live version's answer
+	// is the one sent. It replaces any trial the model had. Only answers
+	// from PredictService.Predict take part.
+	StartModelTrial(context.Context, *connect.Request[v1.StartModelTrialRequest]) (*connect.Response[v1.StartModelTrialResponse], error)
+	// StopModelTrial ends a model's trial, leaving the live version answering
+	// every question. To put the version tried live instead, call
+	// UseModelVersion with it, which ends the trial too.
+	StopModelTrial(context.Context, *connect.Request[v1.StopModelTrialRequest]) (*connect.Response[v1.StopModelTrialResponse], error)
+	// GetModelTrial says how the version on trial is doing beside the live
+	// one since the trial started.
+	GetModelTrial(context.Context, *connect.Request[v1.GetModelTrialRequest]) (*connect.Response[v1.GetModelTrialResponse], error)
+	// SetNewVersionShare says whether a version keep-learning makes, when it
+	// does at least as well, goes live at once or is first tried on a share
+	// of the questions.
+	SetNewVersionShare(context.Context, *connect.Request[v1.SetNewVersionShareRequest]) (*connect.Response[v1.SetNewVersionShareResponse], error)
 }
 
 // NewModelServiceClient constructs a client for the mimir.v1.ModelService service. By default, it
@@ -225,6 +254,31 @@ func NewModelServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		startModelTrial: connect.NewClient[v1.StartModelTrialRequest, v1.StartModelTrialResponse](
+			httpClient,
+			baseURL+ModelServiceStartModelTrialProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("StartModelTrial")),
+			connect.WithClientOptions(opts...),
+		),
+		stopModelTrial: connect.NewClient[v1.StopModelTrialRequest, v1.StopModelTrialResponse](
+			httpClient,
+			baseURL+ModelServiceStopModelTrialProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("StopModelTrial")),
+			connect.WithClientOptions(opts...),
+		),
+		getModelTrial: connect.NewClient[v1.GetModelTrialRequest, v1.GetModelTrialResponse](
+			httpClient,
+			baseURL+ModelServiceGetModelTrialProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("GetModelTrial")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		setNewVersionShare: connect.NewClient[v1.SetNewVersionShareRequest, v1.SetNewVersionShareResponse](
+			httpClient,
+			baseURL+ModelServiceSetNewVersionShareProcedure,
+			connect.WithSchema(modelServiceMethods.ByName("SetNewVersionShare")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -243,6 +297,10 @@ type modelServiceClient struct {
 	listModelVersions  *connect.Client[v1.ListModelVersionsRequest, v1.ListModelVersionsResponse]
 	useModelVersion    *connect.Client[v1.UseModelVersionRequest, v1.UseModelVersionResponse]
 	getModelQuality    *connect.Client[v1.GetModelQualityRequest, v1.GetModelQualityResponse]
+	startModelTrial    *connect.Client[v1.StartModelTrialRequest, v1.StartModelTrialResponse]
+	stopModelTrial     *connect.Client[v1.StopModelTrialRequest, v1.StopModelTrialResponse]
+	getModelTrial      *connect.Client[v1.GetModelTrialRequest, v1.GetModelTrialResponse]
+	setNewVersionShare *connect.Client[v1.SetNewVersionShareRequest, v1.SetNewVersionShareResponse]
 }
 
 // ListArchitectures calls mimir.v1.ModelService.ListArchitectures.
@@ -310,6 +368,26 @@ func (c *modelServiceClient) GetModelQuality(ctx context.Context, req *connect.R
 	return c.getModelQuality.CallUnary(ctx, req)
 }
 
+// StartModelTrial calls mimir.v1.ModelService.StartModelTrial.
+func (c *modelServiceClient) StartModelTrial(ctx context.Context, req *connect.Request[v1.StartModelTrialRequest]) (*connect.Response[v1.StartModelTrialResponse], error) {
+	return c.startModelTrial.CallUnary(ctx, req)
+}
+
+// StopModelTrial calls mimir.v1.ModelService.StopModelTrial.
+func (c *modelServiceClient) StopModelTrial(ctx context.Context, req *connect.Request[v1.StopModelTrialRequest]) (*connect.Response[v1.StopModelTrialResponse], error) {
+	return c.stopModelTrial.CallUnary(ctx, req)
+}
+
+// GetModelTrial calls mimir.v1.ModelService.GetModelTrial.
+func (c *modelServiceClient) GetModelTrial(ctx context.Context, req *connect.Request[v1.GetModelTrialRequest]) (*connect.Response[v1.GetModelTrialResponse], error) {
+	return c.getModelTrial.CallUnary(ctx, req)
+}
+
+// SetNewVersionShare calls mimir.v1.ModelService.SetNewVersionShare.
+func (c *modelServiceClient) SetNewVersionShare(ctx context.Context, req *connect.Request[v1.SetNewVersionShareRequest]) (*connect.Response[v1.SetNewVersionShareResponse], error) {
+	return c.setNewVersionShare.CallUnary(ctx, req)
+}
+
 // ModelServiceHandler is an implementation of the mimir.v1.ModelService service.
 type ModelServiceHandler interface {
 	// ListArchitectures returns the model architectures this server can build.
@@ -347,6 +425,23 @@ type ModelServiceHandler interface {
 	// many of those it got right, and whether the questions it is asked
 	// still look like the examples it learned from.
 	GetModelQuality(context.Context, *connect.Request[v1.GetModelQualityRequest]) (*connect.Response[v1.GetModelQualityResponse], error)
+	// StartModelTrial tries one of a model's versions on part of its
+	// questions before it goes live for everyone: it answers a share of
+	// them, or a copy of every one (shadow) while the live version's answer
+	// is the one sent. It replaces any trial the model had. Only answers
+	// from PredictService.Predict take part.
+	StartModelTrial(context.Context, *connect.Request[v1.StartModelTrialRequest]) (*connect.Response[v1.StartModelTrialResponse], error)
+	// StopModelTrial ends a model's trial, leaving the live version answering
+	// every question. To put the version tried live instead, call
+	// UseModelVersion with it, which ends the trial too.
+	StopModelTrial(context.Context, *connect.Request[v1.StopModelTrialRequest]) (*connect.Response[v1.StopModelTrialResponse], error)
+	// GetModelTrial says how the version on trial is doing beside the live
+	// one since the trial started.
+	GetModelTrial(context.Context, *connect.Request[v1.GetModelTrialRequest]) (*connect.Response[v1.GetModelTrialResponse], error)
+	// SetNewVersionShare says whether a version keep-learning makes, when it
+	// does at least as well, goes live at once or is first tried on a share
+	// of the questions.
+	SetNewVersionShare(context.Context, *connect.Request[v1.SetNewVersionShareRequest]) (*connect.Response[v1.SetNewVersionShareResponse], error)
 }
 
 // NewModelServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -440,6 +535,31 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	modelServiceStartModelTrialHandler := connect.NewUnaryHandler(
+		ModelServiceStartModelTrialProcedure,
+		svc.StartModelTrial,
+		connect.WithSchema(modelServiceMethods.ByName("StartModelTrial")),
+		connect.WithHandlerOptions(opts...),
+	)
+	modelServiceStopModelTrialHandler := connect.NewUnaryHandler(
+		ModelServiceStopModelTrialProcedure,
+		svc.StopModelTrial,
+		connect.WithSchema(modelServiceMethods.ByName("StopModelTrial")),
+		connect.WithHandlerOptions(opts...),
+	)
+	modelServiceGetModelTrialHandler := connect.NewUnaryHandler(
+		ModelServiceGetModelTrialProcedure,
+		svc.GetModelTrial,
+		connect.WithSchema(modelServiceMethods.ByName("GetModelTrial")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	modelServiceSetNewVersionShareHandler := connect.NewUnaryHandler(
+		ModelServiceSetNewVersionShareProcedure,
+		svc.SetNewVersionShare,
+		connect.WithSchema(modelServiceMethods.ByName("SetNewVersionShare")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.ModelService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ModelServiceListArchitecturesProcedure:
@@ -468,6 +588,14 @@ func NewModelServiceHandler(svc ModelServiceHandler, opts ...connect.HandlerOpti
 			modelServiceUseModelVersionHandler.ServeHTTP(w, r)
 		case ModelServiceGetModelQualityProcedure:
 			modelServiceGetModelQualityHandler.ServeHTTP(w, r)
+		case ModelServiceStartModelTrialProcedure:
+			modelServiceStartModelTrialHandler.ServeHTTP(w, r)
+		case ModelServiceStopModelTrialProcedure:
+			modelServiceStopModelTrialHandler.ServeHTTP(w, r)
+		case ModelServiceGetModelTrialProcedure:
+			modelServiceGetModelTrialHandler.ServeHTTP(w, r)
+		case ModelServiceSetNewVersionShareProcedure:
+			modelServiceSetNewVersionShareHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -527,6 +655,22 @@ func (UnimplementedModelServiceHandler) UseModelVersion(context.Context, *connec
 
 func (UnimplementedModelServiceHandler) GetModelQuality(context.Context, *connect.Request[v1.GetModelQualityRequest]) (*connect.Response[v1.GetModelQualityResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.GetModelQuality is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) StartModelTrial(context.Context, *connect.Request[v1.StartModelTrialRequest]) (*connect.Response[v1.StartModelTrialResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.StartModelTrial is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) StopModelTrial(context.Context, *connect.Request[v1.StopModelTrialRequest]) (*connect.Response[v1.StopModelTrialResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.StopModelTrial is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) GetModelTrial(context.Context, *connect.Request[v1.GetModelTrialRequest]) (*connect.Response[v1.GetModelTrialResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.GetModelTrial is not implemented"))
+}
+
+func (UnimplementedModelServiceHandler) SetNewVersionShare(context.Context, *connect.Request[v1.SetNewVersionShareRequest]) (*connect.Response[v1.SetNewVersionShareResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.ModelService.SetNewVersionShare is not implemented"))
 }
 
 // PredictServiceClient is a client for the mimir.v1.PredictService service.

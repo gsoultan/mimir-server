@@ -55,6 +55,106 @@ service ModelService {
   rpc GetModelQuality(GetModelQualityRequest) returns (GetModelQualityResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+  // StartModelTrial tries one of a model's versions on part of its
+  // questions before it goes live for everyone: it answers a share of
+  // them, or a copy of every one (shadow) while the live version's answer
+  // is the one sent. It replaces any trial the model had. Only answers
+  // from PredictService.Predict take part.
+  rpc StartModelTrial(StartModelTrialRequest) returns (StartModelTrialResponse);
+  // StopModelTrial ends a model's trial, leaving the live version answering
+  // every question. To put the version tried live instead, call
+  // UseModelVersion with it, which ends the trial too.
+  rpc StopModelTrial(StopModelTrialRequest) returns (StopModelTrialResponse);
+  // GetModelTrial says how the version on trial is doing beside the live
+  // one since the trial started.
+  rpc GetModelTrial(GetModelTrialRequest) returns (GetModelTrialResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // SetNewVersionShare says whether a version keep-learning makes, when it
+  // does at least as well, goes live at once or is first tried on a share
+  // of the questions.
+  rpc SetNewVersionShare(SetNewVersionShareRequest) returns (SetNewVersionShareResponse);
+}
+
+// ModelTrial is a version of a model tried on some of its questions.
+message ModelTrial {
+  // version_id is the version tried (ListModelVersions).
+  string version_id = 1;
+  reserved 2;
+  // share is the percent of questions it answers, 1 to 99; 0 with shadow.
+  int32 share = 3;
+  // shadow says it answers a copy of every question, and askers get the
+  // live version's answer.
+  bool shadow = 4;
+  google.protobuf.Timestamp start_time = 5;
+}
+
+message StartModelTrialRequest {
+  string model_id = 1;
+  // version_id is one of the model's versions other than the live one.
+  string version_id = 2;
+  // share is the percent of questions it answers, 1 to 99. Unused with
+  // shadow.
+  int32 share = 3;
+  bool shadow = 4;
+}
+
+message StartModelTrialResponse {
+  Model model = 1;
+}
+
+message StopModelTrialRequest {
+  string model_id = 1;
+}
+
+message StopModelTrialResponse {
+  Model model = 1;
+}
+
+message GetModelTrialRequest {
+  string model_id = 1;
+}
+
+// TrialSide is how one version's answers did since a trial started.
+message TrialSide {
+  string version_id = 1;
+  int32 version_number = 2;
+  // answers it gave; feedback how many of them apps said the right answer
+  // for (PredictService.SendFeedback), and correct how many of those it
+  // got; accuracy is correct / feedback, 0 with no feedback.
+  int64 answers = 3;
+  int64 feedback = 4;
+  int64 correct = 5;
+  double accuracy = 6;
+  // held_out_accuracy is the share of held-out examples it got right when
+  // it was taught, 0 when unknown.
+  double held_out_accuracy = 7;
+}
+
+message GetModelTrialResponse {
+  // trial is unset when the model has none; the rest is then empty.
+  ModelTrial trial = 1;
+  TrialSide live = 2;
+  TrialSide tried = 3;
+  // For a shadow trial: how many of the tried version's answers gave the
+  // same answer as the live version (the same label, or a number within
+  // 10% of it), and that as a share of its answers.
+  int64 agree = 4;
+  double agree_share = 5;
+  // enough_feedback says both versions have at least 20 answers with
+  // feedback, so their accuracies can be compared.
+  bool enough_feedback = 6;
+}
+
+message SetNewVersionShareRequest {
+  string model_id = 1;
+  // share is 0 to put a better keep-learning version live at once, or the
+  // percent of questions to try it on first, 1 to 99.
+  int32 share = 2;
+}
+
+message SetNewVersionShareResponse {
+  Model model = 1;
 }
 
 message GetModelQualityRequest {
@@ -419,6 +519,12 @@ message Model {
   // name.
   string base_model_id = 21;
   string base_model_name = 22;
+  // trial is the version tried on some of its questions, if any
+  // (StartModelTrial).
+  ModelTrial trial = 23;
+  // new_version_share is the percent of questions a version keep-learning
+  // makes is tried on before it goes live; 0 puts it live at once.
+  int32 new_version_share = 24;
 }
 
 // LanguageSettings are how a language model answers when a chat or an app
