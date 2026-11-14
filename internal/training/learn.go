@@ -24,6 +24,7 @@ import (
 
 	"github.com/gsoultan/mimir/io/mim"
 	"github.com/gsoultan/mimir/metrics"
+	"github.com/gsoultan/mimir/nn"
 	"github.com/gsoultan/mimir/nn/loss"
 	"github.com/gsoultan/mimir/tabular"
 	"github.com/gsoultan/mimir/tensor"
@@ -47,12 +48,23 @@ func learn(ctx context.Context, t Task, l Loaded, spec arch.Spec, progress Progr
 	}
 	start, last := time.Now(), time.Time{}
 	progress(0, 0, 1, nil)
-	mod, shape, err := t.Arch.Learner.Fit(ctx, d, t.Arch.Task(), classes, func(done, total int) {
+	tick := func(done, total int) {
 		if time.Since(last) > time.Second {
 			last = time.Now()
 			progress(0, done, total, nil)
 		}
-	})
+	}
+	var mod nn.Module
+	var shape string
+	if fit := t.Arch.Learner.FitColumns; fit != nil {
+		in := arch.Inputs{Columns: l.Columns}
+		if in.Rules, err = arch.ParseRules(t.Settings.Rules); err != nil {
+			return Result{}, err
+		}
+		mod, shape, err = fit(ctx, d, t.Arch.Task(), classes, in, tick)
+	} else {
+		mod, shape, err = t.Arch.Learner.Fit(ctx, d, t.Arch.Task(), classes, tick)
+	}
 	if err != nil {
 		return Result{}, fmt.Errorf("%w: %v", ErrBadTable, err)
 	}

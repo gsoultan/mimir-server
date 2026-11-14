@@ -67,8 +67,10 @@ github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3 h1:LMLX+LgTNWpfvCBdFe
 github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3/go.mod h1:jl5iWTm0/hd5PjEYEOuwAJ57L/CibdZfrqZ5XA5GrCk=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/gsoultan/mimir v0.4.3 h1:i9526/bk6NkaEkB8dyM9SuCB9suPryTlhAOZoIaR1SM=
-github.com/gsoultan/mimir v0.4.3/go.mod h1:PZvuFO9cXG9gyTayHXyOM0Y6EIejFXcL4QgVtC4AFtQ=
+github.com/gsoultan/mimir v0.4.4-0.20261113071113-412af2467e09 h1:hoT+LIuC/c29Cxy4FxpUSG9ualxazGY8KdLaIdcEh2A=
+github.com/gsoultan/mimir v0.4.4-0.20261113071113-412af2467e09/go.mod h1:PZvuFO9cXG9gyTayHXyOM0Y6EIejFXcL4QgVtC4AFtQ=
+github.com/gsoultan/mimir v0.4.4-0.20261113071910-e44ed2a39cf3 h1:+yY1dVMoRH/mJecpJsZ8HV7HKjugvL2hsVdAiQw8ACc=
+github.com/gsoultan/mimir v0.4.4-0.20261113071910-e44ed2a39cf3/go.mod h1:TcchnOAC5b++PHa7HwPTdOAauaVjgZkXX/G8Mt6ieR4=
 github.com/gsoultan/mimir-model v0.4.0 h1:c75RrcOrjhjshujCcaOM/ecvebpJSoxWzUEDFqYHbgE=
 github.com/gsoultan/mimir-model v0.4.0/go.mod h1:VpI+gj4GV7T7E6MXyWIwp8X+a1RAfDW4ldNYracFp4M=
 github.com/gsoultan/storm v1.4.0 h1:AU3T4nUygg+jN6jZOS+qCV3cNMf6C5mOC0WpFsdQhrQ=

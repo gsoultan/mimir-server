@@ -99,6 +99,9 @@ type Settings struct {
 	// Layers is a designed table model's shape, as arch.FormatLayers
 	// writes it; "" is the usual shape.
 	Layers string
+	// Rules keep a boosted-tree model's answer going one way as a number
+	// column rises, as arch.FormatRules writes them; "" is none.
+	Rules string
 }
 
 // Epoch is how one pass over the examples went.
@@ -388,6 +391,7 @@ func fromJob(r trainingjob.Row) Job {
 			LearningRate: r.LearningRate,
 			HoldOut:      r.HoldOut,
 			Layers:       r.Layers,
+			Rules:        r.Rules,
 		},
 		Status:        JobStatus(r.Status),
 		Error:         r.Error,
@@ -442,6 +446,7 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 	n.SetLearningRate(j.Settings.LearningRate)
 	n.SetHoldOut(j.Settings.HoldOut)
 	n.SetLayers(j.Settings.Layers)
+	n.SetRules(j.Settings.Rules)
 	n.SetStatus(int32(j.Status))
 	n.SetCreatedBy(j.CreatedBy)
 	n.SetCreateTime(j.Created)

@@ -879,7 +879,7 @@ func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Tas
 func trainTask(id, jobID string, t training.Task) *mimirv1.TrainTask {
 	task := &mimirv1.TrainTask{
 		TaskId: id, JobId: jobID, Architecture: t.Arch.Name,
-		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: LayersToProto(t.Settings.Layers)},
+		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: LayersToProto(t.Settings.Layers), Rules: RulesToProto(t.Settings.Rules)},
 		DatasetKind: mimirv1.DatasetKind(t.Source.Kind),
 		Target:      t.Source.Target, Columns: ColumnsToProto(t.Source.Columns),
 		History:     EpochsToProto(t.History),
@@ -956,6 +956,17 @@ func LayersToProto(s string) []*mimirv1.Layer {
 	out := make([]*mimirv1.Layer, len(ls))
 	for i, l := range ls {
 		out[i] = &mimirv1.Layer{Kind: l.Kind, Units: int32(l.Units), Rate: l.Rate}
+	}
+	return out
+}
+
+// RulesToProto converts a run's up-or-down rules, as arch.FormatRules
+// writes them, for the wire, sorted by column.
+func RulesToProto(s string) []*mimirv1.ColumnRule {
+	rs, _ := arch.ParseRules(s) // checked when the run was made
+	var out []*mimirv1.ColumnRule
+	for _, c := range slices.Sorted(maps.Keys(rs)) {
+		out = append(out, &mimirv1.ColumnRule{Column: c, Direction: arch.Direction(rs[c])})
 	}
 	return out
 }

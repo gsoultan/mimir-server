@@ -127,7 +127,7 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 	task := training.Task{
 		Arch:          h.a,
 		Source:        src,
-		Settings:      store.Settings{Epochs: t.Settings.Epochs, BatchSize: t.Settings.BatchSize, LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: arch.FormatLayers(layersOf(t.Settings.Layers))},
+		Settings:      store.Settings{Epochs: t.Settings.Epochs, BatchSize: t.Settings.BatchSize, LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: arch.FormatLayers(layersOf(t.Settings.Layers)), Rules: rulesOf(t.Settings.Rules)},
 		History:       fromSDK(t.History),
 		CheckpointDir: filepath.Join(h.data, "training", t.JobID),
 		BaseWeights:   t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,
@@ -175,6 +175,18 @@ func fromSDK(h []worker.Epoch) []store.Epoch {
 		out[i] = store.Epoch{Epoch: e.Epoch, Loss: e.Loss, Accuracy: e.Accuracy, ValLoss: e.ValLoss, Millis: e.Millis, MAE: e.MAE}
 	}
 	return out
+}
+
+// rulesOf writes a task's rules as arch.FormatRules does, skipping any
+// that aren't up or down; the server checked them.
+func rulesOf(rs []worker.Rule) string {
+	out := map[string]int{}
+	for _, r := range rs {
+		if d, err := arch.ParseDirection(r.Direction); err == nil {
+			out[r.Column] = d
+		}
+	}
+	return arch.FormatRules(out)
 }
 
 func layersOf(ls []worker.Layer) []arch.Layer {

@@ -74,6 +74,7 @@ func differs(js []store.Job) []string {
 		{"learning_rate", func(j store.Job) any { return j.Settings.LearningRate }},
 		{"hold_out", func(j store.Job) any { return j.Settings.HoldOut }},
 		{"layers", func(j store.Job) any { return j.Settings.Layers }},
+		{"rules", func(j store.Job) any { return j.Settings.Rules }},
 		{"worker", func(j store.Job) any { return j.Worker }},
 	}
 	var out []string

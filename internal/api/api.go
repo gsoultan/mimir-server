@@ -250,6 +250,7 @@ func archProto(a arch.Architecture) *mimirv1.Architecture {
 		Learned:     a.Learner != nil,
 		Target:      string(a.Target),
 		Algorithm:   a.Algorithm(),
+		Rules:       a.Rules,
 	}
 }
 
