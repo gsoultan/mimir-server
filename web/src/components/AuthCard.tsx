@@ -1,6 +1,7 @@
-import { Text, Title } from "@mantine/core";
-import { IconBolt, IconDeviceMobile, IconLock } from "@tabler/icons-react";
+import { Group, Text, Title, UnstyledButton } from "@mantine/core";
+import { IconBolt, IconDeviceMobile, IconLanguage, IconLock } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { lang, languages, setLang, t } from "../i18n";
 
 // The sign-in and setup screens: mimir's story on the left, the form on
 // the right. On a phone the story shrinks to a band above the form.
@@ -13,16 +14,33 @@ export function AuthCard({ title, intro, wide, children }: { title: string; intr
           <Title order={1} fz={{ base: 26, sm: 30 }}>{title}</Title>
           {intro && <Text c="dimmed" mt={6}>{intro}</Text>}
           <div className="mt-7">{children}</div>
+          <Languages />
         </div>
       </main>
     </div>
   );
 }
 
+// Languages lets people pick theirs before they sign in.
+function Languages() {
+  return (
+    <Group gap="xs" mt="xl" c="dimmed" aria-label={t("Language")} role="group">
+      <IconLanguage size={16} aria-hidden />
+      {languages.map((l, i) => (
+        <Group key={l.value} gap="xs">
+          {i > 0 && <Text size="sm" aria-hidden>·</Text>}
+          <UnstyledButton onClick={() => setLang(l.value)} lang={l.value} aria-pressed={lang === l.value}
+            className="text-sm" fw={lang === l.value ? 700 : 400} c={lang === l.value ? "var(--mantine-color-text)" : "dimmed"}>{l.label}</UnstyledButton>
+        </Group>
+      ))}
+    </Group>
+  );
+}
+
 const points = [
-  { icon: IconBolt, text: "Teach a model from a spreadsheet, photos or text, without code." },
-  { icon: IconLock, text: "Runs on your own server, next to your own data." },
-  { icon: IconDeviceMobile, text: "Apps ask it questions; phones can answer offline." },
+  { icon: IconBolt, text: t("Teach a model from a spreadsheet, photos or text, without code.") },
+  { icon: IconLock, text: t("Runs on your own server, next to your own data.") },
+  { icon: IconDeviceMobile, text: t("Apps ask it questions; phones can answer offline.") },
 ];
 
 // Network of nodes, drawn once; lines flow and nodes pulse in CSS.
@@ -31,7 +49,7 @@ const edges: [number, number][] = [[0, 1], [1, 2], [0, 3], [3, 4], [2, 4], [1, 5
 
 function BrandPanel() {
   return (
-    <aside className="brand-panel flex flex-col justify-between px-6 py-6 sm:px-10 lg:min-h-dvh lg:px-14 lg:py-12" aria-label="About mimir">
+    <aside className="brand-panel flex flex-col justify-between px-6 py-6 sm:px-10 lg:min-h-dvh lg:px-14 lg:py-12" aria-label={t("About mimir")}>
       <div className="brand-orb a" aria-hidden />
       <div className="brand-orb b" aria-hidden />
       <div className="brand-orb c" aria-hidden />
@@ -43,23 +61,20 @@ function BrandPanel() {
       <div className="flex items-center gap-3">
         <img src="/icon.svg" alt="" width={36} height={36} className="rounded-[10px] ring-1 ring-white/30" />
         <Text fw={750} ff="var(--font-display)" fz={24} c="white">mimir</Text>
-        <Text size="xs" fw={600} className="rounded-full bg-white/15 px-2 py-0.5 text-white/90">server</Text>
+        <Text size="xs" fw={600} className="rounded-full bg-white/15 px-2 py-0.5 text-white/90">{t("server")}</Text>
       </div>
 
       <div className="relative mt-6 max-w-lg lg:mt-0">
-        <Text component="h2" ff="var(--font-display)" fw={700} c="white" className="brand-line text-[26px] leading-tight sm:text-[32px] lg:text-[44px]" style={{ letterSpacing: "-0.02em" }}>
-          Your own models,{" "}
-          <span className="sr-only">answering questions.</span>
+        <Text component="h2" ff="var(--font-display)" fw={700} c="white" className="brand-line text-[26px] leading-tight sm:text-[32px] lg:text-[44px]" style={{ letterSpacing: "-0.02em" }}>{t("Your own models,")}{" "}
+          <span className="sr-only">{t("answering questions.")}</span>
           <span className="brand-rotate text-[#A0E3CF]" aria-hidden>
-            <span>answering questions.</span>
-            <span>spotting what's wrong.</span>
-            <span>sorting your photos.</span>
-            <span>learning every day.</span>
+            <span>{t("answering questions.")}</span>
+            <span>{t("spotting what's wrong.")}</span>
+            <span>{t("sorting your photos.")}</span>
+            <span>{t("learning every day.")}</span>
           </span>
         </Text>
-        <Text c="rgba(255,255,255,.78)" mt="md" className="brand-line hidden sm:block" style={{ animationDelay: ".12s" }} fz="lg">
-          mimir-server runs machine learning models on your own machine. Teach them, try them, and let your apps ask them questions.
-        </Text>
+        <Text c="rgba(255,255,255,.78)" mt="md" className="brand-line hidden sm:block" style={{ animationDelay: ".12s" }} fz="lg">{t("mimir-server runs machine learning models on your own machine. Teach them, try them, and let your apps ask them questions.")}</Text>
         <ul className="mt-8 hidden flex-col gap-4 lg:flex">
           {points.map((p, i) => (
             <li key={p.text} className="brand-line flex items-start gap-3" style={{ animationDelay: `${0.25 + i * 0.12}s` }}>
@@ -70,7 +85,7 @@ function BrandPanel() {
         </ul>
       </div>
 
-      <Text size="xs" c="rgba(255,255,255,.6)" className="hidden lg:block">Runs anywhere Go runs. No cloud account needed.</Text>
+      <Text size="xs" c="rgba(255,255,255,.6)" className="hidden lg:block">{t("Runs anywhere Go runs. No cloud account needed.")}</Text>
     </aside>
   );
 }

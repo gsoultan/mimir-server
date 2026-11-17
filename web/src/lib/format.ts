@@ -1,16 +1,17 @@
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
+import { locale, t } from "../i18n";
 
 export function bytes(n: number | bigint): string {
   let v = Number(n);
   for (const unit of ["bytes", "KB", "MB", "GB"]) {
-    if (v < 1000 || unit === "GB") return `${unit === "bytes" ? v : v.toFixed(1)} ${unit}`;
+    if (v < 1000 || unit === "GB") return `${unit === "bytes" ? v : v.toFixed(1)} ${unit === "bytes" ? t("bytes") : unit}`;
     v /= 1000;
   }
   return `${v} GB`;
 }
 
-const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
 
 export function ago(ts: Timestamp | undefined): string {
   if (!ts) return "";
@@ -37,10 +38,10 @@ export function duration(seconds: number | bigint): string {
   for (const [unit, size] of units) {
     if (s >= size) {
       const n = Math.floor(s / size);
-      return `${n} ${unit}${n === 1 ? "" : "s"}`;
+      return `${n} ${t(n === 1 ? unit : unit + "s")}`;
     }
   }
-  return "a moment";
+  return t("a moment");
 }
 
 // share is used of total as a percentage, 0 when total is unknown.

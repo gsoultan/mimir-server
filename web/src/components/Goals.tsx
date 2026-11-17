@@ -6,6 +6,7 @@ import {
 import type { ReactNode } from "react";
 
 import type { GoalId, Ready } from "../lib/goals";
+import { t } from "../i18n";
 
 export const goalIcons: Record<GoalId, Icon> = {
   yes_no: IconToggleRight,
@@ -22,10 +23,10 @@ export const goalIcons: Record<GoalId, Icon> = {
 
 export function ReadyBadge({ ready }: { ready: Ready }) {
   return ready === "ready"
-    ? <Badge variant="light" color="teal">No code</Badge>
+    ? <Badge variant="light" color="teal">{t("No code")}</Badge>
     : ready === "file"
-      ? <Badge variant="light" color="blue">Bring a model</Badge>
-      : <Badge variant="light" color="grape">Your own code</Badge>;
+      ? <Badge variant="light" color="blue">{t("Bring a model")}</Badge>
+      : <Badge variant="light" color="grape">{t("Your own code")}</Badge>;
 }
 
 // GoalCard is one goal on the Build a model page. On a phone it shows
@@ -48,10 +49,10 @@ export function GoalCard({ id, title, example, ready, how }: { id: GoalId; title
 export type WayId = "template" | "data" | "file" | "code";
 
 export const ways: { id: WayId; icon: Icon; title: string; hint: string; who: string }[] = [
-  { id: "template", icon: IconBooks, title: "Start from a template", hint: "A ready problem with example data. Bring a file shaped like it.", who: "Easiest · no code" },
-  { id: "data", icon: IconTable, title: "Start from your own data", hint: "Upload a table, text or photos and say which column is the answer.", who: "No code · you choose" },
-  { id: "file", icon: IconFileUpload, title: "Bring a trained model", hint: "A Mimir Model, ONNX or GGUF file trained somewhere else.", who: "Already trained" },
-  { id: "code", icon: IconBrandGolang, title: "Write your own model", hint: "Go code on a worker, for anything the others can't do.", who: "For developers" },
+  { id: "template", icon: IconBooks, title: t("Start from a template"), hint: t("A ready problem with example data. Bring a file shaped like it."), who: t("Easiest · no code") },
+  { id: "data", icon: IconTable, title: t("Start from your own data"), hint: t("Upload a table, text or photos and say which column is the answer."), who: t("No code · you choose") },
+  { id: "file", icon: IconFileUpload, title: t("Bring a trained model"), hint: t("A Mimir Model, ONNX or GGUF file trained somewhere else."), who: t("Already trained") },
+  { id: "code", icon: IconBrandGolang, title: t("Write your own model"), hint: t("Go code on a worker, for anything the others can't do."), who: t("For developers") },
 ];
 
 export function WayCard({ icon: Icon, title, hint, who }: { icon: Icon; title: string; hint: string; who: string }) {
@@ -78,7 +79,7 @@ export function PathOption({ best, title, hint, action, children }: { best?: boo
         <div className="min-w-0 flex-1">
           <Group gap="xs">
             <Text fw={700}>{title}</Text>
-            {best && <Badge size="sm">Best for you</Badge>}
+            {best && <Badge size="sm">{t("Best for you")}</Badge>}
           </Group>
           <Text size="sm" c="dimmed">{hint}</Text>
         </div>

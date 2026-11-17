@@ -1,4 +1,5 @@
 import type { Job, Layer } from "../api/gen/mimir/v1/training_pb";
+import { t } from "../i18n";
 
 // maxCompare is how many runs fit side by side, as the server allows.
 export const maxCompare = 6;
@@ -21,16 +22,16 @@ export function trainingSeconds(j: Job): number {
 // took says a length of time briefly: "42 s", "3 min 5 s", "1 h 20 min".
 export function took(seconds: number): string {
   const s = Math.round(seconds);
-  if (seconds > 0 && seconds < 0.05) return "under 0.1 s";
+  if (seconds > 0 && seconds < 0.05) return t("under 0.1 s");
   if (s < 60) return `${seconds < 10 ? seconds.toFixed(1) : s} s`;
-  if (s < 3600) return `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ""}`;
-  return `${Math.floor(s / 3600)} h${Math.floor((s % 3600) / 60) ? ` ${Math.floor((s % 3600) / 60)} min` : ""}`;
+  if (s < 3600) return t("{n1} min{n2}", { n1: Math.floor(s / 60), n2: s % 60 ? ` ${s % 60} s` : "" });
+  return `${Math.floor(s / 3600)} h${Math.floor((s % 3600) / 60) ? t(" {n1} min", { n1: Math.floor((s % 3600) / 60) }) : ""}`;
 }
 
 // shapeWord describes a designed table model's layers.
 export function shapeWord(layers: Layer[]): string {
-  if (layers.length === 0) return "Usual";
-  return layers.map((l) => (l.kind === "dense" ? `${l.units} units` : `forget ${Math.round(l.rate * 100)}%`)).join(" → ");
+  if (layers.length === 0) return t("Usual");
+  return layers.map((l) => (l.kind === "dense" ? t("{units} units", { units: l.units }) : t("forget {n1}%", { n1: Math.round(l.rate * 100) }))).join(" → ");
 }
 
 // bestPass is the highest accuracy any pass reached, and which pass.
@@ -45,6 +46,6 @@ export function bestPass(j: Job): { epoch: number; accuracy: number } | undefine
 // againName is what a run trained again is called at first.
 export function againName(name: string): string {
   const m = /^(.*) \(again(?: (\d+))?\)$/.exec(name);
-  if (!m) return `${name} (again)`;
-  return `${m[1]} (again ${m[2] ? Number(m[2]) + 1 : 2})`;
+  if (!m) return t("{name} (again)", { name });
+  return t("{n1} (again {n2})", { n1: m[1], n2: m[2] ? Number(m[2]) + 1 : 2 });
 }

@@ -4,15 +4,16 @@ import { useMediaQuery } from "@mantine/hooks";
 import { useMemo } from "react";
 
 import { answer, describe, profile, tips, type Column, type Role } from "../lib/csv";
+import { t } from "../i18n";
 
 // The question asked, in the words of what the answer is to the model
 // type picked.
 const words: Record<Role, { label: string; hint: string }> = {
-  "": { label: "Which column is the answer?", hint: "The model learns to answer this from the other columns. Click a column to pick it." },
-  none: { label: "The model reads every column", hint: "No answer column is needed." },
-  item: { label: "Which column is the item?", hint: "What each person picked, bought or rated. Another column, such as customer, says who." },
-  value: { label: "Which column holds the value to forecast?", hint: "A number in every row, like units sold. A date column says when, and a column like store says which series." },
-  action: { label: "Which column is the action taken?", hint: "What was tried each time, like the offer shown. A column like reward, revenue or converted says how it turned out." },
+  "": { label: t("Which column is the answer?"), hint: t("The model learns to answer this from the other columns. Click a column to pick it.") },
+  none: { label: t("The model reads every column"), hint: t("No answer column is needed.") },
+  item: { label: t("Which column is the item?"), hint: t("What each person picked, bought or rated. Another column, such as customer, says who.") },
+  value: { label: t("Which column holds the value to forecast?"), hint: t("A number in every row, like units sold. A date column says when, and a column like store says which series.") },
+  action: { label: t("Which column is the action taken?"), hint: t("What was tried each time, like the offer shown. A column like reward, revenue or converted says how it turned out.") },
 };
 
 const kindColor: Record<Column["kind"], string> = { number: "blue", yesno: "gray", category: "gray", text: "grape", date: "gray", id: "orange", empty: "red" };
@@ -43,7 +44,7 @@ export function ColumnPicker({ columns, rows, total, value, onChange, role = "" 
     <Stack gap="sm">
       <div>
         <Text fw={600} size="sm">{w.label}</Text>
-        <Text size="xs" c="dimmed">{w.hint}{partial ? ` Read from the first ${rows.length.toLocaleString()} of ${total.toLocaleString()} rows.` : ""}</Text>
+        <Text size="xs" c="dimmed">{w.hint}{partial ? t(" Read from the first {n1} of {n2} rows.", { n1: rows.length.toLocaleString(), n2: total.toLocaleString() }) : ""}</Text>
       </div>
       {phone ? (
         <Stack gap={6}>
@@ -61,15 +62,15 @@ export function ColumnPicker({ columns, rows, total, value, onChange, role = "" 
                 className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${on ? "border-[var(--mantine-color-teal-6)]" : "border-[var(--mantine-color-default-border)]"} ${role !== "none" ? "cursor-pointer" : ""}`}
                 style={on ? { backgroundColor: "light-dark(var(--mantine-color-teal-1), var(--mantine-color-teal-9))" } : undefined}
               >
-                {role !== "none" && <input type="radio" name="answer-column" checked={on} onChange={() => onChange(c.name)} aria-label={`${c.name} is the answer`} tabIndex={-1} className={`mt-1 size-4 ${a?.level === "bad" ? "accent-[var(--mantine-color-red-7)]" : "accent-[var(--mantine-color-teal-7)]"}`} />}
+                {role !== "none" && <input type="radio" name="answer-column" checked={on} onChange={() => onChange(c.name)} aria-label={t("{name} is the answer", { name: c.name })} tabIndex={-1} className={`mt-1 size-4 ${a?.level === "bad" ? "accent-[var(--mantine-color-red-7)]" : "accent-[var(--mantine-color-teal-7)]"}`} />}
                 <div className="min-w-0 flex-1">
                   <Group gap={6} wrap="nowrap">
                     <Text size="sm" fw={on ? 700 : 500} ff="monospace" truncate>{c.name}</Text>
-                    {on && <Badge size="xs" variant="filled" color={verdict?.level === "bad" ? "red" : "teal"}>Answer</Badge>}
+                    {on && <Badge size="xs" variant="filled" color={verdict?.level === "bad" ? "red" : "teal"}>{t("Answer")}</Badge>}
                   </Group>
                   <Group gap={6} mt={2}>
                     <Badge variant="light" color={kindColor[c.kind]} tt="none" fw={500} size="sm">{describe(c)}</Badge>
-                    {rows.length > 0 && c.filled < rows.length * 0.8 && <Text size="xs" c="orange.8">{Math.round(100 * c.filled / rows.length)}% filled</Text>}
+                    {rows.length > 0 && c.filled < rows.length * 0.8 && <Text size="xs" c="orange.8">{Math.round(100 * c.filled / rows.length)}{t("% filled")}</Text>}
                   </Group>
                   <Text size="xs" c="dimmed" truncate mt={2}>{c.samples.map((s) => (s.length > 28 ? `${s.slice(0, 28)}…` : s)).join(" · ")}</Text>
                 </div>
@@ -82,11 +83,11 @@ export function ColumnPicker({ columns, rows, total, value, onChange, role = "" 
         <Table fz="sm" withTableBorder highlightOnHover={role !== "none"} verticalSpacing={6}>
           <Table.Thead>
             <Table.Tr>
-              {role !== "none" && <Table.Th w={36} aria-label="Answer" />}
-              <Table.Th>Column</Table.Th>
-              <Table.Th>Holds</Table.Th>
-              <Table.Th>Filled</Table.Th>
-              <Table.Th>For example</Table.Th>
+              {role !== "none" && <Table.Th w={36} aria-label={t("Answer")} />}
+              <Table.Th>{t("Column")}</Table.Th>
+              <Table.Th>{t("Holds")}</Table.Th>
+              <Table.Th>{t("Filled")}</Table.Th>
+              <Table.Th>{t("For example")}</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -105,13 +106,13 @@ export function ColumnPicker({ columns, rows, total, value, onChange, role = "" 
                     <Table.Td>
                       {/* A plain input: a Mantine Radio here would answer the
                           source Radio.Group this table sits in. */}
-                      <input type="radio" name="answer-column" checked={on} onChange={() => onChange(c.name)} aria-label={`${c.name} is the answer`} className={`size-4 cursor-pointer ${a?.level === "bad" ? "accent-[var(--mantine-color-red-7)]" : "accent-[var(--mantine-color-teal-7)]"}`} />
+                      <input type="radio" name="answer-column" checked={on} onChange={() => onChange(c.name)} aria-label={t("{name} is the answer", { name: c.name })} className={`size-4 cursor-pointer ${a?.level === "bad" ? "accent-[var(--mantine-color-red-7)]" : "accent-[var(--mantine-color-teal-7)]"}`} />
                     </Table.Td>
                   )}
                   <Table.Td>
                     <Group gap={6} wrap="nowrap">
                       <Text size="sm" fw={on ? 700 : 500} ff="monospace" className="break-words">{c.name}</Text>
-                      {on && <Badge size="xs" variant="filled" color={verdict?.level === "bad" ? "red" : "teal"}>Answer</Badge>}
+                      {on && <Badge size="xs" variant="filled" color={verdict?.level === "bad" ? "red" : "teal"}>{t("Answer")}</Badge>}
                     </Group>
                   </Table.Td>
                   <Table.Td><Badge variant="light" color={kindColor[c.kind]} tt="none" fw={500} size="sm">{describe(c)}</Badge></Table.Td>
@@ -129,7 +130,7 @@ export function ColumnPicker({ columns, rows, total, value, onChange, role = "" 
           color={verdict.level === "bad" ? "red" : verdict.level === "warn" ? "orange" : "teal"}
           variant="light"
           icon={verdict.level === "bad" ? <IconAlertCircle /> : verdict.level === "warn" ? <IconAlertTriangle /> : <IconCheck />}
-          title={verdict.level === "bad" ? `${picked!.name} can't be the answer` : `The model will answer ${verdict.what}`}
+          title={verdict.level === "bad" ? t("{name} can't be the answer", { name: picked!.name }) : t("The model will answer {what}", { what: verdict.what })}
         >
           <Text size="sm">{verdict.level === "bad" ? verdict.problem : verdict.detail}{verdict.level === "warn" ? ` ${verdict.problem}` : ""}</Text>
         </Alert>

@@ -13,6 +13,7 @@ import { allUserQueries, listModels, listTeams, listUsers, whoAmI } from "../../
 import { AccessPicker, defaultAccess, describe, fromProto, type AccessValue } from "../../components/AccessPicker";
 import { Page } from "../../components/Page";
 import { ago } from "../../lib/format";
+import { t } from "../../i18n";
 
 export const Route = createFileRoute("/_app/users")({
   loader: async ({ context }) => {
@@ -41,15 +42,15 @@ function Users() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: allUserQueries });
 
   const remove = useMutation(UserService.method.deleteUser, {
-    onSuccess: async () => { await refresh(); notifications.show({ message: `${removing?.name} was removed.` }); setRemoving(undefined); },
+    onSuccess: async () => { await refresh(); notifications.show({ message: t("{name} was removed.", { name: removing?.name }) }); setRemoving(undefined); },
   });
 
   return (
     <Page
-      title="People"
-      crumbs={[{ label: "Settings", to: "/settings" }, { label: "People" }]}
-      intro={manyTeams ? "Who can sign in, which team they're in, and which models each person can reach." : `Who in ${me.user?.teamName ?? "your team"} can sign in, and which models each person can reach.`}
-      actions={<Button leftSection={<IconUserPlus size={18} />} onClick={add.open}>Add a person</Button>}
+      title={t("People")}
+      crumbs={[{ label: t("Settings"), to: "/settings" }, { label: t("People") }]}
+      intro={manyTeams ? t("Who can sign in, which team they're in, and which models each person can reach.") : t("Who in {n1} can sign in, and which models each person can reach.", { n1: me.user?.teamName ?? t("your team") })}
+      actions={<Button leftSection={<IconUserPlus size={18} />} onClick={add.open}>{t("Add a person")}</Button>}
     >
       <Stack gap="sm">
         {data.users.map((u) => {
@@ -61,21 +62,21 @@ function Users() {
                 <div className="min-w-0">
                   <Group gap="xs" wrap="nowrap">
                     <Text fw={700} truncate>{u.name}</Text>
-                    {mine && <Badge variant="light" color="gray">You</Badge>}
-                    {u.disabled && <Badge variant="light" color="red">Disabled</Badge>}
-                    {u.twoFactor && <Badge variant="light" color="teal" leftSection={<IconShieldCheck size={12} />}>2-step</Badge>}
+                    {mine && <Badge variant="light" color="gray">{t("You")}</Badge>}
+                    {u.disabled && <Badge variant="light" color="red">{t("Disabled")}</Badge>}
+                    {u.twoFactor && <Badge variant="light" color="teal" leftSection={<IconShieldCheck size={12} />}>{t("2-step")}</Badge>}
                     {manyTeams && <Badge variant="outline" color="gray">{u.teamName}</Badge>}
                   </Group>
                   <Text size="sm" c="dimmed" truncate>{u.email}</Text>
                   <Text size="sm" mt={4}>{u.teamId === me.user?.teamId ? describe(u.access, names) : describe(u.access)}</Text>
-                  <Text size="xs" c="dimmed">{u.lastSignInTime ? `Last signed in ${ago(u.lastSignInTime)}` : "Never signed in"}</Text>
+                  <Text size="xs" c="dimmed">{u.lastSignInTime ? t("Last signed in {lastSignInTime}", { lastSignInTime: ago(u.lastSignInTime) }) : t("Never signed in")}</Text>
                 </div>
                 {!locked && (
                   <Menu position="bottom-end">
-                    <Menu.Target><ActionIcon variant="subtle" color="gray" aria-label={`Options for ${u.name}`}><IconDots /></ActionIcon></Menu.Target>
+                    <Menu.Target><ActionIcon variant="subtle" color="gray" aria-label={t("Options for {name}", { name: u.name })}><IconDots /></ActionIcon></Menu.Target>
                     <Menu.Dropdown>
-                      <Menu.Item onClick={() => setEditing(u)}>Edit</Menu.Item>
-                      {!mine && <Menu.Item color="red" onClick={() => setRemoving(u)}>Remove</Menu.Item>}
+                      <Menu.Item onClick={() => setEditing(u)}>{t("Edit")}</Menu.Item>
+                      {!mine && <Menu.Item color="red" onClick={() => setRemoving(u)}>{t("Remove")}</Menu.Item>}
                     </Menu.Dropdown>
                   </Menu>
                 )}
@@ -88,12 +89,12 @@ function Users() {
       <UserModal key={adding ? "add" : "closed"} opened={adding} onClose={add.close} maxRole={maxRole} teams={manyTeams} myTeam={me.user?.teamId ?? ""} onDone={refresh} />
       <UserModal key={editing?.id ?? "none"} opened={!!editing} onClose={() => setEditing(undefined)} maxRole={maxRole} teams={manyTeams} myTeam={me.user?.teamId ?? ""} user={editing} onDone={refresh} />
 
-      <Modal opened={!!removing} onClose={() => setRemoving(undefined)} title={`Remove ${removing?.name}?`} centered>
-        <Text mb="lg">They won't be able to sign in, and their API keys stop working.</Text>
+      <Modal opened={!!removing} onClose={() => setRemoving(undefined)} title={t("Remove {name}?", { name: removing?.name })} centered>
+        <Text mb="lg">{t("They won't be able to sign in, and their API keys stop working.")}</Text>
         {remove.error && <Alert color="red" mb="md" icon={<IconAlertCircle />}>{message(remove.error)}</Alert>}
         <Group justify="flex-end">
-          <Button variant="default" onClick={() => setRemoving(undefined)}>Keep them</Button>
-          <Button color="red" loading={remove.isPending} onClick={() => removing && remove.mutate({ id: removing.id })}>Remove</Button>
+          <Button variant="default" onClick={() => setRemoving(undefined)}>{t("Keep them")}</Button>
+          <Button color="red" loading={remove.isPending} onClick={() => removing && remove.mutate({ id: removing.id })}>{t("Remove")}</Button>
         </Group>
       </Modal>
     </Page>
@@ -109,8 +110,8 @@ function UserModal({ opened, onClose, maxRole, teams, myTeam, user, onDone }: { 
   const [resetTwoFactor, setResetTwoFactor] = useState(false);
   const [access, setAccess] = useState<AccessValue>(user ? fromProto(user.access) : defaultAccess);
   const finish = async (what: string) => { await onDone(); notifications.show({ color: "teal", message: what }); onClose(); };
-  const create = useMutation(UserService.method.createUser, { onSuccess: () => finish(`${name} can now sign in.`) });
-  const update = useMutation(UserService.method.updateUser, { onSuccess: () => finish("Saved.") });
+  const create = useMutation(UserService.method.createUser, { onSuccess: () => finish(t("{name} can now sign in.", { name })) });
+  const update = useMutation(UserService.method.updateUser, { onSuccess: () => finish(t("Saved.")) });
   const pending = create.isPending || update.isPending;
   const error = create.error ?? update.error;
 
@@ -125,14 +126,14 @@ function UserModal({ opened, onClose, maxRole, teams, myTeam, user, onDone }: { 
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title={user ? `Edit ${user.name}` : "Add a person"} centered size="lg">
+    <Modal opened={opened} onClose={onClose} title={user ? t("Edit {name}", { name: user.name }) : t("Add a person")} centered size="lg">
       <form onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <Stack>
-          <TextInput label="Name" required maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} data-autofocus />
-          <TextInput label="Email" type="email" required disabled={!!user} value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
+          <TextInput label={t("Name")} required maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} data-autofocus />
+          <TextInput label={t("Email")} type="email" required disabled={!!user} value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
           <PasswordInput
-            label={user ? "New password" : "First password"}
-            description={user ? "Leave empty to keep their password. Setting one signs them out everywhere and revokes their API keys." : "Tell it to them; they can change it after signing in. At least 10 characters."}
+            label={user ? t("New password") : t("First password")}
+            description={user ? t("Leave empty to keep their password. Setting one signs them out everywhere and revokes their API keys.") : t("Tell it to them; they can change it after signing in. At least 10 characters.")}
             autoComplete="new-password"
             required={!user}
             minLength={10}
@@ -140,25 +141,25 @@ function UserModal({ opened, onClose, maxRole, teams, myTeam, user, onDone }: { 
             onChange={(e) => setPassword(e.currentTarget.value)}
           />
           {teams && <TeamSelect value={team} onChange={setTeam} />}
-          {moved && <Alert color="yellow">Moving {user?.name} signs them out everywhere and revokes their API keys, since those were for their old team.</Alert>}
-          <AccessPicker value={sent} onChange={setAccess} maxRole={maxRole} subject={name.trim() || "this person"} otherTeam={otherTeam} />
+          {moved && <Alert color="yellow">{t("Moving")}{" "}{user?.name}{" "}{t("signs them out everywhere and revokes their API keys, since those were for their old team.")}</Alert>}
+          <AccessPicker value={sent} onChange={setAccess} maxRole={maxRole} subject={name.trim() || t("this person")} otherTeam={otherTeam} />
           {user && (
             <Group gap="xs">
               <Button variant={disabled ? "light" : "subtle"} color={disabled ? "teal" : "red"} onClick={() => setDisabled(!disabled)}>
-                {disabled ? "Enable this account" : "Disable this account"}
+                {disabled ? t("Enable this account") : t("Disable this account")}
               </Button>
               {user.twoFactor && (
                 <Button variant={resetTwoFactor ? "light" : "subtle"} color={resetTwoFactor ? "yellow" : "gray"} onClick={() => setResetTwoFactor(!resetTwoFactor)}>
-                  {resetTwoFactor ? "Will reset two-step verification" : "Reset two-step verification"}
+                  {resetTwoFactor ? t("Will reset two-step verification") : t("Reset two-step verification")}
                 </Button>
               )}
             </Group>
           )}
-          {resetTwoFactor && <Text size="xs" c="dimmed">For when they lost their phone. They'll sign in with their password alone and can set it up again.</Text>}
+          {resetTwoFactor && <Text size="xs" c="dimmed">{t("For when they lost their phone. They'll sign in with their password alone and can set it up again.")}</Text>}
           {error && <Alert color="red" icon={<IconAlertCircle />}>{message(error)}</Alert>}
           <Group justify="flex-end">
-            <Button variant="default" onClick={onClose}>Cancel</Button>
-            <Button type="submit" loading={pending}>{user ? "Save" : "Add person"}</Button>
+            <Button variant="default" onClick={onClose}>{t("Cancel")}</Button>
+            <Button type="submit" loading={pending}>{user ? t("Save") : t("Add person")}</Button>
           </Group>
         </Stack>
       </form>
@@ -170,8 +171,8 @@ function TeamSelect({ value, onChange }: { value: string; onChange: (id: string)
   const { data } = useSuspenseQuery(listTeams);
   return (
     <Select
-      label="Team"
-      description="They'll see only this team's models and examples."
+      label={t("Team")}
+      description={t("They'll see only this team's models and examples.")}
       data={data.teams.map((t) => ({ value: t.id, label: t.name }))}
       value={value}
       onChange={(v) => v && onChange(v)}
