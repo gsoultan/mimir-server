@@ -6,12 +6,13 @@ import type { RunReport as Report } from "../api/gen/mimir/v1/training_pb";
 import { bytes } from "../lib/format";
 import { balanced, number, short } from "../lib/report";
 import { verdict } from "../lib/verdict";
+import { t } from "../i18n";
 
 // RunReport shows how a finished run's model did on the examples kept
 // aside: one plain headline, the expert numbers, and one picture for its
 // kind of answer.
 export function RunReport({ report: r }: { report: Report }) {
-  const on = r.onTraining ? "the examples it learned from, since none were kept aside" : `${r.examples.toLocaleString()} examples it never saw while learning`;
+  const on = r.onTraining ? t("the examples it learned from, since none were kept aside") : t("{n1} examples it never saw while learning", { n1: r.examples.toLocaleString() });
   const v = verdict(r);
   return (
     <Stack gap="md">
@@ -23,16 +24,16 @@ export function RunReport({ report: r }: { report: Report }) {
           title={v.title}
         >
           {v.body && <Text size="sm">{v.body}</Text>}
-          {v.next && <Text size="sm" mt={v.body ? 6 : 0}><IconBulb size={14} className="mr-1 inline-block align-[-2px]" aria-hidden="true" /><b>What would help:</b> {v.next}</Text>}
+          {v.next && <Text size="sm" mt={v.body ? 6 : 0}><IconBulb size={14} className="mr-1 inline-block align-[-2px]" aria-hidden="true" /><b>{t("What would help:")}</b> {v.next}</Text>}
         </Alert>
       )}
-      <Text size="sm" c="dimmed">Scored on {on}.</Text>
+      <Text size="sm" c="dimmed">{t("Scored on")}{" "}{on}.</Text>
       {r.kind === "number" && <Numbers r={r} />}
       {(r.kind === "class" || r.kind === "ranked") && <Labels r={r} />}
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
-        <Stat label="Answer time" value={`${number(r.millisPerExample, 2)} ms`} hint="per example, while scoring" />
-        <Stat label="Model size" value={bytes(r.sizeBytes)} />
-        <Stat label="Examples scored" value={r.examples.toLocaleString()} />
+        <Stat label={t("Answer time")} value={`${number(r.millisPerExample, 2)} ms`} hint={t("per example, while scoring")} />
+        <Stat label={t("Model size")} value={bytes(r.sizeBytes)} />
+        <Stat label={t("Examples scored")} value={r.examples.toLocaleString()} />
       </SimpleGrid>
     </Stack>
   );
@@ -52,10 +53,10 @@ function Numbers({ r }: { r: Report }) {
   return (
     <>
       <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
-        <Stat label="Usually off by (MAE)" value={number(r.mae)} />
-        <Stat label="Big misses count more (RMSE)" value={number(r.rmse)} />
-        <Stat label="Explains the answers (R²)" value={number(r.r2, 3)} hint="1 is perfect, 0 is no better than the average" />
-        <Stat label="Within 10%" value={`${(r.within10 * 100).toFixed(1)}%`} />
+        <Stat label={t("Usually off by (MAE)")} value={number(r.mae)} />
+        <Stat label={t("Big misses count more (RMSE)")} value={number(r.rmse)} />
+        <Stat label={t("Explains the answers (R²)")} value={number(r.r2, 3)} hint={t("1 is perfect, 0 is no better than the average")} />
+        <Stat label={t("Within 10%")} value={`${(r.within10 * 100).toFixed(1)}%`} />
       </SimpleGrid>
       {r.points.length > 1 && <Scatter r={r} />}
     </>
@@ -78,7 +79,7 @@ function Scatter({ r }: { r: Report }) {
   const p = hover === undefined ? undefined : r.points[hover];
   return (
     <div className="mx-auto w-full max-w-md">
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label="Guesses against real answers">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label={t("Guesses against real answers")}>
         {ticks.map((t, i) => (
           <g key={i}>
             <line x1={pl} x2={w - pr} y1={y(t)} y2={y(t)} stroke="var(--mantine-color-default-border)" strokeDasharray={i === 0 ? undefined : "3 4"} />
@@ -91,11 +92,11 @@ function Scatter({ r }: { r: Report }) {
           <circle key={i} cx={x(q.real)} cy={y(q.guess)} r={hover === i ? 6 : 4} fill="var(--run-1)" fillOpacity={hover === i ? 1 : 0.6} stroke="var(--mantine-color-body)" strokeWidth="1"
             onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(undefined)} />
         ))}
-        <text x={(pl + w - pr) / 2} y={h - 4} fontSize="11" textAnchor="middle" fill="var(--mantine-color-dimmed)">Real answer</text>
-        <text x={pl} y={12} fontSize="11" fill="var(--mantine-color-dimmed)">Its guess</text>
+        <text x={(pl + w - pr) / 2} y={h - 4} fontSize="11" textAnchor="middle" fill="var(--mantine-color-dimmed)">{t("Real answer")}</text>
+        <text x={pl} y={12} fontSize="11" fill="var(--mantine-color-dimmed)">{t("Its guess")}</text>
       </svg>
       <Text size="xs" c="dimmed" ta="center">
-        {p ? `Real ${number(p.real)}, guessed ${number(p.guess)}: off by ${number(Math.abs(p.guess - p.real))}.` : "Each dot is one example. On the dashed line is exactly right."}
+        {p ? t("Real {real}, guessed {guess}: off by {n3}.", { real: number(p.real), guess: number(p.guess), n3: number(Math.abs(p.guess - p.real)) }) : t("Each dot is one example. On the dashed line is exactly right.")}
       </Text>
     </div>
   );
@@ -106,17 +107,17 @@ function Labels({ r }: { r: Report }) {
   return (
     <>
       <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
-        <Stat label="Right answers" value={`${(r.accuracy * 100).toFixed(1)}%`} />
-        <Stat label="Balanced score (macro F1)" value={number(r.macroF1, 3)} hint={uneven ? "the fairer score here: one answer is rare" : "every answer counts the same"} />
-        <Stat label="Sureness (log loss)" value={number(r.logLoss, 3)} hint="lower is better" />
-        {r.kind === "ranked" && <Stat label={`Right one in top ${r.k}`} value={`${((r.hitAt.at(-1) ?? 0) * 100).toFixed(1)}%`} />}
+        <Stat label={t("Right answers")} value={`${(r.accuracy * 100).toFixed(1)}%`} />
+        <Stat label={t("Balanced score (macro F1)")} value={number(r.macroF1, 3)} hint={uneven ? t("the fairer score here: one answer is rare") : t("every answer counts the same")} />
+        <Stat label={t("Sureness (log loss)")} value={number(r.logLoss, 3)} hint={t("lower is better")} />
+        {r.kind === "ranked" && <Stat label={t("Right one in top {k}", { k: r.k })} value={`${((r.hitAt.at(-1) ?? 0) * 100).toFixed(1)}%`} />}
       </SimpleGrid>
       {r.kind === "ranked" && r.hitAt.length > 0 && <Ranked r={r} />}
       {r.confusion.length > 0 && <Confusion r={r} />}
       {r.classes.length > 0 && (
         <Table.ScrollContainer minWidth={420}>
           <Table verticalSpacing={4} fz="sm">
-            <Table.Thead><Table.Tr><Table.Th>Answer</Table.Th><Table.Th>When it says this, it's right (precision)</Table.Th><Table.Th>Finds it when it's there (recall)</Table.Th><Table.Th>F1</Table.Th><Table.Th>Examples</Table.Th></Table.Tr></Table.Thead>
+            <Table.Thead><Table.Tr><Table.Th>{t("Answer")}</Table.Th><Table.Th>{t("When it says this, it's right (precision)")}</Table.Th><Table.Th>{t("Finds it when it's there (recall)")}</Table.Th><Table.Th>F1</Table.Th><Table.Th>{t("Examples")}</Table.Th></Table.Tr></Table.Thead>
             <Table.Tbody>
               {r.classes.map((c) => (
                 <Table.Tr key={c.label}>
@@ -138,9 +139,9 @@ function Labels({ r }: { r: Report }) {
 function Ranked({ r }: { r: Report }) {
   return (
     <Group gap="lg" wrap="wrap">
-      <Text size="sm">Right one in the first:</Text>
+      <Text size="sm">{t("Right one in the first:")}</Text>
       {r.hitAt.map((h, i) => <Text key={i} size="sm"><b>{i + 1}</b> {(h * 100).toFixed(0)}%</Text>)}
-      <Text size="sm" c="dimmed">MRR {number(r.mrr, 3)} · NDCG@{r.k} {number(r.ndcg, 3)}</Text>
+      <Text size="sm" c="dimmed">{t("MRR")}{" "}{number(r.mrr, 3)}{" "}{t("· NDCG@")}{r.k} {number(r.ndcg, 3)}</Text>
     </Group>
   );
 }
@@ -151,8 +152,8 @@ function Confusion({ r }: { r: Report }) {
   const labels = r.classes.map((c) => c.label);
   return (
     <div>
-      <Title order={4} fz="sm" mb={4}>What it mixed up</Title>
-      <Text size="xs" c="dimmed" mb="xs">Rows are the real answer, columns what it said. The diagonal is right.</Text>
+      <Title order={4} fz="sm" mb={4}>{t("What it mixed up")}</Title>
+      <Text size="xs" c="dimmed" mb="xs">{t("Rows are the real answer, columns what it said. The diagonal is right.")}</Text>
       <div className="max-w-full overflow-x-auto">
         <table className="border-separate border-spacing-[2px] text-xs">
           <thead>
@@ -167,7 +168,7 @@ function Confusion({ r }: { r: Report }) {
                   {row.counts.map((n, j) => {
                     const share = Number(n) / total;
                     return (
-                      <td key={j} title={`${labels.at(i)} said as ${labels.at(j)}: ${n.toLocaleString()} (${(share * 100).toFixed(0)}%)`}
+                      <td key={j} title={t("{real} said as {guess}: {n} ({pct}%)", { real: labels.at(i), guess: labels.at(j), n: n.toLocaleString(), pct: (share * 100).toFixed(0) })}
                         className="h-8 min-w-10 rounded px-1 text-center"
                         style={{ background: `color-mix(in srgb, var(--run-1) ${Math.round(share * 85)}%, transparent)`, color: share > 0.55 ? "white" : undefined, fontWeight: i === j ? 600 : undefined }}>
                         {n.toLocaleString()}

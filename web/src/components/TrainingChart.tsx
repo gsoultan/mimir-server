@@ -1,6 +1,7 @@
 import { Group, Text } from "@mantine/core";
 
 import type { EpochResult } from "../api/gen/mimir/v1/training_pb";
+import { t } from "../i18n";
 
 // A small line chart of accuracy per pass, drawn as SVG so it needs no
 // library and resizes with its box.
@@ -13,10 +14,10 @@ export function TrainingChart({ history, epochs, number }: { history: EpochResul
   const line = acc.map((e, i) => `${i === 0 ? "M" : "L"}${x(e.epoch).toFixed(1)},${y(e.accuracy).toFixed(1)}`).join(" ");
   const maxLoss = Math.max(...history.map((e) => e.loss), 1e-9);
   const lossLine = history.map((e, i) => `${i === 0 ? "M" : "L"}${x(e.epoch).toFixed(1)},${y(e.loss / maxLoss).toFixed(1)}`).join(" ");
-  if (history.length === 0) return <Text c="dimmed" size="sm">The chart fills in after the first pass.</Text>;
+  if (history.length === 0) return <Text c="dimmed" size="sm">{t("The chart fills in after the first pass.")}</Text>;
   return (
     <div>
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label="Accuracy and loss per pass">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label={t("Accuracy and loss per pass")}>
       {[0, 0.25, 0.5, 0.75, 1].map((v) => (
         <g key={v}>
           <line x1={pl} x2={w - pr} y1={y(v)} y2={y(v)} stroke="var(--mantine-color-gray-3)" strokeDasharray={v === 0 || v === 1 ? undefined : "3 4"} />
@@ -31,8 +32,8 @@ export function TrainingChart({ history, epochs, number }: { history: EpochResul
       {acc.map((e) => <circle key={e.epoch} cx={x(e.epoch)} cy={y(e.accuracy)} r="3.5" fill="var(--mantine-color-teal-7)" />)}
     </svg>
     <Group gap="lg" justify="flex-end" mt={4}>
-      <Group gap={6}><span className="inline-block h-[3px] w-5 bg-[var(--mantine-color-teal-7)]" /><Text size="xs" c="dimmed">{number ? "Close answers" : "Right answers"}, on examples kept aside</Text></Group>
-      <Group gap={6}><span className="inline-block w-5 border-t-2 border-dashed border-[var(--mantine-color-gray-5)]" /><Text size="xs" c="dimmed">Loss, relative to the first pass</Text></Group>
+      <Group gap={6}><span className="inline-block h-[3px] w-5 bg-[var(--mantine-color-teal-7)]" /><Text size="xs" c="dimmed">{number ? t("Close answers") : t("Right answers")}{t(", on examples kept aside")}</Text></Group>
+      <Group gap={6}><span className="inline-block w-5 border-t-2 border-dashed border-[var(--mantine-color-gray-5)]" /><Text size="xs" c="dimmed">{t("Loss, relative to the first pass")}</Text></Group>
     </Group>
     </div>
   );

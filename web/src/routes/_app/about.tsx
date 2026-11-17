@@ -14,6 +14,7 @@ import { getAbout } from "../../api/queries";
 import { Page } from "../../components/Page";
 import { details, workers } from "../../lib/about";
 import { duration } from "../../lib/format";
+import { locale, t } from "../../i18n";
 
 export const Route = createFileRoute("/_app/about")({
   loader: ({ context }) => context.queryClient.ensureQueryData(getAbout),
@@ -26,9 +27,9 @@ const licenseEmail = "gembit.soultan@gmail.com";
 
 // What each mimir project the server is built on does, by module path.
 const partInfo: Record<string, { name: string; what: string; icon: Icon }> = {
-  "github.com/gsoultan/mimir": { name: "mimir", what: "The machine learning engine: teaches models and gets their answers.", icon: IconMathFunction },
-  "github.com/gsoultan/mimir-model": { name: "mimir-model", what: "The model file format, so a model moves between servers and devices.", icon: IconFileZip },
-  "github.com/gsoultan/storm": { name: "storm", what: "Talks to the database and keeps its tables up to date.", icon: IconDatabase },
+  "github.com/gsoultan/mimir": { name: "mimir", what: t("The machine learning engine: teaches models and gets their answers."), icon: IconMathFunction },
+  "github.com/gsoultan/mimir-model": { name: "mimir-model", what: t("The model file format, so a model moves between servers and devices."), icon: IconFileZip },
+  "github.com/gsoultan/storm": { name: "storm", what: t("Talks to the database and keeps its tables up to date."), icon: IconDatabase },
 };
 
 function About() {
@@ -36,13 +37,13 @@ function About() {
   const [listing, list] = useDisclosure();
   return (
     <Page
-      title="About mimir"
-      intro="What this server is, which version it runs, and who made it."
+      title={t("About mimir")}
+      intro={t("What this server is, which version it runs, and who made it.")}
       actions={
         <CopyButton value={details(about)} timeout={2000}>
           {({ copied, copy }) => (
             <Button variant="default" onClick={copy} leftSection={copied ? <IconCheck size={18} /> : <IconCopy size={18} />}>
-              {copied ? "Copied" : "Copy version details"}
+              {copied ? t("Copied") : t("Copy version details")}
             </Button>
           )}
         </CopyButton>
@@ -52,37 +53,31 @@ function About() {
 
       <div className="grid gap-5 md:grid-cols-[1.4fr_1fr]">
         <Card withBorder radius="lg" padding="lg">
-          <Title order={2} fz={18}>What mimir is</Title>
-          <Text c="dimmed" mt={8}>
-            mimir-server lets you build, teach and run your own models, then ask them questions from this page, from your apps, or on your phone.
-            Everything runs on your own server: your data and your questions stay with you.
-          </Text>
+          <Title order={2} fz={18}>{t("What mimir is")}</Title>
+          <Text c="dimmed" mt={8}>{t("mimir-server lets you build, teach and run your own models, then ask them questions from this page, from your apps, or on your phone. Everything runs on your own server: your data and your questions stay with you.")}</Text>
           <Stack gap="sm" mt="md">
-            <Fact icon={IconCode} title="Written in Go" text="One program, no Python, no extra services to install." />
-            <Fact icon={IconCpu} title="Runs on CPU or GPU" text="On this machine, on workers you add, or on rented GPUs." />
-            <Fact icon={IconLock} title="Your data stays here" text="Nothing is sent anywhere unless you connect it." />
+            <Fact icon={IconCode} title={t("Written in Go")} text={t("One program, no Python, no extra services to install.")} />
+            <Fact icon={IconCpu} title={t("Runs on CPU or GPU")} text={t("On this machine, on workers you add, or on rented GPUs.")} />
+            <Fact icon={IconLock} title={t("Your data stays here")} text={t("Nothing is sent anywhere unless you connect it.")} />
           </Stack>
         </Card>
         <Card withBorder radius="lg" padding="lg">
-          <Title order={2} fz={18}>Made by</Title>
+          <Title order={2} fz={18}>{t("Made by")}</Title>
           <Group gap="sm" mt="md" wrap="nowrap">
             <Avatar size={48} radius="xl" color="teal">GS</Avatar>
             <div>
               <Text fw={700} fz={16}>{author}</Text>
-              <Text size="sm" c="dimmed">Author and maintainer</Text>
+              <Text size="sm" c="dimmed">{t("Author and maintainer")}</Text>
             </div>
           </Group>
           <Anchor href="https://github.com/gsoultan" target="_blank" rel="noreferrer" fw={650} mt="md" className="inline-flex items-center gap-2">
-            <IconBrandGithub size={18} />github.com/gsoultan
-          </Anchor>
-          <Text size="sm" c="dimmed" mt="md" pt="sm" style={{ borderTop: "1px solid var(--mimir-line)" }}>
-            Copyright © 2026 {author}. Free for noncommercial use and small companies. Large companies, and anyone selling it as a product or service, need written permission from the author.
-          </Text>
+            <IconBrandGithub size={18} />github.com/gsoultan</Anchor>
+          <Text size="sm" c="dimmed" mt="md" pt="sm" style={{ borderTop: "1px solid var(--mimir-line)" }}>{t("Copyright © 2026")}{" "}{author}{t(". Free for noncommercial use and small companies. Large companies, and anyone selling it as a product or service, need written permission from the author.")}</Text>
         </Card>
       </div>
 
       {about.parts.length > 0 && (
-        <Section title="Built on">
+        <Section title={t("Built on")}>
           <Card withBorder radius="lg" padding={0}>
             <div className="row-list">
               {about.parts.map((p) => {
@@ -91,7 +86,7 @@ function About() {
                   <Row key={p.path} icon={info?.icon ?? IconPackages}
                     title={<Group gap={8}><span>{info?.name ?? p.path}</span><Text span ff="monospace" size="xs" c="dimmed">{p.version}</Text></Group>}
                     text={info?.what}
-                    action={<Button component="a" href={`https://${p.path}`} target="_blank" rel="noreferrer" size="xs" variant="subtle" color="gray" leftSection={<IconExternalLink size={16} />}>Source</Button>}
+                    action={<Button component="a" href={`https://${p.path}`} target="_blank" rel="noreferrer" size="xs" variant="subtle" color="gray" leftSection={<IconExternalLink size={16} />}>{t("Source")}</Button>}
                   />
                 );
               })}
@@ -100,34 +95,34 @@ function About() {
         </Section>
       )}
 
-      <Section title="License" intro="You can read all of the code. Whether you can use it free depends on who you are.">
+      <Section title={t("License")} intro={t("You can read all of the code. Whether you can use it free depends on who you are.")}>
         <Card withBorder radius="lg" padding={0}>
           <div className="row-list">
-            <Row icon={IconUserHeart} brand title="Free for people and nonprofits"
-              text="Personal projects, study, research and hobby work, plus charities, schools and public bodies. PolyForm Noncommercial 1.0.0."
+            <Row icon={IconUserHeart} brand title={t("Free for people and nonprofits")}
+              text={t("Personal projects, study, research and hobby work, plus charities, schools and public bodies. PolyForm Noncommercial 1.0.0.")}
               action={<ReadIt href="https://polyformproject.org/licenses/noncommercial/1.0.0" />} />
-            <Row icon={IconBuildingStore} brand title="Free for small companies"
-              text="Fewer than 100 people and under $1M revenue last year. PolyForm Small Business 1.0.0."
+            <Row icon={IconBuildingStore} brand title={t("Free for small companies")}
+              text={t("Fewer than 100 people and under $1M revenue last year. PolyForm Small Business 1.0.0.")}
               action={<ReadIt href="https://polyformproject.org/licenses/small-business/1.0.0" />} />
-            <Row icon={IconBriefcase} title="Permission needed for everyone else"
-              text={`Large companies, and anyone selling it as a product or service, may use it only with permission from ${licenseEmail}.`}
-              action={<Button component="a" href={`mailto:${licenseEmail}?subject=${encodeURIComponent("Permission to use mimir-server")}`} size="xs" variant="default" leftSection={<IconMail size={16} />}>Ask for permission</Button>} />
-            <Row icon={IconPackages} title="Other software it uses"
-              text={`${about.dependencies.length} open-source packages, each with its own license.`}
-              action={<Button size="xs" variant="default" onClick={list.open} disabled={about.dependencies.length === 0}>See the list</Button>} />
+            <Row icon={IconBriefcase} title={t("Permission needed for everyone else")}
+              text={t("Large companies, and anyone selling it as a product or service, may use it only with permission from {licenseEmail}.", { licenseEmail })}
+              action={<Button component="a" href={`mailto:${licenseEmail}?subject=${encodeURIComponent("Permission to use mimir-server")}`} size="xs" variant="default" leftSection={<IconMail size={16} />}>{t("Ask for permission")}</Button>} />
+            <Row icon={IconPackages} title={t("Other software it uses")}
+              text={t("{n} open-source packages, each with its own license.", { n: about.dependencies.length })}
+              action={<Button size="xs" variant="default" onClick={list.open} disabled={about.dependencies.length === 0}>{t("See the list")}</Button>} />
           </div>
         </Card>
       </Section>
 
       <div className="grid grid-cols-2 gap-4 pt-5 sm:flex sm:flex-wrap sm:gap-6" style={{ borderTop: "1px solid var(--mimir-line)" }}>
-        <FooterLink href={repo} icon={IconCode}>Source code</FooterLink>
-        <FooterLink href={`${repo}/tree/main/docs`} icon={IconBook}>Documentation</FooterLink>
-        <FooterLink href={`${repo}/blob/main/CHANGELOG.md`} icon={IconSparkles}>What's new</FooterLink>
-        <FooterLink href={`${repo}/issues/new`} icon={IconBug}>Report a problem</FooterLink>
+        <FooterLink href={repo} icon={IconCode}>{t("Source code")}</FooterLink>
+        <FooterLink href={`${repo}/tree/main/docs`} icon={IconBook}>{t("Documentation")}</FooterLink>
+        <FooterLink href={`${repo}/blob/main/CHANGELOG.md`} icon={IconSparkles}>{t("What's new")}</FooterLink>
+        <FooterLink href={`${repo}/issues/new`} icon={IconBug}>{t("Report a problem")}</FooterLink>
       </div>
 
-      <Modal opened={listing} onClose={list.close} title="Other software it uses" size="lg">
-        <Text size="sm" c="dimmed" mb="sm">Every package compiled into this server, at the version it uses. Each has its own license on its project page.</Text>
+      <Modal opened={listing} onClose={list.close} title={t("Other software it uses")} size="lg">
+        <Text size="sm" c="dimmed" mb="sm">{t("Every package compiled into this server, at the version it uses. Each has its own license on its project page.")}</Text>
         <ScrollArea.Autosize mah={420}>
           <Table striped>
             <Table.Tbody>
@@ -154,21 +149,20 @@ function Version({ about }: { about: GetAboutResponse }) {
         <img src="/icon.svg" alt="" width={56} height={56} />
         <div className="min-w-0">
           <Group gap={8}>
-            <Title order={2} fz={26}>mimir-server</Title>
-            {about.version === "dev" && <Badge color="gray" variant="light">Development build</Badge>}
+            <Title order={2} fz={26}>{t("mimir-server")}</Title>
+            {about.version === "dev" && <Badge color="gray" variant="light">{t("Development build")}</Badge>}
           </Group>
-          <Text c="dimmed" mt={4}>
-            Version {about.version}{built && ` · built ${built.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}`}
+          <Text c="dimmed" mt={4}>{t("Version")}{" "}{about.version}{built && t(" · built {date}", { date: built.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" }) })}
           </Text>
         </div>
       </Group>
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="lg" verticalSpacing="md" mt="lg" pt="lg" style={{ borderTop: "1px solid var(--mimir-line)" }}>
-        <Fieldv label="Running for" value={about.started ? duration(Math.max(0, (Date.now() - timestampDate(about.started).getTime()) / 1000)) : "—"} />
-        <Fieldv label="Commit" value={about.commit ? `${about.commit.slice(0, 7)}${about.modified ? " (changed)" : ""}` : "—"} mono />
-        <Fieldv label="Built with" value={about.goVersion ? `Go ${about.goVersion}` : "—"} />
-        <Fieldv label="Database" value={`PostgreSQL · schema ${about.schemaVersion}`} />
-        <Fieldv label="Workers" value={workers(about)} />
-        <Fieldv label="Address" value={window.location.host} />
+        <Fieldv label={t("Running for")} value={about.started ? duration(Math.max(0, (Date.now() - timestampDate(about.started).getTime()) / 1000)) : "—"} />
+        <Fieldv label={t("Commit")} value={about.commit ? `${about.commit.slice(0, 7)}${about.modified ? t(" (changed)") : ""}` : "—"} mono />
+        <Fieldv label={t("Built with")} value={about.goVersion ? `Go ${about.goVersion}` : "—"} />
+        <Fieldv label={t("Database")} value={`PostgreSQL · schema ${about.schemaVersion}`} />
+        <Fieldv label={t("Workers")} value={workers(about)} />
+        <Fieldv label={t("Address")} value={window.location.host} />
       </SimpleGrid>
     </Card>
   );
@@ -207,7 +201,7 @@ function Row({ icon: I, title, text, action, brand }: { icon: Icon; title: React
 }
 
 function ReadIt({ href }: { href: string }) {
-  return <Button component="a" href={href} target="_blank" rel="noreferrer" size="xs" variant="default">Read it</Button>;
+  return <Button component="a" href={href} target="_blank" rel="noreferrer" size="xs" variant="default">{t("Read it")}</Button>;
 }
 
 function Fieldv({ label, value, mono }: { label: string; value: string; mono?: boolean }) {

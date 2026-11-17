@@ -11,6 +11,7 @@ import { AuthService } from "../api/gen/mimir/v1/access_pb";
 import { setupState, signInOptions } from "../api/queries";
 import { AuthCard } from "../components/AuthCard";
 import { KindIcon } from "../components/KindIcon";
+import { t } from "../i18n";
 
 export const Route = createFileRoute("/sign-in")({
   // error and step come back from signing in with another account: why it
@@ -46,20 +47,19 @@ function SignIn() {
   const others = options?.options ?? [];
 
   return (
-    <AuthCard title="Sign in" intro="Welcome back.">
+    <AuthCard title={t("Sign in")} intro={t("Welcome back.")}>
       <form onSubmit={(e) => { e.preventDefault(); signIn.mutate({ email, password }); }}>
         <Stack>
-          <TextInput label="Email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.currentTarget.value)} data-autofocus />
-          <PasswordInput label="Password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} />
+          <TextInput label={t("Email")} type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.currentTarget.value)} data-autofocus />
+          <PasswordInput label={t("Password")} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} />
           {signIn.error ? <Alert color="red" icon={<IconAlertCircle />}>{message(signIn.error)}</Alert> : error && <Alert color="red" icon={<IconAlertCircle />}>{error}</Alert>}
-          <Button type="submit" loading={signIn.isPending} fullWidth>Sign in</Button>
+          <Button type="submit" loading={signIn.isPending} fullWidth>{t("Sign in")}</Button>
           {others.length > 0 && <>
-            <Divider label="or" labelPosition="center" />
+            <Divider label={t("or")} labelPosition="center" />
             {others.map((o) => (
               // A plain link: the browser leaves for the provider and comes back signed in.
               <Button key={o.id} component="a" variant="default" fullWidth leftSection={<KindIcon kind={o.kind} />}
-                href={`/auth/sso/${encodeURIComponent(o.id)}/start${next ? `?next=${encodeURIComponent(next)}` : ""}`}>
-                Continue with {o.name}
+                href={`/auth/sso/${encodeURIComponent(o.id)}/start${next ? `?next=${encodeURIComponent(next)}` : ""}`}>{t("Continue with")}{" "}{o.name}
               </Button>
             ))}
           </>}
@@ -77,24 +77,24 @@ function CodeStep({ onDone, onBack }: { onDone: () => Promise<void>; onBack: () 
   const verify = useMutation(AuthService.method.verifySecondFactor, { onSuccess: onDone });
   const submit = () => verify.mutate({ code });
   return (
-    <AuthCard title="Enter your code" intro={recovery ? "Type one of the recovery codes you saved." : "Open your authenticator app and type the six digits it shows for mimir."}>
+    <AuthCard title={t("Enter your code")} intro={recovery ? t("Type one of the recovery codes you saved.") : t("Open your authenticator app and type the six digits it shows for mimir.")}>
       <form onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <Stack>
           {recovery ? (
-            <TextInput label="Recovery code" placeholder="xxxx-xxxx-xxxx" autoComplete="one-time-code" required value={code} onChange={(e) => setCode(e.currentTarget.value)} data-autofocus />
+            <TextInput label={t("Recovery code")} placeholder="xxxx-xxxx-xxxx" autoComplete="one-time-code" required value={code} onChange={(e) => setCode(e.currentTarget.value)} data-autofocus />
           ) : (
-            <PinInput length={6} type="number" oneTimeCode size="lg" autoFocus value={code} onChange={setCode} onComplete={(c) => verify.mutate({ code: c })} aria-label="Six-digit code" className="justify-center" />
+            <PinInput length={6} type="number" oneTimeCode size="lg" autoFocus value={code} onChange={setCode} onComplete={(c) => verify.mutate({ code: c })} aria-label={t("Six-digit code")} className="justify-center" />
           )}
           {verify.error && <Alert color="red" icon={<IconAlertCircle />}>{message(verify.error)}</Alert>}
-          <Button type="submit" loading={verify.isPending} fullWidth>Continue</Button>
+          <Button type="submit" loading={verify.isPending} fullWidth>{t("Continue")}</Button>
           <Text size="sm" c="dimmed" ta="center">
             {recovery ? (
-              <Anchor component="button" type="button" size="sm" onClick={() => { setRecovery(false); setCode(""); }}>Use the app instead</Anchor>
+              <Anchor component="button" type="button" size="sm" onClick={() => { setRecovery(false); setCode(""); }}>{t("Use the app instead")}</Anchor>
             ) : (
-              <Anchor component="button" type="button" size="sm" onClick={() => { setRecovery(true); setCode(""); }}>Lost your phone? Use a recovery code</Anchor>
+              <Anchor component="button" type="button" size="sm" onClick={() => { setRecovery(true); setCode(""); }}>{t("Lost your phone? Use a recovery code")}</Anchor>
             )}
             {" · "}
-            <Anchor component="button" type="button" size="sm" onClick={onBack}>Start over</Anchor>
+            <Anchor component="button" type="button" size="sm" onClick={onBack}>{t("Start over")}</Anchor>
           </Text>
         </Stack>
       </form>

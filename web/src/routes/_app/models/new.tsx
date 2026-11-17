@@ -16,6 +16,7 @@ import { bytes } from "../../../lib/format";
 import type { Format } from "../../../lib/inspect";
 import { readFile } from "../../../lib/read-file";
 import { upload } from "../../../lib/upload";
+import { t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/models/new")({
   // kind picks the model type to start on, such as "mim" or "language-model".
@@ -36,7 +37,7 @@ const shapeOf = (s: string) => {
 
 // Model types that take a whole model, rather than the weights of one the
 // server builds, also take ONNX and GGUF files and convert them.
-const takes = (whole: boolean) => whole ? ".mim, ONNX or GGUF" : ".mim";
+const takes = (whole: boolean) => whole ? t(".mim, ONNX or GGUF") : ".mim";
 
 function AddModel() {
   const { data } = useSuspenseQuery(listArchitectures);
@@ -69,7 +70,7 @@ function AddModel() {
   const create = useMutation(ModelService.method.createModel, {
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: allModelQueries });
-      notifications.show({ color: "teal", icon: <IconCheck size={18} />, message: `${res.model?.name} is ready.` });
+      notifications.show({ color: "teal", icon: <IconCheck size={18} />, message: t("{name} is ready.", { name: res.model?.name }) });
       await navigate({ to: "/try", search: { model: res.model?.id } });
     },
   });
@@ -87,7 +88,7 @@ function AddModel() {
     if ("error" in r) return setFileError(r.error);
     if (!r.inspection.ok) return setFileError(r.inspection.reason);
     if (r.inspection.format !== "mim" && !whole) {
-      return setFileError(`This model type takes a .mim file. To add ${r.inspection.format === "gguf" ? "a GGUF language model, go back and pick Language model" : "an ONNX model, go back and pick Mimir Model file"}.`);
+      return setFileError(t("This model type takes a .mim file. To add {n1}.", { n1: r.inspection.format === "gguf" ? t("a GGUF language model, go back and pick Language model") : t("an ONNX model, go back and pick Mimir Model file") }));
     }
     setPicked({ file, ...r.inspection });
     if (!name) setName(file.name.replace(/\.(mim|onnx|gguf)$/i, ""));
@@ -111,18 +112,18 @@ function AddModel() {
   const busy = sent !== undefined || create.isPending;
 
   return (
-    <Page title="Add a model" crumbs={[{ label: "Models", to: "/models" }, { label: "Upload a file" }]} intro="Three short steps. Nothing is saved until the end.">
+    <Page title={t("Add a model")} crumbs={[{ label: t("Models"), to: "/models" }, { label: t("Upload a file") }]} intro={t("Three short steps. Nothing is saved until the end.")}>
       <Card withBorder radius="lg" padding="xl">
         <Stepper active={step} onStepClick={(s) => s < step && setStep(s)} size="sm">
-          <Stepper.Step label="What kind" description="Pick the model type">
-            <Radio.Group value={arch} onChange={(v) => { setArch(v); setPicked(undefined); }} label="What does this model do?" mt="md">
+          <Stepper.Step label={t("What kind")} description={t("Pick the model type")}>
+            <Radio.Group value={arch} onChange={(v) => { setArch(v); setPicked(undefined); }} label={t("What does this model do?")} mt="md">
               <Stack gap="sm" mt="sm">
                 {[...wholeKinds, ...(more ? weightKinds : [])].map((a) => (
                   <Radio.Card key={a.name} value={a.name} radius="md" p="md">
                     <Group wrap="nowrap" align="flex-start">
                       <Radio.Indicator />
                       <div>
-                        <Group gap="xs"><Text fw={600}>{a.title}</Text>{a.custom && <Badge size="sm" variant="light" color="grape">Your own code</Badge>}</Group>
+                        <Group gap="xs"><Text fw={600}>{a.title}</Text>{a.custom && <Badge size="sm" variant="light" color="grape">{t("Your own code")}</Badge>}</Group>
                         <Text size="sm" c="dimmed">{a.description}</Text>
                       </div>
                     </Group>
@@ -130,18 +131,18 @@ function AddModel() {
                 ))}
                 {weightKinds.length > 0 && (
                   <Button variant="subtle" size="compact-sm" className="self-start" onClick={() => setMore(!more)}>
-                    {more ? "Show fewer" : `Only the weights of a model kind mimir teaches? Show ${weightKinds.length} more`}
+                    {more ? t("Show fewer") : t("Only the weights of a model kind mimir teaches? Show {weightKinds} more", { weightKinds: weightKinds.length })}
                   </Button>
                 )}
               </Stack>
             </Radio.Group>
           </Stepper.Step>
 
-          <Stepper.Step label="The file" description={whole || custom ? "Upload the model" : "Upload the weights"}>
+          <Stepper.Step label={t("The file")} description={whole || custom ? t("Upload the model") : t("Upload the weights")}>
             <Dropzone
               mt="md"
               onDrop={(files) => files[0] && pick(files[0])}
-              onReject={() => setFileError(`Pick a single ${takes(whole)} file.`)}
+              onReject={() => setFileError(t("Pick a single {whole} file.", { whole: takes(whole) }))}
               maxFiles={1}
               multiple={false}
               loading={reading}
@@ -149,8 +150,8 @@ function AddModel() {
             >
               <Stack align="center" gap={4} py="xl" className="pointer-events-none">
                 <IconFileUpload size={40} stroke={1.5} />
-                <Text fw={600}>Drop your {custom ? "model's" : takes(whole)} file here</Text>
-                <Text size="sm" c="dimmed">or click to choose one{custom ? ". It is kept as it is, for your own code to read." : whole && ". ONNX and GGUF models become .mim files when you add them."}</Text>
+                <Text fw={600}>{t("Drop your {what} file here", { what: custom ? t("model's") : takes(whole) })}</Text>
+                <Text size="sm" c="dimmed">{t("or click to choose one")}{custom ? t(". It is kept as it is, for your own code to read.") : whole && t(". ONNX and GGUF models become .mim files when you add them.")}</Text>
               </Stack>
             </Dropzone>
             {fileError && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{fileError}</Alert>}
@@ -158,49 +159,47 @@ function AddModel() {
               <Alert mt="md" color="teal" icon={<IconCheck />}>
                 {picked.file.name} · {bytes(picked.file.size)}
                 {picked.parameters !== undefined
-                  ? ` · ${picked.parameters.toLocaleString()} numbers learned`
-                  : picked.tensors !== undefined ? ` · ${picked.tensors.toLocaleString()} weight tables` : ""}
-                {picked.format !== "mim" && picked.format !== "own" && ` · becomes a .mim file when you add it`}
+                  ? t(" · {n1} numbers learned", { n1: picked.parameters.toLocaleString() })
+                  : picked.tensors !== undefined ? t(" · {n1} weight tables", { n1: picked.tensors.toLocaleString() }) : ""}
+                {picked.format !== "mim" && picked.format !== "own" && t(" · becomes a .mim file when you add it")}
               </Alert>
             )}
           </Stepper.Step>
 
-          <Stepper.Step label="Name it" description="So you can find it">
+          <Stepper.Step label={t("Name it")} description={t("So you can find it")}>
             <Stack mt="md">
-              <TextInput label="Name" required maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} data-autofocus />
-              <Textarea label="Description" description="Optional. What is it for?" maxLength={500} autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
+              <TextInput label={t("Name")} required maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} data-autofocus />
+              <Textarea label={t("Description")} description={t("Optional. What is it for?")} maxLength={500} autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
               {custom && (
                 <>
-                  <TextInput label="How many numbers it reads" description="One example, like 12, or 3 x 64 x 64 for a photo" required value={shape} onChange={(e) => setShape(e.currentTarget.value)} error={shape && !shapeOf(shape) ? "Whole numbers above 0, like 12 or 3 x 64 x 64" : undefined} />
+                  <TextInput label={t("How many numbers it reads")} description={t("One example, like 12, or 3 x 64 x 64 for a photo")} required value={shape} onChange={(e) => setShape(e.currentTarget.value)} error={shape && !shapeOf(shape) ? t("Whole numbers above 0, like 12 or 3 x 64 x 64") : undefined} />
                   {picked0?.output !== "number" && (
-                    <Textarea label={picked0?.output === "ranked" ? "The items it ranks" : "The answers it picks from"} description="One per line, in the order your code scores them" required autosize minRows={3} maxRows={10} value={labels} onChange={(e) => setLabels(e.currentTarget.value)} />
+                    <Textarea label={picked0?.output === "ranked" ? t("The items it ranks") : t("The answers it picks from")} description={t("One per line, in the order your code scores them")} required autosize minRows={3} maxRows={10} value={labels} onChange={(e) => setLabels(e.currentTarget.value)} />
                   )}
                 </>
               )}
               {sent !== undefined && (
                 <div>
-                  <Text size="sm" c="dimmed" mb={4}>Sending {picked?.file.name}… {Math.floor(sent * 100)}%</Text>
-                  <Progress value={sent * 100} size="sm" radius="xl" aria-label="Sent" />
+                  <Text size="sm" c="dimmed" mb={4}>{t("Sending")}{" "}{picked?.file.name}… {Math.floor(sent * 100)}%</Text>
+                  <Progress value={sent * 100} size="sm" radius="xl" aria-label={t("Sent")} />
                 </div>
               )}
-              {create.isPending && <Text size="sm" c="dimmed">{picked?.format === "gguf" || picked?.format === "onnx" ? "Converting and checking the model…" : "Checking the model…"}</Text>}
+              {create.isPending && <Text size="sm" c="dimmed">{picked?.format === "gguf" || picked?.format === "onnx" ? t("Converting and checking the model…") : t("Checking the model…")}</Text>}
               {(sendError ?? create.error) && <Alert color="red" icon={<IconAlertCircle />}>{sendError ?? message(create.error)}</Alert>}
             </Stack>
           </Stepper.Step>
         </Stepper>
 
         <Group justify="space-between" mt="xl">
-          <Button variant="default" onClick={() => setStep(step - 1)} disabled={step === 0 || busy}>Back</Button>
+          <Button variant="default" onClick={() => setStep(step - 1)} disabled={step === 0 || busy}>{t("Back")}</Button>
           {step < 2 ? (
-            <Button onClick={() => setStep(step + 1)} disabled={(step === 0 && !arch) || (step === 1 && !picked)}>Next</Button>
+            <Button onClick={() => setStep(step + 1)} disabled={(step === 0 && !arch) || (step === 1 && !picked)}>{t("Next")}</Button>
           ) : (
             <Button
               loading={busy}
               disabled={!name.trim() || !picked || !specOk}
               onClick={() => picked && add(picked)}
-            >
-              Add model
-            </Button>
+            >{t("Add model")}</Button>
           )}
         </Group>
       </Card>

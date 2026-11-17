@@ -16,6 +16,7 @@ import * as device from "../../lib/device";
 import { explains } from "../../lib/explain";
 import { bytes } from "../../lib/format";
 import { plansVisits } from "../../lib/scoring";
+import { t } from "../../i18n";
 
 export const Route = createFileRoute("/_app/try")({
   validateSearch: z.object({ model: z.string().optional(), mode: z.enum(["write"]).optional(), where: z.enum(["device"]).optional() }),
@@ -38,10 +39,10 @@ function Try() {
   const model = data.models.find((m) => m.id === selected) ?? data.models[0];
   if (!model) {
     return (
-      <Page title="Try a model">
+      <Page title={t("Try a model")}>
         <Card withBorder radius="lg" padding="xl">
-          <Text mb="md">Build or upload a model first, then come back to try it.</Text>
-          <ButtonLink to="/models/build">Build a model</ButtonLink>
+          <Text mb="md">{t("Build or upload a model first, then come back to try it.")}</Text>
+          <ButtonLink to="/models/build">{t("Build a model")}</ButtonLink>
         </Card>
       </Page>
     );
@@ -49,7 +50,7 @@ function Try() {
   const arch = archs.architectures.find((a) => a.name === model.architecture);
   const pickModel = (
     <Select
-      label="Model"
+      label={t("Model")}
       className="w-full max-w-sm"
       data={data.models.map((m) => ({ value: m.id, label: m.name }))}
       value={model.id}
@@ -61,11 +62,11 @@ function Try() {
     const modes = (
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-full sm:w-80">{pickModel}</div>
-        <SegmentedControl data={[{ value: "chat", label: "Chat" }, { value: "write", label: "Carry on a text" }]} value={mode} onChange={(v) => void navigate({ search: { model: model.id, mode: v === "write" ? "write" : undefined } })} />
+        <SegmentedControl data={[{ value: "chat", label: t("Chat") }, { value: "write", label: t("Carry on a text") }]} value={mode} onChange={(v) => void navigate({ search: { model: model.id, mode: v === "write" ? "write" : undefined } })} />
       </div>
     );
     return (
-      <Page title="Try a model" intro={mode === "chat" ? "Chat with a language model, the way your apps will." : "Start a text and see how the model carries on."}>
+      <Page title={t("Try a model")} intro={mode === "chat" ? t("Chat with a language model, the way your apps will.") : t("Start a text and see how the model carries on.")}>
         {mode === "chat"
           ? <Chat key={model.id} model={model} canWrite={me.permissions.includes("models.write")} header={modes} />
           : <>{modes}<Writer key={model.id} modelId={model.id} /></>}
@@ -84,18 +85,18 @@ function Try() {
     return { number: r.number, value: r.value, guesses: r.guesses, values: arch?.target === "action" || arch?.output === "numbers" ? r.output?.values : undefined, boxes: r.boxes, ms: Number(r.durationMicros) / 1000 };
   };
   return (
-    <Page title="Try a model" intro={askIntro(arch)}
+    <Page title={t("Try a model")} intro={askIntro(arch)}
       actions={me.permissions.includes("models.write") && <Group gap="xs">
-        <ButtonLink variant="default" leftSection={<IconListCheck size={18} />} to="/scoring" search={{ model: model.id }}>Score a whole list</ButtonLink>
-        {plansVisits(arch) && <ButtonLink variant="default" leftSection={<IconRoute size={18} />} to="/visits/new" search={{ model: model.id }}>Plan visits</ButtonLink>}
+        <ButtonLink variant="default" leftSection={<IconListCheck size={18} />} to="/scoring" search={{ model: model.id }}>{t("Score a whole list")}</ButtonLink>
+        {plansVisits(arch) && <ButtonLink variant="default" leftSection={<IconRoute size={18} />} to="/visits/new" search={{ model: model.id }}>{t("Plan visits")}</ButtonLink>}
       </Group>}>
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-full sm:w-80">{pickModel}</div>
         {canDevice && (
           <Stack gap={4}>
-            <Text size="sm" fw={500}>Where it runs</Text>
+            <Text size="sm" fw={500}>{t("Where it runs")}</Text>
             <SegmentedControl
-              data={[{ value: "server", label: "On the server" }, { value: "device", label: "On this device" }]}
+              data={[{ value: "server", label: t("On the server") }, { value: "device", label: t("On this device") }]}
               value={onDevice ? "device" : "server"}
               onChange={(v) => void navigate({ search: { model: model.id, where: v === "device" ? "device" : undefined } })}
             />
@@ -103,7 +104,7 @@ function Try() {
         )}
       </div>
       {onDevice && <DeviceNote model={model} />}
-      <Ask key={`${model.id}-${onDevice}`} model={model} arch={arch} answer={ask} where={onDevice ? "on this device" : undefined} explainable={!onDevice && explains(model, arch)} />
+      <Ask key={`${model.id}-${onDevice}`} model={model} arch={arch} answer={ask} where={onDevice ? t("on this device") : undefined} explainable={!onDevice && explains(model, arch)} />
     </Page>
   );
 }
@@ -123,8 +124,8 @@ function DeviceNote({ model }: { model: Model }) {
   return (
     <Alert color={current ? "teal" : "blue"} variant="light" icon={current ? <IconDeviceLaptop /> : <IconDownload />} className="max-w-2xl">
       {current
-        ? <>Saved on this device, so it answers here, even offline. <Anchor component={Link} to="/device" size="sm">Models on this device</Anchor></>
-        : `${saved ? "A newer version is on the server. " : ""}The first question downloads the model (${bytes(model.sizeBytes)}) to this device. After that it answers here, even offline.`}
+        ? <>{t("Saved on this device, so it answers here, even offline.")}{" "}<Anchor component={Link} to="/device" size="sm">{t("Models on this device")}</Anchor></>
+        : t("{n1}The first question downloads the model ({sizeBytes}) to this device. After that it answers here, even offline.", { n1: saved ? t("A newer version is on the server. ") : "", sizeBytes: bytes(model.sizeBytes) })}
     </Alert>
   );
 }

@@ -46,3 +46,14 @@ own machine, install once:
 
 Without them the hooks do nothing, and uvx fetches Serena when the MCP
 server first starts.
+
+# Web app text and languages
+
+The web app (web/) is in English and Indonesian. Write every piece of text
+people see in English inside `t("...")` from web/src/i18n, with `{name}`
+placeholders for values: `t("Try {name}", { name: model.name })`. Write whole
+sentences rather than gluing fragments together, and use separate strings for
+singular and plural (or `count()` from web/src/lib/templates). Then add the
+Indonesian to web/src/i18n/id.ts in the same plain, friendly tone;
+`cd web && bun run i18n:check` lists text still missing a translation. Text
+without one shows in English, so nothing breaks while it waits.

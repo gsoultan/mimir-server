@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import type { Job } from "../api/gen/mimir/v1/training_pb";
 import { runColor } from "../lib/compare";
+import { t } from "../i18n";
 
 // CompareChart draws each run's accuracy per pass on one axis, one color
 // per run, with every run's score at the pass under the pointer.
@@ -21,7 +22,7 @@ export function CompareChart({ jobs, number }: { jobs: Job[]; number?: boolean }
   const lo = Math.max(0, Math.floor((low - 0.02) * 20) / 20);
   const y = (v: number) => pt + ((1 - v) / (1 - lo)) * (h - pt - pb);
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => lo + t * (1 - lo));
-  if (scored.every((s) => s.length === 0)) return <Text c="dimmed" size="sm">The chart fills in once a run has finished a pass.</Text>;
+  if (scored.every((s) => s.length === 0)) return <Text c="dimmed" size="sm">{t("The chart fills in once a run has finished a pass.")}</Text>;
 
   function move(ev: React.PointerEvent<SVGSVGElement>) {
     const box = ev.currentTarget.getBoundingClientRect();
@@ -35,7 +36,7 @@ export function CompareChart({ jobs, number }: { jobs: Job[]; number?: boolean }
   return (
     <div>
       <div className="relative" ref={ref}>
-        <svg viewBox={`0 0 ${w} ${h}`} className="w-full touch-none" role="img" aria-label={`${number ? "Close" : "Right"} answers per pass, one line per run`} onPointerMove={move} onPointerLeave={() => setHover(undefined)}>
+        <svg viewBox={`0 0 ${w} ${h}`} className="w-full touch-none" role="img" aria-label={t("{n1} answers per pass, one line per run", { n1: number ? t("Close") : t("Right") })} onPointerMove={move} onPointerLeave={() => setHover(undefined)}>
           {ticks.map((v, k) => (
             <g key={k}>
               <line x1={pl} x2={w - pr} y1={y(v)} y2={y(v)} stroke="var(--mantine-color-default-border)" strokeDasharray={k === 0 || k === ticks.length - 1 ? undefined : "3 4"} />
@@ -60,7 +61,7 @@ export function CompareChart({ jobs, number }: { jobs: Job[]; number?: boolean }
             className="pointer-events-none absolute top-2 rounded-md border border-[var(--mantine-color-default-border)] bg-[var(--mantine-color-body)] px-3 py-2 shadow-sm"
             style={tipLeft ? { right: `${100 - (x(hover) / w) * 100 + 2}%` } : { left: `${(x(hover) / w) * 100 + 2}%` }}
           >
-            <Text size="xs" fw={600} mb={2}>Pass {hover}</Text>
+            <Text size="xs" fw={600} mb={2}>{t("Pass")}{" "}{hover}</Text>
             {at.map(({ j, i, e }) => (
               <Group key={j.id} gap={6} wrap="nowrap">
                 <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: runColor(i) }} />
@@ -79,7 +80,7 @@ export function CompareChart({ jobs, number }: { jobs: Job[]; number?: boolean }
           </Group>
         ))}
       </Group>
-      <Text size="xs" c="dimmed" ta="center" mt={2}>{number ? "Close answers" : "Right answers"} on examples kept aside, after each pass.</Text>
+      <Text size="xs" c="dimmed" ta="center" mt={2}>{number ? t("Close answers") : t("Right answers")}{" "}{t("on examples kept aside, after each pass.")}</Text>
     </div>
   );
 }

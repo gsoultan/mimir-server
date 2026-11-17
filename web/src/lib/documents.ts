@@ -1,5 +1,6 @@
 import type { Document } from "../api/gen/mimir/v1/document_pb";
 import { JobStatus } from "../api/gen/mimir/v1/training_pb";
+import { t } from "../i18n";
 
 // The files a collection can read, as the server's docread.KindOf does.
 export const documentTypes = [".txt", ".md", ".markdown", ".html", ".htm", ".docx", ".pdf", ".csv", ".json"];
@@ -12,11 +13,11 @@ export const reading = (d: Document) => d.status === JobStatus.QUEUED || d.statu
 // documentStatus says where a document is, in words.
 export function documentStatus(d: Document): string {
   switch (d.status) {
-    case JobStatus.QUEUED: return "Waiting to be read";
-    case JobStatus.RUNNING: return "Reading";
-    case JobStatus.SUCCEEDED: return `${Number(d.passages).toLocaleString()} ${d.passages === 1n ? "passage" : "passages"}`;
-    case JobStatus.FAILED: return "Couldn't be read";
-    default: return "Stopped";
+    case JobStatus.QUEUED: return t("Waiting to be read");
+    case JobStatus.RUNNING: return t("Reading");
+    case JobStatus.SUCCEEDED: return d.passages === 1n ? t("1 passage") : t("{n} passages", { n: Number(d.passages).toLocaleString() });
+    case JobStatus.FAILED: return t("Couldn't be read");
+    default: return t("Stopped");
   }
 }
 

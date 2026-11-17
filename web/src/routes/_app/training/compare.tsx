@@ -18,6 +18,7 @@ import { againName, bestPass, parseIds, runColor, shapeWord, took, trainingSecon
 import { bytes } from "../../../lib/format";
 import { number as num } from "../../../lib/report";
 import { active, score, statusColor, statusWord } from "../../../lib/training";
+import { locale, t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/training/compare")({
   // ids lists the runs, comma-separated, in the order to show them.
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/_app/training/compare")({
   ]),
   errorComponent: ({ error }) => (
     <Alert color="red" icon={<IconAlertCircle />} className="mx-auto max-w-5xl">
-      {message(error)} <Link to="/training">Back to training</Link>
+      {message(error)} <Link to="/training">{t("Back to training")}</Link>
     </Alert>
   ),
   component: Compare,
@@ -39,11 +40,11 @@ function Compare() {
   const ids = parseIds(Route.useSearch().ids);
   if (ids.length < 2) {
     return (
-      <Page title="Compare runs" crumbs={[{ label: "Training", to: "/training" }, { label: "Compare" }]} intro="See how runs did side by side.">
+      <Page title={t("Compare runs")} crumbs={[{ label: t("Training"), to: "/training" }, { label: t("Compare") }]} intro={t("See how runs did side by side.")}>
         <Card withBorder radius="lg" padding="xl" className="text-center">
-          <Text fw={600}>Pick two or more runs first</Text>
-          <Text c="dimmed" mb="md">Tick the runs you want on the training page, then choose Compare.</Text>
-          <Group justify="center"><ButtonLink to="/training">Go to training</ButtonLink></Group>
+          <Text fw={600}>{t("Pick two or more runs first")}</Text>
+          <Text c="dimmed" mb="md">{t("Tick the runs you want on the training page, then choose Compare.")}</Text>
+          <Group justify="center"><ButtonLink to="/training">{t("Go to training")}</ButtonLink></Group>
         </Card>
       </Page>
     );
@@ -51,7 +52,7 @@ function Compare() {
   return <Runs ids={ids} />;
 }
 
-const round = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+const round = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 4 });
 
 function Runs({ ids }: { ids: string[] }) {
   const { data } = useSuspenseQuery({ ...compareJobs(ids), refetchInterval: (q) => (q.state.data?.jobs.some(active) ? 2000 : false) });
@@ -67,49 +68,49 @@ function Runs({ ids }: { ids: string[] }) {
   // Each row is one thing about the runs; key matches the server's
   // differs names where the row is a setting.
   const rows: { label: string; key?: string; cell: (j: Job) => ReactNode }[] = [
-    { label: "Score", cell: (j) => (j.status === JobStatus.SUCCEEDED ? score(j.accuracy, isNumber(j)) : <Badge color={statusColor[j.status]} variant="light">{statusWord[j.status]}</Badge>) },
-    { label: "Best pass", cell: (j) => { const b = bestPass(j); return b ? `${(b.accuracy * 100).toFixed(1)}% at pass ${b.epoch}` : "–"; } },
-    ...(anyNumber ? [{ label: "Usually off by", cell: (j: Job) => { const e = j.history.at(-1)?.typicalError ?? 0; return isNumber(j) && e > 0 ? round(e) : "–"; } }] : []),
+    { label: t("Score"), cell: (j) => (j.status === JobStatus.SUCCEEDED ? score(j.accuracy, isNumber(j)) : <Badge color={statusColor[j.status]} variant="light">{statusWord[j.status]}</Badge>) },
+    { label: t("Best pass"), cell: (j) => { const b = bestPass(j); return b ? t("{n1}% at pass {epoch}", { n1: (b.accuracy * 100).toFixed(1), epoch: b.epoch }) : "–"; } },
+    ...(anyNumber ? [{ label: t("Usually off by"), cell: (j: Job) => { const e = j.history.at(-1)?.typicalError ?? 0; return isNumber(j) && e > 0 ? round(e) : "–"; } }] : []),
     ...(jobs.some((j) => j.report && j.report.kind !== "number") ? [
-      { label: "Balanced score (macro F1)", cell: (j: Job) => (j.report && j.report.kind !== "number" ? num(j.report.macroF1, 3) : "–") },
+      { label: t("Balanced score (macro F1)"), cell: (j: Job) => (j.report && j.report.kind !== "number" ? num(j.report.macroF1, 3) : "–") },
     ] : []),
     ...(jobs.some((j) => j.report?.kind === "ranked") ? [
-      { label: "Right one in its top picks", cell: (j: Job) => (j.report?.kind === "ranked" ? `${Math.round((j.report.hitAt.at(-1) ?? 0) * 100)}% in top ${j.report.k}` : "–") },
+      { label: t("Right one in its top picks"), cell: (j: Job) => (j.report?.kind === "ranked" ? t("{n1}% in top {k}", { n1: Math.round((j.report.hitAt.at(-1) ?? 0) * 100), k: j.report.k }) : "–") },
     ] : []),
     ...(jobs.some((j) => j.report?.kind === "number") ? [
-      { label: "Big misses count more (RMSE)", cell: (j: Job) => (j.report?.kind === "number" ? num(j.report.rmse) : "–") },
-      { label: "Explains the answers (R²)", cell: (j: Job) => (j.report?.kind === "number" ? num(j.report.r2, 3) : "–") },
+      { label: t("Big misses count more (RMSE)"), cell: (j: Job) => (j.report?.kind === "number" ? num(j.report.rmse) : "–") },
+      { label: t("Explains the answers (R²)"), cell: (j: Job) => (j.report?.kind === "number" ? num(j.report.r2, 3) : "–") },
     ] : []),
-    { label: "Answer time", cell: (j) => (j.report ? `${num(j.report.millisPerExample, 2)} ms` : "–") },
-    { label: "Model size", cell: (j) => (j.report ? bytes(j.report.sizeBytes) : "–") },
-    { label: "Time learning", cell: (j) => (j.history.length > 0 ? took(trainingSeconds(j)) : "–") },
-    { label: "Per pass, on average", cell: (j) => (j.history.length > 0 ? took(trainingSeconds(j) / j.history.length) : "–") },
-    { label: "Model type", key: "architecture", cell: (j) => arch(j)?.title ?? j.architecture },
-    { label: "Examples", key: "dataset", cell: (j) => j.datasetName || "Deleted" },
-    { label: "Passes over the examples", key: "epochs", cell: (j) => `${j.history.length} of ${j.settings?.epochs ?? 0}` },
-    { label: "Examples per step", key: "batch_size", cell: (j) => String(j.settings?.batchSize ?? "–") },
-    { label: "Learning rate", key: "learning_rate", cell: (j) => round(j.settings?.learningRate ?? 0) },
-    { label: "Kept aside for scoring", key: "hold_out", cell: (j) => `${Math.round((j.settings?.holdOut ?? 0) * 100)}%` },
-    { label: "Shape", key: "layers", cell: (j) => shapeWord(j.settings?.layers ?? []) },
-    { label: "Trained on", key: "worker", cell: (j) => (j.worker ? `Worker ${j.worker}` : "This server") },
-    { label: "Started", cell: (j) => `${ago(j.createTime)} by ${j.createdBy}` },
+    { label: t("Answer time"), cell: (j) => (j.report ? `${num(j.report.millisPerExample, 2)} ms` : "–") },
+    { label: t("Model size"), cell: (j) => (j.report ? bytes(j.report.sizeBytes) : "–") },
+    { label: t("Time learning"), cell: (j) => (j.history.length > 0 ? took(trainingSeconds(j)) : "–") },
+    { label: t("Per pass, on average"), cell: (j) => (j.history.length > 0 ? took(trainingSeconds(j) / j.history.length) : "–") },
+    { label: t("Model type"), key: "architecture", cell: (j) => arch(j)?.title ?? j.architecture },
+    { label: t("Examples"), key: "dataset", cell: (j) => j.datasetName || t("Deleted") },
+    { label: t("Passes over the examples"), key: "epochs", cell: (j) => t("{n} of {total}", { n: j.history.length, total: j.settings?.epochs ?? 0 }) },
+    { label: t("Examples per step"), key: "batch_size", cell: (j) => String(j.settings?.batchSize ?? "–") },
+    { label: t("Learning rate"), key: "learning_rate", cell: (j) => round(j.settings?.learningRate ?? 0) },
+    { label: t("Kept aside for scoring"), key: "hold_out", cell: (j) => `${Math.round((j.settings?.holdOut ?? 0) * 100)}%` },
+    { label: t("Shape"), key: "layers", cell: (j) => shapeWord(j.settings?.layers ?? []) },
+    { label: t("Trained on"), key: "worker", cell: (j) => (j.worker ? t("Worker {worker}", { worker: j.worker }) : t("This server")) },
+    { label: t("Started"), cell: (j) => `${ago(j.createTime)} by ${j.createdBy}` },
   ];
   const best = jobs.find((j) => j.id === data.bestId);
 
   return (
     <Page
-      title="Compare runs"
-      crumbs={[{ label: "Training", to: "/training" }, { label: "Compare" }]}
-      intro={best ? <>{best.name} scored best: it {score(best.accuracy, isNumber(best))}.{differs.size > 0 && " Highlighted rows are the settings that differ."}</> : "None of these runs has finished yet."}
-      actions={<ButtonLink variant="default" to="/training">Back to training</ButtonLink>}
+      title={t("Compare runs")}
+      crumbs={[{ label: t("Training"), to: "/training" }, { label: t("Compare") }]}
+      intro={best ? <>{best.name}{" "}{t("scored best: it")}{" "}{score(best.accuracy, isNumber(best))}.{differs.size > 0 && t(" Highlighted rows are the settings that differ.")}</> : t("None of these runs has finished yet.")}
+      actions={<ButtonLink variant="default" to="/training">{t("Back to training")}</ButtonLink>}
     >
       <Card withBorder radius="lg" padding="lg">
-        <Title order={3} fz="lg" mb="sm">{allNumber ? "Close answers" : anyNumber ? "Right or close answers" : "Right answers"} per pass</Title>
+        <Title order={3} fz="lg" mb="sm">{allNumber ? t("Close answers") : anyNumber ? t("Right or close answers") : t("Right answers")}{" "}{t("per pass")}</Title>
         <CompareChart jobs={jobs} number={allNumber} />
       </Card>
 
       <Card withBorder radius="lg" padding="lg">
-        <Title order={3} fz="lg" mb="sm">Side by side</Title>
+        <Title order={3} fz="lg" mb="sm">{t("Side by side")}</Title>
         <Table.ScrollContainer minWidth={220 + 200 * jobs.length}>
           <Table verticalSpacing="xs" fz="sm" withColumnBorders>
             <Table.Thead>
@@ -120,7 +121,7 @@ function Runs({ ids }: { ids: string[] }) {
                     <Group gap={6} wrap="nowrap" align="center">
                       <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: runColor(i) }} aria-hidden />
                       <AnchorLink to="/training/$id" params={{ id: j.id }} fw={700} c="inherit" truncate>{j.name}</AnchorLink>
-                      {j.id === data.bestId && <Badge color="teal" variant="light" size="sm">Best</Badge>}
+                      {j.id === data.bestId && <Badge color="teal" variant="light" size="sm">{t("Best")}</Badge>}
                     </Group>
                   </Table.Th>
                 ))}
@@ -133,7 +134,7 @@ function Runs({ ids }: { ids: string[] }) {
                   <Table.Tr key={r.label} bg={differ ? "var(--mantine-color-yellow-light)" : undefined}>
                     <Table.Td c="dimmed">
                       {r.label}
-                      {differ && <Text span size="xs" fw={600} c="var(--mantine-color-text)" ml={6}>· differs</Text>}
+                      {differ && <Text span size="xs" fw={600} c="var(--mantine-color-text)" ml={6}>{t("· differs")}</Text>}
                     </Table.Td>
                     {jobs.map((j) => <Table.Td key={j.id} fw={differ ? 600 : undefined}>{r.cell(j)}</Table.Td>)}
                   </Table.Tr>
@@ -143,9 +144,7 @@ function Runs({ ids }: { ids: string[] }) {
                 <Table.Td />
                 {jobs.map((j) => (
                   <Table.Td key={j.id}>
-                    <Button size="xs" variant="default" leftSection={<IconRepeat size={16} />} disabled={!j.datasetName} title={j.datasetName ? undefined : "Its examples were deleted"} onClick={() => setAgain(j)}>
-                      Train again with these settings
-                    </Button>
+                    <Button size="xs" variant="default" leftSection={<IconRepeat size={16} />} disabled={!j.datasetName} title={j.datasetName ? undefined : t("Its examples were deleted")} onClick={() => setAgain(j)}>{t("Train again with these settings")}</Button>
                   </Table.Td>
                 ))}
               </Table.Tr>
@@ -162,7 +161,7 @@ function Runs({ ids }: { ids: string[] }) {
 // settings, under a new name.
 function TrainAgain({ job, title, onClose }: { job?: Job; title: string; onClose: () => void }) {
   return (
-    <Modal opened={!!job} onClose={onClose} title="Train again with these settings" centered>
+    <Modal opened={!!job} onClose={onClose} title={t("Train again with these settings")} centered>
       {job && <AgainForm key={job.id} job={job} title={title} onDone={onClose} />}
     </Modal>
   );
@@ -176,7 +175,7 @@ function AgainForm({ job, title, onDone }: { job: Job; title: string; onDone: ()
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: allTrainingQueries });
       onDone();
-      notifications.show({ message: "Training again with the same settings." });
+      notifications.show({ message: t("Training again with the same settings.") });
       if (res.job) await navigate({ to: "/training/$id", params: { id: res.job.id } });
     },
   });
@@ -189,14 +188,12 @@ function AgainForm({ job, title, onDone }: { job: Job; title: string; onDone: ()
       }}
     >
       <Stack gap="sm">
-        <Text size="sm" c="dimmed">
-          A new {title} learns from {job.datasetName} with {s?.epochs} passes, {s?.batchSize} examples per step, a learning rate of {round(s?.learningRate ?? 0)} and {Math.round((s?.holdOut ?? 0) * 100)}% kept aside{s && s.layers.length > 0 ? `, shaped ${shapeWord(s.layers)}` : ""}. It reads the examples as they are now.
-        </Text>
-        <TextInput label="Name" data-autofocus required value={name} onChange={(e) => setName(e.currentTarget.value)} />
+        <Text size="sm" c="dimmed">{t("A new")}{" "}{title}{" "}{t("learns from")}{" "}{job.datasetName}{" "}{t("with")}{" "}{s?.epochs}{" "}{t("passes,")}{" "}{s?.batchSize}{" "}{t("examples per step, a learning rate of")}{" "}{round(s?.learningRate ?? 0)}{" "}{t("and")}{" "}{Math.round((s?.holdOut ?? 0) * 100)}{t("% kept aside")}{s && s.layers.length > 0 ? t(", shaped {layers}", { layers: shapeWord(s.layers) }) : ""}{t(". It reads the examples as they are now.")}</Text>
+        <TextInput label={t("Name")} data-autofocus required value={name} onChange={(e) => setName(e.currentTarget.value)} />
         {create.error && <Alert color="red" icon={<IconAlertCircle />}>{message(create.error)}</Alert>}
         <Group justify="flex-end">
-          <Button variant="default" onClick={onDone}>Cancel</Button>
-          <Button type="submit" loading={create.isPending} disabled={!name.trim()}>Start</Button>
+          <Button variant="default" onClick={onDone}>{t("Cancel")}</Button>
+          <Button type="submit" loading={create.isPending} disabled={!name.trim()}>{t("Start")}</Button>
         </Group>
       </Stack>
     </form>

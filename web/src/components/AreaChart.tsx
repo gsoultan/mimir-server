@@ -1,5 +1,6 @@
 import { Text } from "@mantine/core";
 import { useId, useRef, useState } from "react";
+import { locale, t } from "../i18n";
 
 export type Point = { t: number; v: number };
 
@@ -19,7 +20,7 @@ export function AreaChart({ points, max, color, format, span, label }: {
   const x = (t: number) => pl + ((t - from) / span) * (w - pl - pr);
   const y = (v: number) => pt + (1 - Math.min(v, top) / (top || 1)) * (h - pt - pb);
   if (points.length === 0) {
-    return <div className="flex h-[150px] items-center justify-center rounded-md bg-[var(--mantine-color-default-hover)]"><Text size="sm" c="dimmed">No readings for this time yet.</Text></div>;
+    return <div className="flex h-[150px] items-center justify-center rounded-md bg-[var(--mantine-color-default-hover)]"><Text size="sm" c="dimmed">{t("No readings for this time yet.")}</Text></div>;
   }
   // A gap of more than a few readings means it was offline; break the line.
   const gap = Math.max(span / 120, 3 * 60_000);
@@ -89,8 +90,8 @@ function niceMax(v: number) {
 function clock(t: number, span: number) {
   const d = new Date(t);
   return span > 36 * 3600_000
-    ? d.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })
-    : d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    ? d.toLocaleString(locale, { weekday: "short", hour: "numeric", minute: "2-digit" })
+    : d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 }
 
 function timeTicks(from: number, to: number, span: number) {
@@ -99,7 +100,7 @@ function timeTicks(from: number, to: number, span: number) {
   const offset = new Date().getTimezoneOffset() * 60_000;
   for (let t = Math.ceil((from - offset) / step) * step + offset; t <= to; t += step) {
     const d = new Date(t);
-    out.push({ t, label: step >= 86400_000 ? d.toLocaleDateString(undefined, { weekday: "short" }) : d.toLocaleTimeString(undefined, { hour: "numeric", minute: step < 3600_000 ? "2-digit" : undefined }) });
+    out.push({ t, label: step >= 86400_000 ? d.toLocaleDateString(locale, { weekday: "short" }) : d.toLocaleTimeString(locale, { hour: "numeric", minute: step < 3600_000 ? "2-digit" : undefined }) });
   }
   return out;
 }
