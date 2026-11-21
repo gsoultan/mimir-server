@@ -1,12 +1,13 @@
 import { JobStatus, type Job } from "../api/gen/mimir/v1/training_pb";
+import { t } from "../i18n";
 
 export const statusWord: Record<JobStatus, string> = {
-  [JobStatus.UNSPECIFIED]: "Unknown",
-  [JobStatus.QUEUED]: "Waiting to start",
-  [JobStatus.RUNNING]: "Learning",
-  [JobStatus.SUCCEEDED]: "Done",
-  [JobStatus.FAILED]: "Failed",
-  [JobStatus.CANCELLED]: "Stopped",
+  [JobStatus.UNSPECIFIED]: t("Unknown"),
+  [JobStatus.QUEUED]: t("Waiting to start"),
+  [JobStatus.RUNNING]: t("Learning"),
+  [JobStatus.SUCCEEDED]: t("Done"),
+  [JobStatus.FAILED]: t("Failed"),
+  [JobStatus.CANCELLED]: t("Stopped"),
 };
 
 export const statusColor: Record<JobStatus, string> = {
@@ -42,17 +43,17 @@ export function progress(j: Job) {
 // "gets 98 of 100 right". A number model can't be exactly right, so it
 // counts answers within a tenth of the real one.
 export function score(accuracy: number, number = false) {
-  return `gets ${Math.round(accuracy * 100)} of 100 ${number ? "close" : "right"}`;
+  return number ? t("gets {n} of 100 close", { n: Math.round(accuracy * 100) }) : t("gets {n} of 100 right", { n: Math.round(accuracy * 100) });
 }
 
 // How often a model keeps learning, as a choice and in words. Looking
 // every 15 minutes is only for a model that waits for new rows.
 export const repeatChoices = [
-  { value: "0", label: "Off" },
-  { value: "900", label: "Every 15 minutes" },
-  { value: "3600", label: "Every hour" },
-  { value: "86400", label: "Every day" },
-  { value: "604800", label: "Every week" },
+  { value: "0", label: t("Off") },
+  { value: "900", label: t("Every 15 minutes") },
+  { value: "3600", label: t("Every hour") },
+  { value: "86400", label: t("Every day") },
+  { value: "604800", label: t("Every week") },
 ];
 
 export function repeatChoicesFor(minNewRows: number | bigint, current?: bigint) {
@@ -66,13 +67,13 @@ export function repeatWord(seconds: bigint) {
   if (s <= 0) return "";
   const known = repeatChoices.find((c) => Number(c.value) === s);
   if (known) return known.label.toLowerCase();
-  if (s % 86400 === 0) return `every ${s / 86400} days`;
-  if (s < 3600) return `every ${Math.round(s / 60)} minutes`;
-  return `every ${Math.round(s / 3600)} hours`;
+  if (s % 86400 === 0) return t("every {n1} days", { n1: s / 86400 });
+  if (s < 3600) return t("every {n1} minutes", { n1: Math.round(s / 60) });
+  return t("every {n1} hours", { n1: Math.round(s / 3600) });
 }
 
 // "keeps learning every hour, once 500 new rows are in"
 export function keepWord(j: Job) {
   const every = repeatWord(j.repeatSeconds);
-  return j.minNewRows > 0n ? `looks ${every} and learns once ${j.minNewRows.toLocaleString()} new rows are in` : `learns ${every}`;
+  return j.minNewRows > 0n ? t("looks {every} and learns once {n2} new rows are in", { every, n2: j.minNewRows.toLocaleString() }) : t("learns {every}", { every });
 }

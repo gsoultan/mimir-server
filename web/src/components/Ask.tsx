@@ -9,6 +9,7 @@ import type { Architecture, Column, Model } from "../api/gen/mimir/v1/model_pb";
 import { percent } from "../lib/format";
 import { DrawPad, type DrawPadHandle } from "./DrawPad";
 import { WhyAnswer } from "./Why";
+import { locale, t } from "../i18n";
 
 // Question is one thing to ask a model: the numbers it reads, fields by
 // column name and a photo, or a sound.
@@ -22,16 +23,16 @@ export type Answer = { number?: boolean; value?: number; guesses?: { label: stri
 
 // How sure the model is, in words.
 function sureness(p: number) {
-  if (p >= 0.9) return "Very sure";
-  if (p >= 0.6) return "Fairly sure";
-  return "Not sure";
+  if (p >= 0.9) return t("Very sure");
+  if (p >= 0.6) return t("Fairly sure");
+  return t("Not sure");
 }
 
 // intro says what Ask asks for, for the page's intro.
 export function askIntro(arch?: Architecture) {
   const draw = arch?.input === "image" && arch.inputShape.length > 0;
   const wantsPhoto = (arch?.input === "image" && !draw) || arch?.input === "photo_table" || arch?.input === "scene";
-  return draw ? "Draw a number and see what the model thinks it is." : `${wantsPhoto ? "Pick a photo" : arch?.input === "sound" ? "Pick a sound" : "Fill in one example"} and see what the model answers.`;
+  return draw ? t("Draw a number and see what the model thinks it is.") : t("{n1} and see what the model answers.", { n1: wantsPhoto ? t("Pick a photo") : arch?.input === "sound" ? t("Pick a sound") : t("Fill in one example") });
 }
 
 // Ask is the form for asking a model that isn't a language model, and its
@@ -62,7 +63,7 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
   const best = predict.data?.guesses?.[0];
   // A decision model's answer is what each action is expected to bring.
   const expected = (label: string) => predict.data?.values?.[model.labels.indexOf(label)];
-  const reward = (v?: number) => (v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const reward = (v?: number) => (v ?? 0).toLocaleString(locale, { maximumFractionDigits: 2 });
   // A digits model takes a drawing, a photo model a photo, and a table
   // model one value per column; photo-and-table models take both.
   const draw = arch?.input === "image" && (arch.inputShape.length > 0);
@@ -111,7 +112,7 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
     setValues(v);
   };
   const clear = () => { predict.reset(); setValues({}); setPhoto(null); setSound(null); };
-  const took = predict.data && <Text size="xs" c="dimmed" mt="md">Answered in {predict.data.ms < 0.1 ? "under 0.1" : predict.data.ms.toFixed(1)} ms{where ? <> {where}</> : null}.</Text>;
+  const took = predict.data && <Text size="xs" c="dimmed" mt="md">{t("Answered in")}{" "}{predict.data.ms < 0.1 ? t("under 0.1") : predict.data.ms.toFixed(1)}{" "}{t("ms")}{where ? <> {where}</> : null}.</Text>;
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
@@ -119,37 +120,37 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
         <Card withBorder padding="lg">
           {columns.length > 1 && (
             <Group justify="space-between" mb="sm">
-              <Text fw={650}>One example</Text>
-              <Button variant="subtle" size="compact-sm" leftSection={<IconDice5 size={16} />} onClick={example}>Fill with an example</Button>
+              <Text fw={650}>{t("One example")}</Text>
+              <Button variant="subtle" size="compact-sm" leftSection={<IconDice5 size={16} />} onClick={example}>{t("Fill with an example")}</Button>
             </Group>
           )}
           <Stack gap="sm">
               {wantsSound && (
                 <FileInput
-                  label="Sound"
-                  description="A WAV recording. The model listens to one second of it, from the middle."
+                  label={t("Sound")}
+                  description={t("A WAV recording. The model listens to one second of it, from the middle.")}
                   accept="audio/wav,audio/x-wav,.wav"
                   leftSection={<IconMusic size={18} />}
-                  placeholder="Choose a sound"
+                  placeholder={t("Choose a sound")}
                   value={sound}
                   onChange={(f) => { predict.reset(); setSound(f); }}
                   clearable
                 />
               )}
-              {hear && <audio controls src={hear} className="w-full" aria-label="The sound you picked" />}
+              {hear && <audio controls src={hear} className="w-full" aria-label={t("The sound you picked")} />}
               {wantsPhoto && (
                 <FileInput
-                  label="Photo"
-                  description="A JPG, PNG or GIF."
+                  label={t("Photo")}
+                  description={t("A JPG, PNG or GIF.")}
                   accept="image/jpeg,image/png,image/gif"
                   leftSection={<IconPhoto size={18} />}
-                  placeholder="Choose a photo"
+                  placeholder={t("Choose a photo")}
                   value={photo}
                   onChange={(f) => { predict.reset(); setPhoto(f); }}
                   clearable
                 />
               )}
-              {preview && !finds && <img src={preview} alt="The photo you picked" className="max-h-48 self-start rounded-lg object-contain" />}
+              {preview && !finds && <img src={preview} alt={t("The photo you picked")} className="max-h-48 self-start rounded-lg object-contain" />}
               <SimpleGrid cols={{ base: 1, sm: columns.length > 3 ? 2 : 1 }} spacing="md" verticalSpacing="sm">
                 {columns.map((c) => (
                   <div key={c.name} className={c.kind === "text" ? "sm:col-span-2" : undefined}>
@@ -159,29 +160,27 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
               </SimpleGrid>
               {raw && (
                 <Textarea
-                  label={`The ${want === 1 ? "number" : `${want} numbers`} it reads`}
-                  description={want === 1 ? "One number" : "Separated by commas or spaces"}
+                  label={want === 1 ? t("The number it reads") : t("The {n} numbers it reads", { n: want })}
+                  description={want === 1 ? t("One number") : t("Separated by commas or spaces")}
                   autosize
                   minRows={2}
                   value={String(values[""] ?? "")}
                   onChange={(e) => change("", e.currentTarget.value)}
-                  error={rawValues.length > want ? `That's ${rawValues.length}; it reads ${want}.` : undefined}
+                  error={rawValues.length > want ? t("That's {rawValues}; it reads {want}.", { rawValues: rawValues.length, want }) : undefined}
                 />
               )}
           </Stack>
           <Group gap="sm" mt="lg">
-            <Button leftSection={<IconPlayerPlay size={18} />} loading={predict.isPending} disabled={!filled} onClick={() => void ask()}>Ask</Button>
-            <Button variant="subtle" color="gray" onClick={clear}>Clear</Button>
+            <Button leftSection={<IconPlayerPlay size={18} />} loading={predict.isPending} disabled={!filled} onClick={() => void ask()}>{t("Ask")}</Button>
+            <Button variant="subtle" color="gray" onClick={clear}>{t("Clear")}</Button>
           </Group>
         </Card>
       ) : (
         <Stack>
           <DrawPad ref={pad} onStroke={() => predict.reset()} />
           <Group className="max-w-[340px]" wrap="nowrap" gap="sm">
-            <Button variant="default" size="lg" onClick={() => { pad.current?.clear(); predict.reset(); }}>Clear</Button>
-            <Button size="lg" className="flex-1" loading={predict.isPending} onClick={() => pad.current && ask()}>
-              What number is this?
-            </Button>
+            <Button variant="default" size="lg" onClick={() => { pad.current?.clear(); predict.reset(); }}>{t("Clear")}</Button>
+            <Button size="lg" className="flex-1" loading={predict.isPending} onClick={() => pad.current && ask()}>{t("What number is this?")}</Button>
           </Group>
         </Stack>
       )}
@@ -189,9 +188,9 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
         {predict.error && <Alert color="red" icon={<IconAlertCircle />}>{predict.error instanceof ConnectError ? message(predict.error) : predict.error.message}</Alert>}
         {finds && preview ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
-            <Text c="dimmed" size="sm">{predict.data ? (predict.data.boxes?.length ? `Found ${predict.data.boxes.length}` : "Found nothing it knows") : "The photo"}</Text>
+            <Text c="dimmed" size="sm">{predict.data ? (predict.data.boxes?.length ? t("Found {length}", { length: predict.data.boxes.length }) : t("Found nothing it knows")) : t("The photo")}</Text>
             <div className="relative mt-2 inline-block">
-              <img src={preview} alt="The photo you picked" className="block max-h-96 max-w-full rounded-lg" />
+              <img src={preview} alt={t("The photo you picked")} className="block max-h-96 max-w-full rounded-lg" />
               {predict.data?.boxes?.map((b, i) => (
                 <div
                   key={i}
@@ -205,7 +204,7 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
             {predict.data?.boxes && predict.data.boxes.length > 0 && (
               <Stack gap={4} mt="md">
                 {predict.data.boxes.map((b, i) => (
-                  <Text key={i} size="sm"><b>{b.label}</b>, sure about {Math.round(b.score * 100)} of 100</Text>
+                  <Text key={i} size="sm"><b>{b.label}</b>{t(", sure about")}{" "}{Math.round(b.score * 100)}{" "}{t("of 100")}</Text>
                 ))}
               </Stack>
             )}
@@ -213,38 +212,38 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
           </Card>
         ) : predict.data?.number ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: ".06em" }}>{several ? model.labels[0] : "Answer"}</Text>
-            <Title order={2} fz={44} mt={4} c="var(--mantine-primary-color-light-color)">{(predict.data.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Title>
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: ".06em" }}>{several ? model.labels[0] : t("Answer")}</Text>
+            <Title order={2} fz={44} mt={4} c="var(--mantine-primary-color-light-color)">{(predict.data.value ?? 0).toLocaleString(locale, { maximumFractionDigits: 2 })}</Title>
             {several && (predict.data.values?.length ?? 0) > 1 && (
               <Stack gap={4} mt="xs">
                 {predict.data.values!.map((v, i) => (
                   <Group key={model.labels[i] ?? i} justify="space-between" wrap="nowrap" gap="sm">
                     <Text size="sm">{model.labels[i]}</Text>
-                    <Text size="sm" fw={600} ff="monospace">{/^chance/.test(model.labels[i] ?? "") || arch?.name === "multi-label" ? `${Math.round(v * 100)}%` : v.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
+                    <Text size="sm" fw={600} ff="monospace">{/^chance/.test(model.labels[i] ?? "") || arch?.name === "multi-label" ? `${Math.round(v * 100)}%` : v.toLocaleString(locale, { maximumFractionDigits: 2 })}</Text>
                   </Group>
                 ))}
               </Stack>
             )}
             {arch?.name === "odd-one" && (
-              <Text c="dimmed">{(predict.data.value ?? 0) >= 0.6 ? "Unusual: unlike most of what it learned from." : "Usual: like what it learned from."} Scores run from 0 to 1.</Text>
+              <Text c="dimmed">{(predict.data.value ?? 0) >= 0.6 ? t("Unusual: unlike most of what it learned from.") : t("Usual: like what it learned from.")}{" "}{t("Scores run from 0 to 1.")}</Text>
             )}
             {took}
             {explainable && asked && <WhyAnswer key={JSON.stringify(asked)} model={model} fields={asked} />}
           </Card>
         ) : best && predict.data ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: ".06em" }}>{ranked ? "First pick" : "Answer"}</Text>
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: ".06em" }}>{ranked ? t("First pick") : t("Answer")}</Text>
             <Group align="baseline" gap="md" mt={4} wrap="wrap">
               <Text component="p" ff="var(--font-display)" fw={750} fz={table ? 40 : 56} lh={1.05} c="var(--mantine-primary-color-light-color)" className="break-words">{best.label}</Text>
-              <Text c="dimmed">{predict.data.values ? `Expected to bring about ${reward(expected(best.label))}, the most of any action.` : `${sureness(best.probability)}: ${Math.round(best.probability * 100)} out of 100.`}</Text>
+              <Text c="dimmed">{predict.data.values ? t("Expected to bring about {n1}, the most of any action.", { n1: reward(expected(best.label)) }) : t("{sureness}: {n} out of 100.", { sureness: sureness(best.probability), n: Math.round(best.probability * 100) })}</Text>
             </Group>
             <Stack gap="xs" mt="lg">
-              <Text size="sm" fw={600}>{ranked ? `Top ${predict.data.guesses!.length}, best first` : "Top guesses"}</Text>
+              <Text size="sm" fw={600}>{ranked ? t("Top {length}, best first", { length: predict.data.guesses!.length }) : t("Top guesses")}</Text>
               {predict.data.guesses!.map((g, i) => (
                 <Group key={g.label} wrap="nowrap" gap="sm">
                   <Text w={table ? 96 : 24} fw={600} truncate>{ranked ? `${i + 1}. ${g.label}` : g.label}</Text>
                   {predict.data!.values ? (
-                    <Text size="sm" c="dimmed" className="flex-1">about {reward(expected(g.label))} expected</Text>
+                    <Text size="sm" c="dimmed" className="flex-1">{t("about")}{" "}{reward(expected(g.label))}{" "}{t("expected")}</Text>
                   ) : (
                     <>
                       <Progress value={g.probability * 100} className="flex-1" size="lg" radius="xl" aria-label={`${g.label}: ${percent(g.probability)}`} />
@@ -259,7 +258,7 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
           </Card>
         ) : (
           <Card withBorder radius="lg" padding="lg" className="border-dashed">
-            <Text c="dimmed">{table ? `${wantsPhoto ? "Pick a photo" : wantsSound ? "Pick a sound" : "Fill in the details"}, then press Ask. ${finds ? `The answer draws a box around each ${model.labels.slice(0, 12).join(", ")} it finds.` : arch?.output === "number" ? "The answer will be a number." : several ? `The answer will be a number for each of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.` : ranked ? `The answer lists the ${topK} that fit best${model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : ""}.` : `The answer will be one of: ${model.labels.slice(0, 12).join(", ")}${model.labels.length > 12 ? "…" : ""}.`}` : 'Draw one digit, 0 to 9, as big as the box. Then press "What number is this?"'}</Text>
+            <Text c="dimmed">{table ? t("{n1}, then press Ask. {n2}", { n1: wantsPhoto ? t("Pick a photo") : wantsSound ? t("Pick a sound") : t("Fill in the details"), n2: finds ? t("The answer draws a box around each {n1} it finds.", { n1: model.labels.slice(0, 12).join(", ") }) : arch?.output === "number" ? t("The answer will be a number.") : several ? t("The answer will be a number for each of: {n1}{n2}.", { n1: model.labels.slice(0, 12).join(", "), n2: model.labels.length > 12 ? "…" : "" }) : ranked ? t("The answer lists the {topK} that fit best{n2}.", { topK, n2: model.labels.length <= 12 ? ` of: ${model.labels.join(", ")}` : "" }) : t("The answer will be one of: {n1}{n2}.", { n1: model.labels.slice(0, 12).join(", "), n2: model.labels.length > 12 ? "…" : "" }) }) : t("Draw one digit, 0 to 9, as big as the box. Then press \"What number is this?\"")}</Text>
           </Card>
         )}
       </Stack>
@@ -277,15 +276,15 @@ function label(name: string) {
 function Field({ column: c, value, onChange }: { column: Column; value: number | string; onChange: (v: number | string) => void }) {
   switch (c.kind) {
     case "category":
-      return <Select label={label(c.name)} data={c.values} value={value === "" ? null : String(value)} onChange={(v) => onChange(v ?? "")} searchable clearable placeholder="Pick one" />;
+      return <Select label={label(c.name)} data={c.values} value={value === "" ? null : String(value)} onChange={(v) => onChange(v ?? "")} searchable clearable placeholder={t("Pick one")} />;
     case "key":
       // One of many, like a customer: any value, with the known ones to pick from.
-      return <Autocomplete label={label(c.name)} data={c.values} limit={50} value={String(value)} onChange={onChange} placeholder="Type or pick one" />;
+      return <Autocomplete label={label(c.name)} data={c.values} limit={50} value={String(value)} onChange={onChange} placeholder={t("Type or pick one")} />;
     case "yesno":
       return (
         <Stack gap={4}>
           <Text size="sm" fw={500}>{label(c.name)}</Text>
-          <SegmentedControl className="self-start" data={[{ value: "yes", label: "Yes" }, { value: "no", label: "No" }]} value={String(value || "no")} onChange={onChange} />
+          <SegmentedControl className="self-start" data={[{ value: "yes", label: t("Yes") }, { value: "no", label: t("No") }]} value={String(value || "no")} onChange={onChange} />
         </Stack>
       );
     case "text":

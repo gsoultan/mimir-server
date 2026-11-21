@@ -11,6 +11,7 @@ import { Page } from "../../../components/Page";
 import { StatusPill } from "../../../components/ui";
 import { ago, bytes } from "../../../lib/format";
 import { answerWord, rightWord } from "../../../lib/models";
+import { t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/models/")({
   loader: ({ context }) => Promise.all([
@@ -48,64 +49,64 @@ function Models() {
 
   return (
     <Page
-      title="Models"
-      intro="Everything this server can answer with."
+      title={t("Models")}
+      intro={t("Everything this server can answer with.")}
       actions={canWrite &&
         <Group gap="sm">
-          <ButtonLink variant="subtle" leftSection={<IconTrophy size={18} />} to="/benchmarks">Benchmarks</ButtonLink>
-          <ButtonLink variant="default" leftSection={<IconUpload size={18} />} to="/models/new">Upload a file</ButtonLink>
-          <ButtonLink to="/models/build" leftSection={<IconPlus size={18} />}>Build a model</ButtonLink>
+          <ButtonLink variant="subtle" leftSection={<IconTrophy size={18} />} to="/benchmarks">{t("Benchmarks")}</ButtonLink>
+          <ButtonLink variant="default" leftSection={<IconUpload size={18} />} to="/models/new">{t("Upload a file")}</ButtonLink>
+          <ButtonLink to="/models/build" leftSection={<IconPlus size={18} />}>{t("Build a model")}</ButtonLink>
         </Group>
       }
     >
       {data.models.length === 0 ? (
         <Card withBorder padding="xl" className="text-center">
-          <Text fw={650}>No models yet</Text>
-          <Text c="dimmed" mb="md">{canWrite ? "Build one and it shows up here. We walk you through it." : "Ask an editor or admin to share one with you."}</Text>
-          {canWrite && <Group justify="center"><ButtonLink to="/models/build" leftSection={<IconPlus size={18} />}>Build a model</ButtonLink></Group>}
+          <Text fw={650}>{t("No models yet")}</Text>
+          <Text c="dimmed" mb="md">{canWrite ? t("Build one and it shows up here. We walk you through it.") : t("Ask an editor or admin to share one with you.")}</Text>
+          {canWrite && <Group justify="center"><ButtonLink to="/models/build" leftSection={<IconPlus size={18} />}>{t("Build a model")}</ButtonLink></Group>}
         </Card>
       ) : (
         <>
           <Group justify="space-between" gap="sm">
             <Group gap="sm" className="w-full sm:w-auto">
               <TextInput
-                placeholder="Find a model"
+                placeholder={t("Find a model")}
                 leftSection={<IconSearch size={18} />}
                 value={query}
                 onChange={(e) => setQuery(e.currentTarget.value)}
-                aria-label="Find a model"
+                aria-label={t("Find a model")}
                 className="w-full sm:w-72"
               />
               <Chip.Group value={filter} onChange={(v) => setFilter(v as Filter)}>
                 <Group gap={6}>
-                  <Chip value="all" variant="filled" size="sm">All {data.models.length}</Chip>
-                  <Chip value="fine" variant="filled" size="sm">Doing fine {data.models.length - looks}</Chip>
-                  <Chip value="look" variant="filled" size="sm" disabled={looks === 0}>Needs a look {looks}</Chip>
+                  <Chip value="all" variant="filled" size="sm">{t("All")}{" "}{data.models.length}</Chip>
+                  <Chip value="fine" variant="filled" size="sm">{t("Doing fine")}{" "}{data.models.length - looks}</Chip>
+                  <Chip value="look" variant="filled" size="sm" disabled={looks === 0}>{t("Needs a look")}{" "}{looks}</Chip>
                 </Group>
               </Chip.Group>
             </Group>
-            <SegmentedControl visibleFrom="sm" size="xs" value={view} onChange={(v) => pick(v as "list" | "grid")} aria-label="Show as" data={[
-              { value: "list", label: <IconList size={16} aria-label="List" /> },
-              { value: "grid", label: <IconLayoutGrid size={16} aria-label="Cards" /> },
+            <SegmentedControl visibleFrom="sm" size="xs" value={view} onChange={(v) => pick(v as "list" | "grid")} aria-label={t("Show as")} data={[
+              { value: "list", label: <IconList size={16} aria-label={t("List")} /> },
+              { value: "grid", label: <IconLayoutGrid size={16} aria-label={t("Cards")} /> },
             ]} />
           </Group>
 
           {shown.length === 0 ? (
-            <Text c="dimmed">No model matches{query ? ` "${query}"` : " this filter"}.</Text>
+            <Text c="dimmed">{t("No model matches")}{query ? ` "${query}"` : t(" this filter")}.</Text>
           ) : view === "grid" ? (
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
               {shown.map(({ m, i }) => (
                 <Card key={m.id} withBorder padding="lg" className="flex flex-col">
                   <Group justify="space-between" wrap="nowrap" mb={4}>
                     <AnchorLink fw={650} truncate to="/models/$id" params={{ id: m.id }} c="inherit">{m.name}</AnchorLink>
-                    <StatusPill tone={dropped(i) ? "warn" : "ok"}>{dropped(i) ? "Needs a look" : "Ready"}</StatusPill>
+                    <StatusPill tone={dropped(i) ? "warn" : "ok"}>{dropped(i) ? t("Needs a look") : t("Ready")}</StatusPill>
                   </Group>
                   <Text size="sm" c="dimmed">{answerWord(archOf(m), m)} · {bytes(m.sizeBytes)}</Text>
                   {m.description && <Text size="sm" mt="xs" lineClamp={2}>{m.description}</Text>}
-                  <Text size="xs" c="dimmed" mt="xs">Added {ago(m.createTime)}</Text>
+                  <Text size="xs" c="dimmed" mt="xs">{t("Added")}{" "}{ago(m.createTime)}</Text>
                   <Group mt="md" gap="xs" className="mt-auto pt-3">
-                    <ButtonLink size="xs" leftSection={<IconPlayerPlay size={14} />} to="/try" search={{ model: m.id }}>Try it</ButtonLink>
-                    <ButtonLink size="xs" variant="default" to="/models/$id" params={{ id: m.id }}>Details</ButtonLink>
+                    <ButtonLink size="xs" leftSection={<IconPlayerPlay size={14} />} to="/try" search={{ model: m.id }}>{t("Try it")}</ButtonLink>
+                    <ButtonLink size="xs" variant="default" to="/models/$id" params={{ id: m.id }}>{t("Details")}</ButtonLink>
                   </Group>
                 </Card>
               ))}
@@ -115,11 +116,11 @@ function Models() {
               <Table highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>Name</Table.Th>
-                    <Table.Th visibleFrom="sm">Answers</Table.Th>
-                    <Table.Th visibleFrom="md">Right</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th visibleFrom="md">Changed</Table.Th>
+                    <Table.Th>{t("Name")}</Table.Th>
+                    <Table.Th visibleFrom="sm">{t("Answers")}</Table.Th>
+                    <Table.Th visibleFrom="md">{t("Right")}</Table.Th>
+                    <Table.Th>{t("Status")}</Table.Th>
+                    <Table.Th visibleFrom="md">{t("Changed")}</Table.Th>
                     <Table.Th w={48} />
                   </Table.Tr>
                 </Table.Thead>
@@ -134,17 +135,17 @@ function Models() {
                         </Table.Td>
                         <Table.Td visibleFrom="sm" c="dimmed">{answerWord(arch, m)}</Table.Td>
                         <Table.Td visibleFrom="md">{rightWord(m, arch) || <Text c="dimmed" span>–</Text>}</Table.Td>
-                        <Table.Td><StatusPill tone={dropped(i) ? "warn" : "ok"}>{dropped(i) ? "Needs a look" : "Ready"}</StatusPill></Table.Td>
+                        <Table.Td><StatusPill tone={dropped(i) ? "warn" : "ok"}>{dropped(i) ? t("Needs a look") : t("Ready")}</StatusPill></Table.Td>
                         <Table.Td visibleFrom="md" c="dimmed">{ago(m.updateTime ?? m.createTime)}</Table.Td>
                         <Table.Td>
                           <Menu position="bottom-end" withinPortal>
                             <Menu.Target>
-                              <ActionIcon variant="subtle" color="gray" aria-label={`More for ${m.name}`}><IconDots size={18} /></ActionIcon>
+                              <ActionIcon variant="subtle" color="gray" aria-label={t("More for {name}", { name: m.name })}><IconDots size={18} /></ActionIcon>
                             </Menu.Target>
                             <Menu.Dropdown>
-                              <MenuLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={16} />}>Try it</MenuLink>
-                              {canWrite && <MenuLink to="/scoring" search={{ model: m.id }} leftSection={<IconListCheck size={16} />}>Score a list</MenuLink>}
-                              <MenuLink to="/models/$id" params={{ id: m.id }}>Details</MenuLink>
+                              <MenuLink to="/try" search={{ model: m.id }} leftSection={<IconPlayerPlay size={16} />}>{t("Try it")}</MenuLink>
+                              {canWrite && <MenuLink to="/scoring" search={{ model: m.id }} leftSection={<IconListCheck size={16} />}>{t("Score a list")}</MenuLink>}
+                              <MenuLink to="/models/$id" params={{ id: m.id }}>{t("Details")}</MenuLink>
                             </Menu.Dropdown>
                           </Menu>
                         </Table.Td>

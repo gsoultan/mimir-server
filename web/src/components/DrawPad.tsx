@@ -1,6 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 
 import { toMNIST } from "../lib/digit";
+import { t } from "../i18n";
 
 export type DrawPadHandle = { clear(): void; read(): Float32Array };
 
@@ -37,7 +38,7 @@ export function DrawPad({ ref, onStroke }: { ref: Ref<DrawPadHandle>; onStroke?:
       ref={canvas}
       width={280}
       height={280}
-      aria-label="Drawing area. Draw a single digit."
+      aria-label={t("Drawing area. Draw a single digit.")}
       className="aspect-square w-full max-w-[340px] cursor-crosshair touch-none rounded-2xl border-2 border-[var(--mantine-color-default-border)]"
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);

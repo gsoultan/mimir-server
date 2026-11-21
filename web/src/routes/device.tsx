@@ -10,6 +10,7 @@ import { listModels } from "../api/queries";
 import { Ask, askIntro } from "../components/Ask";
 import * as device from "../lib/device";
 import { bytes, share } from "../lib/format";
+import { locale, t } from "../i18n";
 
 // The models saved on this device. The page is outside the signed-in app
 // so it opens with no network: everything on it comes from the browser.
@@ -39,21 +40,21 @@ function OnThisDevice() {
           <Text fw={700} ff="var(--font-display)" fz={22}>mimir</Text>
         </Group>
         {!online ? (
-          <Badge color="gray" variant="light" leftSection={<IconWifiOff size={14} />}>Offline</Badge>
+          <Badge color="gray" variant="light" leftSection={<IconWifiOff size={14} />}>{t("Offline")}</Badge>
         ) : (
-          <Button component={Link} to="/" variant="subtle" leftSection={<IconArrowLeft size={16} />}>{signedIn ? "Back to mimir" : "Open mimir"}</Button>
+          <Button component={Link} to="/" variant="subtle" leftSection={<IconArrowLeft size={16} />}>{signedIn ? t("Back to mimir") : t("Open mimir")}</Button>
         )}
       </header>
       <Stack gap="lg" className="mx-auto w-full max-w-5xl" p={{ base: "md", sm: "xl" }}>
         <div>
-          <Title order={1} fz={{ base: 28, sm: 34 }}>On this device</Title>
-          <Text c="dimmed" mt={4}>Models saved in this browser answer here, with no server and no network. What you ask them stays on this device.</Text>
+          <Title order={1} fz={{ base: 28, sm: 34 }}>{t("On this device")}</Title>
+          <Text c="dimmed" mt={4}>{t("Models saved in this browser answer here, with no server and no network. What you ask them stays on this device.")}</Text>
         </div>
-        {!device.supported && <Alert color="yellow">This browser can't run models itself. Use a recent Chrome, Edge, Firefox or Safari.</Alert>}
+        {!device.supported && <Alert color="yellow">{t("This browser can't run models itself. Use a recent Chrome, Edge, Firefox or Safari.")}</Alert>}
         {saved && saved.length === 0 && (
           <Card withBorder radius="lg" padding="xl" className="border-dashed">
-            <Text fw={600} mb={4}>Nothing saved here yet</Text>
-            <Text c="dimmed" size="sm">In Try a model, pick a model someone let run on devices and choose “On this device”. It saves the model the first time you ask it.</Text>
+            <Text fw={600} mb={4}>{t("Nothing saved here yet")}</Text>
+            <Text c="dimmed" size="sm">{t("In Try a model, pick a model someone let run on devices and choose “On this device”. It saves the model the first time you ask it.")}</Text>
           </Card>
         )}
         {asking && (
@@ -63,14 +64,14 @@ function OnThisDevice() {
                 <Text fw={700} truncate>{asking.model.name}</Text>
                 <Text size="sm" c="dimmed">{askIntro(asking.arch)}</Text>
               </div>
-              <Button variant="default" onClick={() => void navigate({ search: {} })}>Done</Button>
+              <Button variant="default" onClick={() => void navigate({ search: {} })}>{t("Done")}</Button>
             </Group>
             <Ask
               key={asking.model.id + asking.model.version}
               model={asking.model}
               arch={asking.arch}
               answer={(q) => device.answer({ id: asking.model.id, fields: q.fields, photo: q.photo, sound: q.sound, input: q.input?.values, topK: q.topK })}
-              where="on this device"
+              where={t("on this device")}
             />
           </Card>
         )}
@@ -89,15 +90,15 @@ function OnThisDevice() {
                     <div className="min-w-0 flex-1">
                       <Group gap="xs">
                         <Text fw={700} truncate>{s.model.name}</Text>
-                        {newer && <Badge color="blue" variant="light">Newer version on the server</Badge>}
-                        {gone && <Badge color="gray" variant="light">No longer shared to devices</Badge>}
+                        {newer && <Badge color="blue" variant="light">{t("Newer version on the server")}</Badge>}
+                        {gone && <Badge color="gray" variant="light">{t("No longer shared to devices")}</Badge>}
                       </Group>
-                      <Text size="sm" c="dimmed">{s.arch.title} · {bytes(s.bytes)} · saved {s.saved.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</Text>
+                      <Text size="sm" c="dimmed">{s.arch.title} · {bytes(s.bytes)}{" "}{t("· saved")}{" "}{s.saved.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}</Text>
                     </div>
                     <Group gap="xs">
-                      {newer && <Button variant="light" leftSection={<IconRefresh size={16} />} loading={update.isPending && update.variables?.model.id === s.model.id} onClick={() => update.mutate(s)}>Update</Button>}
-                      <Button onClick={() => void navigate({ search: { model: s.model.id } })}>Ask it</Button>
-                      <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={() => void device.remove(s.model.id)}>Remove</Button>
+                      {newer && <Button variant="light" leftSection={<IconRefresh size={16} />} loading={update.isPending && update.variables?.model.id === s.model.id} onClick={() => update.mutate(s)}>{t("Update")}</Button>}
+                      <Button onClick={() => void navigate({ search: { model: s.model.id } })}>{t("Ask it")}</Button>
+                      <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={() => void device.remove(s.model.id)}>{t("Remove")}</Button>
                     </Group>
                   </div>
                 </Card>
@@ -109,13 +110,13 @@ function OnThisDevice() {
         {space && space.quota > 0 && saved && saved.length > 0 && (
           <Card withBorder radius="lg" padding="md">
             <Group justify="space-between" mb="xs">
-              <Text fw={600} size="sm">Space used by mimir in this browser</Text>
-              <Text size="sm" c="dimmed">{bytes(space.used)} of {bytes(space.quota)}</Text>
+              <Text fw={600} size="sm">{t("Space used by mimir in this browser")}</Text>
+              <Text size="sm" c="dimmed">{bytes(space.used)}{" "}{t("of")}{" "}{bytes(space.quota)}</Text>
             </Group>
             <Progress value={Math.max(share(space.used, space.quota), 1)} />
             <Group justify="space-between" mt="sm">
-              <Text size="xs" c="dimmed">Removing a model here doesn't change it on the server.</Text>
-              <Anchor component="button" size="sm" c="red" onClick={() => void device.removeAll()}>Remove everything</Anchor>
+              <Text size="xs" c="dimmed">{t("Removing a model here doesn't change it on the server.")}</Text>
+              <Anchor component="button" size="sm" c="red" onClick={() => void device.removeAll()}>{t("Remove everything")}</Anchor>
             </Group>
           </Card>
         )}

@@ -15,6 +15,7 @@ import { Page } from "../../../components/Page";
 import { useWorkerChoices, WorkerSelect } from "../../../components/Placement";
 import { bytes } from "../../../lib/format";
 import { count } from "../../../lib/templates";
+import { t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/models/finetune")({
   validateSearch: z.object({ model: z.string().optional() }),
@@ -29,9 +30,9 @@ const MaxText = 64 * 1024 * 1024;
 
 // How long to fine-tune for, in passes over the writing.
 const presets = [
-  { value: "1", label: "Quick look", hint: "One pass. Good for a first try." },
-  { value: "3", label: "Normal", hint: "The usual choice." },
-  { value: "6", label: "Thorough", hint: "Takes twice as long; follows your examples more closely." },
+  { value: "1", label: t("Quick look"), hint: t("One pass. Good for a first try.") },
+  { value: "3", label: t("Normal"), hint: t("The usual choice.") },
+  { value: "6", label: t("Thorough"), hint: t("Takes twice as long; follows your examples more closely.") },
 ];
 
 const sample = `{"messages": [{"role": "user", "content": "Do you ship to Canada?"}, {"role": "assistant", "content": "Yes, in 5 to 7 days."}]}
@@ -43,9 +44,9 @@ type Upload = { name: string; size: number; bytes: Uint8Array; summary: string }
 // describe says what a file of writing holds, roughly: the server does the
 // real reading.
 function describe(text: string) {
-  const t = text.trimStart();
-  if (t.startsWith("{")) return `JSON Lines, ${count(t.split(/\r?\n/).filter((l) => l.trim()).length, "example")}`;
-  return `Plain text, ${count(t.split(/\r?\n\s*\r?\n/).filter((p) => p.trim()).length, "paragraph")}`;
+  const trimmed = text.trimStart();
+  if (trimmed.startsWith("{")) return t("JSON Lines, {length}", { length: count(trimmed.split(/\r?\n/).filter((l) => l.trim()).length, "example") });
+  return t("Plain text, {length}", { length: count(trimmed.split(/\r?\n\s*\r?\n/).filter((p) => p.trim()).length, "paragraph") });
 }
 
 // FineTune teaches a language model the way someone writes or answers,
@@ -75,7 +76,7 @@ function FineTune() {
     const f = files[0];
     if (!f) return;
     if (f.size > MaxText) {
-      setFileError(`That file is ${bytes(f.size)}; writing up to 64 MB works here.`);
+      setFileError(t("That file is {size}; writing up to 64 MB works here.", { size: bytes(f.size) }));
       return;
     }
     const b = new Uint8Array(await f.arrayBuffer());
@@ -86,7 +87,7 @@ function FineTune() {
   const createJob = useMutation(TrainingService.method.createJob, {
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: allTrainingQueries });
-      notifications.show({ color: "teal", icon: <IconCheck size={18} />, message: "Fine-tuning has started. You can watch it learn." });
+      notifications.show({ color: "teal", icon: <IconCheck size={18} />, message: t("Fine-tuning has started. You can watch it learn.") });
       await navigate({ to: "/training/$id", params: { id: res.job!.id } });
     },
   });
@@ -96,7 +97,7 @@ function FineTune() {
       if (res.dataset) teach(res.dataset.id);
     },
   });
-  const modelName = name.trim() || `${from?.name ?? "Model"} (your writing)`;
+  const modelName = name.trim() || t("{n1} (your writing)", { n1: from?.name ?? t("Model") });
   // Zero settings let the server pick what suits a fine-tune.
   const teach = (datasetId: string) => createJob.mutate({
     name: modelName, architecture: "language-model", datasetId, baseModelId: base, workerId: runOn,
@@ -111,25 +112,25 @@ function FineTune() {
 
   if (languageModels.length === 0) {
     return (
-      <Page title="Fine-tune a language model" crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Fine-tune" }]} intro="Teach a language model how you write and answer.">
-        <Alert color="blue">Add a language model first: upload a GGUF file under <Link to="/models/new">Add a model</Link>.</Alert>
+      <Page title={t("Fine-tune a language model")} crumbs={[{ label: t("Build a model"), to: "/models/build" }, { label: "Fine-tune" }]} intro={t("Teach a language model how you write and answer.")}>
+        <Alert color="blue">{t("Add a language model first: upload a GGUF file under")}{" "}<Link to="/models/new">{t("Add a model")}</Link>.</Alert>
       </Page>
     );
   }
 
   return (
     <Page
-      title="Fine-tune a language model"
-      crumbs={[{ label: "Build a model", to: "/models/build" }, { label: "Fine-tune" }]}
-      intro="Teach a language model your documents, or how you answer, from your own examples. It learns small adapters next to the model, a few megabytes, so the model itself stays as it is and you can keep several fine-tunes of it."
+      title={t("Fine-tune a language model")}
+      crumbs={[{ label: t("Build a model"), to: "/models/build" }, { label: "Fine-tune" }]}
+      intro={t("Teach a language model your documents, or how you answer, from your own examples. It learns small adapters next to the model, a few megabytes, so the model itself stays as it is and you can keep several fine-tunes of it.")}
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card withBorder radius="lg" padding="lg">
           <Stack>
             <Select
-              label="Language model"
-              description="The model to start from. A fine-tune of a fine-tune keeps learning from where that one left off."
-              data={languageModels.map((m) => ({ value: m.id, label: m.baseModelName ? `${m.name} (fine-tune of ${m.baseModelName})` : m.name }))}
+              label={t("Language model")}
+              description={t("The model to start from. A fine-tune of a fine-tune keeps learning from where that one left off.")}
+              data={languageModels.map((m) => ({ value: m.id, label: m.baseModelName ? t("{name} (fine-tune of {base})", { name: m.name, base: m.baseModelName }) : m.name }))}
               value={base}
               onChange={(v) => v && setBase(v)}
               allowDeselect={false}
@@ -138,12 +139,12 @@ function FineTune() {
               <SegmentedControl
                 value={source}
                 onChange={(v) => setSource(v as "upload" | "existing")}
-                data={[{ value: "upload", label: "Upload writing" }, { value: "existing", label: "Use earlier writing" }]}
+                data={[{ value: "upload", label: t("Upload writing") }, { value: "existing", label: t("Use earlier writing") }]}
               />
             )}
             {source === "existing" ? (
               <Select
-                label="Writing"
+                label={t("Writing")}
                 data={writings.map((d) => ({ value: d.id, label: `${d.name} · ${count(d.rows, "example")}` }))}
                 value={existing}
                 onChange={(v) => v && setExisting(v)}
@@ -153,23 +154,23 @@ function FineTune() {
               <>
                 <Dropzone
                   onDrop={pick}
-                  onReject={() => setFileError("Pick one .txt, .md or .jsonl file.")}
+                  onReject={() => setFileError(t("Pick one .txt, .md or .jsonl file."))}
                   maxFiles={1}
                   multiple={false}
                   accept={["text/plain", "text/markdown", "application/json", "application/x-ndjson", ".txt", ".md", ".jsonl", ".json"]}
                   radius="md"
                 >
                   <Stack align="center" gap={2} py="md" className="pointer-events-none">
-                    <Text fw={600}>{upload ? upload.name : "Drop a .txt, .md or .jsonl file here"}</Text>
-                    <Text size="sm" c="dimmed">{upload ? upload.summary : "or click to choose one"}</Text>
+                    <Text fw={600}>{upload ? upload.name : t("Drop a .txt, .md or .jsonl file here")}</Text>
+                    <Text size="sm" c="dimmed">{upload ? upload.summary : t("or click to choose one")}</Text>
                   </Stack>
                 </Dropzone>
                 {fileError && <Alert color="red" icon={<IconAlertCircle />}>{fileError}</Alert>}
               </>
             )}
-            <TextInput label="Name of the fine-tune" placeholder={modelName} maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} />
+            <TextInput label={t("Name of the fine-tune")} placeholder={modelName} maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} />
             <div>
-              <Text size="sm" fw={500} mb={4}>How long</Text>
+              <Text size="sm" fw={500} mb={4}>{t("How long")}</Text>
               <SegmentedControl fullWidth value={epochs} onChange={setEpochs} data={presets.map((p) => ({ value: p.value, label: p.label }))} />
               <Text size="xs" c="dimmed" mt={4}>{presets.find((p) => p.value === epochs)?.hint}</Text>
             </div>
@@ -179,25 +180,21 @@ function FineTune() {
                 value={runOn}
                 onChange={setRunOn}
                 forTraining
-                label="Train on"
-                description="A worker with a GPU, such as a rented one, fine-tunes much faster. Models up to 1 GB go to workers; larger ones train here."
+                label={t("Train on")}
+                description={t("A worker with a GPU, such as a rented one, fine-tunes much faster. Models up to 1 GB go to workers; larger ones train here.")}
               />
             )}
             {error && <Alert color="red" icon={<IconAlertCircle />}>{message(error)}</Alert>}
             <Group justify="flex-end">
-              <Button loading={busy} disabled={!base || (source === "upload" ? !upload : !existing)} onClick={start}>Start fine-tuning</Button>
+              <Button loading={busy} disabled={!base || (source === "upload" ? !upload : !existing)} onClick={start}>{t("Start fine-tuning")}</Button>
             </Group>
           </Stack>
         </Card>
         <Card withBorder radius="lg" padding="lg">
-          <Text fw={700} mb={4}>What to upload</Text>
-          <Text size="sm" c="dimmed" mb="sm">
-            Plain text, such as your documents or notes, teaches it what you know and how you write. For answers in your words, upload JSON Lines, one example a line, as OpenAI's fine-tuning takes them:
-          </Text>
+          <Text fw={700} mb={4}>{t("What to upload")}</Text>
+          <Text size="sm" c="dimmed" mb="sm">{t("Plain text, such as your documents or notes, teaches it what you know and how you write. For answers in your words, upload JSON Lines, one example a line, as OpenAI's fine-tuning takes them:")}</Text>
           <Code block className="whitespace-pre-wrap break-all">{sample}</Code>
-          <Text size="sm" c="dimmed" mt="sm">
-            In a chat it learns the assistant's answers; after a prompt, the completion. A few dozen good examples go a long way. The fine-tune answers in Chat and from your apps like any language model, and makes embeddings at /v1/embeddings.
-          </Text>
+          <Text size="sm" c="dimmed" mt="sm">{t("In a chat it learns the assistant's answers; after a prompt, the completion. A few dozen good examples go a long way. The fine-tune answers in Chat and from your apps like any language model, and makes embeddings at /v1/embeddings.")}</Text>
         </Card>
       </div>
     </Page>

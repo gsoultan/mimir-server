@@ -14,6 +14,7 @@ import { maxCompare } from "../../../lib/compare";
 import { ago } from "../../../lib/format";
 import { active, jobTone, progress, repeatWord, score, statusWord } from "../../../lib/training";
 import { RowList, StatusPill } from "../../../components/ui";
+import { t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/training/")({
   loader: ({ context }) => Promise.all([
@@ -31,7 +32,7 @@ function Training() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: allTrainingQueries });
   const cancel = useMutation(TrainingService.method.cancelJob, { onSuccess: refresh });
   const resume = useMutation(TrainingService.method.resumeJob, { onSuccess: refresh });
-  const remove = useMutation(TrainingService.method.deleteJob, { onSuccess: async () => { await refresh(); notifications.show({ message: "Run deleted." }); } });
+  const remove = useMutation(TrainingService.method.deleteJob, { onSuccess: async () => { await refresh(); notifications.show({ message: t("Run deleted.") }); } });
   // The runs ticked to compare, in the order they were ticked.
   const [picked, setPicked] = useState<string[]>([]);
   const shown = picked.filter((id) => data.jobs.some((j) => j.id === id));
@@ -39,24 +40,24 @@ function Training() {
 
   return (
     <Page
-      title="Training"
-      intro={data.jobs.length > 1 ? "Every model being taught here, newest first. Tick two or more to compare them." : "Every model being taught here, newest first."}
+      title={t("Training")}
+      intro={data.jobs.length > 1 ? t("Every model being taught here, newest first. Tick two or more to compare them.") : t("Every model being taught here, newest first.")}
       actions={
         <Group gap="xs">
           {data.jobs.length > 1 && (
             shown.length < 2
-              ? <Button variant="default" disabled leftSection={<IconArrowsDiff size={18} />} title="Tick two or more runs to compare them">Compare</Button>
-              : <ButtonLink variant="default" to="/training/compare" search={{ ids: shown.join(",") }} leftSection={<IconArrowsDiff size={18} />}>Compare {shown.length} runs</ButtonLink>
+              ? <Button variant="default" disabled leftSection={<IconArrowsDiff size={18} />} title={t("Tick two or more runs to compare them")}>{t("Compare")}</Button>
+              : <ButtonLink variant="default" to="/training/compare" search={{ ids: shown.join(",") }} leftSection={<IconArrowsDiff size={18} />}>{t("Compare")}{" "}{shown.length}{" "}{t("runs")}</ButtonLink>
           )}
-          <ButtonLink to="/models/teach" leftSection={<IconSchool size={18} />}>Teach a new model</ButtonLink>
+          <ButtonLink to="/models/teach" leftSection={<IconSchool size={18} />}>{t("Teach a new model")}</ButtonLink>
         </Group>
       }
     >
       {data.jobs.length === 0 ? (
         <Card withBorder radius="lg" padding="xl" className="text-center">
-          <Text fw={600}>Nothing has been taught yet</Text>
-          <Text c="dimmed" mb="md">Upload a table of examples or use the built-in handwritten digits, and watch a model learn.</Text>
-          <Group justify="center"><ButtonLink to="/models/teach">Teach a new model</ButtonLink></Group>
+          <Text fw={600}>{t("Nothing has been taught yet")}</Text>
+          <Text c="dimmed" mb="md">{t("Upload a table of examples or use the built-in handwritten digits, and watch a model learn.")}</Text>
+          <Group justify="center"><ButtonLink to="/models/teach">{t("Teach a new model")}</ButtonLink></Group>
         </Card>
       ) : (
         <RowList>
@@ -64,28 +65,27 @@ function Training() {
             <div key={j.id} className="px-4 py-4 sm:px-5">
               <Group justify="space-between" wrap="wrap" align="flex-start" gap="sm">
                 {data.jobs.length > 1 && (
-                  <Checkbox mt={3} aria-label={`Compare ${j.name}`} checked={shown.includes(j.id)} disabled={!shown.includes(j.id) && shown.length >= maxCompare}
+                  <Checkbox mt={3} aria-label={t("Compare {name}", { name: j.name })} checked={shown.includes(j.id)} disabled={!shown.includes(j.id) && shown.length >= maxCompare}
                     onChange={(e) => pick(j.id, e.currentTarget.checked)} />
                 )}
                 <div className="min-w-0 flex-1 basis-[240px]">
                   <Group gap="xs" wrap="wrap">
                     <AnchorLink fw={700} truncate to="/training/$id" params={{ id: j.id }} c="inherit">{j.name}</AnchorLink>
                     <StatusPill tone={jobTone[j.status]}>{statusWord[j.status]}</StatusPill>
-                    {j.repeatSeconds > 0n && <Badge color="grape" variant="light">Keeps learning {repeatWord(j.repeatSeconds)}</Badge>}
+                    {j.repeatSeconds > 0n && <Badge color="grape" variant="light">{t("Keeps learning")}{" "}{repeatWord(j.repeatSeconds)}</Badge>}
                   </Group>
-                  <Text size="sm" c="dimmed">
-                    From {j.datasetName || "deleted examples"} · {j.settings?.epochs} passes · started {ago(j.createTime)}
+                  <Text size="sm" c="dimmed">{t("From")}{" "}{j.datasetName || t("deleted examples")} · {j.settings?.epochs}{" "}{t("passes · started")}{" "}{ago(j.createTime)}
                     {j.status === JobStatus.SUCCEEDED && ` · ${score(j.accuracy, numbers.has(j.architecture))}`}
                   </Text>
-                  {active(j) && <Progress value={progress(j)} color="violet" mt="xs" size="sm" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label="Progress" />}
+                  {active(j) && <Progress value={progress(j)} color="violet" mt="xs" size="sm" radius="xl" animated={j.status === JobStatus.RUNNING} aria-label={t("Progress")} />}
                   {j.status === JobStatus.FAILED && <Text size="sm" c="red" mt={4}>{j.error}</Text>}
                   {j.note && <Text size="sm" mt={4}>{j.note}</Text>}
                 </div>
                 <Group gap="xs" wrap="nowrap">
-                  {active(j) && <Button size="xs" variant="default" onClick={() => cancel.mutate({ id: j.id })}>Stop</Button>}
-                  {(j.status === JobStatus.CANCELLED || j.status === JobStatus.FAILED) && <Button size="xs" variant="default" onClick={() => resume.mutate({ id: j.id })}>Resume</Button>}
-                  {j.status === JobStatus.SUCCEEDED && <ButtonLink size="xs" to="/try" search={{ model: j.modelId }}>Try it</ButtonLink>}
-                  {!active(j) && <Button size="xs" variant="subtle" color="red" onClick={() => remove.mutate({ id: j.id })}>Delete</Button>}
+                  {active(j) && <Button size="xs" variant="default" onClick={() => cancel.mutate({ id: j.id })}>{t("Stop")}</Button>}
+                  {(j.status === JobStatus.CANCELLED || j.status === JobStatus.FAILED) && <Button size="xs" variant="default" onClick={() => resume.mutate({ id: j.id })}>{t("Resume")}</Button>}
+                  {j.status === JobStatus.SUCCEEDED && <ButtonLink size="xs" to="/try" search={{ model: j.modelId }}>{t("Try it")}</ButtonLink>}
+                  {!active(j) && <Button size="xs" variant="subtle" color="red" onClick={() => remove.mutate({ id: j.id })}>{t("Delete")}</Button>}
                 </Group>
               </Group>
             </div>
