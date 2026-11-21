@@ -700,20 +700,11 @@ var forecaster = &Learner{
 			}
 			return m
 		}
-		// patchy fits Croston's method to a series with nothing on at
-		// least 3 steps in 10, such as a spare part's sales, where trees
-		// and smoothing both chase the zeros.
+		// patchy fits Croston's method to a series with demand on fewer
+		// than 3 steps in 4, such as a spare part's sales, where trees and
+		// smoothing both chase the zeros.
 		patchy := func(s []float32) *forecast.Intermittent {
-			zeros, present := 0, 0
-			for _, v := range s {
-				if v == v {
-					present++
-					if v == 0 {
-						zeros++
-					}
-				}
-			}
-			if present == 0 || zeros*10 < present*3 {
+			if !forecast.Sparse(s) {
 				return nil
 			}
 			m, err := forecast.Croston(s)

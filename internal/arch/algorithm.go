@@ -45,7 +45,7 @@ var algorithms = map[string]string{
 	"recommend-nearby":  "Neighbourhood collaborative filtering: purchases of same-category customers within a haversine (great-circle) distance",
 	"best-action":       "Contextual bandit by the direct method: gradient-boosted trees learn the outcome of each situation and action",
 	"time-to-event":     "Discrete-time survival analysis with gradient-boosted trees, counting censored rows",
-	"forecast":          "Gradient-boosted trees over lagged values and calendar features (direct multi-step forecasting), Holt-Winters exponential smoothing, or Croston's method with the Syntetos-Boylan correction for a series that is zero on at least 3 steps in 10, whichever forecasts each series' last steps best",
+	"forecast":          "Gradient-boosted trees over lagged values and calendar features (direct multi-step forecasting), Holt-Winters exponential smoothing, or Croston's method (Syntetos-Boylan or Teunter-Syntetos-Babai) for a series with demand on fewer than 3 steps in 4, whichever forecasts each series' last steps best",
 	"look-alike":        "Weighted k-nearest-neighbour similarity to the positive rows, with features weighted by how much they set them apart",
 	"multi-label":       "One gradient-boosted tree classifier per label (binary relevance)",
 	"discount-response": "Gradient-boosted tree classifier of the outcome given the situation and discount, swept over discount levels and kept non-decreasing",

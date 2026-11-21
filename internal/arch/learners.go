@@ -73,7 +73,7 @@ func shapeJSON(v any) (string, error) {
 	return string(b), err
 }
 
-var boosting = boostingFor(tree.SquaredError(), "")
+var boosting = boostingFor(tree.Objective{}, "")
 
 // counting boosts trees with a Poisson loss, for counts, and spending
 // with a Tweedie one, for amounts that are often zero: both answer above
@@ -86,7 +86,7 @@ var (
 // boostingFor returns a Learner that boosts trees with loss l. what,
 // when set, names the answers l needs at least zero, for the message
 // when one is below it.
-func boostingFor(l tree.Loss, what string) *Learner {
+func boostingFor(l tree.Objective, what string) *Learner {
 	return &Learner{Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
 		if what != "" {
 			for _, y := range d.Y {
@@ -95,7 +95,7 @@ func boostingFor(l tree.Loss, what string) *Learner {
 				}
 			}
 		}
-		opts := []tree.Option{tree.Trees(boostTrees), tree.LearningRate(0.05), tree.MinLeaf(5), tree.Objective(l)}
+		opts := []tree.Option{tree.Trees(boostTrees), tree.LearningRate(0.05), tree.MinLeaf(5), tree.Loss(l)}
 		if classes > 0 {
 			opts = append(opts, tree.Classes(classes))
 		}

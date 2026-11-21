@@ -13,8 +13,8 @@
 - **Spot the odd one by its neighbors** (`odd-one-local`): the local
   outlier factor, which flags a row just outside a tight group even when
   another group is loosely spread. Scores 0 to 1 like Spot the odd one.
-- **Forecasts for patchy demand:** a series that is zero on at least 3
-  steps in 10 also tries Croston's method, and keeps it when it forecasts
+- **Forecasts for patchy demand:** a series with demand on fewer than 3
+  steps in 4 also tries Croston's method, and keeps it when it forecasts
   the last steps best.
 - mimir moves to the commit with these models (gsoultan/mimir#48).
 

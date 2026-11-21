@@ -73,6 +73,8 @@ github.com/gsoultan/mimir v0.4.4-0.20261121060906-44061e99acb0 h1:6NYyDmOam30+7G
 github.com/gsoultan/mimir v0.4.4-0.20261121060906-44061e99acb0/go.mod h1:PZvuFO9cXG9gyTayHXyOM0Y6EIejFXcL4QgVtC4AFtQ=
 github.com/gsoultan/mimir v0.4.4-0.20261121061205-b1c54bf29f2f h1:bX3i7IvJPUl9JbahNmsgF8ZTVoo93yXGAe1mq+zWMrU=
 github.com/gsoultan/mimir v0.4.4-0.20261121061205-b1c54bf29f2f/go.mod h1:PZvuFO9cXG9gyTayHXyOM0Y6EIejFXcL4QgVtC4AFtQ=
+github.com/gsoultan/mimir v0.4.4-0.20261121182920-a420d90a7cd4 h1:LTNdhimsupVCqVAvGAz0fEXY2RPxnfuqGIFDsew6GDU=
+github.com/gsoultan/mimir v0.4.4-0.20261121182920-a420d90a7cd4/go.mod h1:TcchnOAC5b++PHa7HwPTdOAauaVjgZkXX/G8Mt6ieR4=
 github.com/gsoultan/mimir-model v0.4.0 h1:c75RrcOrjhjshujCcaOM/ecvebpJSoxWzUEDFqYHbgE=
 github.com/gsoultan/mimir-model v0.4.0/go.mod h1:VpI+gj4GV7T7E6MXyWIwp8X+a1RAfDW4ldNYracFp4M=
 github.com/gsoultan/storm v1.4.0 h1:AU3T4nUygg+jN6jZOS+qCV3cNMf6C5mOC0WpFsdQhrQ=
