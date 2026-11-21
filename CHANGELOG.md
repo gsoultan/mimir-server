@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### More templates in every category
+
+- 34 new templates, from 59 to 93, with at least four new ones in each
+  line of business: Manufacturing (job time, breakdown within N days,
+  scrap range, kind of repair), Quality control (coating and bottle-fill
+  photos, lots likely to get complaints, sorting inspection notes), B2B
+  (trial to paying, days until a deal closes), B2C (carts left, returns,
+  spend in the next year, products to show each shopper, items in the
+  same basket, review topics), Finance (paid within N days, expense
+  claims to check, sorting bank transactions, days late), HR (salary
+  range, long absence, leaving within N months, courses to suggest, why
+  people leave), Logistics (delivery time range, stock-outs, best
+  carrier, why a delivery failed, pallet photos) and Customer support
+  (unhappy after a ticket, time to solve, how urgent a message is,
+  customers who may leave). Each comes with example data that a model
+  learns from.
+
 ### Try new versions first
 
 - A model version can be tried on part of the questions (5 to 50%) or on
