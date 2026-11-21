@@ -73,9 +73,29 @@ func shapeJSON(v any) (string, error) {
 	return string(b), err
 }
 
-var boosting = &Learner{
-	Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
-		opts := []tree.Option{tree.Trees(boostTrees), tree.LearningRate(0.05), tree.MinLeaf(5)}
+var boosting = boostingFor(tree.Objective{}, "")
+
+// counting boosts trees with a Poisson loss, for counts, and spending
+// with a Tweedie one, for amounts that are often zero: both answer above
+// zero.
+var (
+	counting = boostingFor(tree.Poisson(), "counts")
+	spending = boostingFor(tree.Tweedie(1.5), "amounts")
+)
+
+// boostingFor returns a Learner that boosts trees with loss l. what,
+// when set, names the answers l needs at least zero, for the message
+// when one is below it.
+func boostingFor(l tree.Objective, what string) *Learner {
+	return &Learner{Fit: func(ctx context.Context, d tabular.Data, task tabular.Task, classes int, progress func(int, int)) (nn.Module, string, error) {
+		if what != "" {
+			for _, y := range d.Y {
+				if y < 0 {
+					return nil, "", fmt.Errorf("a model for %s needs answers of 0 or more, and one is %v; use Boosted trees for a number instead", what, y)
+				}
+			}
+		}
+		opts := []tree.Option{tree.Trees(boostTrees), tree.LearningRate(0.05), tree.MinLeaf(5), tree.Loss(l)}
 		if classes > 0 {
 			opts = append(opts, tree.Classes(classes))
 		}
@@ -94,8 +114,7 @@ var boosting = &Learner{
 		}
 		s, err := shapeJSON(m.Shape())
 		return m.Module(), s, err
-	},
-	Build: buildTree,
+	}, Build: buildTree}
 }
 
 var forest = &Learner{
@@ -346,6 +365,18 @@ var learned = []Architecture{
 		Input:       Table, AnyText: true, Output: Number, Learner: boosting,
 	},
 	{
+		Name:        "number-counts",
+		Title:       "Boosted trees for a count",
+		Description: "Boosted trees made for counting things, like orders a day, calls a week or faults a month. They never answer below zero, and they fit small counts and many zeros better than boosted trees for a number. Every answer they learn from must be 0 or more.",
+		Input:       Table, AnyText: true, Output: Number, Learner: counting,
+	},
+	{
+		Name:        "number-amounts",
+		Title:       "Boosted trees for an amount that is often zero",
+		Description: "Boosted trees made for money or amounts that are zero for many rows and large for a few, like insurance claims or each customer's spend in a month. They never answer below zero, and they learn the usual amount, counting the zeros. Every answer they learn from must be 0 or more.",
+		Input:       Table, AnyText: true, Output: Number, Learner: spending,
+	},
+	{
 		Name:        "table-forest",
 		Title:       "Random forest",
 		Description: "Many decision trees, each taught from a random part of the table, vote on a category. Hard to get wrong, even on small or messy tables.",
@@ -412,6 +443,12 @@ var learned = []Architecture{
 		Input:       Table, AnyText: true, Output: Number, Target: NoTarget, Learner: oddOne,
 	},
 	{
+		Name:        "odd-one-local",
+		Title:       "Spot the odd one by its neighbors",
+		Description: "Like Spot the odd one, but compares each row with the 20 most similar ones: a row just outside a tight group scores high even when another group is loosely spread. Good when your data has kinds of rows that vary by different amounts, like small shops and big distributors. It scores from 0 to 1, about 0.5 or less is usual, and keeps up to 5,000 rows to compare with.",
+		Input:       Table, AnyText: true, Output: Number, Target: NoTarget, Learner: oddLocal,
+	},
+	{
 		Name:        "recommend",
 		Title:       "Recommend",
 		Description: "Learns from who picked which item, such as purchases, clicks or ratings, and lists the items each person is likeliest to want. Someone it hasn't seen gets the items most people like.",
@@ -474,7 +511,7 @@ var learned = []Architecture{
 	{
 		Name:        "forecast",
 		Title:       "Forecast over time",
-		Description: "Learns from a value's history, one row per day, hour, week or month, and says what comes next, up to a month of days ahead. With a column like store, it forecasts each one, and their total.",
+		Description: "Learns from a value's history, one row per day, hour, week or month, and says what comes next, up to a month of days ahead. With a column like store, it forecasts each one, and their total. A series that is zero most of the time, like a spare part's sales, gets a forecast made for patchy demand.",
 		Input:       Table, AnyText: true, Output: Number, Target: ValueTarget, Learner: forecaster,
 	},
 }

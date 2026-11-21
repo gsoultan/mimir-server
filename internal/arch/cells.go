@@ -274,6 +274,60 @@ var oddOne = &Learner{
 	Build: buildTree,
 }
 
+// localRows bounds the rows the local outlier factor keeps: it compares
+// every row with every other, when learning and when asked.
+const localRows = 5000
+
+// oddLocal learns what usual rows look like by their neighbors, with the
+// local outlier factor, and answers how unusual a row is from 0 to 1 as
+// oddOne does: 1 - 0.5/factor, so a row as crowded as its neighbors
+// scores 0.5 and one in a gap next to a crowd nears 1.
+var oddLocal = &Learner{
+	Cells: func(ctx context.Context, c Cells, progress func(int, int)) (Learned, error) {
+		cols, x := c.encode(c.all())
+		f := schema.Width(cols)
+		if f == 0 {
+			return Learned{}, cellsError("no column holds numbers, categories or text to compare")
+		}
+		n := len(x) / f
+		if n < 25 {
+			return Learned{}, cellsError("spotting the odd one by its neighbors needs at least 25 rows; there are %d", n)
+		}
+		if n > localRows {
+			// Every so many rows, evenly over the table.
+			kept := make([]float32, 0, localRows*f)
+			for i := range localRows {
+				r := i * n / localRows
+				kept = append(kept, x[r*f:(r+1)*f]...)
+			}
+			x, n = kept, localRows
+		}
+		m, err := cluster.LocalOutlier(ctx, x, f, min(20, n-1))
+		if err != nil {
+			return Learned{}, err
+		}
+		if progress != nil {
+			progress(1, 1)
+		}
+		s, err := shapeJSON(m.Shape())
+		return Learned{Module: localOdd(m.Module()), Shape: s, Columns: cols, Labels: []string{"how unusual"}}, err
+	},
+	Build: func(shape string) (nn.Module, error) {
+		var s cluster.OutlierShape
+		if err := json.Unmarshal([]byte(shape), &s); err != nil {
+			return nil, fmt.Errorf("a local outlier model's shape: %w", err)
+		}
+		return localOdd(cluster.NewOutlierModule(s)), nil
+	},
+}
+
+// localOdd turns the factor of mod into a score from 0 to 1.
+func localOdd(mod *cluster.OutlierModule) nn.Module {
+	return nn.NewSequential(mod, nn.Func(func(x *tensor.Tensor) *tensor.Tensor {
+		return tensor.Scalar[float32](1).Sub(tensor.Scalar[float32](0.5).Div(x.Maximum(tensor.Scalar[float32](0.5))))
+	}))
+}
+
 // pick returns the first of the columns at idx whose name holds one of
 // words, or -1.
 func pick(header []string, idx []int, words *regexp.Regexp) int {
@@ -550,7 +604,9 @@ func cadenceOf(times []time.Time) cadence {
 var seriesWords = regexp.MustCompile(`store|shop|branch|series|product|item|sku|region|location|site|city|country|machine|sensor|device|account|customer|channel|category`)
 
 // forecaster learns the values to come from the values so far with
-// boosted trees over recent values. The answer column is the value; a
+// boosted trees over recent values, exponential smoothing for a series
+// that forecasts better on its own, or Croston's method for a series
+// with nothing on most steps. The answer column is the value; a
 // date column says when, and a category column, when there is one and
 // dates repeat, which series each row is of.
 var forecaster = &Learner{
@@ -644,10 +700,25 @@ var forecaster = &Learner{
 			}
 			return m
 		}
+		// patchy fits Croston's method to a series with demand on fewer
+		// than 3 steps in 4, such as a spare part's sales, where trees and
+		// smoothing both chase the zeros.
+		patchy := func(s []float32) *forecast.Intermittent {
+			if !forecast.Sparse(s) {
+				return nil
+			}
+			m, err := forecast.Croston(s)
+			if err != nil {
+				return nil
+			}
+			return m
+		}
 		// Score it on each series' last steps, learning from the rest,
-		// then learn from everything.
+		// then learn from everything; each series keeps whichever of
+		// the trees, smoothing and Croston forecast its last steps best.
+		const byTrees, bySmoothing, byCroston = 0, 1, 2
 		back := min(cad.horizon, longest/5)
-		smoothed := make([]bool, len(hist))
+		chosen := make([]int, len(hist))
 		var mae float64
 		if back > 0 {
 			short := make([][]float32, len(hist))
@@ -681,12 +752,20 @@ var forecaster = &Learner{
 				if sm := smooth(short[i]); sm != nil {
 					se, sn = score(sm.Forecast(len(held)))
 				}
-				if sn > 0 && (tn == 0 || se/float64(sn) < te/float64(tn)) {
-					smoothed[i] = true
-					sum, n = sum+se, n+sn
-				} else {
-					sum, n = sum+te, n+tn
+				ce, cn := 0.0, 0
+				if cm := patchy(short[i]); cm != nil {
+					ce, cn = score(cm.Forecast(len(held)))
 				}
+				be, bn := te, tn
+				for k, c := range [][2]float64{bySmoothing: {se, float64(sn)}, byCroston: {ce, float64(cn)}} {
+					if k == byTrees || c[1] == 0 {
+						continue
+					}
+					if bn == 0 || c[0]/c[1] < be/float64(bn) {
+						chosen[i], be, bn = k, c[0], int(c[1])
+					}
+				}
+				sum, n = sum+be, n+bn
 			}
 			if n > 0 {
 				mae = sum / float64(n)
@@ -706,8 +785,11 @@ var forecaster = &Learner{
 		for i, s := range hist {
 			var f []float32
 			sm := smooth(s)
+			cm := patchy(s)
 			switch {
-			case sm != nil && (smoothed[i] || trees == nil || len(s) < lags+2):
+			case cm != nil && (chosen[i] == byCroston || (trees == nil || len(s) < lags+2) && sm == nil):
+				f = cm.Forecast(h)
+			case sm != nil && (chosen[i] == bySmoothing || trees == nil || len(s) < lags+2):
 				f = sm.Forecast(h)
 			case trees != nil:
 				f = trees.Forecast(s, h)
