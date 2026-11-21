@@ -1385,7 +1385,7 @@ export const id: Record<string, string> = {
   "Bring a language model": "Bawa model bahasa",
   "Upload a GGUF file. It runs here, chats in Try a model, and answers apps through the OpenAI-compatible API.": "Unggah file GGUF. Ia berjalan di sini, bisa diajak mengobrol di Coba model, dan menjawab aplikasi lewat API yang kompatibel dengan OpenAI.",
   "Upload a GGUF file": "Unggah file GGUF",
-  "Llama, TinyLlama, Mistral, SmolLM, Qwen 2": "Llama, TinyLlama, Mistral, SmolLM, Qwen 2",
+  "Llama, Mistral, SmolLM, Qwen 2 and 3, Gemma 2 and 3, Phi 3 and 4": "Llama, Mistral, SmolLM, Qwen 2 dan 3, Gemma 2 dan 3, Phi 3 dan 4",
   "Pick the file ending": "Pilih file yang berakhiran",
   "Q4_K_M or Q8_0": "Q4_K_M atau Q8_0",
   "A good start": "Awal yang bagus",
