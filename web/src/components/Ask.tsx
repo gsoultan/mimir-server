@@ -224,7 +224,7 @@ export function Ask({ model, arch, answer, where, explainable }: { model: Model;
                 ))}
               </Stack>
             )}
-            {arch?.name === "odd-one" && (
+            {(arch?.name === "odd-one" || arch?.name === "odd-one-local") && (
               <Text c="dimmed">{(predict.data.value ?? 0) >= 0.6 ? t("Unusual: unlike most of what it learned from.") : t("Usual: like what it learned from.")}{" "}{t("Scores run from 0 to 1.")}</Text>
             )}
             {took}

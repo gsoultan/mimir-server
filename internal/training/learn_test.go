@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"testing"
@@ -179,5 +180,92 @@ func TestLearnersReadText(t *testing.T) {
 	}
 	if acc := res.History[0].Accuracy; acc < 0.85 {
 		t.Errorf("accuracy %v with a text column", acc)
+	}
+}
+
+func TestCountsAndAmounts(t *testing.T) {
+	ctx := context.Background()
+	// Calls a day: about 2 on a quiet line, 8 on a busy one. Claims: none
+	// for 7 customers in 10, and about 300 for the rest, more for the old.
+	var counts, amounts strings.Builder
+	counts.WriteString("busy,staff,calls\n")
+	amounts.WriteString("age,region,claims\n")
+	r := rand.New(rand.NewPCG(9, 10))
+	for i := range 1500 {
+		busy, mu := "no", 2.0
+		if i%2 == 1 {
+			busy, mu = "yes", 8.0
+		}
+		calls := 0
+		for p, l := 1.0, math.Exp(-mu); ; calls++ {
+			if p *= r.Float64(); p <= l {
+				break
+			}
+		}
+		fmt.Fprintf(&counts, "%s,%d,%d\n", busy, 2+i%4, calls)
+		age := 20 + i%50
+		claim := 0.0
+		if r.Float64() < 0.3 {
+			claim = float64(age) * 6 * r.ExpFloat64()
+		}
+		fmt.Fprintf(&amounts, "%d,%s,%.0f\n", age, []string{"north", "south"}[i%2], claim)
+	}
+	s := store.Settings{Epochs: 1, BatchSize: 64, HoldOut: 0.2}
+	for _, tc := range []struct{ name, target, csv string }{
+		{"number-counts", "calls", counts.String()},
+		{"number-amounts", "claims", amounts.String()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a, ok := arch.Lookup(tc.name)
+			if !ok || a.Learner == nil {
+				t.Fatalf("no learner architecture %q", tc.name)
+			}
+			src := Source{Kind: store.DatasetTable, CSV: []byte(tc.csv), Target: tc.target}
+			res, err := Fit(ctx, Task{Arch: a, Source: src, Settings: s}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mod, err := runtime.Build(a, res.Spec, res.Weights)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Every row answers above zero, even far from the table's.
+			x := make([]float32, 0, 40*len(res.Features))
+			for i := range 40 {
+				for j := range res.Features {
+					x = append(x, float32((i+j)%7)-3)
+				}
+			}
+			out, err := mod.Forward(tensor.FromSlice(x, 40, len(res.Features))).Data[float32](ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i, v := range out {
+				if !(v > 0) {
+					t.Fatalf("answer %d is %v", i, v)
+				}
+			}
+			t.Logf("%s: mean error %.2f", tc.name, res.History[0].MAE)
+		})
+	}
+	// Calls answer about 2 and 8: the mean error of a good model is
+	// about 1.6 (the noise of a count with mean 5), against about 3 for
+	// guessing 5.
+	a, _ := arch.Lookup("number-counts")
+	res, err := Fit(ctx, Task{Arch: a, Source: Source{Kind: store.DatasetTable, CSV: []byte(counts.String()), Target: "calls"}, Settings: s}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mae := res.History[0].MAE; mae > 2.2 {
+		t.Errorf("counts: mean error %v", mae)
+	}
+	// An answer below zero is refused in words.
+	bad := "a,b\n"
+	for i := range 30 {
+		bad += fmt.Sprintf("%d,%d\n", i, i%5-1)
+	}
+	_, err = Fit(ctx, Task{Arch: a, Source: Source{Kind: store.DatasetTable, CSV: []byte(bad), Target: "b"}, Settings: s}, nil)
+	if err == nil || !strings.Contains(err.Error(), "0 or more") {
+		t.Errorf("a count below zero: %v", err)
 	}
 }
