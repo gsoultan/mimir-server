@@ -132,8 +132,8 @@ func scalar(v float64) *tensor.Tensor { return tensor.Scalar[float32](float32(v)
 // boostOn grows boosted trees on d, holding back a part to stop when more
 // trees stop helping. The trees are shallow, as yes-or-no outcomes such
 // as a deal closing are noisy and deep trees learn the noise first.
-func boostOn(ctx context.Context, d tabular.Data, task tabular.Task, trees int, progress func(int, int)) (*tree.Model, error) {
-	opts := []tree.Option{tree.Trees(trees), tree.LearningRate(0.05), tree.MinLeaf(20), tree.MaxDepth(4)}
+func boostOn(ctx context.Context, d tabular.Data, task tabular.Task, trees int, progress func(int, int), extra ...tree.Option) (*tree.Model, error) {
+	opts := append([]tree.Option{tree.Trees(trees), tree.LearningRate(0.05), tree.MinLeaf(20), tree.MaxDepth(4)}, extra...)
 	if task == tabular.Classification {
 		opts = append(opts, tree.Classes(2))
 	}
@@ -751,13 +751,23 @@ type RangeShape struct {
 	// Low and High scale the spread below and above the likeliest value.
 	Low, High, Floor float64
 	NonNegative      bool
+	// Lower and Upper, when set, are quantile models of the range's ends,
+	// in place of Spread, each widened by Margin.
+	Lower, Upper *tree.Shape `json:",omitempty"`
+	Margin       float64     `json:",omitempty"`
 }
 
 // Range answers a number with a range it is likely to fall in. Forward
 // maps x, [batch, Features], to [batch, 3]: the likeliest value, then the
 // low and high ends of a range that holds about 8 in 10 real values.
+//
+// A range is either quantile models of its two ends (Lower and Upper),
+// each moved out by a margin so 8 in 10 rows it didn't learn from fall
+// inside, or, for models taught before those, a model of how far off the
+// likeliest value is (Spread), scaled.
 type Range struct {
 	Point, Spread *tree.Module
+	Lower, Upper  *tree.Module
 	shape         RangeShape
 }
 
@@ -770,8 +780,14 @@ func (m *Range) Forward(x *tensor.Tensor) *tensor.Tensor {
 		return tensor.Failed(fmt.Errorf("range: input %v, want [batch, %d]: %w", x.Shape(), s.Features, tensor.ErrShape))
 	}
 	p := m.Point.Forward(x)
-	g := m.Spread.Forward(x).Maximum(scalar(s.Floor))
-	lo, hi := p.Add(g.Mul(scalar(s.Low))), p.Add(g.Mul(scalar(s.High)))
+	var lo, hi *tensor.Tensor
+	if m.Lower != nil {
+		lo = m.Lower.Forward(x).Sub(scalar(s.Margin)).Minimum(p)
+		hi = m.Upper.Forward(x).Add(scalar(s.Margin)).Maximum(p)
+	} else {
+		g := m.Spread.Forward(x).Maximum(scalar(s.Floor))
+		lo, hi = p.Add(g.Mul(scalar(s.Low))), p.Add(g.Mul(scalar(s.High)))
+	}
 	if s.NonNegative {
 		p, lo, hi = p.Maximum(scalar(0)), lo.Maximum(scalar(0)), hi.Maximum(scalar(0))
 	}
@@ -789,10 +805,12 @@ func quantile(vs []float64, q float64) float64 {
 	return vs[lo] + (vs[hi]-vs[lo])*(i-float64(lo))
 }
 
-// numberRange learns a number with boosted trees, and how far off they
-// are for each row with a second model, scaled so the range holds 8 in
-// 10 real values of rows it didn't learn from: normalized conformal
-// prediction.
+// numberRange learns a number with boosted trees, and the ends of a range
+// with two more boosted on the pinball loss at 0.1 and 0.9, moved out by
+// the margin that puts 8 in 10 of a fifth of the rows they didn't learn
+// from inside: conformalized quantile regression (Romano, Patterson and
+// Candès, 2019). So the range is fitted directly, wider where the data
+// are less sure, and still holds what it says.
 var numberRange = &Learner{
 	Cells: func(ctx context.Context, c Cells, progress func(int, int)) (Learned, error) {
 		ans := slices.Index(c.Header, c.Target)
@@ -815,64 +833,58 @@ var numberRange = &Learner{
 		if f == 0 {
 			return Learned{}, cellsError("no column describes the rows; add some the number depends on")
 		}
+		cats := categoryOption(cols, tabular.Data{Features: f})
 		n := len(keep)
-		data := func(rows []int, target func(i int) float64) tabular.Data {
+		data := func(rows []int) tabular.Data {
 			d := tabular.Data{Features: f, X: rowsOf(x, f, rows)}
 			for _, i := range rows {
-				d.Y = append(d.Y, float32(target(i)))
+				d.Y = append(d.Y, float32(y[i]))
 			}
 			return d
 		}
 		order := rand.New(rand.NewPCG(47, 53)).Perm(n)
 		cut := n / 5
 		held, rest := order[:cut], order[cut:]
-		step, steps := 0, 6
+		// A quarter of the rest sets the margin; the ends learn from
+		// the others.
+		var fitOn, calib []int
+		for i, r := range rest {
+			if i%4 == 0 {
+				calib = append(calib, r)
+			} else {
+				fitOn = append(fitOn, r)
+			}
+		}
+		step, steps := 0, 5
 		tick := func() {
 			if step++; progress != nil {
 				progress(step, steps)
 			}
 		}
-		// Each row's error from trees that didn't learn it.
-		resid := make([]float64, n)
-		const folds = 3
-		for k := range folds {
-			var in, out []int
-			for i, r := range rest {
-				if i%folds == k {
-					out = append(out, r)
-				} else {
-					in = append(in, r)
-				}
-			}
-			t, err := boostOn(ctx, data(in, func(i int) float64 { return y[i] }), tabular.Regression, 300, nil)
-			if err != nil {
-				return Learned{}, err
-			}
-			p := t.Predict(rowsOf(x, f, out))
-			for o, i := range out {
-				resid[i] = y[i] - float64(p[o])
-			}
-			tick()
+		end := func(alpha float64) (*tree.Model, error) {
+			return boostOn(ctx, data(fitOn), tabular.Regression, 300, nil, append([]tree.Option{tree.Loss(tree.Quantile(alpha))}, cats...)...)
 		}
-		spreadT, err := boostOn(ctx, data(rest, func(i int) float64 { return math.Abs(resid[i]) }), tabular.Regression, 200, nil)
+		lowT, err := end((1 - rangeCover) / 2)
 		if err != nil {
 			return Learned{}, err
 		}
 		tick()
-		var typical []float64
-		for _, i := range rest {
-			typical = append(typical, math.Abs(resid[i]))
+		highT, err := end((1 + rangeCover) / 2)
+		if err != nil {
+			return Learned{}, err
 		}
-		slices.Sort(typical)
-		floor := max(quantile(typical, 0.1), 1e-6)
-		g := spreadT.Predict(rowsOf(x, f, rest))
-		norm := make([]float64, len(rest))
-		for k, i := range rest {
-			norm[k] = resid[i] / max(float64(g[k]), floor)
+		tick()
+		cx := rowsOf(x, f, calib)
+		cl, ch := lowT.Predict(cx), highT.Predict(cx)
+		score := make([]float64, len(calib))
+		for k, i := range calib {
+			score[k] = max(float64(cl[k])-y[i], y[i]-float64(ch[k]))
 		}
-		slices.Sort(norm)
-		low, high := quantile(norm, (1-rangeCover)/2), quantile(norm, (1+rangeCover)/2)
-		pointT, err := boostOn(ctx, data(rest, func(i int) float64 { return y[i] }), tabular.Regression, boostTrees, nil)
+		slices.Sort(score)
+		// The finite-sample level that makes the cover hold.
+		level := min(1, math.Ceil(rangeCover*float64(len(score)+1))/float64(len(score)))
+		margin := quantile(score, level)
+		pointT, err := boostOn(ctx, data(rest), tabular.Regression, boostTrees, nil, cats...)
 		if err != nil {
 			return Learned{}, err
 		}
@@ -883,10 +895,10 @@ var numberRange = &Learner{
 		var inside, mae float64
 		if len(held) > 0 {
 			hx := rowsOf(x, f, held)
-			p, s := pointT.Predict(hx), spreadT.Predict(hx)
+			p, l, h := pointT.Predict(hx), lowT.Predict(hx), highT.Predict(hx)
 			for k, i := range held {
-				gs := max(float64(s[k]), floor)
-				lo, hi := float64(p[k])+low*gs, float64(p[k])+high*gs
+				lo := min(float64(l[k])-margin, float64(p[k]))
+				hi := max(float64(h[k])+margin, float64(p[k]))
 				if nonNeg {
 					lo = max(lo, 0)
 				}
@@ -899,11 +911,12 @@ var numberRange = &Learner{
 			mae /= float64(len(held))
 		}
 		tick()
-		shape := RangeShape{Point: pointT.Shape(), Spread: spreadT.Shape(), Features: f, Low: low, High: high, Floor: floor, NonNegative: nonNeg}
+		shape := RangeShape{Point: pointT.Shape(), Features: f, NonNegative: nonNeg,
+			Lower: ptr(lowT.Shape()), Upper: ptr(highT.Shape()), Margin: margin}
 		s, err := shapeJSON(shape)
 		tick()
 		return Learned{
-			Module: &Range{Point: pointT.Module(), Spread: spreadT.Module(), shape: shape}, Shape: s, Columns: cols,
+			Module: &Range{Point: pointT.Module(), Lower: lowT.Module(), Upper: highT.Module(), shape: shape}, Shape: s, Columns: cols,
 			Labels: []string{"likely", "low", "high"}, Accuracy: inside, MAE: mae,
 		}, err
 	},
@@ -911,6 +924,9 @@ var numberRange = &Learner{
 		var s RangeShape
 		if err := json.Unmarshal([]byte(shape), &s); err != nil {
 			return nil, fmt.Errorf("a range model's shape: %w", err)
+		}
+		if s.Lower != nil && s.Upper != nil {
+			return &Range{Point: tree.NewModule(s.Point), Lower: tree.NewModule(*s.Lower), Upper: tree.NewModule(*s.Upper), shape: s}, nil
 		}
 		return &Range{Point: tree.NewModule(s.Point), Spread: tree.NewModule(s.Spread), shape: s}, nil
 	},

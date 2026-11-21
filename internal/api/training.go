@@ -34,6 +34,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/dbsource"
 	"github.com/gsoultan/mimir-server/internal/s3source"
+	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/templates"
 	"github.com/gsoultan/mimir-server/internal/training"
@@ -469,6 +470,11 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 		}
 		set.Layers = arch.FormatLayers(design)
 	}
+	if rs := st.GetRules(); len(rs) > 0 {
+		if set.Rules, err = rulesOf(a, d, rs); err != nil {
+			return nil, err
+		}
+	}
 	def := training.SettingsFor(d)
 	if set.Epochs == 0 {
 		set.Epochs = def.Epochs
@@ -726,6 +732,36 @@ func (s *Service) TrainingDone(ctx context.Context, j store.Job) {
 
 // helpers
 
+// rulesOf checks a new run's up-or-down rules for a model of a learning
+// from d, and writes them as arch.FormatRules does.
+func rulesOf(a arch.Architecture, d store.Dataset, rs []*mimirv1.ColumnRule) (string, error) {
+	if !a.Rules {
+		return "", invalid("%s can't be told which way its answer goes. Pick boosted trees, or leave every column free.", a.Title)
+	}
+	if a.Answers() == arch.Class && len(d.Labels) != 2 {
+		return "", invalid("Which way the answer goes only applies to a number or a yes-or-no answer, and %s has %d possible answers.", d.Name, len(d.Labels))
+	}
+	rules := map[string]int{}
+	for _, r := range rs {
+		dir, err := arch.ParseDirection(r.GetDirection())
+		if err != nil {
+			return "", invalid("The way for %s is up or down.", r.GetColumn())
+		}
+		if _, dup := rules[r.GetColumn()]; dup {
+			return "", invalid("%s has two rules. Keep one.", r.GetColumn())
+		}
+		rules[r.GetColumn()] = dir
+	}
+	var cols []schema.Column
+	if len(d.Columns) > 0 {
+		cols = d.Columns
+	}
+	if err := arch.CheckRules(rules, cols); err != nil {
+		return "", invalid("That rule can't be kept: %s.", strings.TrimPrefix(err.Error(), arch.ErrBadRules.Error()+": "))
+	}
+	return arch.FormatRules(rules), nil
+}
+
 func (s *Service) getDataset(ctx context.Context, id string) (store.Dataset, error) {
 	if !store.ValidID(id) {
 		return store.Dataset{}, connect.NewError(connect.CodeNotFound, errors.New("No such dataset."))
@@ -819,7 +855,7 @@ func datasetProto(d store.Dataset) *mimirv1.Dataset {
 func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 	out := &mimirv1.Job{
 		Id: j.ID, Name: j.Name, Description: j.Description, Architecture: j.Architecture, DatasetId: j.DatasetID, DatasetName: datasetName,
-		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut, Layers: cluster.LayersToProto(j.Settings.Layers)},
+		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut, Layers: cluster.LayersToProto(j.Settings.Layers), Rules: cluster.RulesToProto(j.Settings.Rules)},
 		Status:   mimirv1.JobStatus(j.Status), Error: j.Error, Epoch: int32(j.Epoch), ModelId: j.ModelID, Worker: j.Worker, CreatedBy: j.CreatedBy,
 		RepeatSeconds: j.RepeatSeconds, ParentId: j.ParentID, BaseModelId: j.BaseModelID, Note: j.Note, RunOn: j.RunOn,
 		MinNewRows: j.MinNewRows, TrainedRows: j.TrainedRows, CheckNote: j.CheckNote, StartFromModelId: j.StartFrom,

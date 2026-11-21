@@ -50,6 +50,7 @@ type Row struct {
 	Note          string
 	RunOn         string
 	Layers        string
+	Rules         string
 	MinNewRows    int64
 	TrainedRows   int64
 	CheckTime     runtime.Null[time.Time]
@@ -93,7 +94,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 35
+const nCols = 36
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -412,27 +413,34 @@ func (q *Query) cursor(col uint32, r Row) {
 		q.strs[q.ns] = r.Layers
 		q.ns++
 	case 30:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.Rules
+		q.ns++
+	case 31:
 		if int(q.nn) >= len(q.nums) {
 			q.over = true
 			return
 		}
 		q.nums[q.nn] = int64(r.MinNewRows)
 		q.nn++
-	case 31:
+	case 32:
 		if int(q.nn) >= len(q.nums) {
 			q.over = true
 			return
 		}
 		q.nums[q.nn] = int64(r.TrainedRows)
 		q.nn++
-	case 32:
+	case 33:
 		if int(q.ntm) >= len(q.tims) {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = r.CheckTime.V
 		q.ntm++
-	case 33:
+	case 34:
 		if int(q.ns) >= len(q.strs) {
 			q.over = true
 			return
@@ -629,11 +637,12 @@ var (
 	Note          = TextCol{27}
 	RunOn         = TextCol{28}
 	Layers        = TextCol{29}
-	MinNewRows    = Int64Col{30}
-	TrainedRows   = Int64Col{31}
-	CheckTime     = NullTimeCol{32}
-	CheckNote     = TextCol{33}
-	Report        = JSONCol{34}
+	Rules         = TextCol{30}
+	MinNewRows    = Int64Col{31}
+	TrainedRows   = Int64Col{32}
+	CheckTime     = NullTimeCol{33}
+	CheckNote     = TextCol{34}
+	Report        = JSONCol{35}
 )
 
 // TextCol addresses a text column.
@@ -1132,12 +1141,12 @@ func (q *Query) leaf(p Pred) {
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
 		case 30:
-			if int(q.nai64) >= 3 {
+			if int(q.nas) >= 3 {
 				q.over = true
 				return
 			}
-			q.anyI64[q.nai64] = p.anyI64
-			q.nai64++
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
 		case 31:
 			if int(q.nai64) >= 3 {
 				q.over = true
@@ -1145,14 +1154,21 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyI64[q.nai64] = p.anyI64
 			q.nai64++
-		case 33:
+		case 32:
+			if int(q.nai64) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyI64[q.nai64] = p.anyI64
+			q.nai64++
+		case 34:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
-		case 34:
+		case 35:
 			if int(q.nas) >= 3 {
 				q.over = true
 				return
@@ -1379,12 +1395,12 @@ func (q *Query) leaf(p Pred) {
 		q.strs[q.ns] = p.str
 		q.ns++
 	case 30:
-		if int(q.nn) >= 6 {
+		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
-		q.nums[q.nn] = p.num
-		q.nn++
+		q.strs[q.ns] = p.str
+		q.ns++
 	case 31:
 		if int(q.nn) >= 6 {
 			q.over = true
@@ -1393,20 +1409,27 @@ func (q *Query) leaf(p Pred) {
 		q.nums[q.nn] = p.num
 		q.nn++
 	case 32:
+		if int(q.nn) >= 6 {
+			q.over = true
+			return
+		}
+		q.nums[q.nn] = p.num
+		q.nn++
+	case 33:
 		if int(q.ntm) >= 4 {
 			q.over = true
 			return
 		}
 		q.tims[q.ntm] = p.tim
 		q.ntm++
-	case 33:
+	case 34:
 		if int(q.ns) >= 6 {
 			q.over = true
 			return
 		}
 		q.strs[q.ns] = p.str
 		q.ns++
-	case 34:
+	case 35:
 		if int(q.njs) >= 2 {
 			q.over = true
 			return
@@ -1698,6 +1721,17 @@ func (q Query) LayersLike(v string) Query               { return q.Where(Layers.
 func (q Query) LayersILike(v string) Query              { return q.Where(Layers.ILike(v)) }
 func (q Query) LayersIn(v ...string) Query              { return q.Where(Layers.In(v...)) }
 func (q Query) LayersNotIn(v ...string) Query           { return q.Where(Layers.NotIn(v...)) }
+func (q Query) RulesEq(v string) Query                  { return q.Where(Rules.Eq(v)) }
+func (q Query) RulesNotEq(v string) Query               { return q.Where(Rules.NotEq(v)) }
+func (q Query) RulesGt(v string) Query                  { return q.Where(Rules.Gt(v)) }
+func (q Query) RulesGte(v string) Query                 { return q.Where(Rules.Gte(v)) }
+func (q Query) RulesLt(v string) Query                  { return q.Where(Rules.Lt(v)) }
+func (q Query) RulesLte(v string) Query                 { return q.Where(Rules.Lte(v)) }
+func (q Query) RulesEqLower(v string) Query             { return q.Where(Rules.EqLower(v)) }
+func (q Query) RulesLike(v string) Query                { return q.Where(Rules.Like(v)) }
+func (q Query) RulesILike(v string) Query               { return q.Where(Rules.ILike(v)) }
+func (q Query) RulesIn(v ...string) Query               { return q.Where(Rules.In(v...)) }
+func (q Query) RulesNotIn(v ...string) Query            { return q.Where(Rules.NotIn(v...)) }
 func (q Query) MinNewRowsEq(v int64) Query              { return q.Where(MinNewRows.Eq(v)) }
 func (q Query) MinNewRowsNotEq(v int64) Query           { return q.Where(MinNewRows.NotEq(v)) }
 func (q Query) MinNewRowsGt(v int64) Query              { return q.Where(MinNewRows.Gt(v)) }
@@ -1738,7 +1772,7 @@ func (q Query) ReportContainedBy(v runtime.JSON) Query  { return q.Where(Report.
 func (q Query) ReportHasAnyKey(v ...string) Query       { return q.Where(Report.HasAnyKey(v...)) }
 func (q Query) ReportHasAllKeys(v ...string) Query      { return q.Where(Report.HasAllKeys(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "start_from", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note", "report" FROM "training_jobs"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "start_from", "note", "run_on", "layers", "rules", "min_new_rows", "trained_rows", "check_time", "check_note", "report" FROM "training_jobs"`
 const countPrefix = `SELECT count(*) FROM "training_jobs"`
 const existsPrefix = `SELECT 1 FROM "training_jobs"`
 const existsSuffix = ` LIMIT 1`
@@ -1955,6 +1989,12 @@ var orderTable = [nCols][4]string{
 		"\"layers\" ASC NULLS FIRST",
 		"\"layers\" DESC NULLS LAST",
 	},
+	{ // rules
+		"\"rules\"",
+		"\"rules\" DESC",
+		"\"rules\" ASC NULLS FIRST",
+		"\"rules\" DESC NULLS LAST",
+	},
 	{ // min_new_rows
 		"\"min_new_rows\"",
 		"\"min_new_rows\" DESC",
@@ -2020,6 +2060,7 @@ var identTable = [nCols]string{
 	"\"note\"",
 	"\"run_on\"",
 	"\"layers\"",
+	"\"rules\"",
 	"\"min_new_rows\"",
 	"\"trained_rows\"",
 	"\"check_time\"",
@@ -2057,7 +2098,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [35][28]runtime.Frag{
+var fragTable = [36][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -2958,6 +2999,36 @@ var fragTable = [35][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // rules
+		{}, // opNone
+		{A: "\"rules\" = $", B: ""},
+		{A: "\"rules\" <> $", B: ""},
+		{A: "\"rules\" > $", B: ""},
+		{A: "\"rules\" >= $", B: ""},
+		{A: "\"rules\" < $", B: ""},
+		{A: "\"rules\" <= $", B: ""},
+		{A: "lower(\"rules\") = lower($", B: ")"},
+		{A: "\"rules\" LIKE $", B: ""},
+		{A: "\"rules\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"rules\" = ANY($", B: ")"},
+		{A: "\"rules\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 	{ // min_new_rows
 		{}, // opNone
 		{A: "\"min_new_rows\" = $", B: ""},
@@ -3294,11 +3365,12 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.Note = sl.Str(rv[27])
 	r.RunOn = sl.Str(rv[28])
 	r.Layers = sl.Str(rv[29])
-	r.MinNewRows = runtime.Int8(rv[30])
-	r.TrainedRows = runtime.Int8(rv[31])
-	r.CheckTime = runtime.Nullable(rv[32], runtime.Timestamptz)
-	r.CheckNote = sl.Str(rv[33])
-	r.Report = runtime.JSON(runtime.JSONB(rv[34], sl))
+	r.Rules = sl.Str(rv[30])
+	r.MinNewRows = runtime.Int8(rv[31])
+	r.TrainedRows = runtime.Int8(rv[32])
+	r.CheckTime = runtime.Nullable(rv[33], runtime.Timestamptz)
+	r.CheckNote = sl.Str(rv[34])
+	r.Report = runtime.JSON(runtime.JSONB(rv[35], sl))
 	return nil
 }
 
@@ -3466,18 +3538,22 @@ func (q Query) bindPreds(b *binder) []any {
 				v = append(v, &b.anyStr[nas])
 				nas++
 			case 30:
-				b.anyI64[nai64] = q.anyI64[nai64]
-				v = append(v, &b.anyI64[nai64])
-				nai64++
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
 			case 31:
 				b.anyI64[nai64] = q.anyI64[nai64]
 				v = append(v, &b.anyI64[nai64])
 				nai64++
-			case 33:
+			case 32:
+				b.anyI64[nai64] = q.anyI64[nai64]
+				v = append(v, &b.anyI64[nai64])
+				nai64++
+			case 34:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
-			case 34:
+			case 35:
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
@@ -3606,22 +3682,26 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.strs[ns])
 			ns++
 		case 30:
-			b.nums[nn] = q.nums[nn]
-			v = append(v, &b.nums[nn])
-			nn++
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
 		case 31:
 			b.nums[nn] = q.nums[nn]
 			v = append(v, &b.nums[nn])
 			nn++
 		case 32:
+			b.nums[nn] = q.nums[nn]
+			v = append(v, &b.nums[nn])
+			nn++
+		case 33:
 			b.tims[ntm] = q.tims[ntm]
 			v = append(v, &b.tims[ntm])
 			ntm++
-		case 33:
+		case 34:
 			b.strs[ns] = q.strs[ns]
 			v = append(v, &b.strs[ns])
 			ns++
-		case 34:
+		case 35:
 			b.jsns[njs] = q.jsns[njs]
 			v = append(v, &b.jsns[njs])
 			njs++
@@ -3846,7 +3926,7 @@ var errPerRunOnOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "training_jobs" ("id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "start_from", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note", "report") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "start_from", "note", "run_on", "layers", "min_new_rows", "trained_rows", "check_time", "check_note", "report"`
+const insertSQL = `INSERT INTO "training_jobs" ("id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "start_from", "note", "run_on", "layers", "rules", "min_new_rows", "trained_rows", "check_time", "check_note", "report") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36) RETURNING "id", "create_time", "name", "team_id", "description", "architecture", "dataset_id", "epochs", "batch_size", "learning_rate", "hold_out", "status", "error", "epoch", "step", "steps_per_epoch", "history", "model_id", "worker", "created_by", "start_time", "end_time", "repeat_seconds", "next_run", "parent_id", "base_model_id", "start_from", "note", "run_on", "layers", "rules", "min_new_rows", "trained_rows", "check_time", "check_note", "report"`
 
 const updatePrefix = `UPDATE "training_jobs" SET `
 const deletePrefix = `DELETE FROM "training_jobs"`
@@ -3982,14 +4062,15 @@ const (
 	iNote          uint64 = 1 << 27
 	iRunOn         uint64 = 1 << 28
 	iLayers        uint64 = 1 << 29
-	iMinNewRows    uint64 = 1 << 30
-	iTrainedRows   uint64 = 1 << 31
-	iCheckTime     uint64 = 1 << 32
-	iCheckNote     uint64 = 1 << 33
-	iReport        uint64 = 1 << 34
+	iRules         uint64 = 1 << 30
+	iMinNewRows    uint64 = 1 << 31
+	iTrainedRows   uint64 = 1 << 32
+	iCheckTime     uint64 = 1 << 33
+	iCheckNote     uint64 = 1 << 34
+	iReport        uint64 = 1 << 35
 )
 
-const nInsertable = 35
+const nInsertable = 36
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -4023,6 +4104,7 @@ var insCols = [nInsertable]string{
 	"\"note\"",
 	"\"run_on\"",
 	"\"layers\"",
+	"\"rules\"",
 	"\"min_new_rows\"",
 	"\"trained_rows\"",
 	"\"check_time\"",
@@ -4036,7 +4118,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"training_jobs\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"start_from\", \"note\", \"run_on\", \"layers\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\", \"report\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"start_from\", \"note\", \"run_on\", \"layers\", \"rules\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\", \"report\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -4055,7 +4137,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"start_from\", \"note\", \"run_on\", \"layers\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\", \"report\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"description\", \"architecture\", \"dataset_id\", \"epochs\", \"batch_size\", \"learning_rate\", \"hold_out\", \"status\", \"error\", \"epoch\", \"step\", \"steps_per_epoch\", \"history\", \"model_id\", \"worker\", \"created_by\", \"start_time\", \"end_time\", \"repeat_seconds\", \"next_run\", \"parent_id\", \"base_model_id\", \"start_from\", \"note\", \"run_on\", \"layers\", \"rules\", \"min_new_rows\", \"trained_rows\", \"check_time\", \"check_note\", \"report\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -4770,6 +4852,11 @@ func (n *Ins) SetLayers(v string) {
 	n.set |= iLayers
 }
 
+func (n *Ins) SetRules(v string) {
+	n.row.Rules = v
+	n.set |= iRules
+}
+
 func (n *Ins) SetMinNewRows(v int64) {
 	n.row.MinNewRows = v
 	n.set |= iMinNewRows
@@ -4946,19 +5033,19 @@ func assignable(i uint8, mask uint64) []string {
 		if mask&(1<<28) != 0 {
 			set = append(set, "run_on")
 		}
-		if mask&(1<<30) != 0 {
+		if mask&(1<<31) != 0 {
 			set = append(set, "min_new_rows")
 		}
-		if mask&(1<<31) != 0 {
+		if mask&(1<<32) != 0 {
 			set = append(set, "trained_rows")
 		}
-		if mask&(1<<32) != 0 {
+		if mask&(1<<33) != 0 {
 			set = append(set, "check_time")
 		}
-		if mask&(1<<33) != 0 {
+		if mask&(1<<34) != 0 {
 			set = append(set, "check_note")
 		}
-		if mask&(1<<34) != 0 {
+		if mask&(1<<35) != 0 {
 			set = append(set, "report")
 		}
 	}
@@ -5181,14 +5268,16 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 		case 29:
 			args = append(args, n.row.Layers)
 		case 30:
-			args = append(args, n.row.MinNewRows)
+			args = append(args, n.row.Rules)
 		case 31:
-			args = append(args, n.row.TrainedRows)
+			args = append(args, n.row.MinNewRows)
 		case 32:
-			args = append(args, n.row.CheckTime.Arg())
+			args = append(args, n.row.TrainedRows)
 		case 33:
-			args = append(args, n.row.CheckNote)
+			args = append(args, n.row.CheckTime.Arg())
 		case 34:
+			args = append(args, n.row.CheckNote)
+		case 35:
 			args = append(args, n.row.Report)
 		}
 	}
@@ -5227,7 +5316,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 35)
+	args := make([]any, 0, 36)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -5258,6 +5347,7 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.Note)
 	args = append(args, r.RunOn)
 	args = append(args, r.Layers)
+	args = append(args, r.Rules)
 	args = append(args, r.MinNewRows)
 	args = append(args, r.TrainedRows)
 	args = append(args, r.CheckTime.Arg())
@@ -5319,6 +5409,7 @@ var copyCols = []string{
 	"note",
 	"run_on",
 	"layers",
+	"rules",
 	"min_new_rows",
 	"trained_rows",
 	"check_time",
@@ -5330,7 +5421,7 @@ var copyCols = []string{
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [35]any
+	buf  [36]any
 }
 
 func (s *rowSource) Next() bool {
@@ -5378,11 +5469,12 @@ func (s *rowSource) Values() []any {
 	s.buf[27] = &r.Note
 	s.buf[28] = &r.RunOn
 	s.buf[29] = &r.Layers
-	s.buf[30] = &r.MinNewRows
-	s.buf[31] = &r.TrainedRows
-	s.buf[32] = r.CheckTime.Ptr()
-	s.buf[33] = &r.CheckNote
-	s.buf[34] = &r.Report
+	s.buf[30] = &r.Rules
+	s.buf[31] = &r.MinNewRows
+	s.buf[32] = &r.TrainedRows
+	s.buf[33] = r.CheckTime.Ptr()
+	s.buf[34] = &r.CheckNote
+	s.buf[35] = &r.Report
 	return s.buf[:]
 }
 
@@ -5448,8 +5540,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 32
 	mask |= 1 << 33
 	mask |= 1 << 34
+	mask |= 1 << 35
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 35)
+	args := make([]any, 0, 36)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -5480,6 +5573,7 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.Note)
 	args = append(args, r.RunOn)
 	args = append(args, r.Layers)
+	args = append(args, r.Rules)
 	args = append(args, r.MinNewRows)
 	args = append(args, r.TrainedRows)
 	args = append(args, r.CheckTime.Arg())
@@ -5579,14 +5673,16 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 		case 29:
 			args = append(args, n.row.Layers)
 		case 30:
-			args = append(args, n.row.MinNewRows)
+			args = append(args, n.row.Rules)
 		case 31:
-			args = append(args, n.row.TrainedRows)
+			args = append(args, n.row.MinNewRows)
 		case 32:
-			args = append(args, n.row.CheckTime.Arg())
+			args = append(args, n.row.TrainedRows)
 		case 33:
-			args = append(args, n.row.CheckNote)
+			args = append(args, n.row.CheckTime.Arg())
 		case 34:
+			args = append(args, n.row.CheckNote)
+		case 35:
 			args = append(args, n.row.Report)
 		}
 	}

@@ -103,6 +103,16 @@ type Settings struct {
 	// Layers, when set, is how someone shaped a table model: its hidden
 	// steps in place of the usual ones.
 	Layers []Layer
+	// Rules, when set, keep a boosted-tree model's answer going one way
+	// as a number column rises.
+	Rules []Rule
+}
+
+// Rule says which way a model's answer goes as a number column rises:
+// Direction is "up" or "down".
+type Rule struct {
+	Column    string
+	Direction string
 }
 
 // Layer is one step of a designed table model: "dense" learns patterns
@@ -844,7 +854,7 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 	}
 	task := TrainTask{
 		JobID: t.JobId, Architecture: t.Architecture,
-		Settings:    Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut(), Layers: layersFromProto(t.GetSettings().GetLayers())},
+		Settings:    Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut(), Layers: layersFromProto(t.GetSettings().GetLayers()), Rules: rulesFromProto(t.GetSettings().GetRules())},
 		Dataset:     Dataset{Kind: kind, CSV: t.Csv, Target: t.Target, Archive: t.Archive, Text: t.Text, Columns: columnsFromProto(t.Columns)},
 		History:     epochsFromProto(t.History),
 		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures, BaseAdapter: t.BaseAdapter,
@@ -951,6 +961,14 @@ func ints(v []int64) []int {
 	out := make([]int, len(v))
 	for i, x := range v {
 		out[i] = int(x)
+	}
+	return out
+}
+
+func rulesFromProto(rs []*mimirv1.ColumnRule) []Rule {
+	var out []Rule
+	for _, r := range rs {
+		out = append(out, Rule{Column: r.GetColumn(), Direction: r.GetDirection()})
 	}
 	return out
 }
