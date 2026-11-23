@@ -127,7 +127,7 @@ func (h *handler) Train(ctx context.Context, t worker.TrainTask, progress func(w
 	task := training.Task{
 		Arch:          h.a,
 		Source:        src,
-		Settings:      store.Settings{Epochs: t.Settings.Epochs, BatchSize: t.Settings.BatchSize, LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: arch.FormatLayers(layersOf(t.Settings.Layers)), Rules: rulesOf(t.Settings.Rules)},
+		Settings:      store.Settings{Epochs: t.Settings.Epochs, BatchSize: t.Settings.BatchSize, LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: arch.FormatLayers(layersOf(t.Settings.Layers)), Balance: t.Settings.Balance, Rules: rulesOf(t.Settings.Rules)},
 		History:       fromSDK(t.History),
 		CheckpointDir: filepath.Join(h.data, "training", t.JobID),
 		BaseWeights:   t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures,

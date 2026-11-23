@@ -231,10 +231,11 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 		// model is still good.
 		set := testSet
 		if set == nil {
-			set = trainSet
+			set = realOnly(trainSet)
 		}
 		if report, err = Score(ctx, model, set, t.Arch, spec.Labels); err == nil {
 			report.OnTraining = testSet == nil
+			report.Made = l.Made
 		} else if ctx.Err() != nil {
 			return Result{}, context.Cause(ctx)
 		}

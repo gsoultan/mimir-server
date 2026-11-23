@@ -79,7 +79,7 @@ func learn(ctx context.Context, t Task, l Loaded, spec arch.Spec, progress Progr
 	// Nothing held out: score on what it learned from, as Fit does.
 	scored := l.Test
 	if scored == nil {
-		scored = l.Train
+		scored = realOnly(l.Train)
 	}
 	m, err := train.Evaluate(ctx, mod, scored, lossFn, scores...)
 	if err != nil {
@@ -97,6 +97,7 @@ func learn(ctx context.Context, t Task, l Loaded, spec arch.Spec, progress Progr
 	report, err := Score(ctx, mod, scored, t.Arch, spec.Labels)
 	if err == nil {
 		report.OnTraining = l.Test == nil
+		report.Made = l.Made
 	} else if ctx.Err() != nil {
 		return Result{}, context.Cause(ctx)
 	}

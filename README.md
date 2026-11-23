@@ -529,6 +529,26 @@ yes/no, a text box, a photo picker). Apps send the row by column name in
 the same way it did while teaching. Table models standardize their
 columns inside the model, so apps send the raw values.
 
+### Too few rows, or a rare answer
+
+When a table has too few rows, the second step of teaching offers **Too
+few rows? Make up more like these**. The server learns how the values in
+each column spread out and how the columns go together, the way SDV's
+Gaussian copula does, and draws as many new rows as asked into a new
+dataset marked made up. Numbers stay between the real ones, categories
+keep their shares, dates keep their format, IDs are made new and text
+cells are reused from the real rows. Before relying on a model taught on
+made-up rows, try it on real ones (`DatasetService.MakeRows`).
+
+When one answer is much rarer than the others, switch on **Make up extra
+rows of the rarer answers** on the last step. While it learns, the
+server makes rows of each rarer answer between a real row and one of its
+five nearest neighbours with the same answer, as SMOTE does: numbers are
+blended, categories, yes-or-no and text are copied from one of the two.
+Every answer then has as many rows as the most common one. The rows kept
+aside for scoring stay real, and the run's report says how many were
+made (`TrainingSettings.balance`).
+
 ### From a database, and keeping it learning
 
 Admins can also pick **From a database** in the first step: choose

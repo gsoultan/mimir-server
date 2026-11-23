@@ -34,6 +34,9 @@ type Report struct {
 	// batches, on the machine that trained it. SizeBytes is the model file.
 	MillisPerExample float64 `json:"ms_per_example"`
 	SizeBytes        int64   `json:"size_bytes"`
+	// Made counts the made-up rows of rare answers it learned from beside
+	// the real ones (see Settings.Balance); none of them were scored.
+	Made int `json:"made,omitempty"`
 
 	// Class and ranked models.
 	Accuracy float64 `json:"accuracy,omitempty"`

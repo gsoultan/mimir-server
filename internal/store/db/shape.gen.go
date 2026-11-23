@@ -186,6 +186,7 @@ func _assertDatasetShape(m m0.Dataset) {
 		m.Columns,
 		m.NumberTarget,
 		m.Skipped,
+		m.MadeFrom,
 	}
 }
 
@@ -422,6 +423,7 @@ func _assertTrainingJobShape(m m0.TrainingJob) {
 		m.Note,
 		m.RunOn,
 		m.Layers,
+		m.Balance,
 		m.Rules,
 		m.MinNewRows,
 		m.TrainedRows,

@@ -38,6 +38,9 @@ type Dataset struct {
 	Columns      storm.JSON
 	NumberTarget bool
 	Skipped      int64
+	// MadeFrom is the dataset whose rows these were made up like, by id;
+	// "" for real rows. The id stays when that dataset is deleted.
+	MadeFrom string
 }
 
 // Aggregates: how many datasets each team has.
@@ -62,6 +65,7 @@ func (d *Dataset) Schema(t *storm.Table) {
 	t.Col(&d.Columns).Default("'[]'").ConvertFrom(storm.JSONText)
 	t.Col(&d.NumberTarget).Default("false")
 	t.Col(&d.Skipped).Default("0")
+	t.Col(&d.MadeFrom).Default("''").Immutable().NoIndex()
 	// A team's datasets, newest first; also the team key's index.
 	t.Col(&d.Team).NoIndex()
 	t.Index(&d.Team, storm.Desc(&d.CreateTime), storm.Desc(&d.ID))

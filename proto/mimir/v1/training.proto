@@ -32,6 +32,27 @@ service DatasetService {
   // CheckDataset checks a dataset against a template, with the columns
   // matched as given, and can keep that match.
   rpc CheckDataset(CheckDatasetRequest) returns (CheckDatasetResponse);
+  // MakeRows makes up a new table dataset of rows like a table dataset's
+  // own, for when there are too few real ones: it learns each column's
+  // values and how the columns move together (a Gaussian copula, as
+  // SDV's GaussianCopulaSynthesizer), then draws new rows. IDs are made
+  // new; text cells are real ones, reused.
+  rpc MakeRows(MakeRowsRequest) returns (MakeRowsResponse);
+}
+
+message MakeRowsRequest {
+  // dataset_id is the table to learn from.
+  string dataset_id = 1;
+  // rows is how many to make, from 10 to 1,000,000.
+  int64 rows = 2;
+  // name is the new dataset's; empty names it after the one it learns
+  // from.
+  string name = 3;
+}
+
+message MakeRowsResponse {
+  Dataset dataset = 1;
+  DataCheck check = 2;
 }
 
 message CheckDatasetRequest {
@@ -161,6 +182,9 @@ message Dataset {
   // storage is set when the rows come from S3-compatible storage, so they
   // can be fetched again; the keys are never returned.
   StorageSource storage = 18;
+  // made_from is the dataset these rows were made up like (see
+  // MakeRows), by id; empty for real rows.
+  string made_from = 19;
 }
 
 // StorageSource says where in a bucket a dataset's rows come from.
@@ -323,11 +347,16 @@ message TrainingSettings {
   // layers, when set, shapes a table model in place of its usual hidden
   // layers: at most 8 steps, with at least one dense.
   repeated Layer layers = 5;
+  // balance makes up extra rows of each rarer answer of a table to learn
+  // from, between real rows with that answer (as SMOTE does), until every
+  // answer has as many as the most common one. The rows kept aside for
+  // scoring stay real. Only for models that pick an answer.
+  bool balance = 6;
   // rules, when set, keep a boosted-tree model's answer going one way as
   // a number column rises: up or down, the rest free. Only for model
   // types whose rules flag is set, and for yes-or-no answers the chance
   // of the second label.
-  repeated ColumnRule rules = 6;
+  repeated ColumnRule rules = 7;
 }
 
 // ColumnRule says which way a model's answer goes as a number column
@@ -457,6 +486,11 @@ message RunReport {
   repeated double hit_at = 17;
   double mrr = 18;
   double ndcg = 19;
+
+  // made counts the made-up rows of rarer answers it learned from beside
+  // the real ones (TrainingSettings.balance). It was scored on real rows
+  // only.
+  int64 made = 20;
 }
 
 message ClassScore {

@@ -879,7 +879,7 @@ func (p *Pool) Train(ctx context.Context, jobID, workerID string, t training.Tas
 func trainTask(id, jobID string, t training.Task) *mimirv1.TrainTask {
 	task := &mimirv1.TrainTask{
 		TaskId: id, JobId: jobID, Architecture: t.Arch.Name,
-		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: LayersToProto(t.Settings.Layers), Rules: RulesToProto(t.Settings.Rules)},
+		Settings:    &mimirv1.TrainingSettings{Epochs: int32(t.Settings.Epochs), BatchSize: int32(t.Settings.BatchSize), LearningRate: t.Settings.LearningRate, HoldOut: t.Settings.HoldOut, Layers: LayersToProto(t.Settings.Layers), Balance: t.Settings.Balance, Rules: RulesToProto(t.Settings.Rules)},
 		DatasetKind: mimirv1.DatasetKind(t.Source.Kind),
 		Target:      t.Source.Target, Columns: ColumnsToProto(t.Source.Columns),
 		History:     EpochsToProto(t.History),

@@ -72,6 +72,9 @@ type Dataset struct {
 	NumberTarget bool
 	// Skipped counts rows left out: no answer, or a missing photo.
 	Skipped int64
+	// MadeFrom is the dataset these rows were made up like, by id; "" for
+	// real rows.
+	MadeFrom string
 }
 
 // FromQuery reports whether the dataset's rows come from a database or
@@ -99,6 +102,11 @@ type Settings struct {
 	// Layers is a designed table model's shape, as arch.FormatLayers
 	// writes it; "" is the usual shape.
 	Layers string
+	// Balance makes up extra rows of each rare answer of a table, between
+	// real rows with that answer (SMOTE), until each answer has as many
+	// rows to learn from as the most common one. The rows kept aside for
+	// scoring stay real.
+	Balance bool
 	// Rules keep a boosted-tree model's answer going one way as a number
 	// column rises, as arch.FormatRules writes them; "" is none.
 	Rules string
@@ -223,6 +231,7 @@ func (s *Store) fromDataset(r dataset.Row) (Dataset, error) {
 		Columns:      fromDoc[schema.Column](r.Columns),
 		NumberTarget: r.NumberTarget,
 		Skipped:      r.Skipped,
+		MadeFrom:     r.MadeFrom,
 	}, nil
 }
 
@@ -271,6 +280,7 @@ func (s *Store) CreateDataset(ctx context.Context, d Dataset, csv []byte) (Datas
 	n.SetColumns(doc(d.Columns))
 	n.SetNumberTarget(d.NumberTarget)
 	n.SetSkipped(d.Skipped)
+	n.SetMadeFrom(d.MadeFrom)
 	if _, err := n.Insert(ctx, s.ex); err != nil {
 		os.Remove(s.datasetFile(d))
 		return Dataset{}, fmt.Errorf("store: insert dataset: %w", err)
@@ -391,6 +401,7 @@ func fromJob(r trainingjob.Row) Job {
 			LearningRate: r.LearningRate,
 			HoldOut:      r.HoldOut,
 			Layers:       r.Layers,
+			Balance:      r.Balance,
 			Rules:        r.Rules,
 		},
 		Status:        JobStatus(r.Status),
@@ -446,6 +457,7 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 	n.SetLearningRate(j.Settings.LearningRate)
 	n.SetHoldOut(j.Settings.HoldOut)
 	n.SetLayers(j.Settings.Layers)
+	n.SetBalance(j.Settings.Balance)
 	n.SetRules(j.Settings.Rules)
 	n.SetStatus(int32(j.Status))
 	n.SetCreatedBy(j.CreatedBy)
