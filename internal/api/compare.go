@@ -74,6 +74,7 @@ func differs(js []store.Job) []string {
 		{"learning_rate", func(j store.Job) any { return j.Settings.LearningRate }},
 		{"hold_out", func(j store.Job) any { return j.Settings.HoldOut }},
 		{"layers", func(j store.Job) any { return j.Settings.Layers }},
+		{"balance", func(j store.Job) any { return j.Settings.Balance }},
 		{"worker", func(j store.Job) any { return j.Worker }},
 	}
 	var out []string
@@ -109,7 +110,7 @@ func reportProto(r *store.Report) *mimirv1.RunReport {
 		Kind: r.Kind, Examples: int64(r.Examples), OnTraining: r.OnTraining, MillisPerExample: r.MillisPerExample, SizeBytes: r.SizeBytes,
 		Accuracy: r.Accuracy, MacroF1: r.MacroF1, LogLoss: r.LogLoss,
 		Mae: r.MAE, Rmse: r.RMSE, R2: r.R2, Within10: r.Within10,
-		K: int32(r.K), HitAt: r.HitAt, Mrr: r.MRR, Ndcg: r.NDCG,
+		K: int32(r.K), HitAt: r.HitAt, Mrr: r.MRR, Ndcg: r.NDCG, Made: int64(r.Made),
 	}
 	for _, c := range r.Classes {
 		out.Classes = append(out.Classes, &mimirv1.ClassScore{Label: c.Label, Precision: c.Precision, Recall: c.Recall, F1: c.F1, Support: c.Support})

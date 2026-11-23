@@ -38,6 +38,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/arch"
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir-server/internal/synth"
 )
 
 // ErrBadTable reports examples the server can't learn from.
@@ -502,6 +503,8 @@ type examples struct {
 	batch int
 	seed  uint64
 	epoch atomic.Int64
+	// made counts the made-up examples at the end of rows (see balance).
+	made int
 }
 
 // Len returns the number of examples.
@@ -666,6 +669,9 @@ type Loaded struct {
 	// HeldOutBy names the date column whose latest rows were held out
 	// for scoring; empty when they were picked at random.
 	HeldOutBy string
+	// Made counts the made-up rows of rare answers added to Train (see
+	// store.Settings.Balance).
+	Made int
 }
 
 // Load returns a source's training and scoring batches for architecture
@@ -682,7 +688,11 @@ func Load(ctx context.Context, src Source, a arch.Architecture, s store.Settings
 			return Loaded{}, fmt.Errorf("%w: a table with a photo column needs its photos; upload a ZIP with the table and the photos", ErrBadTable)
 		}
 		f := len(t.Features)
-		return fromTable(t, a, s, seed, []int{f}, func(dst []float32, i int) []float32 { return append(dst, t.X[i*f:(i+1)*f]...) })
+		l, err := fromTable(t, a, s, seed, []int{f}, func(dst []float32, i int) []float32 { return append(dst, t.X[i*f:(i+1)*f]...) })
+		if err == nil && s.Balance && t.Classes != nil && a.Answers() != arch.Number {
+			l.Train, l.Made = t.balance(l.Train, l.Spec.Std, seed)
+		}
+		return l, err
 	case store.DatasetPhotos:
 		return loadPhotos(ctx, src, a, s, seed)
 	case store.DatasetSounds:
@@ -952,4 +962,61 @@ func Architectures(d store.Dataset) []string {
 		}
 	}
 	return out
+}
+
+// balance adds made-up rows of each rare answer to train, a table's
+// examples, between real rows with that answer, until each answer has as
+// many as the most common one: SMOTE. A number blends between the two
+// rows; a category, yes-or-no or text is copied whole from one of them.
+// Rows kept aside for scoring are never used or added to. std is each
+// number's spread, so near is judged fairly across columns. It returns
+// the examples and how many were made.
+func (t *Table) balance(train Set, std []float32, seed uint64) (Set, int) {
+	e, ok := train.(*examples)
+	if !ok || e.cls == nil {
+		return train, 0
+	}
+	f := len(t.Features)
+	groups := make([]synth.Group, 0, len(t.Columns))
+	for _, c := range t.Columns {
+		groups = append(groups, synth.Group{Width: c.Width(), Blend: c.Kind == schema.Number})
+	}
+	scale := make([]float32, len(std))
+	for i, s := range std {
+		if s > 0 {
+			scale[i] = 1 / s
+		}
+	}
+	mx, my := synth.Balance(t.X, f, e.cls, e.rows, groups, scale, MaxRows-len(e.rows), seed)
+	if len(my) == 0 {
+		return train, 0
+	}
+	n := len(e.cls)
+	real := e.input
+	b := &examples{shape: e.shape, batch: e.batch, seed: e.seed, cls: append(slices.Clone(e.cls), my...)}
+	b.input = func(dst []float32, i int) []float32 {
+		if i < n {
+			return real(dst, i)
+		}
+		return append(dst, mx[(i-n)*f:(i-n+1)*f]...)
+	}
+	b.rows = slices.Clone(e.rows)
+	for k := range my {
+		b.rows = append(b.rows, n+k)
+	}
+	b.epoch.Store(e.epoch.Load())
+	b.made = len(my)
+	return b, len(my)
+}
+
+// realOnly is set without the made-up rows balance added, for scoring a
+// model on the rows it learned from when none were kept aside.
+func realOnly(set Set) Set {
+	e, ok := set.(*examples)
+	if !ok || e.made == 0 {
+		return set
+	}
+	r := &examples{rows: e.rows[:len(e.rows)-e.made], shape: e.shape, input: e.input, cls: e.cls, num: e.num, batch: e.batch, seed: e.seed}
+	r.epoch.Store(e.epoch.Load())
+	return r
 }

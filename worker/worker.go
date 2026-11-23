@@ -103,6 +103,10 @@ type Settings struct {
 	// Layers, when set, is how someone shaped a table model: its hidden
 	// steps in place of the usual ones.
 	Layers []Layer
+	// Balance makes up extra rows of a table's rarer answers to learn
+	// from, between real rows with that answer, as SMOTE does; the rows
+	// kept aside for scoring stay real.
+	Balance bool
 }
 
 // Layer is one step of a designed table model: "dense" learns patterns
@@ -844,7 +848,7 @@ func (w *worker) train(ctx context.Context, t *mimirv1.TrainTask) {
 	}
 	task := TrainTask{
 		JobID: t.JobId, Architecture: t.Architecture,
-		Settings:    Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut(), Layers: layersFromProto(t.GetSettings().GetLayers())},
+		Settings:    Settings{Epochs: int(t.GetSettings().GetEpochs()), BatchSize: int(t.GetSettings().GetBatchSize()), LearningRate: t.GetSettings().GetLearningRate(), HoldOut: t.GetSettings().GetHoldOut(), Layers: layersFromProto(t.GetSettings().GetLayers()), Balance: t.GetSettings().GetBalance()},
 		Dataset:     Dataset{Kind: kind, CSV: t.Csv, Target: t.Target, Archive: t.Archive, Text: t.Text, Columns: columnsFromProto(t.Columns)},
 		History:     epochsFromProto(t.History),
 		BaseWeights: t.BaseWeights, BaseLabels: t.BaseLabels, BaseFeatures: t.BaseFeatures, BaseAdapter: t.BaseAdapter,

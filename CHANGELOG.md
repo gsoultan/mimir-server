@@ -35,6 +35,22 @@
   customers who may leave). Each comes with example data that a model
   learns from.
 
+### Too little data, or a rare answer
+
+- **Make up more rows like yours.** On the teach page, a table with too
+  few rows can be grown: the server learns how each column's values
+  spread and how the columns go together (a Gaussian copula, as SDV's
+  GaussianCopulaSynthesizer does) and saves the new rows as a separate
+  dataset marked made up. IDs are made new; text cells are reused.
+  `DatasetService.MakeRows`.
+- **Balance rare answers.** A switch on the last step of teaching a table
+  model makes up rows of each rarer answer between real rows that have it
+  (SMOTE), until every answer has as many as the most common one. The
+  rows kept aside for scoring stay real, and the run's report says how
+  many were made. `TrainingSettings.balance`.
+- Database: `datasets.made_from` and `training_jobs.balance` (migration
+  0022, through storm).
+
 ### Try new versions first
 
 - A model version can be tried on part of the questions (5 to 50%) or on

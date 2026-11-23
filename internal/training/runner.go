@@ -737,13 +737,19 @@ func friendly(err error) string {
 // withoutBenchmarks leaves out of a dataset's rows those its benchmarks
 // test on, so no model learns the answers to its own test.
 func (r *Runner) withoutBenchmarks(ctx context.Context, datasetID string, table []byte) ([]byte, error) {
-	bs, err := r.st.DatasetBenchmarks(ctx, datasetID)
+	return WithoutBenchmarks(ctx, r.st, datasetID, table)
+}
+
+// WithoutBenchmarks is a dataset's table without the rows its benchmarks
+// froze, which nothing may learn from.
+func WithoutBenchmarks(ctx context.Context, st *store.Store, datasetID string, table []byte) ([]byte, error) {
+	bs, err := st.DatasetBenchmarks(ctx, datasetID)
 	if err != nil || len(bs) == 0 {
 		return table, err
 	}
 	var frozen [][]byte
 	for _, b := range bs {
-		rows, err := r.st.ReadBenchmark(b.ID)
+		rows, err := st.ReadBenchmark(b.ID)
 		if errors.Is(err, store.ErrNotFound) {
 			continue
 		}

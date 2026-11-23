@@ -28,6 +28,7 @@ export function RunReport({ report: r }: { report: Report }) {
         </Alert>
       )}
       <Text size="sm" c="dimmed">{t("Scored on")}{" "}{on}.</Text>
+      {r.made > 0n && <Text size="sm" c="dimmed">{t("It also learned from {n1} made-up rows of the rarer answers. None of them were scored.", { n1: r.made.toLocaleString() })}</Text>}
       {r.kind === "number" && <Numbers r={r} />}
       {(r.kind === "class" || r.kind === "ranked") && <Labels r={r} />}
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
