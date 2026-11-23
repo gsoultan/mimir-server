@@ -110,6 +110,7 @@ var Required = map[string]Permission{
 	"/mimir.v1.DatasetService/CreateDataset":       ModelsWrite,
 	"/mimir.v1.DatasetService/DeleteDataset":       ModelsWrite,
 	"/mimir.v1.DatasetService/CheckDataset":        ModelsWrite,
+	"/mimir.v1.DatasetService/MakeRows":            ModelsWrite,
 	"/mimir.v1.TemplateService/ListTemplates":      ModelsRead,
 	"/mimir.v1.TemplateService/GetTemplateExample": ModelsRead,
 	"/mimir.v1.TrainingService/ListJobs":           ModelsWrite,
