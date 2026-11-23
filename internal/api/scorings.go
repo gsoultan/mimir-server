@@ -618,22 +618,36 @@ func (s *Service) runScoring(ctx context.Context, sc store.Scoring) {
 		return
 	}
 	done := context.WithoutCancel(ctx)
-	finished, err := s.store.FinishScoring(done, sc.ID, res, failure)
-	if err != nil {
-		s.log.ErrorContext(done, "scoring: finish", "scoring_id", sc.ID, "error", err)
-		return
+	// The results are in place before the scoring reads as finished, so
+	// no one sees it finished without them. The last run's results are
+	// kept aside until then, and put back if it was cancelled meanwhile.
+	result, prev := s.store.ScoringResultPath(sc.ID), s.store.ScoringResultPath(sc.ID)+".prev"
+	placed := false
+	if failure == "" {
+		hadPrev := os.Rename(result, prev) == nil
+		if err := os.Rename(s.store.ScoringTempPath(sc.ID), result); err != nil {
+			s.log.ErrorContext(done, "scoring: keep results", "scoring_id", sc.ID, "error", err)
+			if hadPrev {
+				os.Rename(prev, result)
+			}
+		} else {
+			placed = true
+		}
 	}
-	if !finished {
+	finished, err := s.store.FinishScoring(done, sc.ID, res, failure)
+	if err != nil || !finished {
+		if err != nil {
+			s.log.ErrorContext(done, "scoring: finish", "scoring_id", sc.ID, "error", err)
+		}
+		if placed {
+			os.Remove(result)
+			os.Rename(prev, result)
+		}
 		os.Remove(s.store.ScoringTempPath(sc.ID)) // cancelled meanwhile
 		return
 	}
-	if failure == "" {
-		if err := os.Rename(s.store.ScoringTempPath(sc.ID), s.store.ScoringResultPath(sc.ID)); err != nil {
-			s.log.ErrorContext(done, "scoring: keep results", "scoring_id", sc.ID, "error", err)
-		}
-	} else {
-		os.Remove(s.store.ScoringTempPath(sc.ID))
-	}
+	os.Remove(prev)
+	os.Remove(s.store.ScoringTempPath(sc.ID))
 	sc, err = s.store.GetScoring(done, sc.ID)
 	if err != nil {
 		return

@@ -59,6 +59,8 @@ const (
 	// DatasetServiceCheckDatasetProcedure is the fully-qualified name of the DatasetService's
 	// CheckDataset RPC.
 	DatasetServiceCheckDatasetProcedure = "/mimir.v1.DatasetService/CheckDataset"
+	// DatasetServiceMakeRowsProcedure is the fully-qualified name of the DatasetService's MakeRows RPC.
+	DatasetServiceMakeRowsProcedure = "/mimir.v1.DatasetService/MakeRows"
 	// TrainingServiceListJobsProcedure is the fully-qualified name of the TrainingService's ListJobs
 	// RPC.
 	TrainingServiceListJobsProcedure = "/mimir.v1.TrainingService/ListJobs"
@@ -104,6 +106,12 @@ type DatasetServiceClient interface {
 	// CheckDataset checks a dataset against a template, with the columns
 	// matched as given, and can keep that match.
 	CheckDataset(context.Context, *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error)
+	// MakeRows makes up a new table dataset of rows like a table dataset's
+	// own, for when there are too few real ones: it learns each column's
+	// values and how the columns move together (a Gaussian copula, as
+	// SDV's GaussianCopulaSynthesizer), then draws new rows. IDs are made
+	// new; text cells are real ones, reused.
+	MakeRows(context.Context, *connect.Request[v1.MakeRowsRequest]) (*connect.Response[v1.MakeRowsResponse], error)
 }
 
 // NewDatasetServiceClient constructs a client for the mimir.v1.DatasetService service. By default,
@@ -167,6 +175,12 @@ func NewDatasetServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(datasetServiceMethods.ByName("CheckDataset")),
 			connect.WithClientOptions(opts...),
 		),
+		makeRows: connect.NewClient[v1.MakeRowsRequest, v1.MakeRowsResponse](
+			httpClient,
+			baseURL+DatasetServiceMakeRowsProcedure,
+			connect.WithSchema(datasetServiceMethods.ByName("MakeRows")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -180,6 +194,7 @@ type datasetServiceClient struct {
 	refreshDataset *connect.Client[v1.RefreshDatasetRequest, v1.RefreshDatasetResponse]
 	testBucket     *connect.Client[v1.TestBucketRequest, v1.TestBucketResponse]
 	checkDataset   *connect.Client[v1.CheckDatasetRequest, v1.CheckDatasetResponse]
+	makeRows       *connect.Client[v1.MakeRowsRequest, v1.MakeRowsResponse]
 }
 
 // ListDatasets calls mimir.v1.DatasetService.ListDatasets.
@@ -222,6 +237,11 @@ func (c *datasetServiceClient) CheckDataset(ctx context.Context, req *connect.Re
 	return c.checkDataset.CallUnary(ctx, req)
 }
 
+// MakeRows calls mimir.v1.DatasetService.MakeRows.
+func (c *datasetServiceClient) MakeRows(ctx context.Context, req *connect.Request[v1.MakeRowsRequest]) (*connect.Response[v1.MakeRowsResponse], error) {
+	return c.makeRows.CallUnary(ctx, req)
+}
+
 // DatasetServiceHandler is an implementation of the mimir.v1.DatasetService service.
 type DatasetServiceHandler interface {
 	ListDatasets(context.Context, *connect.Request[v1.ListDatasetsRequest]) (*connect.Response[v1.ListDatasetsResponse], error)
@@ -242,6 +262,12 @@ type DatasetServiceHandler interface {
 	// CheckDataset checks a dataset against a template, with the columns
 	// matched as given, and can keep that match.
 	CheckDataset(context.Context, *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error)
+	// MakeRows makes up a new table dataset of rows like a table dataset's
+	// own, for when there are too few real ones: it learns each column's
+	// values and how the columns move together (a Gaussian copula, as
+	// SDV's GaussianCopulaSynthesizer), then draws new rows. IDs are made
+	// new; text cells are real ones, reused.
+	MakeRows(context.Context, *connect.Request[v1.MakeRowsRequest]) (*connect.Response[v1.MakeRowsResponse], error)
 }
 
 // NewDatasetServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -301,6 +327,12 @@ func NewDatasetServiceHandler(svc DatasetServiceHandler, opts ...connect.Handler
 		connect.WithSchema(datasetServiceMethods.ByName("CheckDataset")),
 		connect.WithHandlerOptions(opts...),
 	)
+	datasetServiceMakeRowsHandler := connect.NewUnaryHandler(
+		DatasetServiceMakeRowsProcedure,
+		svc.MakeRows,
+		connect.WithSchema(datasetServiceMethods.ByName("MakeRows")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.DatasetService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DatasetServiceListDatasetsProcedure:
@@ -319,6 +351,8 @@ func NewDatasetServiceHandler(svc DatasetServiceHandler, opts ...connect.Handler
 			datasetServiceTestBucketHandler.ServeHTTP(w, r)
 		case DatasetServiceCheckDatasetProcedure:
 			datasetServiceCheckDatasetHandler.ServeHTTP(w, r)
+		case DatasetServiceMakeRowsProcedure:
+			datasetServiceMakeRowsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -358,6 +392,10 @@ func (UnimplementedDatasetServiceHandler) TestBucket(context.Context, *connect.R
 
 func (UnimplementedDatasetServiceHandler) CheckDataset(context.Context, *connect.Request[v1.CheckDatasetRequest]) (*connect.Response[v1.CheckDatasetResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.DatasetService.CheckDataset is not implemented"))
+}
+
+func (UnimplementedDatasetServiceHandler) MakeRows(context.Context, *connect.Request[v1.MakeRowsRequest]) (*connect.Response[v1.MakeRowsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.DatasetService.MakeRows is not implemented"))
 }
 
 // TrainingServiceClient is a client for the mimir.v1.TrainingService service.

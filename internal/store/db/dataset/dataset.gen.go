@@ -38,6 +38,7 @@ type Row struct {
 	Columns      runtime.JSON
 	NumberTarget bool
 	Skipped      int64
+	MadeFrom     string
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -76,7 +77,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 18
+const nCols = 19
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -289,6 +290,13 @@ func (q *Query) cursor(col uint32, r Row) {
 		}
 		q.nums[q.nn] = int64(r.Skipped)
 		q.nn++
+	case 18:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.MadeFrom
+		q.ns++
 	}
 }
 
@@ -475,6 +483,7 @@ var (
 	Columns      = JSONCol{15}
 	NumberTarget = BoolCol{16}
 	Skipped      = Int64Col{17}
+	MadeFrom     = TextCol{18}
 )
 
 // TextCol addresses a text column.
@@ -963,6 +972,13 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyI64[q.nai64] = p.anyI64
 			q.nai64++
+		case 18:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
 		}
 		q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 		return
@@ -1077,6 +1093,13 @@ func (q *Query) leaf(p Pred) {
 		}
 		q.nums[q.nn] = p.num
 		q.nn++
+	case 18:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
 	}
 	q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 }
@@ -1222,8 +1245,19 @@ func (q Query) SkippedLt(v int64) Query                 { return q.Where(Skipped
 func (q Query) SkippedLte(v int64) Query                { return q.Where(Skipped.Lte(v)) }
 func (q Query) SkippedIn(v ...int64) Query              { return q.Where(Skipped.In(v...)) }
 func (q Query) SkippedNotIn(v ...int64) Query           { return q.Where(Skipped.NotIn(v...)) }
+func (q Query) MadeFromEq(v string) Query               { return q.Where(MadeFrom.Eq(v)) }
+func (q Query) MadeFromNotEq(v string) Query            { return q.Where(MadeFrom.NotEq(v)) }
+func (q Query) MadeFromGt(v string) Query               { return q.Where(MadeFrom.Gt(v)) }
+func (q Query) MadeFromGte(v string) Query              { return q.Where(MadeFrom.Gte(v)) }
+func (q Query) MadeFromLt(v string) Query               { return q.Where(MadeFrom.Lt(v)) }
+func (q Query) MadeFromLte(v string) Query              { return q.Where(MadeFrom.Lte(v)) }
+func (q Query) MadeFromEqLower(v string) Query          { return q.Where(MadeFrom.EqLower(v)) }
+func (q Query) MadeFromLike(v string) Query             { return q.Where(MadeFrom.Like(v)) }
+func (q Query) MadeFromILike(v string) Query            { return q.Where(MadeFrom.ILike(v)) }
+func (q Query) MadeFromIn(v ...string) Query            { return q.Where(MadeFrom.In(v...)) }
+func (q Query) MadeFromNotIn(v ...string) Query         { return q.Where(MadeFrom.NotIn(v...)) }
 
-const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "driver", "dsn", "source_query", "refresh_time", "columns", "number_target", "skipped" FROM "datasets"`
+const selectPrefix = `SELECT "id", "create_time", "name", "team_id", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "driver", "dsn", "source_query", "refresh_time", "columns", "number_target", "skipped", "made_from" FROM "datasets"`
 const countPrefix = `SELECT count(*) FROM "datasets"`
 const existsPrefix = `SELECT 1 FROM "datasets"`
 const existsSuffix = ` LIMIT 1`
@@ -1368,6 +1402,12 @@ var orderTable = [nCols][4]string{
 		"\"skipped\" ASC NULLS FIRST",
 		"\"skipped\" DESC NULLS LAST",
 	},
+	{ // made_from
+		"\"made_from\"",
+		"\"made_from\" DESC",
+		"\"made_from\" ASC NULLS FIRST",
+		"\"made_from\" DESC NULLS LAST",
+	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
@@ -1391,6 +1431,7 @@ var identTable = [nCols]string{
 	"\"columns\"",
 	"\"number_target\"",
 	"\"skipped\"",
+	"\"made_from\"",
 }
 
 var lowering = runtime.Lowering{
@@ -1423,7 +1464,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [18][28]runtime.Frag{
+var fragTable = [19][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -1964,6 +2005,36 @@ var fragTable = [18][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // made_from
+		{}, // opNone
+		{A: "\"made_from\" = $", B: ""},
+		{A: "\"made_from\" <> $", B: ""},
+		{A: "\"made_from\" > $", B: ""},
+		{A: "\"made_from\" >= $", B: ""},
+		{A: "\"made_from\" < $", B: ""},
+		{A: "\"made_from\" <= $", B: ""},
+		{A: "lower(\"made_from\") = lower($", B: ")"},
+		{A: "\"made_from\" LIKE $", B: ""},
+		{A: "\"made_from\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"made_from\" = ANY($", B: ")"},
+		{A: "\"made_from\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 }
 
 func fragOf(op, col uint32) runtime.Frag {
@@ -2148,6 +2219,7 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.Columns = runtime.JSON(runtime.JSONB(rv[15], sl))
 	r.NumberTarget = runtime.Bool(rv[16])
 	r.Skipped = runtime.Int8(rv[17])
+	r.MadeFrom = sl.Str(rv[18])
 	return decErr
 }
 
@@ -2278,6 +2350,10 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyI64[nai64] = q.anyI64[nai64]
 				v = append(v, &b.anyI64[nai64])
 				nai64++
+			case 18:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
 			}
 			continue
 		}
@@ -2342,6 +2418,10 @@ func (q Query) bindPreds(b *binder) []any {
 			b.nums[nn] = q.nums[nn]
 			v = append(v, &b.nums[nn])
 			nn++
+		case 18:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
 		}
 	}
 	b.vals = v
@@ -2563,7 +2643,7 @@ var errPerTeamOrdered = errors.New(
 
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "datasets" ("id", "create_time", "name", "team_id", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "driver", "dsn", "source_query", "refresh_time", "columns", "number_target", "skipped") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING "id", "create_time", "name", "team_id", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "driver", "dsn", "source_query", "refresh_time", "columns", "number_target", "skipped"`
+const insertSQL = `INSERT INTO "datasets" ("id", "create_time", "name", "team_id", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "driver", "dsn", "source_query", "refresh_time", "columns", "number_target", "skipped", "made_from") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING "id", "create_time", "name", "team_id", "kind", "rows", "features", "labels", "input_shape", "target", "size_bytes", "driver", "dsn", "source_query", "refresh_time", "columns", "number_target", "skipped", "made_from"`
 
 const updatePrefix = `UPDATE "datasets" SET `
 const deletePrefix = `DELETE FROM "datasets"`
@@ -2648,9 +2728,10 @@ const (
 	iColumns      uint64 = 1 << 15
 	iNumberTarget uint64 = 1 << 16
 	iSkipped      uint64 = 1 << 17
+	iMadeFrom     uint64 = 1 << 18
 )
 
-const nInsertable = 18
+const nInsertable = 19
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -2672,6 +2753,7 @@ var insCols = [nInsertable]string{
 	"\"columns\"",
 	"\"number_target\"",
 	"\"skipped\"",
+	"\"made_from\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -2680,7 +2762,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"datasets\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"kind\", \"rows\", \"features\", \"labels\", \"input_shape\", \"target\", \"size_bytes\", \"driver\", \"dsn\", \"source_query\", \"refresh_time\", \"columns\", \"number_target\", \"skipped\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"kind\", \"rows\", \"features\", \"labels\", \"input_shape\", \"target\", \"size_bytes\", \"driver\", \"dsn\", \"source_query\", \"refresh_time\", \"columns\", \"number_target\", \"skipped\", \"made_from\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -2699,7 +2781,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"kind\", \"rows\", \"features\", \"labels\", \"input_shape\", \"target\", \"size_bytes\", \"driver\", \"dsn\", \"source_query\", \"refresh_time\", \"columns\", \"number_target\", \"skipped\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"name\", \"team_id\", \"kind\", \"rows\", \"features\", \"labels\", \"input_shape\", \"target\", \"size_bytes\", \"driver\", \"dsn\", \"source_query\", \"refresh_time\", \"columns\", \"number_target\", \"skipped\", \"made_from\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -3049,6 +3131,11 @@ func (n *Ins) AddSkippedOnConflict(v int64) {
 	n.add |= iSkipped
 }
 
+func (n *Ins) SetMadeFrom(v string) {
+	n.row.MadeFrom = v
+	n.set |= iMadeFrom
+}
+
 // The conflict encoding. One byte holds both which unique index an
 // upsert names and what it does on collision, so the insert statement
 // cache stays keyed by one mask and one byte:
@@ -3303,6 +3390,8 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 			args = append(args, n.row.NumberTarget)
 		case 17:
 			args = append(args, n.row.Skipped)
+		case 18:
+			args = append(args, n.row.MadeFrom)
 		}
 	}
 	var out Row
@@ -3340,7 +3429,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 18)
+	args := make([]any, 0, 19)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -3359,6 +3448,7 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.Columns)
 	args = append(args, r.NumberTarget)
 	args = append(args, r.Skipped)
+	args = append(args, r.MadeFrom)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -3403,13 +3493,14 @@ var copyCols = []string{
 	"columns",
 	"number_target",
 	"skipped",
+	"made_from",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [18]any
+	buf  [19]any
 }
 
 func (s *rowSource) Next() bool {
@@ -3445,6 +3536,7 @@ func (s *rowSource) Values() []any {
 	s.buf[15] = &r.Columns
 	s.buf[16] = &r.NumberTarget
 	s.buf[17] = &r.Skipped
+	s.buf[18] = &r.MadeFrom
 	return s.buf[:]
 }
 
@@ -3493,8 +3585,9 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 15
 	mask |= 1 << 16
 	mask |= 1 << 17
+	mask |= 1 << 18
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 18)
+	args := make([]any, 0, 19)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.Name)
@@ -3513,6 +3606,7 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.Columns)
 	args = append(args, r.NumberTarget)
 	args = append(args, r.Skipped)
+	args = append(args, r.MadeFrom)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -3582,6 +3676,8 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 			args = append(args, n.row.NumberTarget)
 		case 17:
 			args = append(args, n.row.Skipped)
+		case 18:
+			args = append(args, n.row.MadeFrom)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
