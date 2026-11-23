@@ -63,6 +63,18 @@ const (
 	// SettingsServiceGetAboutProcedure is the fully-qualified name of the SettingsService's GetAbout
 	// RPC.
 	SettingsServiceGetAboutProcedure = "/mimir.v1.SettingsService/GetAbout"
+	// SettingsServiceGetUpdatesProcedure is the fully-qualified name of the SettingsService's
+	// GetUpdates RPC.
+	SettingsServiceGetUpdatesProcedure = "/mimir.v1.SettingsService/GetUpdates"
+	// SettingsServiceCheckForUpdatesProcedure is the fully-qualified name of the SettingsService's
+	// CheckForUpdates RPC.
+	SettingsServiceCheckForUpdatesProcedure = "/mimir.v1.SettingsService/CheckForUpdates"
+	// SettingsServiceInstallUpdateProcedure is the fully-qualified name of the SettingsService's
+	// InstallUpdate RPC.
+	SettingsServiceInstallUpdateProcedure = "/mimir.v1.SettingsService/InstallUpdate"
+	// SettingsServiceUpdateAutoUpdatesProcedure is the fully-qualified name of the SettingsService's
+	// UpdateAutoUpdates RPC.
+	SettingsServiceUpdateAutoUpdatesProcedure = "/mimir.v1.SettingsService/UpdateAutoUpdates"
 )
 
 // SettingsServiceClient is a client for the mimir.v1.SettingsService service.
@@ -84,6 +96,17 @@ type SettingsServiceClient interface {
 	// GetAbout says which version of mimir-server runs and what it is built
 	// on, for the About page. Anyone signed in may call it.
 	GetAbout(context.Context, *connect.Request[v1.GetAboutRequest]) (*connect.Response[v1.GetAboutResponse], error)
+	// GetUpdates says whether a newer release is out, as far as the last
+	// check found, and whether this server updates itself.
+	GetUpdates(context.Context, *connect.Request[v1.GetUpdatesRequest]) (*connect.Response[v1.GetUpdatesResponse], error)
+	// CheckForUpdates asks GitHub for the newest release now.
+	CheckForUpdates(context.Context, *connect.Request[v1.CheckForUpdatesRequest]) (*connect.Response[v1.CheckForUpdatesResponse], error)
+	// InstallUpdate downloads the newest release, checks it against its
+	// SHA256SUMS and that it runs here, then restarts the server on it. It
+	// returns once the download starts; GetUpdates follows it.
+	InstallUpdate(context.Context, *connect.Request[v1.InstallUpdateRequest]) (*connect.Response[v1.InstallUpdateResponse], error)
+	// UpdateAutoUpdates turns automatic updates on or off.
+	UpdateAutoUpdates(context.Context, *connect.Request[v1.UpdateAutoUpdatesRequest]) (*connect.Response[v1.UpdateAutoUpdatesResponse], error)
 }
 
 // NewSettingsServiceClient constructs a client for the mimir.v1.SettingsService service. By
@@ -161,21 +184,50 @@ func NewSettingsServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getUpdates: connect.NewClient[v1.GetUpdatesRequest, v1.GetUpdatesResponse](
+			httpClient,
+			baseURL+SettingsServiceGetUpdatesProcedure,
+			connect.WithSchema(settingsServiceMethods.ByName("GetUpdates")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		checkForUpdates: connect.NewClient[v1.CheckForUpdatesRequest, v1.CheckForUpdatesResponse](
+			httpClient,
+			baseURL+SettingsServiceCheckForUpdatesProcedure,
+			connect.WithSchema(settingsServiceMethods.ByName("CheckForUpdates")),
+			connect.WithClientOptions(opts...),
+		),
+		installUpdate: connect.NewClient[v1.InstallUpdateRequest, v1.InstallUpdateResponse](
+			httpClient,
+			baseURL+SettingsServiceInstallUpdateProcedure,
+			connect.WithSchema(settingsServiceMethods.ByName("InstallUpdate")),
+			connect.WithClientOptions(opts...),
+		),
+		updateAutoUpdates: connect.NewClient[v1.UpdateAutoUpdatesRequest, v1.UpdateAutoUpdatesResponse](
+			httpClient,
+			baseURL+SettingsServiceUpdateAutoUpdatesProcedure,
+			connect.WithSchema(settingsServiceMethods.ByName("UpdateAutoUpdates")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // settingsServiceClient implements SettingsServiceClient.
 type settingsServiceClient struct {
-	getSettings     *connect.Client[v1.GetSettingsRequest, v1.GetSettingsResponse]
-	updateAlerts    *connect.Client[v1.UpdateAlertsRequest, v1.UpdateAlertsResponse]
-	sendTestAlert   *connect.Client[v1.SendTestAlertRequest, v1.SendTestAlertResponse]
-	updateRetention *connect.Client[v1.UpdateRetentionRequest, v1.UpdateRetentionResponse]
-	updateSecurity  *connect.Client[v1.UpdateSecurityRequest, v1.UpdateSecurityResponse]
-	updateLimits    *connect.Client[v1.UpdateLimitsRequest, v1.UpdateLimitsResponse]
-	updateTraining  *connect.Client[v1.UpdateTrainingRequest, v1.UpdateTrainingResponse]
-	getUsage        *connect.Client[v1.GetUsageRequest, v1.GetUsageResponse]
-	getDatabaseInfo *connect.Client[v1.GetDatabaseInfoRequest, v1.GetDatabaseInfoResponse]
-	getAbout        *connect.Client[v1.GetAboutRequest, v1.GetAboutResponse]
+	getSettings       *connect.Client[v1.GetSettingsRequest, v1.GetSettingsResponse]
+	updateAlerts      *connect.Client[v1.UpdateAlertsRequest, v1.UpdateAlertsResponse]
+	sendTestAlert     *connect.Client[v1.SendTestAlertRequest, v1.SendTestAlertResponse]
+	updateRetention   *connect.Client[v1.UpdateRetentionRequest, v1.UpdateRetentionResponse]
+	updateSecurity    *connect.Client[v1.UpdateSecurityRequest, v1.UpdateSecurityResponse]
+	updateLimits      *connect.Client[v1.UpdateLimitsRequest, v1.UpdateLimitsResponse]
+	updateTraining    *connect.Client[v1.UpdateTrainingRequest, v1.UpdateTrainingResponse]
+	getUsage          *connect.Client[v1.GetUsageRequest, v1.GetUsageResponse]
+	getDatabaseInfo   *connect.Client[v1.GetDatabaseInfoRequest, v1.GetDatabaseInfoResponse]
+	getAbout          *connect.Client[v1.GetAboutRequest, v1.GetAboutResponse]
+	getUpdates        *connect.Client[v1.GetUpdatesRequest, v1.GetUpdatesResponse]
+	checkForUpdates   *connect.Client[v1.CheckForUpdatesRequest, v1.CheckForUpdatesResponse]
+	installUpdate     *connect.Client[v1.InstallUpdateRequest, v1.InstallUpdateResponse]
+	updateAutoUpdates *connect.Client[v1.UpdateAutoUpdatesRequest, v1.UpdateAutoUpdatesResponse]
 }
 
 // GetSettings calls mimir.v1.SettingsService.GetSettings.
@@ -228,6 +280,26 @@ func (c *settingsServiceClient) GetAbout(ctx context.Context, req *connect.Reque
 	return c.getAbout.CallUnary(ctx, req)
 }
 
+// GetUpdates calls mimir.v1.SettingsService.GetUpdates.
+func (c *settingsServiceClient) GetUpdates(ctx context.Context, req *connect.Request[v1.GetUpdatesRequest]) (*connect.Response[v1.GetUpdatesResponse], error) {
+	return c.getUpdates.CallUnary(ctx, req)
+}
+
+// CheckForUpdates calls mimir.v1.SettingsService.CheckForUpdates.
+func (c *settingsServiceClient) CheckForUpdates(ctx context.Context, req *connect.Request[v1.CheckForUpdatesRequest]) (*connect.Response[v1.CheckForUpdatesResponse], error) {
+	return c.checkForUpdates.CallUnary(ctx, req)
+}
+
+// InstallUpdate calls mimir.v1.SettingsService.InstallUpdate.
+func (c *settingsServiceClient) InstallUpdate(ctx context.Context, req *connect.Request[v1.InstallUpdateRequest]) (*connect.Response[v1.InstallUpdateResponse], error) {
+	return c.installUpdate.CallUnary(ctx, req)
+}
+
+// UpdateAutoUpdates calls mimir.v1.SettingsService.UpdateAutoUpdates.
+func (c *settingsServiceClient) UpdateAutoUpdates(ctx context.Context, req *connect.Request[v1.UpdateAutoUpdatesRequest]) (*connect.Response[v1.UpdateAutoUpdatesResponse], error) {
+	return c.updateAutoUpdates.CallUnary(ctx, req)
+}
+
 // SettingsServiceHandler is an implementation of the mimir.v1.SettingsService service.
 type SettingsServiceHandler interface {
 	GetSettings(context.Context, *connect.Request[v1.GetSettingsRequest]) (*connect.Response[v1.GetSettingsResponse], error)
@@ -247,6 +319,17 @@ type SettingsServiceHandler interface {
 	// GetAbout says which version of mimir-server runs and what it is built
 	// on, for the About page. Anyone signed in may call it.
 	GetAbout(context.Context, *connect.Request[v1.GetAboutRequest]) (*connect.Response[v1.GetAboutResponse], error)
+	// GetUpdates says whether a newer release is out, as far as the last
+	// check found, and whether this server updates itself.
+	GetUpdates(context.Context, *connect.Request[v1.GetUpdatesRequest]) (*connect.Response[v1.GetUpdatesResponse], error)
+	// CheckForUpdates asks GitHub for the newest release now.
+	CheckForUpdates(context.Context, *connect.Request[v1.CheckForUpdatesRequest]) (*connect.Response[v1.CheckForUpdatesResponse], error)
+	// InstallUpdate downloads the newest release, checks it against its
+	// SHA256SUMS and that it runs here, then restarts the server on it. It
+	// returns once the download starts; GetUpdates follows it.
+	InstallUpdate(context.Context, *connect.Request[v1.InstallUpdateRequest]) (*connect.Response[v1.InstallUpdateResponse], error)
+	// UpdateAutoUpdates turns automatic updates on or off.
+	UpdateAutoUpdates(context.Context, *connect.Request[v1.UpdateAutoUpdatesRequest]) (*connect.Response[v1.UpdateAutoUpdatesResponse], error)
 }
 
 // NewSettingsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -320,6 +403,31 @@ func NewSettingsServiceHandler(svc SettingsServiceHandler, opts ...connect.Handl
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	settingsServiceGetUpdatesHandler := connect.NewUnaryHandler(
+		SettingsServiceGetUpdatesProcedure,
+		svc.GetUpdates,
+		connect.WithSchema(settingsServiceMethods.ByName("GetUpdates")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	settingsServiceCheckForUpdatesHandler := connect.NewUnaryHandler(
+		SettingsServiceCheckForUpdatesProcedure,
+		svc.CheckForUpdates,
+		connect.WithSchema(settingsServiceMethods.ByName("CheckForUpdates")),
+		connect.WithHandlerOptions(opts...),
+	)
+	settingsServiceInstallUpdateHandler := connect.NewUnaryHandler(
+		SettingsServiceInstallUpdateProcedure,
+		svc.InstallUpdate,
+		connect.WithSchema(settingsServiceMethods.ByName("InstallUpdate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	settingsServiceUpdateAutoUpdatesHandler := connect.NewUnaryHandler(
+		SettingsServiceUpdateAutoUpdatesProcedure,
+		svc.UpdateAutoUpdates,
+		connect.WithSchema(settingsServiceMethods.ByName("UpdateAutoUpdates")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/mimir.v1.SettingsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SettingsServiceGetSettingsProcedure:
@@ -342,6 +450,14 @@ func NewSettingsServiceHandler(svc SettingsServiceHandler, opts ...connect.Handl
 			settingsServiceGetDatabaseInfoHandler.ServeHTTP(w, r)
 		case SettingsServiceGetAboutProcedure:
 			settingsServiceGetAboutHandler.ServeHTTP(w, r)
+		case SettingsServiceGetUpdatesProcedure:
+			settingsServiceGetUpdatesHandler.ServeHTTP(w, r)
+		case SettingsServiceCheckForUpdatesProcedure:
+			settingsServiceCheckForUpdatesHandler.ServeHTTP(w, r)
+		case SettingsServiceInstallUpdateProcedure:
+			settingsServiceInstallUpdateHandler.ServeHTTP(w, r)
+		case SettingsServiceUpdateAutoUpdatesProcedure:
+			settingsServiceUpdateAutoUpdatesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -389,4 +505,20 @@ func (UnimplementedSettingsServiceHandler) GetDatabaseInfo(context.Context, *con
 
 func (UnimplementedSettingsServiceHandler) GetAbout(context.Context, *connect.Request[v1.GetAboutRequest]) (*connect.Response[v1.GetAboutResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.GetAbout is not implemented"))
+}
+
+func (UnimplementedSettingsServiceHandler) GetUpdates(context.Context, *connect.Request[v1.GetUpdatesRequest]) (*connect.Response[v1.GetUpdatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.GetUpdates is not implemented"))
+}
+
+func (UnimplementedSettingsServiceHandler) CheckForUpdates(context.Context, *connect.Request[v1.CheckForUpdatesRequest]) (*connect.Response[v1.CheckForUpdatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.CheckForUpdates is not implemented"))
+}
+
+func (UnimplementedSettingsServiceHandler) InstallUpdate(context.Context, *connect.Request[v1.InstallUpdateRequest]) (*connect.Response[v1.InstallUpdateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.InstallUpdate is not implemented"))
+}
+
+func (UnimplementedSettingsServiceHandler) UpdateAutoUpdates(context.Context, *connect.Request[v1.UpdateAutoUpdatesRequest]) (*connect.Response[v1.UpdateAutoUpdatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("mimir.v1.SettingsService.UpdateAutoUpdates is not implemented"))
 }

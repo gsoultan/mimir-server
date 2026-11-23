@@ -458,6 +458,30 @@ starting the console, if you'd rather migrate as a separate step.
 Upgrade workers right after the console: each worker's page under
 **Settings → Workers** shows the version it runs.
 
+### Updating from the About page
+
+Owners can also update from the console: **About → Updates** has
+**Check now**, **Update now** and **Update automatically** (off until
+turned on; it looks every 6 hours). The server downloads the release file
+for this machine, checks it against the release's `SHA256SUMS`, runs it
+once with `-help` to be sure it works here, and restarts on it.
+
+The new binary goes in the data folder, `<data>/updates/`, not over the
+installed one, because the service can't write `/usr` (`ProtectSystem`)
+and a package manager owns `/usr/bin`. Each start, the installed binary
+switches to a newer version kept there, so `systemctl restart` keeps the
+update. A newer installed binary, from `apt upgrade` or a new image,
+wins and the kept one is deleted. A kept version that fails to start
+three times in a row is set aside and the installed binary runs again.
+
+It doesn't back up first: download a backup under **Settings → Database**
+before updating if you want a way back from a schema change. Workers on
+other machines aren't updated; upgrade them as above.
+
+To manage upgrades only through your package manager or image, start the
+console with `-updates=false` (`MIMIR_UPDATES=false`): it then never
+contacts GitHub, and the About page says updates are off.
+
 ### Rolling back
 
 If the new version's `migrate -check` said **up to date**, the schema
