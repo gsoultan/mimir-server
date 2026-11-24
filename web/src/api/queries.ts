@@ -23,6 +23,7 @@ export const modelVersions = (modelId: string) => createQueryOptions(ModelServic
 export const modelTrial = (modelId: string) => createQueryOptions(ModelService.method.getModelTrial, { modelId }, { transport });
 
 export const getAbout = createQueryOptions(SettingsService.method.getAbout, {}, { transport });
+export const getUpdates = createQueryOptions(SettingsService.method.getUpdates, {}, { transport });
 export const setupState = createQueryOptions(AuthService.method.getSetupState, {}, { transport });
 export const whoAmI = createQueryOptions(AuthService.method.whoAmI, {}, { transport });
 export const listSessions = createQueryOptions(AuthService.method.listSessions, {}, { transport });

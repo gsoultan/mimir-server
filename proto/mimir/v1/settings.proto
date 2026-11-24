@@ -34,6 +34,19 @@ service SettingsService {
   rpc GetAbout(GetAboutRequest) returns (GetAboutResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+  // GetUpdates says whether a newer release is out, as far as the last
+  // check found, and whether this server updates itself.
+  rpc GetUpdates(GetUpdatesRequest) returns (GetUpdatesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // CheckForUpdates asks GitHub for the newest release now.
+  rpc CheckForUpdates(CheckForUpdatesRequest) returns (CheckForUpdatesResponse);
+  // InstallUpdate downloads the newest release, checks it against its
+  // SHA256SUMS and that it runs here, then restarts the server on it. It
+  // returns once the download starts; GetUpdates follows it.
+  rpc InstallUpdate(InstallUpdateRequest) returns (InstallUpdateResponse);
+  // UpdateAutoUpdates turns automatic updates on or off.
+  rpc UpdateAutoUpdates(UpdateAutoUpdatesRequest) returns (UpdateAutoUpdatesResponse);
 }
 
 // EmailAlerts sends alerts through an SMTP server. The password is never
@@ -242,4 +255,78 @@ message GetAboutResponse {
 message AboutModule {
   string path = 1;
   string version = 2;
+}
+
+// UpdateState is what the updater is doing.
+enum UpdateState {
+  UPDATE_STATE_UNSPECIFIED = 0;
+  UPDATE_STATE_IDLE = 1;
+  UPDATE_STATE_CHECKING = 2;
+  // INSTALLING: downloading and checking the new version.
+  UPDATE_STATE_INSTALLING = 3;
+  // RESTARTING: the new version is ready and the server is restarting.
+  UPDATE_STATE_RESTARTING = 4;
+}
+
+// UpdateBlock is why this server can't install a newer version itself.
+enum UpdateBlock {
+  UPDATE_BLOCK_UNSPECIFIED = 0;
+  // DEV_BUILD: a development build has no release to compare with.
+  UPDATE_BLOCK_DEV_BUILD = 1;
+  // NO_DOWNLOAD: the newest release has no file for this machine.
+  UPDATE_BLOCK_NO_DOWNLOAD = 2;
+  // TURNED_OFF: whoever runs the server turned updates off with
+  // -updates=false ($MIMIR_UPDATES).
+  UPDATE_BLOCK_TURNED_OFF = 3;
+}
+
+// Updates is what the server knows about newer versions.
+message Updates {
+  string current_version = 1;
+  // latest_version is the newest release the last check found; empty
+  // before the first check.
+  string latest_version = 2;
+  // available says latest_version is newer than current_version.
+  bool available = 3;
+  // release_url is the release's page, with what changed.
+  string release_url = 4;
+  google.protobuf.Timestamp published = 5;
+  // checked is when GitHub was last asked; unset when never.
+  google.protobuf.Timestamp checked = 6;
+  // check_error is why the last check failed, empty when it worked.
+  string check_error = 7;
+  // auto installs a newer version on its own when one is out. The server
+  // asks GitHub only while it is on, or when someone checks.
+  bool auto = 8;
+  UpdateState state = 9;
+  // blocked, when set, is why this server can't update itself.
+  UpdateBlock blocked = 10;
+  // install_error is why the last install failed.
+  string install_error = 11;
+}
+
+message GetUpdatesRequest {}
+
+message GetUpdatesResponse {
+  Updates updates = 1;
+}
+
+message CheckForUpdatesRequest {}
+
+message CheckForUpdatesResponse {
+  Updates updates = 1;
+}
+
+message InstallUpdateRequest {}
+
+message InstallUpdateResponse {
+  Updates updates = 1;
+}
+
+message UpdateAutoUpdatesRequest {
+  bool auto = 1;
+}
+
+message UpdateAutoUpdatesResponse {
+  Updates updates = 1;
 }

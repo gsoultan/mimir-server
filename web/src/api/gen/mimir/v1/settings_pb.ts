@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file mimir/v1/settings.proto.
  */
 export const file_mimir_v1_settings: GenFile = /*@__PURE__*/
-  fileDesc("ChdtaW1pci92MS9zZXR0aW5ncy5wcm90bxIIbWltaXIudjEijgEKC0VtYWlsQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSDAoEaG9zdBgCIAEoCRIMCgRwb3J0GAMgASgFEhAKCHVzZXJuYW1lGAQgASgJEhAKCHBhc3N3b3JkGAUgASgJEhQKDHBhc3N3b3JkX3NldBgGIAEoCBIMCgRmcm9tGAcgASgJEgoKAnRvGAggAygJIlgKDlRlbGVncmFtQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSEQoJYm90X3Rva2VuGAIgASgJEhEKCXRva2VuX3NldBgDIAEoCBIPCgdjaGF0X2lkGAQgASgJIjYKCVJldGVudGlvbhISCgphdWRpdF9kYXlzGAEgASgFEhUKDWRlbGl2ZXJ5X2RheXMYAiABKAUiFAoSR2V0U2V0dGluZ3NSZXF1ZXN0Iv0BChNHZXRTZXR0aW5nc1Jlc3BvbnNlEiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cxImCglyZXRlbnRpb24YAyABKAsyEy5taW1pci52MS5SZXRlbnRpb24SJAoIc2VjdXJpdHkYBCABKAsyEi5taW1pci52MS5TZWN1cml0eRIgCgZsaW1pdHMYBSABKAsyEC5taW1pci52MS5MaW1pdHMSJAoIdHJhaW5pbmcYBiABKAsyEi5taW1pci52MS5UcmFpbmluZyJNCghUcmFpbmluZxISCgp0cmFpbl9oZXJlGAEgASgIEhYKDmNhbl90cmFpbl9oZXJlGAIgASgIEhUKDWdyb3VwX3dvcmtlcnMYAyABKAUiWQoVVXBkYXRlVHJhaW5pbmdSZXF1ZXN0EhIKCnRyYWluX2hlcmUYASABKAgSGgoNZ3JvdXBfd29ya2VycxgCIAEoBUgAiAEBQhAKDl9ncm91cF93b3JrZXJzIj4KFlVwZGF0ZVRyYWluaW5nUmVzcG9uc2USJAoIdHJhaW5pbmcYASABKAsyEi5taW1pci52MS5UcmFpbmluZyJpCgZMaW1pdHMSHgoWcHJlZGljdGlvbnNfcGVyX21pbnV0ZRgBIAEoBRIdChVwcmVkaWN0aW9uc19wZXJfbW9udGgYAiABKAMSIAoYdHJhaW5pbmdfcnVuc19wZXJfcGVyc29uGAMgASgFIjcKE1VwZGF0ZUxpbWl0c1JlcXVlc3QSIAoGbGltaXRzGAEgASgLMhAubWltaXIudjEuTGltaXRzIjgKFFVwZGF0ZUxpbWl0c1Jlc3BvbnNlEiAKBmxpbWl0cxgBIAEoCzIQLm1pbWlyLnYxLkxpbWl0cyIgCg9HZXRVc2FnZVJlcXVlc3QSDQoFbW9udGgYASABKAkiZAoIVXNhZ2VSb3cSDwoHdXNlcl9pZBgBIAEoCRIRCgl1c2VyX25hbWUYAiABKAkSDQoFZW1haWwYAyABKAkSEAoIa2V5X25hbWUYBCABKAkSEwoLcHJlZGljdGlvbnMYBSABKAMiYQoQR2V0VXNhZ2VSZXNwb25zZRINCgVtb250aBgBIAEoCRIgCgRyb3dzGAIgAygLMhIubWltaXIudjEuVXNhZ2VSb3cSDQoFdG90YWwYAyABKAMSDQoFbGltaXQYBCABKAMiOQoIU2VjdXJpdHkSLQoKdHdvX2ZhY3RvchgBIAEoDjIZLm1pbWlyLnYxLlR3b0ZhY3RvclBvbGljeSI9ChVVcGRhdGVTZWN1cml0eVJlcXVlc3QSJAoIc2VjdXJpdHkYASABKAsyEi5taW1pci52MS5TZWN1cml0eSI+ChZVcGRhdGVTZWN1cml0eVJlc3BvbnNlEiQKCHNlY3VyaXR5GAEgASgLMhIubWltaXIudjEuU2VjdXJpdHkiZwoTVXBkYXRlQWxlcnRzUmVxdWVzdBIkCgVlbWFpbBgBIAEoCzIVLm1pbWlyLnYxLkVtYWlsQWxlcnRzEioKCHRlbGVncmFtGAIgASgLMhgubWltaXIudjEuVGVsZWdyYW1BbGVydHMiaAoUVXBkYXRlQWxlcnRzUmVzcG9uc2USJAoFZW1haWwYASABKAsyFS5taW1pci52MS5FbWFpbEFsZXJ0cxIqCgh0ZWxlZ3JhbRgCIAEoCzIYLm1pbWlyLnYxLlRlbGVncmFtQWxlcnRzIicKFFNlbmRUZXN0QWxlcnRSZXF1ZXN0Eg8KB2NoYW5uZWwYASABKAkiFwoVU2VuZFRlc3RBbGVydFJlc3BvbnNlIkAKFlVwZGF0ZVJldGVudGlvblJlcXVlc3QSJgoJcmV0ZW50aW9uGAEgASgLMhMubWltaXIudjEuUmV0ZW50aW9uIkEKF1VwZGF0ZVJldGVudGlvblJlc3BvbnNlEiYKCXJldGVudGlvbhgBIAEoCzITLm1pbWlyLnYxLlJldGVudGlvbiIYChZHZXREYXRhYmFzZUluZm9SZXF1ZXN0IqcCChdHZXREYXRhYmFzZUluZm9SZXNwb25zZRIMCgRraW5kGAEgASgJEgwKBHBhdGgYAiABKAkSEgoKc2l6ZV9ieXRlcxgDIAEoAxIWCg5zY2hlbWFfdmVyc2lvbhgEIAEoBRIdChVsYXRlc3Rfc2NoZW1hX3ZlcnNpb24YBSABKAUSDgoGbW9kZWxzGAYgASgFEg0KBXVzZXJzGAcgASgFEhQKDGF1ZGl0X2V2ZW50cxgIIAEoBRISCgpkZWxpdmVyaWVzGAkgASgFEjIKDmxhc3RfdHJpbV90aW1lGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIWCg5sYXN0X3RyaW1fcm93cxgLIAEoAxIQCghsb2dfcGF0aBgMIAEoCSIRCg9HZXRBYm91dFJlcXVlc3QitQIKEEdldEFib3V0UmVzcG9uc2USDwoHdmVyc2lvbhgBIAEoCRIOCgZjb21taXQYAiABKAkSEAoIbW9kaWZpZWQYAyABKAgSKQoFYnVpbHQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCmdvX3ZlcnNpb24YBSABKAkSKwoHc3RhcnRlZBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoOc2NoZW1hX3ZlcnNpb24YByABKAUSFwoPd29ya2VyX3ZlcnNpb25zGAggAygJEiQKBXBhcnRzGAkgAygLMhUubWltaXIudjEuQWJvdXRNb2R1bGUSKwoMZGVwZW5kZW5jaWVzGAogAygLMhUubWltaXIudjEuQWJvdXRNb2R1bGUiLAoLQWJvdXRNb2R1bGUSDAoEcGF0aBgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJKpIBCg9Ud29GYWN0b3JQb2xpY3kSIQodVFdPX0ZBQ1RPUl9QT0xJQ1lfVU5TUEVDSUZJRUQQABIeChpUV09fRkFDVE9SX1BPTElDWV9PUFRJT05BTBABEhwKGFRXT19GQUNUT1JfUE9MSUNZX0FETUlOUxACEh4KGlRXT19GQUNUT1JfUE9MSUNZX0VWRVJZT05FEAMywQYKD1NldHRpbmdzU2VydmljZRJPCgtHZXRTZXR0aW5ncxIcLm1pbWlyLnYxLkdldFNldHRpbmdzUmVxdWVzdBodLm1pbWlyLnYxLkdldFNldHRpbmdzUmVzcG9uc2UiA5ACARJNCgxVcGRhdGVBbGVydHMSHS5taW1pci52MS5VcGRhdGVBbGVydHNSZXF1ZXN0Gh4ubWltaXIudjEuVXBkYXRlQWxlcnRzUmVzcG9uc2USUAoNU2VuZFRlc3RBbGVydBIeLm1pbWlyLnYxLlNlbmRUZXN0QWxlcnRSZXF1ZXN0Gh8ubWltaXIudjEuU2VuZFRlc3RBbGVydFJlc3BvbnNlElYKD1VwZGF0ZVJldGVudGlvbhIgLm1pbWlyLnYxLlVwZGF0ZVJldGVudGlvblJlcXVlc3QaIS5taW1pci52MS5VcGRhdGVSZXRlbnRpb25SZXNwb25zZRJTCg5VcGRhdGVTZWN1cml0eRIfLm1pbWlyLnYxLlVwZGF0ZVNlY3VyaXR5UmVxdWVzdBogLm1pbWlyLnYxLlVwZGF0ZVNlY3VyaXR5UmVzcG9uc2USTQoMVXBkYXRlTGltaXRzEh0ubWltaXIudjEuVXBkYXRlTGltaXRzUmVxdWVzdBoeLm1pbWlyLnYxLlVwZGF0ZUxpbWl0c1Jlc3BvbnNlElMKDlVwZGF0ZVRyYWluaW5nEh8ubWltaXIudjEuVXBkYXRlVHJhaW5pbmdSZXF1ZXN0GiAubWltaXIudjEuVXBkYXRlVHJhaW5pbmdSZXNwb25zZRJGCghHZXRVc2FnZRIZLm1pbWlyLnYxLkdldFVzYWdlUmVxdWVzdBoaLm1pbWlyLnYxLkdldFVzYWdlUmVzcG9uc2UiA5ACARJbCg9HZXREYXRhYmFzZUluZm8SIC5taW1pci52MS5HZXREYXRhYmFzZUluZm9SZXF1ZXN0GiEubWltaXIudjEuR2V0RGF0YWJhc2VJbmZvUmVzcG9uc2UiA5ACARJGCghHZXRBYm91dBIZLm1pbWlyLnYxLkdldEFib3V0UmVxdWVzdBoaLm1pbWlyLnYxLkdldEFib3V0UmVzcG9uc2UiA5ACAUI3WjVnaXRodWIuY29tL2dzb3VsdGFuL21pbWlyLXNlcnZlci9nZW4vbWltaXIvdjE7bWltaXJ2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChdtaW1pci92MS9zZXR0aW5ncy5wcm90bxIIbWltaXIudjEijgEKC0VtYWlsQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSDAoEaG9zdBgCIAEoCRIMCgRwb3J0GAMgASgFEhAKCHVzZXJuYW1lGAQgASgJEhAKCHBhc3N3b3JkGAUgASgJEhQKDHBhc3N3b3JkX3NldBgGIAEoCBIMCgRmcm9tGAcgASgJEgoKAnRvGAggAygJIlgKDlRlbGVncmFtQWxlcnRzEg8KB2VuYWJsZWQYASABKAgSEQoJYm90X3Rva2VuGAIgASgJEhEKCXRva2VuX3NldBgDIAEoCBIPCgdjaGF0X2lkGAQgASgJIjYKCVJldGVudGlvbhISCgphdWRpdF9kYXlzGAEgASgFEhUKDWRlbGl2ZXJ5X2RheXMYAiABKAUiFAoSR2V0U2V0dGluZ3NSZXF1ZXN0Iv0BChNHZXRTZXR0aW5nc1Jlc3BvbnNlEiQKBWVtYWlsGAEgASgLMhUubWltaXIudjEuRW1haWxBbGVydHMSKgoIdGVsZWdyYW0YAiABKAsyGC5taW1pci52MS5UZWxlZ3JhbUFsZXJ0cxImCglyZXRlbnRpb24YAyABKAsyEy5taW1pci52MS5SZXRlbnRpb24SJAoIc2VjdXJpdHkYBCABKAsyEi5taW1pci52MS5TZWN1cml0eRIgCgZsaW1pdHMYBSABKAsyEC5taW1pci52MS5MaW1pdHMSJAoIdHJhaW5pbmcYBiABKAsyEi5taW1pci52MS5UcmFpbmluZyJNCghUcmFpbmluZxISCgp0cmFpbl9oZXJlGAEgASgIEhYKDmNhbl90cmFpbl9oZXJlGAIgASgIEhUKDWdyb3VwX3dvcmtlcnMYAyABKAUiWQoVVXBkYXRlVHJhaW5pbmdSZXF1ZXN0EhIKCnRyYWluX2hlcmUYASABKAgSGgoNZ3JvdXBfd29ya2VycxgCIAEoBUgAiAEBQhAKDl9ncm91cF93b3JrZXJzIj4KFlVwZGF0ZVRyYWluaW5nUmVzcG9uc2USJAoIdHJhaW5pbmcYASABKAsyEi5taW1pci52MS5UcmFpbmluZyJpCgZMaW1pdHMSHgoWcHJlZGljdGlvbnNfcGVyX21pbnV0ZRgBIAEoBRIdChVwcmVkaWN0aW9uc19wZXJfbW9udGgYAiABKAMSIAoYdHJhaW5pbmdfcnVuc19wZXJfcGVyc29uGAMgASgFIjcKE1VwZGF0ZUxpbWl0c1JlcXVlc3QSIAoGbGltaXRzGAEgASgLMhAubWltaXIudjEuTGltaXRzIjgKFFVwZGF0ZUxpbWl0c1Jlc3BvbnNlEiAKBmxpbWl0cxgBIAEoCzIQLm1pbWlyLnYxLkxpbWl0cyIgCg9HZXRVc2FnZVJlcXVlc3QSDQoFbW9udGgYASABKAkiZAoIVXNhZ2VSb3cSDwoHdXNlcl9pZBgBIAEoCRIRCgl1c2VyX25hbWUYAiABKAkSDQoFZW1haWwYAyABKAkSEAoIa2V5X25hbWUYBCABKAkSEwoLcHJlZGljdGlvbnMYBSABKAMiYQoQR2V0VXNhZ2VSZXNwb25zZRINCgVtb250aBgBIAEoCRIgCgRyb3dzGAIgAygLMhIubWltaXIudjEuVXNhZ2VSb3cSDQoFdG90YWwYAyABKAMSDQoFbGltaXQYBCABKAMiOQoIU2VjdXJpdHkSLQoKdHdvX2ZhY3RvchgBIAEoDjIZLm1pbWlyLnYxLlR3b0ZhY3RvclBvbGljeSI9ChVVcGRhdGVTZWN1cml0eVJlcXVlc3QSJAoIc2VjdXJpdHkYASABKAsyEi5taW1pci52MS5TZWN1cml0eSI+ChZVcGRhdGVTZWN1cml0eVJlc3BvbnNlEiQKCHNlY3VyaXR5GAEgASgLMhIubWltaXIudjEuU2VjdXJpdHkiZwoTVXBkYXRlQWxlcnRzUmVxdWVzdBIkCgVlbWFpbBgBIAEoCzIVLm1pbWlyLnYxLkVtYWlsQWxlcnRzEioKCHRlbGVncmFtGAIgASgLMhgubWltaXIudjEuVGVsZWdyYW1BbGVydHMiaAoUVXBkYXRlQWxlcnRzUmVzcG9uc2USJAoFZW1haWwYASABKAsyFS5taW1pci52MS5FbWFpbEFsZXJ0cxIqCgh0ZWxlZ3JhbRgCIAEoCzIYLm1pbWlyLnYxLlRlbGVncmFtQWxlcnRzIicKFFNlbmRUZXN0QWxlcnRSZXF1ZXN0Eg8KB2NoYW5uZWwYASABKAkiFwoVU2VuZFRlc3RBbGVydFJlc3BvbnNlIkAKFlVwZGF0ZVJldGVudGlvblJlcXVlc3QSJgoJcmV0ZW50aW9uGAEgASgLMhMubWltaXIudjEuUmV0ZW50aW9uIkEKF1VwZGF0ZVJldGVudGlvblJlc3BvbnNlEiYKCXJldGVudGlvbhgBIAEoCzITLm1pbWlyLnYxLlJldGVudGlvbiIYChZHZXREYXRhYmFzZUluZm9SZXF1ZXN0IqcCChdHZXREYXRhYmFzZUluZm9SZXNwb25zZRIMCgRraW5kGAEgASgJEgwKBHBhdGgYAiABKAkSEgoKc2l6ZV9ieXRlcxgDIAEoAxIWCg5zY2hlbWFfdmVyc2lvbhgEIAEoBRIdChVsYXRlc3Rfc2NoZW1hX3ZlcnNpb24YBSABKAUSDgoGbW9kZWxzGAYgASgFEg0KBXVzZXJzGAcgASgFEhQKDGF1ZGl0X2V2ZW50cxgIIAEoBRISCgpkZWxpdmVyaWVzGAkgASgFEjIKDmxhc3RfdHJpbV90aW1lGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIWCg5sYXN0X3RyaW1fcm93cxgLIAEoAxIQCghsb2dfcGF0aBgMIAEoCSIRCg9HZXRBYm91dFJlcXVlc3QitQIKEEdldEFib3V0UmVzcG9uc2USDwoHdmVyc2lvbhgBIAEoCRIOCgZjb21taXQYAiABKAkSEAoIbW9kaWZpZWQYAyABKAgSKQoFYnVpbHQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKCmdvX3ZlcnNpb24YBSABKAkSKwoHc3RhcnRlZBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoOc2NoZW1hX3ZlcnNpb24YByABKAUSFwoPd29ya2VyX3ZlcnNpb25zGAggAygJEiQKBXBhcnRzGAkgAygLMhUubWltaXIudjEuQWJvdXRNb2R1bGUSKwoMZGVwZW5kZW5jaWVzGAogAygLMhUubWltaXIudjEuQWJvdXRNb2R1bGUiLAoLQWJvdXRNb2R1bGUSDAoEcGF0aBgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJIsYCCgdVcGRhdGVzEhcKD2N1cnJlbnRfdmVyc2lvbhgBIAEoCRIWCg5sYXRlc3RfdmVyc2lvbhgCIAEoCRIRCglhdmFpbGFibGUYAyABKAgSEwoLcmVsZWFzZV91cmwYBCABKAkSLQoJcHVibGlzaGVkGAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIrCgdjaGVja2VkGAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtjaGVja19lcnJvchgHIAEoCRIMCgRhdXRvGAggASgIEiQKBXN0YXRlGAkgASgOMhUubWltaXIudjEuVXBkYXRlU3RhdGUSJgoHYmxvY2tlZBgKIAEoDjIVLm1pbWlyLnYxLlVwZGF0ZUJsb2NrEhUKDWluc3RhbGxfZXJyb3IYCyABKAkiEwoRR2V0VXBkYXRlc1JlcXVlc3QiOAoSR2V0VXBkYXRlc1Jlc3BvbnNlEiIKB3VwZGF0ZXMYASABKAsyES5taW1pci52MS5VcGRhdGVzIhgKFkNoZWNrRm9yVXBkYXRlc1JlcXVlc3QiPQoXQ2hlY2tGb3JVcGRhdGVzUmVzcG9uc2USIgoHdXBkYXRlcxgBIAEoCzIRLm1pbWlyLnYxLlVwZGF0ZXMiFgoUSW5zdGFsbFVwZGF0ZVJlcXVlc3QiOwoVSW5zdGFsbFVwZGF0ZVJlc3BvbnNlEiIKB3VwZGF0ZXMYASABKAsyES5taW1pci52MS5VcGRhdGVzIigKGFVwZGF0ZUF1dG9VcGRhdGVzUmVxdWVzdBIMCgRhdXRvGAEgASgIIj8KGVVwZGF0ZUF1dG9VcGRhdGVzUmVzcG9uc2USIgoHdXBkYXRlcxgBIAEoCzIRLm1pbWlyLnYxLlVwZGF0ZXMqkgEKD1R3b0ZhY3RvclBvbGljeRIhCh1UV09fRkFDVE9SX1BPTElDWV9VTlNQRUNJRklFRBAAEh4KGlRXT19GQUNUT1JfUE9MSUNZX09QVElPTkFMEAESHAoYVFdPX0ZBQ1RPUl9QT0xJQ1lfQURNSU5TEAISHgoaVFdPX0ZBQ1RPUl9QT0xJQ1lfRVZFUllPTkUQAyqXAQoLVXBkYXRlU3RhdGUSHAoYVVBEQVRFX1NUQVRFX1VOU1BFQ0lGSUVEEAASFQoRVVBEQVRFX1NUQVRFX0lETEUQARIZChVVUERBVEVfU1RBVEVfQ0hFQ0tJTkcQAhIbChdVUERBVEVfU1RBVEVfSU5TVEFMTElORxADEhsKF1VQREFURV9TVEFURV9SRVNUQVJUSU5HEAQqggEKC1VwZGF0ZUJsb2NrEhwKGFVQREFURV9CTE9DS19VTlNQRUNJRklFRBAAEhoKFlVQREFURV9CTE9DS19ERVZfQlVJTEQQARIcChhVUERBVEVfQkxPQ0tfTk9fRE9XTkxPQUQQAhIbChdVUERBVEVfQkxPQ0tfVFVSTkVEX09GRhADMpcJCg9TZXR0aW5nc1NlcnZpY2USTwoLR2V0U2V0dGluZ3MSHC5taW1pci52MS5HZXRTZXR0aW5nc1JlcXVlc3QaHS5taW1pci52MS5HZXRTZXR0aW5nc1Jlc3BvbnNlIgOQAgESTQoMVXBkYXRlQWxlcnRzEh0ubWltaXIudjEuVXBkYXRlQWxlcnRzUmVxdWVzdBoeLm1pbWlyLnYxLlVwZGF0ZUFsZXJ0c1Jlc3BvbnNlElAKDVNlbmRUZXN0QWxlcnQSHi5taW1pci52MS5TZW5kVGVzdEFsZXJ0UmVxdWVzdBofLm1pbWlyLnYxLlNlbmRUZXN0QWxlcnRSZXNwb25zZRJWCg9VcGRhdGVSZXRlbnRpb24SIC5taW1pci52MS5VcGRhdGVSZXRlbnRpb25SZXF1ZXN0GiEubWltaXIudjEuVXBkYXRlUmV0ZW50aW9uUmVzcG9uc2USUwoOVXBkYXRlU2VjdXJpdHkSHy5taW1pci52MS5VcGRhdGVTZWN1cml0eVJlcXVlc3QaIC5taW1pci52MS5VcGRhdGVTZWN1cml0eVJlc3BvbnNlEk0KDFVwZGF0ZUxpbWl0cxIdLm1pbWlyLnYxLlVwZGF0ZUxpbWl0c1JlcXVlc3QaHi5taW1pci52MS5VcGRhdGVMaW1pdHNSZXNwb25zZRJTCg5VcGRhdGVUcmFpbmluZxIfLm1pbWlyLnYxLlVwZGF0ZVRyYWluaW5nUmVxdWVzdBogLm1pbWlyLnYxLlVwZGF0ZVRyYWluaW5nUmVzcG9uc2USRgoIR2V0VXNhZ2USGS5taW1pci52MS5HZXRVc2FnZVJlcXVlc3QaGi5taW1pci52MS5HZXRVc2FnZVJlc3BvbnNlIgOQAgESWwoPR2V0RGF0YWJhc2VJbmZvEiAubWltaXIudjEuR2V0RGF0YWJhc2VJbmZvUmVxdWVzdBohLm1pbWlyLnYxLkdldERhdGFiYXNlSW5mb1Jlc3BvbnNlIgOQAgESRgoIR2V0QWJvdXQSGS5taW1pci52MS5HZXRBYm91dFJlcXVlc3QaGi5taW1pci52MS5HZXRBYm91dFJlc3BvbnNlIgOQAgESTAoKR2V0VXBkYXRlcxIbLm1pbWlyLnYxLkdldFVwZGF0ZXNSZXF1ZXN0GhwubWltaXIudjEuR2V0VXBkYXRlc1Jlc3BvbnNlIgOQAgESVgoPQ2hlY2tGb3JVcGRhdGVzEiAubWltaXIudjEuQ2hlY2tGb3JVcGRhdGVzUmVxdWVzdBohLm1pbWlyLnYxLkNoZWNrRm9yVXBkYXRlc1Jlc3BvbnNlElAKDUluc3RhbGxVcGRhdGUSHi5taW1pci52MS5JbnN0YWxsVXBkYXRlUmVxdWVzdBofLm1pbWlyLnYxLkluc3RhbGxVcGRhdGVSZXNwb25zZRJcChFVcGRhdGVBdXRvVXBkYXRlcxIiLm1pbWlyLnYxLlVwZGF0ZUF1dG9VcGRhdGVzUmVxdWVzdBojLm1pbWlyLnYxLlVwZGF0ZUF1dG9VcGRhdGVzUmVzcG9uc2VCN1o1Z2l0aHViLmNvbS9nc291bHRhbi9taW1pci1zZXJ2ZXIvZ2VuL21pbWlyL3YxO21pbWlydjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * EmailAlerts sends alerts through an SMTP server. The password is never
@@ -803,6 +803,217 @@ export const AboutModuleSchema: GenMessage<AboutModule> = /*@__PURE__*/
   messageDesc(file_mimir_v1_settings, 27);
 
 /**
+ * Updates is what the server knows about newer versions.
+ *
+ * @generated from message mimir.v1.Updates
+ */
+export type Updates = Message<"mimir.v1.Updates"> & {
+  /**
+   * @generated from field: string current_version = 1;
+   */
+  currentVersion: string;
+
+  /**
+   * latest_version is the newest release the last check found; empty
+   * before the first check.
+   *
+   * @generated from field: string latest_version = 2;
+   */
+  latestVersion: string;
+
+  /**
+   * available says latest_version is newer than current_version.
+   *
+   * @generated from field: bool available = 3;
+   */
+  available: boolean;
+
+  /**
+   * release_url is the release's page, with what changed.
+   *
+   * @generated from field: string release_url = 4;
+   */
+  releaseUrl: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp published = 5;
+   */
+  published?: Timestamp | undefined;
+
+  /**
+   * checked is when GitHub was last asked; unset when never.
+   *
+   * @generated from field: google.protobuf.Timestamp checked = 6;
+   */
+  checked?: Timestamp | undefined;
+
+  /**
+   * check_error is why the last check failed, empty when it worked.
+   *
+   * @generated from field: string check_error = 7;
+   */
+  checkError: string;
+
+  /**
+   * auto installs a newer version on its own when one is out. The server
+   * asks GitHub only while it is on, or when someone checks.
+   *
+   * @generated from field: bool auto = 8;
+   */
+  auto: boolean;
+
+  /**
+   * @generated from field: mimir.v1.UpdateState state = 9;
+   */
+  state: UpdateState;
+
+  /**
+   * blocked, when set, is why this server can't update itself.
+   *
+   * @generated from field: mimir.v1.UpdateBlock blocked = 10;
+   */
+  blocked: UpdateBlock;
+
+  /**
+   * install_error is why the last install failed.
+   *
+   * @generated from field: string install_error = 11;
+   */
+  installError: string;
+};
+
+/**
+ * Describes the message mimir.v1.Updates.
+ * Use `create(UpdatesSchema)` to create a new message.
+ */
+export const UpdatesSchema: GenMessage<Updates> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 28);
+
+/**
+ * @generated from message mimir.v1.GetUpdatesRequest
+ */
+export type GetUpdatesRequest = Message<"mimir.v1.GetUpdatesRequest"> & {
+};
+
+/**
+ * Describes the message mimir.v1.GetUpdatesRequest.
+ * Use `create(GetUpdatesRequestSchema)` to create a new message.
+ */
+export const GetUpdatesRequestSchema: GenMessage<GetUpdatesRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 29);
+
+/**
+ * @generated from message mimir.v1.GetUpdatesResponse
+ */
+export type GetUpdatesResponse = Message<"mimir.v1.GetUpdatesResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Updates updates = 1;
+   */
+  updates?: Updates | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.GetUpdatesResponse.
+ * Use `create(GetUpdatesResponseSchema)` to create a new message.
+ */
+export const GetUpdatesResponseSchema: GenMessage<GetUpdatesResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 30);
+
+/**
+ * @generated from message mimir.v1.CheckForUpdatesRequest
+ */
+export type CheckForUpdatesRequest = Message<"mimir.v1.CheckForUpdatesRequest"> & {
+};
+
+/**
+ * Describes the message mimir.v1.CheckForUpdatesRequest.
+ * Use `create(CheckForUpdatesRequestSchema)` to create a new message.
+ */
+export const CheckForUpdatesRequestSchema: GenMessage<CheckForUpdatesRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 31);
+
+/**
+ * @generated from message mimir.v1.CheckForUpdatesResponse
+ */
+export type CheckForUpdatesResponse = Message<"mimir.v1.CheckForUpdatesResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Updates updates = 1;
+   */
+  updates?: Updates | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.CheckForUpdatesResponse.
+ * Use `create(CheckForUpdatesResponseSchema)` to create a new message.
+ */
+export const CheckForUpdatesResponseSchema: GenMessage<CheckForUpdatesResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 32);
+
+/**
+ * @generated from message mimir.v1.InstallUpdateRequest
+ */
+export type InstallUpdateRequest = Message<"mimir.v1.InstallUpdateRequest"> & {
+};
+
+/**
+ * Describes the message mimir.v1.InstallUpdateRequest.
+ * Use `create(InstallUpdateRequestSchema)` to create a new message.
+ */
+export const InstallUpdateRequestSchema: GenMessage<InstallUpdateRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 33);
+
+/**
+ * @generated from message mimir.v1.InstallUpdateResponse
+ */
+export type InstallUpdateResponse = Message<"mimir.v1.InstallUpdateResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Updates updates = 1;
+   */
+  updates?: Updates | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.InstallUpdateResponse.
+ * Use `create(InstallUpdateResponseSchema)` to create a new message.
+ */
+export const InstallUpdateResponseSchema: GenMessage<InstallUpdateResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 34);
+
+/**
+ * @generated from message mimir.v1.UpdateAutoUpdatesRequest
+ */
+export type UpdateAutoUpdatesRequest = Message<"mimir.v1.UpdateAutoUpdatesRequest"> & {
+  /**
+   * @generated from field: bool auto = 1;
+   */
+  auto: boolean;
+};
+
+/**
+ * Describes the message mimir.v1.UpdateAutoUpdatesRequest.
+ * Use `create(UpdateAutoUpdatesRequestSchema)` to create a new message.
+ */
+export const UpdateAutoUpdatesRequestSchema: GenMessage<UpdateAutoUpdatesRequest> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 35);
+
+/**
+ * @generated from message mimir.v1.UpdateAutoUpdatesResponse
+ */
+export type UpdateAutoUpdatesResponse = Message<"mimir.v1.UpdateAutoUpdatesResponse"> & {
+  /**
+   * @generated from field: mimir.v1.Updates updates = 1;
+   */
+  updates?: Updates | undefined;
+};
+
+/**
+ * Describes the message mimir.v1.UpdateAutoUpdatesResponse.
+ * Use `create(UpdateAutoUpdatesResponseSchema)` to create a new message.
+ */
+export const UpdateAutoUpdatesResponseSchema: GenMessage<UpdateAutoUpdatesResponse> = /*@__PURE__*/
+  messageDesc(file_mimir_v1_settings, 36);
+
+/**
  * @generated from enum mimir.v1.TwoFactorPolicy
  */
 export enum TwoFactorPolicy {
@@ -838,6 +1049,88 @@ export enum TwoFactorPolicy {
  */
 export const TwoFactorPolicySchema: GenEnum<TwoFactorPolicy> = /*@__PURE__*/
   enumDesc(file_mimir_v1_settings, 0);
+
+/**
+ * UpdateState is what the updater is doing.
+ *
+ * @generated from enum mimir.v1.UpdateState
+ */
+export enum UpdateState {
+  /**
+   * @generated from enum value: UPDATE_STATE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: UPDATE_STATE_IDLE = 1;
+   */
+  IDLE = 1,
+
+  /**
+   * @generated from enum value: UPDATE_STATE_CHECKING = 2;
+   */
+  CHECKING = 2,
+
+  /**
+   * INSTALLING: downloading and checking the new version.
+   *
+   * @generated from enum value: UPDATE_STATE_INSTALLING = 3;
+   */
+  INSTALLING = 3,
+
+  /**
+   * RESTARTING: the new version is ready and the server is restarting.
+   *
+   * @generated from enum value: UPDATE_STATE_RESTARTING = 4;
+   */
+  RESTARTING = 4,
+}
+
+/**
+ * Describes the enum mimir.v1.UpdateState.
+ */
+export const UpdateStateSchema: GenEnum<UpdateState> = /*@__PURE__*/
+  enumDesc(file_mimir_v1_settings, 1);
+
+/**
+ * UpdateBlock is why this server can't install a newer version itself.
+ *
+ * @generated from enum mimir.v1.UpdateBlock
+ */
+export enum UpdateBlock {
+  /**
+   * @generated from enum value: UPDATE_BLOCK_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * DEV_BUILD: a development build has no release to compare with.
+   *
+   * @generated from enum value: UPDATE_BLOCK_DEV_BUILD = 1;
+   */
+  DEV_BUILD = 1,
+
+  /**
+   * NO_DOWNLOAD: the newest release has no file for this machine.
+   *
+   * @generated from enum value: UPDATE_BLOCK_NO_DOWNLOAD = 2;
+   */
+  NO_DOWNLOAD = 2,
+
+  /**
+   * TURNED_OFF: whoever runs the server turned updates off with
+   * -updates=false ($MIMIR_UPDATES).
+   *
+   * @generated from enum value: UPDATE_BLOCK_TURNED_OFF = 3;
+   */
+  TURNED_OFF = 3,
+}
+
+/**
+ * Describes the enum mimir.v1.UpdateBlock.
+ */
+export const UpdateBlockSchema: GenEnum<UpdateBlock> = /*@__PURE__*/
+  enumDesc(file_mimir_v1_settings, 2);
 
 /**
  * SettingsService configures the server: alerts, retention and the
@@ -936,6 +1229,49 @@ export const SettingsService: GenService<{
     methodKind: "unary";
     input: typeof GetAboutRequestSchema;
     output: typeof GetAboutResponseSchema;
+  },
+  /**
+   * GetUpdates says whether a newer release is out, as far as the last
+   * check found, and whether this server updates itself.
+   *
+   * @generated from rpc mimir.v1.SettingsService.GetUpdates
+   */
+  getUpdates: {
+    methodKind: "unary";
+    input: typeof GetUpdatesRequestSchema;
+    output: typeof GetUpdatesResponseSchema;
+  },
+  /**
+   * CheckForUpdates asks GitHub for the newest release now.
+   *
+   * @generated from rpc mimir.v1.SettingsService.CheckForUpdates
+   */
+  checkForUpdates: {
+    methodKind: "unary";
+    input: typeof CheckForUpdatesRequestSchema;
+    output: typeof CheckForUpdatesResponseSchema;
+  },
+  /**
+   * InstallUpdate downloads the newest release, checks it against its
+   * SHA256SUMS and that it runs here, then restarts the server on it. It
+   * returns once the download starts; GetUpdates follows it.
+   *
+   * @generated from rpc mimir.v1.SettingsService.InstallUpdate
+   */
+  installUpdate: {
+    methodKind: "unary";
+    input: typeof InstallUpdateRequestSchema;
+    output: typeof InstallUpdateResponseSchema;
+  },
+  /**
+   * UpdateAutoUpdates turns automatic updates on or off.
+   *
+   * @generated from rpc mimir.v1.SettingsService.UpdateAutoUpdates
+   */
+  updateAutoUpdates: {
+    methodKind: "unary";
+    input: typeof UpdateAutoUpdatesRequestSchema;
+    output: typeof UpdateAutoUpdatesResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_mimir_v1_settings, 0);
