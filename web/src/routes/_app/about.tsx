@@ -10,8 +10,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import type { GetAboutResponse } from "../../api/gen/mimir/v1/settings_pb";
-import { getAbout } from "../../api/queries";
+import { getAbout, whoAmI } from "../../api/queries";
 import { Page } from "../../components/Page";
+import { Updates } from "../../components/Updates";
 import { details, workers } from "../../lib/about";
 import { duration } from "../../lib/format";
 import { locale, t } from "../../i18n";
@@ -34,6 +35,7 @@ const partInfo: Record<string, { name: string; what: string; icon: Icon }> = {
 
 function About() {
   const { data: about } = useSuspenseQuery(getAbout);
+  const { data: me } = useSuspenseQuery(whoAmI);
   const [listing, list] = useDisclosure();
   return (
     <Page
@@ -50,6 +52,7 @@ function About() {
       }
     >
       <Version about={about} />
+      {me.permissions.includes("settings.manage") && <Updates />}
 
       <div className="grid gap-5 md:grid-cols-[1.4fr_1fr]">
         <Card withBorder radius="lg" padding="lg">
