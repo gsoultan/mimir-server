@@ -42,7 +42,7 @@ export function RunReport({ report: r }: { report: Report }) {
       {r.kind === "boxes" && <Boxes r={r} />}
       {r.kind === "text" && <Writing r={r} />}
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
-        <Stat label={t("Answer time")} value={`${number(r.millisPerExample, 2)} ms`} hint={t("per example, while scoring")} />
+        {r.millisPerExample > 0 && <Stat label={t("Answer time")} value={`${number(r.millisPerExample, 2)} ms`} hint={t("per example, while scoring")} />}
         <Stat label={t("Model size")} value={bytes(r.sizeBytes)} />
         <Stat label={t("Examples scored")} value={r.examples.toLocaleString()} />
       </SimpleGrid>
