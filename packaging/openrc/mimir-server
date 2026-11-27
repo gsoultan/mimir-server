@@ -6,7 +6,8 @@
 #   rc-update add mimir-server && rc-service mimir-server start
 #
 # It listens on 127.0.0.1:8080 for a reverse proxy on the same machine that
-# serves HTTPS. Settings go in /etc/mimir-server/mimir-server.env. This
+# serves HTTPS; set MIMIR_ADDR in the env file to listen elsewhere.
+# Settings go in /etc/mimir-server/mimir-server.env. This
 # build has no GPU support. See docs/deploy.md.
 
 name="mimir-server"

@@ -83,6 +83,22 @@ environment variable can be set there (`mimir-server -h` lists them). The
 unit is hardened (no capabilities, read-only system, private `/tmp` and
 devices); on a machine that runs models on a GPU, remove `PrivateDevices`.
 
+To listen somewhere else, set `MIMIR_ADDR` in the env file and restart:
+`MIMIR_ADDR=0.0.0.0:8080` reaches the console from other machines, first-run
+setup included, without a proxy. It is then plain HTTP unless you start it
+with `-tls-cert` and `-tls-key` (or `-tls-auto`), and `/metrics` is open to
+anyone who can reach the port unless `MIMIR_METRICS_TOKEN` is set. For a
+quick look from your own computer without opening the port, tunnel it:
+`ssh -L 8080:127.0.0.1:8080 you@server`, then open `http://localhost:8080`.
+
+A Cloudflare tunnel needs none of this: `cloudflared` on the same machine
+connects to `http://localhost:8080`, so keep the default and keep the port
+closed. `MIMIR_TRUSTED_PROXIES=127.0.0.1,::1` already makes the console
+believe the address and https it forwards. First-run setup is then public
+at the tunnel's hostname, but can't be finished without the one-time setup
+token from the log; a Cloudflare Access policy on the hostname keeps
+everyone else off it until setup is done.
+
 ## 2. Make the database
 
 ```sh
