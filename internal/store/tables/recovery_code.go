@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // RecoveryCode is a hashed one-time code for when the phone is gone.
 type RecoveryCode struct {

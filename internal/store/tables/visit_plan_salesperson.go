@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // VisitPlanSalesperson is one salesperson's part of a visit plan's last
 // run: a summary to list, filter and sort by, and Detail, their days of

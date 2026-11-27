@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/gsoultan/caduceus"
 
 	"github.com/gsoultan/mimir-server/internal/testdb"
 )
@@ -91,7 +91,7 @@ func TestDumpRestore(t *testing.T) {
 }
 
 func execOn(ctx context.Context, url, sql string) error {
-	conn, err := pgx.Connect(ctx, url)
+	conn, err := caduceus.Connect(ctx, url, caduceus.Options{})
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func TestPlanRefusesNewerDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	if _, err := s.pool.Exec(ctx, `ALTER TABLE teams ADD COLUMN from_a_newer_version text`); err != nil {
+	if _, err := s.pool.Exec(ctx, `ALTER TABLE teams ADD COLUMN from_a_newer_version text`, nil); err != nil {
 		t.Fatal(err)
 	}
 	steps, err := Plan(ctx, url, false)

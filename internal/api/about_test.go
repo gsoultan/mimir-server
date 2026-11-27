@@ -26,7 +26,7 @@ func TestAboutReadsTheBuild(t *testing.T) {
 			{Key: "vcs.modified", Value: "true"},
 		},
 		Deps: []*debug.Module{
-			{Path: "github.com/gsoultan/storm", Version: "v1.4.0"},
+			{Path: "github.com/gsoultan/storm/v2", Version: "v1.4.0"},
 			{Path: "connectrpc.com/connect", Version: "v1.21.1"},
 			{Path: "github.com/gsoultan/mimir", Version: "v0.4.2", Replace: &debug.Module{Path: "../mimir", Version: "v0.4.3"}},
 		},
@@ -39,7 +39,7 @@ func TestAboutReadsTheBuild(t *testing.T) {
 		t.Errorf("built = %v, want 4 November", got.GetBuilt().AsTime())
 	}
 	// Parts come in the fixed order, mimir first, with the replaced version.
-	if len(got.Parts) != 2 || got.Parts[0].Path != "github.com/gsoultan/mimir" || got.Parts[0].Version != "0.4.3" || got.Parts[1].Path != "github.com/gsoultan/storm" {
+	if len(got.Parts) != 2 || got.Parts[0].Path != "github.com/gsoultan/mimir" || got.Parts[0].Version != "0.4.3" || got.Parts[1].Path != "github.com/gsoultan/storm/v2" {
 		t.Errorf("parts = %v", got.Parts)
 	}
 	if len(got.Dependencies) != 1 || got.Dependencies[0].Path != "connectrpc.com/connect" {

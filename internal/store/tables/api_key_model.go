@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // APIKeyModel grants a key one model when the key's AllModels is false.
 type APIKeyModel struct {

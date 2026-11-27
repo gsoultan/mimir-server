@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/gsoultan/caduceus"
 
 	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/testdb"
@@ -36,7 +36,7 @@ func key(b byte) []byte {
 func raw(t *testing.T, url, query string, args ...any) string {
 	t.Helper()
 	ctx := context.Background()
-	conn, err := pgx.Connect(ctx, url)
+	conn, err := caduceus.Connect(ctx, url, caduceus.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestLegacyPlaintextSecretsUpgrade(t *testing.T) {
 		dataID = "01900000-0000-7000-8000-0000000000b1"
 		email  = `{"enabled":true,"host":"smtp.example.com","password":"mailpw"}`
 	)
-	conn, err := pgx.Connect(ctx, url)
+	conn, err := caduceus.Connect(ctx, url, caduceus.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +241,7 @@ func TestSecretBoundToRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	conn, err := pgx.Connect(ctx, url)
+	conn, err := caduceus.Connect(ctx, url, caduceus.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

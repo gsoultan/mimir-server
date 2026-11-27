@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gsoultan/storm/runtime"
+	"github.com/gsoultan/storm/v2/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/store/db/signinidentity"
 )

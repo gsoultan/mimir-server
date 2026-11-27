@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gsoultan/storm/runtime"
+	"github.com/gsoultan/storm/v2/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/store/db/benchmark"
 	"github.com/gsoultan/mimir-server/internal/store/db/benchmarkscore"
