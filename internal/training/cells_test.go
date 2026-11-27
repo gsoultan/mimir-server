@@ -466,3 +466,57 @@ func TestForecastShortSeries(t *testing.T) {
 		t.Errorf("one week ahead %v, four %v; want about 300 and 330", one, four)
 	}
 }
+
+func TestOddOneLocal(t *testing.T) {
+	// Small shops order a little and alike; distributors a lot and very
+	// differently. An order of 30 is odd for a shop, though nearer the
+	// shops than many distributors are to one another.
+	var csv strings.Builder
+	csv.WriteString("kind,units,lines\n")
+	r := rand.New(rand.NewPCG(11, 12))
+	for i := range 1200 {
+		if i%2 == 0 {
+			fmt.Fprintf(&csv, "shop,%.1f,%d\n", 10+r.NormFloat64(), 3+r.IntN(2))
+		} else {
+			fmt.Fprintf(&csv, "distributor,%.0f,%d\n", 400+150*r.NormFloat64(), 10+r.IntN(30))
+		}
+	}
+	res, ask := fitCells(t, "odd-one-local", "", csv.String())
+	if len(res.Spec.Labels) != 1 || len(res.Columns) != 3 {
+		t.Fatalf("labels %v, columns %v", res.Spec.Labels, res.Columns)
+	}
+	usual := ask(map[string]string{"kind": "shop", "units": "10", "lines": "3"})[0]
+	big := ask(map[string]string{"kind": "distributor", "units": "450", "lines": "20"})[0]
+	odd := ask(map[string]string{"kind": "shop", "units": "30", "lines": "4"})[0]
+	if !(usual < 0.6 && big < 0.6 && odd > 0.7) {
+		t.Errorf("usual shop %v, usual distributor %v, odd shop %v", usual, big, odd)
+	}
+}
+
+func TestForecastPatchyDemand(t *testing.T) {
+	// A spare part: sold on about one day in five, 5 at a time, so about
+	// one a day on average.
+	var csv strings.Builder
+	csv.WriteString("day,sold\n")
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)
+	r := rand.New(rand.NewPCG(13, 14))
+	for d := range 200 {
+		sold := 0
+		if r.Float64() < 0.2 {
+			sold = 5
+		}
+		fmt.Fprintf(&csv, "%s,%d\n", start.AddDate(0, 0, d).Format("2006-01-02"), sold)
+	}
+	_, ask := fitCells(t, "forecast", "sold", csv.String())
+	var sum float32
+	for ahead := 1; ahead <= 14; ahead++ {
+		v := ask(map[string]string{"days ahead": fmt.Sprint(ahead)})[0]
+		if v < 0 {
+			t.Fatalf("%d days ahead %v", ahead, v)
+		}
+		sum += v
+	}
+	if math.Abs(float64(sum)-14) > 5 {
+		t.Errorf("14 days sum to %v, want about 14", sum)
+	}
+}

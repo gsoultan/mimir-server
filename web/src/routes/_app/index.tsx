@@ -193,7 +193,7 @@ function FirstRun({ canWrite, name }: { canWrite: boolean; name: string }) {
   }
   const ways = [
     { to: "/templates" as const, icon: <IconBooks size={20} />, title: t("Start from a template"), text: t("Pick a real problem, bring data shaped like the example, and we teach it. You can try it with made-up data first."), cta: t("Browse templates"), primary: true },
-    { to: "/models/new" as const, icon: <IconUpload size={20} />, title: t("Add a model you have"), text: t("Upload a Mimir Model, ONNX or GGUF file. It takes a minute."), cta: t("Upload a file"), primary: false },
+    { to: "/models/new" as const, icon: <IconUpload size={20} />, title: t("Add a model you have"), text: t("Upload a Mimir Model, ONNX or GGUF file, or a ZIP of a Hugging Face model folder. It takes a minute."), cta: t("Upload a file"), primary: false },
     { to: "/models/build" as const, icon: <IconSparkles size={20} />, title: t("Not sure?"), text: t("Say what you want to know and we show the easiest way there, step by step."), cta: t("Build a model"), primary: false },
   ];
   return (

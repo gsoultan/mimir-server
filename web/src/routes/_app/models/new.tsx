@@ -36,8 +36,9 @@ const shapeOf = (s: string) => {
 };
 
 // Model types that take a whole model, rather than the weights of one the
-// server builds, also take ONNX and GGUF files and convert them.
-const takes = (whole: boolean) => whole ? t(".mim, ONNX or GGUF") : ".mim";
+// server builds, also take ONNX and GGUF files, and ZIPs of Hugging Face
+// model folders, and convert them.
+const takes = (whole: boolean) => whole ? t(".mim, ONNX, GGUF or ZIP") : ".mim";
 
 function AddModel() {
   const { data } = useSuspenseQuery(listArchitectures);
@@ -88,10 +89,10 @@ function AddModel() {
     if ("error" in r) return setFileError(r.error);
     if (!r.inspection.ok) return setFileError(r.inspection.reason);
     if (r.inspection.format !== "mim" && !whole) {
-      return setFileError(t("This model type takes a .mim file. To add {n1}.", { n1: r.inspection.format === "gguf" ? t("a GGUF language model, go back and pick Language model") : t("an ONNX model, go back and pick Mimir Model file") }));
+      return setFileError(t("This model type takes a .mim file. To add {n1}.", { n1: r.inspection.format === "gguf" ? t("a GGUF language model, go back and pick Language model") : r.inspection.format === "zip" ? t("a Hugging Face model, go back and pick Speech to text or Photo search by words") : t("an ONNX model, go back and pick Mimir Model file") }));
     }
     setPicked({ file, ...r.inspection });
-    if (!name) setName(file.name.replace(/\.(mim|onnx|gguf)$/i, ""));
+    if (!name) setName(file.name.replace(/\.(mim|onnx|gguf|zip)$/i, ""));
   }
 
   // add sends the file, then adds the model from it.
@@ -151,7 +152,7 @@ function AddModel() {
               <Stack align="center" gap={4} py="xl" className="pointer-events-none">
                 <IconFileUpload size={40} stroke={1.5} />
                 <Text fw={600}>{t("Drop your {what} file here", { what: custom ? t("model's") : takes(whole) })}</Text>
-                <Text size="sm" c="dimmed">{t("or click to choose one")}{custom ? t(". It is kept as it is, for your own code to read.") : whole && t(". ONNX and GGUF models become .mim files when you add them.")}</Text>
+                <Text size="sm" c="dimmed">{t("or click to choose one")}{custom ? t(". It is kept as it is, for your own code to read.") : whole && t(". ONNX and GGUF models become .mim files when you add them. For a Whisper or CLIP model from Hugging Face, ZIP its whole folder.")}</Text>
               </Stack>
             </Dropzone>
             {fileError && <Alert mt="md" color="red" icon={<IconAlertCircle />}>{fileError}</Alert>}
@@ -184,7 +185,7 @@ function AddModel() {
                   <Progress value={sent * 100} size="sm" radius="xl" aria-label={t("Sent")} />
                 </div>
               )}
-              {create.isPending && <Text size="sm" c="dimmed">{picked?.format === "gguf" || picked?.format === "onnx" ? t("Converting and checking the model…") : t("Checking the model…")}</Text>}
+              {create.isPending && <Text size="sm" c="dimmed">{picked && picked.format !== "mim" && picked.format !== "own" ? t("Converting and checking the model…") : t("Checking the model…")}</Text>}
               {(sendError ?? create.error) && <Alert color="red" icon={<IconAlertCircle />}>{sendError ?? message(create.error)}</Alert>}
             </Stack>
           </Stepper.Step>
