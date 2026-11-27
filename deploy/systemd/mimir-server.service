@@ -5,7 +5,7 @@
 #   systemctl daemon-reload && systemctl enable --now mimir-server
 #
 # It listens on 127.0.0.1:8080 for a reverse proxy on the same machine
-# that serves HTTPS. Settings go in /etc/mimir/mimir.env (see mimir.env);
+# that serves HTTPS; set MIMIR_ADDR in the env file to listen elsewhere. Settings go in /etc/mimir/mimir.env (see mimir.env);
 # the databases come from first-run setup, which writes
 # /var/lib/mimir/mimir.json.
 
@@ -19,8 +19,10 @@ After=network-online.target postgresql.service
 Type=exec
 User=mimir
 Group=mimir
+# MIMIR_ADDR in /etc/mimir/mimir.env overrides this address.
+Environment=MIMIR_ADDR=127.0.0.1:8080
 EnvironmentFile=-/etc/mimir/mimir.env
-ExecStart=/usr/local/bin/mimir-server -role standalone -addr 127.0.0.1:8080 -data /var/lib/mimir
+ExecStart=/usr/local/bin/mimir-server -role standalone -data /var/lib/mimir
 
 # The data folder: model weights, uploaded examples, the configuration and
 # (unless it lives elsewhere) the secret key. systemd makes it, owned by

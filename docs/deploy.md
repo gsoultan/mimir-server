@@ -75,13 +75,35 @@ install -m 0644 deploy/systemd/mimir-server.service /etc/systemd/system/
 systemctl daemon-reload
 ```
 
-The unit runs the console as `mimir`, listening on `127.0.0.1:8080` only,
+The unit runs the console as `mimir`, listening on `127.0.0.1:8080` only (the .deb, .rpm, Arch and Alpine packages listen on `0.0.0.0:8080`),
 with its data folder at `/var/lib/mimir` (model weights, uploaded examples,
 the configuration file and, by default, the secret key). Settings that
 aren't flags in the unit go in `/etc/mimir/mimir.env`; every flag with an
 environment variable can be set there (`mimir-server -h` lists them). The
 unit is hardened (no capabilities, read-only system, private `/tmp` and
 devices); on a machine that runs models on a GPU, remove `PrivateDevices`.
+
+To listen somewhere else, set `MIMIR_ADDR` in the env file and restart:
+`MIMIR_ADDR=0.0.0.0:8080` reaches the console from other machines, first-run
+setup included, without a proxy. It is then plain HTTP unless you start it
+with `-tls-cert` and `-tls-key` (or `-tls-auto`), and `/metrics` is open to
+anyone who can reach the port unless `MIMIR_METRICS_TOKEN` is set. For a
+quick look from your own computer without opening the port, tunnel it:
+`ssh -L 8080:127.0.0.1:8080 you@server`, then open `http://localhost:8080`.
+
+A Cloudflare tunnel needs none of this: `cloudflared` on the same machine
+connects to `http://localhost:8080`, so keep the default and keep the port
+closed. `MIMIR_TRUSTED_PROXIES=127.0.0.1,::1` already makes the console
+believe the address and https it forwards. First-run setup is then public
+at the tunnel's hostname, but can't be finished without the one-time setup
+token from the log; a Cloudflare Access policy on the hostname keeps
+everyone else off it until setup is done.
+
+When `cloudflared` (or any proxy) runs on another machine, set
+`MIMIR_ADDR=0.0.0.0:8080` and `MIMIR_TRUSTED_PROXIES` to that machine's
+address, point the tunnel at this machine's LAN address, and let only the
+proxy reach the port, for example
+`ufw allow from <proxy-ip> to any port 8080 proto tcp` then `ufw deny 8080`.
 
 ## 2. Make the database
 

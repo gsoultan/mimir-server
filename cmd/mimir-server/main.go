@@ -112,7 +112,7 @@ var commands = map[string]func(args []string) error{
 }
 
 func run() error {
-	addr := flag.String("addr", ":8080", "address to listen on")
+	addr := flag.String("addr", envOr("MIMIR_ADDR", ":8080"), "address to listen on, such as :8080 for every interface or 127.0.0.1:8080 for this machine only ($MIMIR_ADDR)")
 	data := flag.String("data", "./data", "directory for model weights, datasets and training checkpoints")
 	databaseURL := flag.String("database-url", os.Getenv("MIMIR_DATABASE_URL"), "console: the PostgreSQL database for the server's own records, such as postgres://mimir:secret@localhost:5432/mimir ($MIMIR_DATABASE_URL); without it the configuration file's is used, and without that the console opens first-run setup")
 	logDatabaseURL := flag.String("log-database-url", os.Getenv("MIMIR_LOG_DATABASE_URL"), "console: a second PostgreSQL database for the audit log; empty keeps it in the main one ($MIMIR_LOG_DATABASE_URL)")
@@ -714,4 +714,12 @@ func useGPUs(n int, log *slog.Logger) int {
 		log.Info("training: each run trains on several GPUs at once", "gpus", k)
 	}
 	return training.Devices()
+}
+
+// envOr returns the environment variable name, or def when it is empty.
+func envOr(name, def string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return def
 }
