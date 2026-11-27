@@ -26,7 +26,7 @@ import (
 
 func TestCatalog(t *testing.T) {
 	cats, tpls := All()
-	if len(tpls) != 59 || len(cats) != 8 {
+	if len(tpls) != 93 || len(cats) != 8 {
 		t.Fatalf("%d templates in %d categories", len(tpls), len(cats))
 	}
 	seen := map[string]bool{}

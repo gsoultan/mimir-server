@@ -39,6 +39,7 @@ var algorithms = map[string]string{
 	"table-bayes":       "Naive Bayes",
 	"find-groups":       "k-means clustering and, on small tables, Ward's hierarchical clustering, with the number of groups and the method picked by silhouette score",
 	"odd-one":           "Isolation forest (anomaly detection)",
+	"odd-one-local":     "Local outlier factor over the 20 nearest standardized rows (anomaly detection)",
 	"recommend":         "Matrix factorization for implicit feedback (collaborative filtering)",
 	"recommend-nearby":  "Neighbourhood collaborative filtering: purchases of same-category customers within a haversine (great-circle) distance",
 	"best-action":       "Contextual bandit by the direct method: gradient-boosted trees learn the outcome of each situation and action",
