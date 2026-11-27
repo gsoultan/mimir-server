@@ -1,5 +1,5 @@
 import { useMutation } from "@connectrpc/connect-query";
-import { Alert, Badge, Button, Card, Collapse, Group, NumberInput, PasswordInput, Radio, SegmentedControl, Select, SimpleGrid, Stack, Stepper, Table, Text, Textarea, TextInput, UnstyledButton } from "@mantine/core";
+import { Alert, Badge, Button, Card, Collapse, Group, NumberInput, PasswordInput, Radio, SegmentedControl, Select, SimpleGrid, Stack, Stepper, Switch, Table, Text, Textarea, TextInput, UnstyledButton } from "@mantine/core";
 import { Dropzone, type FileWithPath } from "@mantine/dropzone";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -15,6 +15,7 @@ import { DatasetKind, DatasetService, TrainingService, type Dataset } from "../.
 import { allDatasetQueries, allTrainingQueries, listArchitectures, listDatasets, listModels, listTemplates, whoAmI } from "../../../api/queries";
 import { ColumnPicker } from "../../../components/ColumnPicker";
 import { DataCheck } from "../../../components/DataCheck";
+import { MakeRows } from "../../../components/MakeRows";
 import { ModelShape } from "../../../components/ModelShape";
 import { ButtonLink } from "../../../components/links";
 import { Page } from "../../../components/Page";
@@ -183,6 +184,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const [batch, setBatch] = useState<number | string>(32);
   const [rate, setRate] = useState<number | string>(0.005);
   const [holdOut, setHoldOut] = useState<number | string>(20);
+  const [balance, setBalance] = useState(false);
   const [driver, setDriver] = useState("postgres");
   const [dsn, setDsn] = useState("");
   const [query, setQuery] = useState(tpl?.query ?? "");
@@ -353,11 +355,14 @@ function Wizard({ data: dataType }: { data: DataType }) {
     ? { what: t("a number"), count: 1 }
     : { what: dataset?.labels.length === 2 ? dataset.labels.join(t(" or ")) : t("one of {n1} answers", { n1: dataset?.labels.length ?? 0 }), count: dataset?.labels.length ?? 2 };
   const chosenEpochs = expert ? Number(epochs) : presets.find((p) => p.value === preset)!.epochs;
+  // Rows of rarer answers can be made up for a table model that picks
+  // one answer from a few.
+  const balanceable = dataset?.kind === DatasetKind.TABLE && dataset.labels.length >= 2 && !dataset.numberTarget && chosenArch?.input === "table" && chosenArch.output === "class" && !chosenArch.target;
   const start = () => dataset && createJob.mutate({
     name, description, architecture: arch, datasetId: dataset.id, repeatSeconds: fromQuery ? BigInt(repeat) : 0n, minNewRows: fromQuery && repeat !== "0" ? BigInt(waitRows) : 0n, workerId: runOn, startFromModelId: earlier.some((m) => m.id === startFrom) ? startFrom : "",
     // Outside the expert settings, zero lets the server pick what suits the examples.
     settings: {
-      epochs: chosenEpochs, batchSize: expert ? Number(batch) : 0, learningRate: expert ? Number(rate) : 0, holdOut: expert ? Number(holdOut) / 100 : 0.2,
+      epochs: chosenEpochs, batchSize: expert ? Number(batch) : 0, learningRate: expert ? Number(rate) : 0, holdOut: expert ? Number(holdOut) / 100 : 0.2, balance: balanceable && balance,
       layers: chosenArch?.designable ? layersOf(size, shapeSteps, inputs) : [],
     },
   });
@@ -396,7 +401,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
                 {fitting.length > 0 && (
                   <Choice value="existing" icon={<IconTable size={22} />} title={t("Examples already here")} hint={t("Reuse examples you added before.")}>
                     {source === "existing" && (
-                      <Select mt="sm" data={fitting.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} ${d.kind === DatasetKind.SOUNDS ? t("sounds") : archiveKind(d.kind) ? t("photos") : t("rows")}${d.query ? t(" · from a database") : d.storage ? t(" · from storage") : ""}` }))} value={existing} onChange={(v) => { if (v) { setExisting(v); reset(); } }} allowDeselect={false} aria-label={t("Examples")} />
+                      <Select mt="sm" data={fitting.map((d) => ({ value: d.id, label: `${d.name} · ${d.rows.toLocaleString()} ${d.kind === DatasetKind.SOUNDS ? t("sounds") : archiveKind(d.kind) ? t("photos") : t("rows")}${d.query ? t(" · from a database") : d.storage ? t(" · from storage") : d.madeFrom && !/made up/i.test(d.name) ? t(" · made up") : ""}` }))} value={existing} onChange={(v) => { if (v) { setExisting(v); reset(); } }} allowDeselect={false} aria-label={t("Examples")} />
                     )}
                   </Choice>
                 )}
@@ -521,6 +526,9 @@ function Wizard({ data: dataType }: { data: DataType }) {
                 {dataset.name}: {dataset.rows.toLocaleString()} {role ? t("rows") : t("examples")}{dataset.labels.length > 0 && !dataset.numberTarget && !role ? t(", {length} possible answers", { length: dataset.labels.length }) : ""}.
               </Alert>
             )}
+            {dataset?.kind === DatasetKind.TABLE && (
+              <MakeRows key={dataset.id} dataset={dataset} from={sets.datasets.find((d) => d.id === dataset.madeFrom)} onMade={(d) => chose(d)} />
+            )}
             {picked ? (
               <Card withBorder radius="md" mt="md" padding="md">
                 <Text size="sm">{t("The template picked the kind of model for you:")}{" "}<b>{chosenArch?.title}</b>. {chosenArch?.description}</Text>
@@ -592,6 +600,15 @@ function Wizard({ data: dataType }: { data: DataType }) {
                 ))}
               </SimpleGrid>
             </Radio.Group>
+            )}
+            {balanceable && (
+              <Switch
+                mt="lg"
+                checked={balance}
+                onChange={(e) => setBalance(e.currentTarget.checked)}
+                label={t("Make up extra rows of the rarer answers")}
+                description={t("When one answer is much rarer than the others, the model can learn to ignore it. This makes up new rows of each rarer answer, between real rows that have it, until every answer has as many as the most common one. The rows kept aside for scoring stay real.")}
+              />
             )}
             <UnstyledButton mt="md" onClick={toggle} className="text-sm text-[var(--mantine-color-teal-7)] underline">{expert ? t("Hide expert settings") : t("Expert settings")}</UnstyledButton>
             <Collapse expanded={expert}>

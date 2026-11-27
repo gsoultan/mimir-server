@@ -46,6 +46,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/sso"
 	"github.com/gsoultan/mimir-server/internal/store"
+	"github.com/gsoultan/mimir-server/internal/update"
 	"github.com/gsoultan/mimir/tensor"
 )
 
@@ -113,6 +114,11 @@ type Service struct {
 	TrainHereDefault bool
 	trainHere        atomic.Bool
 	groupWorkers     atomic.Int32
+	// Updater checks for and installs new versions; nil when updates are
+	// turned off (-updates=false).
+	Updater    *update.Updater
+	autoUpdate atomic.Bool
+	updateKick chan struct{}
 	// Local says predictions run in this process when no worker is
 	// preferred. Off for a server that only coordinates workers.
 	Local bool
@@ -221,7 +227,7 @@ var (
 
 // New returns a Service backed by s.
 func New(s *store.Store, log *slog.Logger) *Service {
-	svc := &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true, TrainHereDefault: true, Providers: sso.New()}
+	svc := &Service{store: s, cache: runtime.NewCache(DefaultModelCacheBytes), meter: newMeter(), log: log, Notifier: alert.New(s, log), Limiter: auth.NewLimiter(10, 15*time.Minute), Backoff: auth.NewBackoff(5, time.Second, 15*time.Minute), Local: true, TrainHereDefault: true, Providers: sso.New(), updateKick: make(chan struct{}, 1)}
 	svc.trainHere.Store(true)
 	return svc
 }

@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+### Updates from the About page
+
+- **Check now and Update now.** Owners see an Updates card on the About
+  page: it asks GitHub for the newest release, says whether it is newer,
+  and installs it in one click. The server downloads the file for this
+  machine, checks it against the release's `SHA256SUMS`, runs it once to
+  be sure it works here, then restarts on it in the same process.
+- **Update automatically.** A switch, off by default, that looks every 6
+  hours and installs new versions by itself. A failed automatic update
+  sends an alert. Nothing contacts GitHub unless someone presses Check now
+  or turns this on.
+- The new version is kept in the data folder (`updates/`), never written
+  over the installed binary, so it works for archive, Linux package and
+  container installs alike. A newer package or image wins over it, and a
+  kept version that fails to start three times is set aside.
+- `-updates=false` (`$MIMIR_UPDATES`) turns all of it off.
+- Releases now include static Linux archives (`*_static.tar.gz`), which
+  the container image and Alpine package update from.
+- `SettingsService.GetUpdates`, `CheckForUpdates`, `InstallUpdate` and
+  `UpdateAutoUpdates`.
+
+### Too little data, or a rare answer
+
+- **Make up more rows like yours.** On the teach page, a table with too
+  few rows can be grown: the server learns how each column's values
+  spread and how the columns go together (a Gaussian copula, as SDV's
+  GaussianCopulaSynthesizer does) and saves the new rows as a separate
+  dataset marked made up. IDs are made new; text cells are reused.
+  `DatasetService.MakeRows`.
+- **Balance rare answers.** A switch on the last step of teaching a table
+  model makes up rows of each rarer answer between real rows that have it
+  (SMOTE), until every answer has as many as the most common one. The
+  rows kept aside for scoring stay real, and the run's report says how
+  many were made. `TrainingSettings.balance`.
+- Database: `datasets.made_from` and `training_jobs.balance` (migration
+  0022, through storm).
+
 ### Try new versions first
 
 - A model version can be tried on part of the questions (5 to 50%) or on

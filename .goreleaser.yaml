@@ -57,6 +57,19 @@ archives:
       - CHANGELOG.md
       - docs/*.md
       - deploy/**/*
+  # The static Linux build, without the GPU backends, for machines without
+  # glibc. A server running a static build (the container image, the
+  # Alpine package) updates itself from these.
+  - id: static
+    ids: [mimir-server-static]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}_static"
+    wrap_in_directory: true
+    files:
+      - README.md
+      - CHANGELOG.md
+      - docs/*.md
+      - deploy/**/*
 
 # Linux packages: .deb, .rpm and Arch from the glibc build, .apk from the
 # static one. Each installs the binary in /usr/bin, a mimir-server system

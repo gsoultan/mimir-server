@@ -54,6 +54,9 @@ type TrainingJob struct {
 	// Layers is the design of a table model someone shaped themselves, as
 	// arch.FormatLayers writes it; "" is the usual shape.
 	Layers string
+	// Balance makes up extra rows of rare answers to learn from, between
+	// real ones, as SMOTE does; the rows kept aside for scoring stay real.
+	Balance bool
 	// MinNewRows > 0 makes a keep-learning pass wait until its source has
 	// that many more rows than TrainedRows, the rows the last pass had.
 	MinNewRows  int64
@@ -93,6 +96,7 @@ func (j *TrainingJob) Schema(t *storm.Table) {
 	t.Col(&j.Note).Default("''")
 	t.Col(&j.RunOn).Default("''")
 	t.Col(&j.Layers).Default("''").Immutable()
+	t.Col(&j.Balance).Default("false").Immutable()
 	t.Col(&j.MinNewRows).Default("0")
 	t.Col(&j.TrainedRows).Default("0")
 	t.Col(&j.CheckNote).Default("''")

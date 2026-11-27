@@ -155,6 +155,122 @@ func (JobStatus) EnumDescriptor() ([]byte, []int) {
 	return file_mimir_v1_training_proto_rawDescGZIP(), []int{1}
 }
 
+type MakeRowsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// dataset_id is the table to learn from.
+	DatasetId string `protobuf:"bytes,1,opt,name=dataset_id,json=datasetId,proto3" json:"dataset_id,omitempty"`
+	// rows is how many to make, from 10 to 1,000,000.
+	Rows int64 `protobuf:"varint,2,opt,name=rows,proto3" json:"rows,omitempty"`
+	// name is the new dataset's; empty names it after the one it learns
+	// from.
+	Name          string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MakeRowsRequest) Reset() {
+	*x = MakeRowsRequest{}
+	mi := &file_mimir_v1_training_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MakeRowsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MakeRowsRequest) ProtoMessage() {}
+
+func (x *MakeRowsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_training_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MakeRowsRequest.ProtoReflect.Descriptor instead.
+func (*MakeRowsRequest) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *MakeRowsRequest) GetDatasetId() string {
+	if x != nil {
+		return x.DatasetId
+	}
+	return ""
+}
+
+func (x *MakeRowsRequest) GetRows() int64 {
+	if x != nil {
+		return x.Rows
+	}
+	return 0
+}
+
+func (x *MakeRowsRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type MakeRowsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Dataset       *Dataset               `protobuf:"bytes,1,opt,name=dataset,proto3" json:"dataset,omitempty"`
+	Check         *DataCheck             `protobuf:"bytes,2,opt,name=check,proto3" json:"check,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MakeRowsResponse) Reset() {
+	*x = MakeRowsResponse{}
+	mi := &file_mimir_v1_training_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MakeRowsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MakeRowsResponse) ProtoMessage() {}
+
+func (x *MakeRowsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mimir_v1_training_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MakeRowsResponse.ProtoReflect.Descriptor instead.
+func (*MakeRowsResponse) Descriptor() ([]byte, []int) {
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *MakeRowsResponse) GetDataset() *Dataset {
+	if x != nil {
+		return x.Dataset
+	}
+	return nil
+}
+
+func (x *MakeRowsResponse) GetCheck() *DataCheck {
+	if x != nil {
+		return x.Check
+	}
+	return nil
+}
+
 type CheckDatasetRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	DatasetId string                 `protobuf:"bytes,1,opt,name=dataset_id,json=datasetId,proto3" json:"dataset_id,omitempty"`
@@ -173,7 +289,7 @@ type CheckDatasetRequest struct {
 
 func (x *CheckDatasetRequest) Reset() {
 	*x = CheckDatasetRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[0]
+	mi := &file_mimir_v1_training_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -185,7 +301,7 @@ func (x *CheckDatasetRequest) String() string {
 func (*CheckDatasetRequest) ProtoMessage() {}
 
 func (x *CheckDatasetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[0]
+	mi := &file_mimir_v1_training_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -198,7 +314,7 @@ func (x *CheckDatasetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckDatasetRequest.ProtoReflect.Descriptor instead.
 func (*CheckDatasetRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{0}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CheckDatasetRequest) GetDatasetId() string {
@@ -239,7 +355,7 @@ type CheckDatasetResponse struct {
 
 func (x *CheckDatasetResponse) Reset() {
 	*x = CheckDatasetResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[1]
+	mi := &file_mimir_v1_training_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -251,7 +367,7 @@ func (x *CheckDatasetResponse) String() string {
 func (*CheckDatasetResponse) ProtoMessage() {}
 
 func (x *CheckDatasetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[1]
+	mi := &file_mimir_v1_training_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -264,7 +380,7 @@ func (x *CheckDatasetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckDatasetResponse.ProtoReflect.Descriptor instead.
 func (*CheckDatasetResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{1}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CheckDatasetResponse) GetCheck() *DataCheck {
@@ -292,7 +408,7 @@ type CompareJobsRequest struct {
 
 func (x *CompareJobsRequest) Reset() {
 	*x = CompareJobsRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[2]
+	mi := &file_mimir_v1_training_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -304,7 +420,7 @@ func (x *CompareJobsRequest) String() string {
 func (*CompareJobsRequest) ProtoMessage() {}
 
 func (x *CompareJobsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[2]
+	mi := &file_mimir_v1_training_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -317,7 +433,7 @@ func (x *CompareJobsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompareJobsRequest.ProtoReflect.Descriptor instead.
 func (*CompareJobsRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{2}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CompareJobsRequest) GetIds() []string {
@@ -344,7 +460,7 @@ type CompareJobsResponse struct {
 
 func (x *CompareJobsResponse) Reset() {
 	*x = CompareJobsResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[3]
+	mi := &file_mimir_v1_training_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +472,7 @@ func (x *CompareJobsResponse) String() string {
 func (*CompareJobsResponse) ProtoMessage() {}
 
 func (x *CompareJobsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[3]
+	mi := &file_mimir_v1_training_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +485,7 @@ func (x *CompareJobsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompareJobsResponse.ProtoReflect.Descriptor instead.
 func (*CompareJobsResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{3}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CompareJobsResponse) GetJobs() []*Job {
@@ -405,7 +521,7 @@ type SetRepeatRequest struct {
 
 func (x *SetRepeatRequest) Reset() {
 	*x = SetRepeatRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[4]
+	mi := &file_mimir_v1_training_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -417,7 +533,7 @@ func (x *SetRepeatRequest) String() string {
 func (*SetRepeatRequest) ProtoMessage() {}
 
 func (x *SetRepeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[4]
+	mi := &file_mimir_v1_training_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -430,7 +546,7 @@ func (x *SetRepeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRepeatRequest.ProtoReflect.Descriptor instead.
 func (*SetRepeatRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{4}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SetRepeatRequest) GetId() string {
@@ -463,7 +579,7 @@ type SetRepeatResponse struct {
 
 func (x *SetRepeatResponse) Reset() {
 	*x = SetRepeatResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[5]
+	mi := &file_mimir_v1_training_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -475,7 +591,7 @@ func (x *SetRepeatResponse) String() string {
 func (*SetRepeatResponse) ProtoMessage() {}
 
 func (x *SetRepeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[5]
+	mi := &file_mimir_v1_training_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -488,7 +604,7 @@ func (x *SetRepeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRepeatResponse.ProtoReflect.Descriptor instead.
 func (*SetRepeatResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{5}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SetRepeatResponse) GetJob() *Job {
@@ -530,14 +646,17 @@ type Dataset struct {
 	Skipped int64 `protobuf:"varint,17,opt,name=skipped,proto3" json:"skipped,omitempty"`
 	// storage is set when the rows come from S3-compatible storage, so they
 	// can be fetched again; the keys are never returned.
-	Storage       *StorageSource `protobuf:"bytes,18,opt,name=storage,proto3" json:"storage,omitempty"`
+	Storage *StorageSource `protobuf:"bytes,18,opt,name=storage,proto3" json:"storage,omitempty"`
+	// made_from is the dataset these rows were made up like (see
+	// MakeRows), by id; empty for real rows.
+	MadeFrom      string `protobuf:"bytes,19,opt,name=made_from,json=madeFrom,proto3" json:"made_from,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Dataset) Reset() {
 	*x = Dataset{}
-	mi := &file_mimir_v1_training_proto_msgTypes[6]
+	mi := &file_mimir_v1_training_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -549,7 +668,7 @@ func (x *Dataset) String() string {
 func (*Dataset) ProtoMessage() {}
 
 func (x *Dataset) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[6]
+	mi := &file_mimir_v1_training_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -562,7 +681,7 @@ func (x *Dataset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Dataset.ProtoReflect.Descriptor instead.
 func (*Dataset) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{6}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Dataset) GetId() string {
@@ -691,6 +810,13 @@ func (x *Dataset) GetStorage() *StorageSource {
 	return nil
 }
 
+func (x *Dataset) GetMadeFrom() string {
+	if x != nil {
+		return x.MadeFrom
+	}
+	return ""
+}
+
 // StorageSource says where in a bucket a dataset's rows come from.
 type StorageSource struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -704,7 +830,7 @@ type StorageSource struct {
 
 func (x *StorageSource) Reset() {
 	*x = StorageSource{}
-	mi := &file_mimir_v1_training_proto_msgTypes[7]
+	mi := &file_mimir_v1_training_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -716,7 +842,7 @@ func (x *StorageSource) String() string {
 func (*StorageSource) ProtoMessage() {}
 
 func (x *StorageSource) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[7]
+	mi := &file_mimir_v1_training_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -729,7 +855,7 @@ func (x *StorageSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorageSource.ProtoReflect.Descriptor instead.
 func (*StorageSource) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{7}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *StorageSource) GetProvider() string {
@@ -768,7 +894,7 @@ type ListDatasetsRequest struct {
 
 func (x *ListDatasetsRequest) Reset() {
 	*x = ListDatasetsRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[8]
+	mi := &file_mimir_v1_training_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -780,7 +906,7 @@ func (x *ListDatasetsRequest) String() string {
 func (*ListDatasetsRequest) ProtoMessage() {}
 
 func (x *ListDatasetsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[8]
+	mi := &file_mimir_v1_training_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -793,7 +919,7 @@ func (x *ListDatasetsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDatasetsRequest.ProtoReflect.Descriptor instead.
 func (*ListDatasetsRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{8}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{10}
 }
 
 type ListDatasetsResponse struct {
@@ -805,7 +931,7 @@ type ListDatasetsResponse struct {
 
 func (x *ListDatasetsResponse) Reset() {
 	*x = ListDatasetsResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[9]
+	mi := &file_mimir_v1_training_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -817,7 +943,7 @@ func (x *ListDatasetsResponse) String() string {
 func (*ListDatasetsResponse) ProtoMessage() {}
 
 func (x *ListDatasetsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[9]
+	mi := &file_mimir_v1_training_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -830,7 +956,7 @@ func (x *ListDatasetsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDatasetsResponse.ProtoReflect.Descriptor instead.
 func (*ListDatasetsResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{9}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListDatasetsResponse) GetDatasets() []*Dataset {
@@ -849,7 +975,7 @@ type GetDatasetRequest struct {
 
 func (x *GetDatasetRequest) Reset() {
 	*x = GetDatasetRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[10]
+	mi := &file_mimir_v1_training_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -861,7 +987,7 @@ func (x *GetDatasetRequest) String() string {
 func (*GetDatasetRequest) ProtoMessage() {}
 
 func (x *GetDatasetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[10]
+	mi := &file_mimir_v1_training_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -874,7 +1000,7 @@ func (x *GetDatasetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDatasetRequest.ProtoReflect.Descriptor instead.
 func (*GetDatasetRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{10}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetDatasetRequest) GetId() string {
@@ -895,7 +1021,7 @@ type GetDatasetResponse struct {
 
 func (x *GetDatasetResponse) Reset() {
 	*x = GetDatasetResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[11]
+	mi := &file_mimir_v1_training_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -907,7 +1033,7 @@ func (x *GetDatasetResponse) String() string {
 func (*GetDatasetResponse) ProtoMessage() {}
 
 func (x *GetDatasetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[11]
+	mi := &file_mimir_v1_training_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -920,7 +1046,7 @@ func (x *GetDatasetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDatasetResponse.ProtoReflect.Descriptor instead.
 func (*GetDatasetResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{11}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetDatasetResponse) GetDataset() *Dataset {
@@ -946,7 +1072,7 @@ type Row struct {
 
 func (x *Row) Reset() {
 	*x = Row{}
-	mi := &file_mimir_v1_training_proto_msgTypes[12]
+	mi := &file_mimir_v1_training_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -958,7 +1084,7 @@ func (x *Row) String() string {
 func (*Row) ProtoMessage() {}
 
 func (x *Row) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[12]
+	mi := &file_mimir_v1_training_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -971,7 +1097,7 @@ func (x *Row) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Row.ProtoReflect.Descriptor instead.
 func (*Row) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{12}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Row) GetValues() []string {
@@ -1019,7 +1145,7 @@ type CreateDatasetRequest struct {
 
 func (x *CreateDatasetRequest) Reset() {
 	*x = CreateDatasetRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[13]
+	mi := &file_mimir_v1_training_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1031,7 +1157,7 @@ func (x *CreateDatasetRequest) String() string {
 func (*CreateDatasetRequest) ProtoMessage() {}
 
 func (x *CreateDatasetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[13]
+	mi := &file_mimir_v1_training_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1044,7 +1170,7 @@ func (x *CreateDatasetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDatasetRequest.ProtoReflect.Descriptor instead.
 func (*CreateDatasetRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{13}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CreateDatasetRequest) GetName() string {
@@ -1154,7 +1280,7 @@ type Bucket struct {
 
 func (x *Bucket) Reset() {
 	*x = Bucket{}
-	mi := &file_mimir_v1_training_proto_msgTypes[14]
+	mi := &file_mimir_v1_training_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1166,7 +1292,7 @@ func (x *Bucket) String() string {
 func (*Bucket) ProtoMessage() {}
 
 func (x *Bucket) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[14]
+	mi := &file_mimir_v1_training_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1179,7 +1305,7 @@ func (x *Bucket) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Bucket.ProtoReflect.Descriptor instead.
 func (*Bucket) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{14}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Bucket) GetProvider() string {
@@ -1245,7 +1371,7 @@ type TestBucketRequest struct {
 
 func (x *TestBucketRequest) Reset() {
 	*x = TestBucketRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[15]
+	mi := &file_mimir_v1_training_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1257,7 +1383,7 @@ func (x *TestBucketRequest) String() string {
 func (*TestBucketRequest) ProtoMessage() {}
 
 func (x *TestBucketRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[15]
+	mi := &file_mimir_v1_training_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1270,7 +1396,7 @@ func (x *TestBucketRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestBucketRequest.ProtoReflect.Descriptor instead.
 func (*TestBucketRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{15}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *TestBucketRequest) GetBucket() *Bucket {
@@ -1311,7 +1437,7 @@ type TestBucketResponse struct {
 
 func (x *TestBucketResponse) Reset() {
 	*x = TestBucketResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[16]
+	mi := &file_mimir_v1_training_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1323,7 +1449,7 @@ func (x *TestBucketResponse) String() string {
 func (*TestBucketResponse) ProtoMessage() {}
 
 func (x *TestBucketResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[16]
+	mi := &file_mimir_v1_training_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1336,7 +1462,7 @@ func (x *TestBucketResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestBucketResponse.ProtoReflect.Descriptor instead.
 func (*TestBucketResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{16}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *TestBucketResponse) GetFiles() int64 {
@@ -1394,7 +1520,7 @@ type Connection struct {
 
 func (x *Connection) Reset() {
 	*x = Connection{}
-	mi := &file_mimir_v1_training_proto_msgTypes[17]
+	mi := &file_mimir_v1_training_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1406,7 +1532,7 @@ func (x *Connection) String() string {
 func (*Connection) ProtoMessage() {}
 
 func (x *Connection) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[17]
+	mi := &file_mimir_v1_training_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1419,7 +1545,7 @@ func (x *Connection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Connection.ProtoReflect.Descriptor instead.
 func (*Connection) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{17}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Connection) GetDriver() string {
@@ -1446,7 +1572,7 @@ type TestQueryRequest struct {
 
 func (x *TestQueryRequest) Reset() {
 	*x = TestQueryRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[18]
+	mi := &file_mimir_v1_training_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1458,7 +1584,7 @@ func (x *TestQueryRequest) String() string {
 func (*TestQueryRequest) ProtoMessage() {}
 
 func (x *TestQueryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[18]
+	mi := &file_mimir_v1_training_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1471,7 +1597,7 @@ func (x *TestQueryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestQueryRequest.ProtoReflect.Descriptor instead.
 func (*TestQueryRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{18}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *TestQueryRequest) GetConnection() *Connection {
@@ -1499,7 +1625,7 @@ type TestQueryResponse struct {
 
 func (x *TestQueryResponse) Reset() {
 	*x = TestQueryResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[19]
+	mi := &file_mimir_v1_training_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1511,7 +1637,7 @@ func (x *TestQueryResponse) String() string {
 func (*TestQueryResponse) ProtoMessage() {}
 
 func (x *TestQueryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[19]
+	mi := &file_mimir_v1_training_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1524,7 +1650,7 @@ func (x *TestQueryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestQueryResponse.ProtoReflect.Descriptor instead.
 func (*TestQueryResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{19}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *TestQueryResponse) GetColumns() []string {
@@ -1557,7 +1683,7 @@ type RefreshDatasetRequest struct {
 
 func (x *RefreshDatasetRequest) Reset() {
 	*x = RefreshDatasetRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[20]
+	mi := &file_mimir_v1_training_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1569,7 +1695,7 @@ func (x *RefreshDatasetRequest) String() string {
 func (*RefreshDatasetRequest) ProtoMessage() {}
 
 func (x *RefreshDatasetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[20]
+	mi := &file_mimir_v1_training_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1582,7 +1708,7 @@ func (x *RefreshDatasetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshDatasetRequest.ProtoReflect.Descriptor instead.
 func (*RefreshDatasetRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{20}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *RefreshDatasetRequest) GetId() string {
@@ -1601,7 +1727,7 @@ type RefreshDatasetResponse struct {
 
 func (x *RefreshDatasetResponse) Reset() {
 	*x = RefreshDatasetResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[21]
+	mi := &file_mimir_v1_training_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1613,7 +1739,7 @@ func (x *RefreshDatasetResponse) String() string {
 func (*RefreshDatasetResponse) ProtoMessage() {}
 
 func (x *RefreshDatasetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[21]
+	mi := &file_mimir_v1_training_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1626,7 +1752,7 @@ func (x *RefreshDatasetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshDatasetResponse.ProtoReflect.Descriptor instead.
 func (*RefreshDatasetResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{21}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *RefreshDatasetResponse) GetDataset() *Dataset {
@@ -1648,7 +1774,7 @@ type CreateDatasetResponse struct {
 
 func (x *CreateDatasetResponse) Reset() {
 	*x = CreateDatasetResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[22]
+	mi := &file_mimir_v1_training_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1660,7 +1786,7 @@ func (x *CreateDatasetResponse) String() string {
 func (*CreateDatasetResponse) ProtoMessage() {}
 
 func (x *CreateDatasetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[22]
+	mi := &file_mimir_v1_training_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1673,7 +1799,7 @@ func (x *CreateDatasetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDatasetResponse.ProtoReflect.Descriptor instead.
 func (*CreateDatasetResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{22}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CreateDatasetResponse) GetDataset() *Dataset {
@@ -1699,7 +1825,7 @@ type DeleteDatasetRequest struct {
 
 func (x *DeleteDatasetRequest) Reset() {
 	*x = DeleteDatasetRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[23]
+	mi := &file_mimir_v1_training_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1711,7 +1837,7 @@ func (x *DeleteDatasetRequest) String() string {
 func (*DeleteDatasetRequest) ProtoMessage() {}
 
 func (x *DeleteDatasetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[23]
+	mi := &file_mimir_v1_training_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1724,7 +1850,7 @@ func (x *DeleteDatasetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDatasetRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDatasetRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{23}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *DeleteDatasetRequest) GetId() string {
@@ -1742,7 +1868,7 @@ type DeleteDatasetResponse struct {
 
 func (x *DeleteDatasetResponse) Reset() {
 	*x = DeleteDatasetResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[24]
+	mi := &file_mimir_v1_training_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1754,7 +1880,7 @@ func (x *DeleteDatasetResponse) String() string {
 func (*DeleteDatasetResponse) ProtoMessage() {}
 
 func (x *DeleteDatasetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[24]
+	mi := &file_mimir_v1_training_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1767,7 +1893,7 @@ func (x *DeleteDatasetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDatasetResponse.ProtoReflect.Descriptor instead.
 func (*DeleteDatasetResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{24}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{26}
 }
 
 // TrainingSettings are the knobs most people leave alone.
@@ -1781,14 +1907,19 @@ type TrainingSettings struct {
 	HoldOut float64 `protobuf:"fixed64,4,opt,name=hold_out,json=holdOut,proto3" json:"hold_out,omitempty"`
 	// layers, when set, shapes a table model in place of its usual hidden
 	// layers: at most 8 steps, with at least one dense.
-	Layers        []*Layer `protobuf:"bytes,5,rep,name=layers,proto3" json:"layers,omitempty"`
+	Layers []*Layer `protobuf:"bytes,5,rep,name=layers,proto3" json:"layers,omitempty"`
+	// balance makes up extra rows of each rarer answer of a table to learn
+	// from, between real rows with that answer (as SMOTE does), until every
+	// answer has as many as the most common one. The rows kept aside for
+	// scoring stay real. Only for models that pick an answer.
+	Balance       bool `protobuf:"varint,6,opt,name=balance,proto3" json:"balance,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TrainingSettings) Reset() {
 	*x = TrainingSettings{}
-	mi := &file_mimir_v1_training_proto_msgTypes[25]
+	mi := &file_mimir_v1_training_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1800,7 +1931,7 @@ func (x *TrainingSettings) String() string {
 func (*TrainingSettings) ProtoMessage() {}
 
 func (x *TrainingSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[25]
+	mi := &file_mimir_v1_training_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1813,7 +1944,7 @@ func (x *TrainingSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrainingSettings.ProtoReflect.Descriptor instead.
 func (*TrainingSettings) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{25}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *TrainingSettings) GetEpochs() int32 {
@@ -1851,6 +1982,13 @@ func (x *TrainingSettings) GetLayers() []*Layer {
 	return nil
 }
 
+func (x *TrainingSettings) GetBalance() bool {
+	if x != nil {
+		return x.Balance
+	}
+	return false
+}
+
 // Layer is one step of a designed table model.
 type Layer struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1865,7 +2003,7 @@ type Layer struct {
 
 func (x *Layer) Reset() {
 	*x = Layer{}
-	mi := &file_mimir_v1_training_proto_msgTypes[26]
+	mi := &file_mimir_v1_training_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1877,7 +2015,7 @@ func (x *Layer) String() string {
 func (*Layer) ProtoMessage() {}
 
 func (x *Layer) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[26]
+	mi := &file_mimir_v1_training_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1890,7 +2028,7 @@ func (x *Layer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Layer.ProtoReflect.Descriptor instead.
 func (*Layer) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{26}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *Layer) GetKind() string {
@@ -1933,7 +2071,7 @@ type EpochResult struct {
 
 func (x *EpochResult) Reset() {
 	*x = EpochResult{}
-	mi := &file_mimir_v1_training_proto_msgTypes[27]
+	mi := &file_mimir_v1_training_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1945,7 +2083,7 @@ func (x *EpochResult) String() string {
 func (*EpochResult) ProtoMessage() {}
 
 func (x *EpochResult) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[27]
+	mi := &file_mimir_v1_training_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1958,7 +2096,7 @@ func (x *EpochResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EpochResult.ProtoReflect.Descriptor instead.
 func (*EpochResult) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{27}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *EpochResult) GetEpoch() int32 {
@@ -2065,7 +2203,7 @@ type Job struct {
 
 func (x *Job) Reset() {
 	*x = Job{}
-	mi := &file_mimir_v1_training_proto_msgTypes[28]
+	mi := &file_mimir_v1_training_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2077,7 +2215,7 @@ func (x *Job) String() string {
 func (*Job) ProtoMessage() {}
 
 func (x *Job) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[28]
+	mi := &file_mimir_v1_training_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2090,7 +2228,7 @@ func (x *Job) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Job.ProtoReflect.Descriptor instead.
 func (*Job) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{28}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Job) GetId() string {
@@ -2350,17 +2488,21 @@ type RunReport struct {
 	Points   []*GuessPoint `protobuf:"bytes,15,rep,name=points,proto3" json:"points,omitempty"`
 	// Ranked models: hit_at[i] is the share whose right answer was in the
 	// first i+1 suggestions, up to k.
-	K             int32     `protobuf:"varint,16,opt,name=k,proto3" json:"k,omitempty"`
-	HitAt         []float64 `protobuf:"fixed64,17,rep,packed,name=hit_at,json=hitAt,proto3" json:"hit_at,omitempty"`
-	Mrr           float64   `protobuf:"fixed64,18,opt,name=mrr,proto3" json:"mrr,omitempty"`
-	Ndcg          float64   `protobuf:"fixed64,19,opt,name=ndcg,proto3" json:"ndcg,omitempty"`
+	K     int32     `protobuf:"varint,16,opt,name=k,proto3" json:"k,omitempty"`
+	HitAt []float64 `protobuf:"fixed64,17,rep,packed,name=hit_at,json=hitAt,proto3" json:"hit_at,omitempty"`
+	Mrr   float64   `protobuf:"fixed64,18,opt,name=mrr,proto3" json:"mrr,omitempty"`
+	Ndcg  float64   `protobuf:"fixed64,19,opt,name=ndcg,proto3" json:"ndcg,omitempty"`
+	// made counts the made-up rows of rarer answers it learned from beside
+	// the real ones (TrainingSettings.balance). It was scored on real rows
+	// only.
+	Made          int64 `protobuf:"varint,20,opt,name=made,proto3" json:"made,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RunReport) Reset() {
 	*x = RunReport{}
-	mi := &file_mimir_v1_training_proto_msgTypes[29]
+	mi := &file_mimir_v1_training_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2372,7 +2514,7 @@ func (x *RunReport) String() string {
 func (*RunReport) ProtoMessage() {}
 
 func (x *RunReport) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[29]
+	mi := &file_mimir_v1_training_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2385,7 +2527,7 @@ func (x *RunReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunReport.ProtoReflect.Descriptor instead.
 func (*RunReport) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{29}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *RunReport) GetKind() string {
@@ -2521,6 +2663,13 @@ func (x *RunReport) GetNdcg() float64 {
 	return 0
 }
 
+func (x *RunReport) GetMade() int64 {
+	if x != nil {
+		return x.Made
+	}
+	return 0
+}
+
 type ClassScore struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Label     string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
@@ -2535,7 +2684,7 @@ type ClassScore struct {
 
 func (x *ClassScore) Reset() {
 	*x = ClassScore{}
-	mi := &file_mimir_v1_training_proto_msgTypes[30]
+	mi := &file_mimir_v1_training_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2547,7 +2696,7 @@ func (x *ClassScore) String() string {
 func (*ClassScore) ProtoMessage() {}
 
 func (x *ClassScore) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[30]
+	mi := &file_mimir_v1_training_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2560,7 +2709,7 @@ func (x *ClassScore) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClassScore.ProtoReflect.Descriptor instead.
 func (*ClassScore) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{30}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ClassScore) GetLabel() string {
@@ -2607,7 +2756,7 @@ type ConfusionRow struct {
 
 func (x *ConfusionRow) Reset() {
 	*x = ConfusionRow{}
-	mi := &file_mimir_v1_training_proto_msgTypes[31]
+	mi := &file_mimir_v1_training_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2619,7 +2768,7 @@ func (x *ConfusionRow) String() string {
 func (*ConfusionRow) ProtoMessage() {}
 
 func (x *ConfusionRow) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[31]
+	mi := &file_mimir_v1_training_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2632,7 +2781,7 @@ func (x *ConfusionRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfusionRow.ProtoReflect.Descriptor instead.
 func (*ConfusionRow) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{31}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ConfusionRow) GetCounts() []int64 {
@@ -2653,7 +2802,7 @@ type GuessPoint struct {
 
 func (x *GuessPoint) Reset() {
 	*x = GuessPoint{}
-	mi := &file_mimir_v1_training_proto_msgTypes[32]
+	mi := &file_mimir_v1_training_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2665,7 +2814,7 @@ func (x *GuessPoint) String() string {
 func (*GuessPoint) ProtoMessage() {}
 
 func (x *GuessPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[32]
+	mi := &file_mimir_v1_training_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2678,7 +2827,7 @@ func (x *GuessPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GuessPoint.ProtoReflect.Descriptor instead.
 func (*GuessPoint) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{32}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GuessPoint) GetReal() float64 {
@@ -2703,7 +2852,7 @@ type ListJobsRequest struct {
 
 func (x *ListJobsRequest) Reset() {
 	*x = ListJobsRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[33]
+	mi := &file_mimir_v1_training_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2715,7 +2864,7 @@ func (x *ListJobsRequest) String() string {
 func (*ListJobsRequest) ProtoMessage() {}
 
 func (x *ListJobsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[33]
+	mi := &file_mimir_v1_training_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2728,7 +2877,7 @@ func (x *ListJobsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobsRequest.ProtoReflect.Descriptor instead.
 func (*ListJobsRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{33}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{35}
 }
 
 type ListJobsResponse struct {
@@ -2740,7 +2889,7 @@ type ListJobsResponse struct {
 
 func (x *ListJobsResponse) Reset() {
 	*x = ListJobsResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[34]
+	mi := &file_mimir_v1_training_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2752,7 +2901,7 @@ func (x *ListJobsResponse) String() string {
 func (*ListJobsResponse) ProtoMessage() {}
 
 func (x *ListJobsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[34]
+	mi := &file_mimir_v1_training_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2765,7 +2914,7 @@ func (x *ListJobsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobsResponse.ProtoReflect.Descriptor instead.
 func (*ListJobsResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{34}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ListJobsResponse) GetJobs() []*Job {
@@ -2784,7 +2933,7 @@ type GetJobRequest struct {
 
 func (x *GetJobRequest) Reset() {
 	*x = GetJobRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[35]
+	mi := &file_mimir_v1_training_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2796,7 +2945,7 @@ func (x *GetJobRequest) String() string {
 func (*GetJobRequest) ProtoMessage() {}
 
 func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[35]
+	mi := &file_mimir_v1_training_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2809,7 +2958,7 @@ func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobRequest.ProtoReflect.Descriptor instead.
 func (*GetJobRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{35}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *GetJobRequest) GetId() string {
@@ -2828,7 +2977,7 @@ type GetJobResponse struct {
 
 func (x *GetJobResponse) Reset() {
 	*x = GetJobResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[36]
+	mi := &file_mimir_v1_training_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2840,7 +2989,7 @@ func (x *GetJobResponse) String() string {
 func (*GetJobResponse) ProtoMessage() {}
 
 func (x *GetJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[36]
+	mi := &file_mimir_v1_training_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2853,7 +3002,7 @@ func (x *GetJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobResponse.ProtoReflect.Descriptor instead.
 func (*GetJobResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{36}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *GetJobResponse) GetJob() *Job {
@@ -2895,7 +3044,7 @@ type CreateJobRequest struct {
 
 func (x *CreateJobRequest) Reset() {
 	*x = CreateJobRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[37]
+	mi := &file_mimir_v1_training_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2907,7 +3056,7 @@ func (x *CreateJobRequest) String() string {
 func (*CreateJobRequest) ProtoMessage() {}
 
 func (x *CreateJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[37]
+	mi := &file_mimir_v1_training_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2920,7 +3069,7 @@ func (x *CreateJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateJobRequest.ProtoReflect.Descriptor instead.
 func (*CreateJobRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{37}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *CreateJobRequest) GetName() string {
@@ -3002,7 +3151,7 @@ type CreateJobResponse struct {
 
 func (x *CreateJobResponse) Reset() {
 	*x = CreateJobResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[38]
+	mi := &file_mimir_v1_training_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3014,7 +3163,7 @@ func (x *CreateJobResponse) String() string {
 func (*CreateJobResponse) ProtoMessage() {}
 
 func (x *CreateJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[38]
+	mi := &file_mimir_v1_training_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3027,7 +3176,7 @@ func (x *CreateJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateJobResponse.ProtoReflect.Descriptor instead.
 func (*CreateJobResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{38}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *CreateJobResponse) GetJob() *Job {
@@ -3046,7 +3195,7 @@ type CancelJobRequest struct {
 
 func (x *CancelJobRequest) Reset() {
 	*x = CancelJobRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[39]
+	mi := &file_mimir_v1_training_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3058,7 +3207,7 @@ func (x *CancelJobRequest) String() string {
 func (*CancelJobRequest) ProtoMessage() {}
 
 func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[39]
+	mi := &file_mimir_v1_training_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3071,7 +3220,7 @@ func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJobRequest.ProtoReflect.Descriptor instead.
 func (*CancelJobRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{39}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *CancelJobRequest) GetId() string {
@@ -3090,7 +3239,7 @@ type CancelJobResponse struct {
 
 func (x *CancelJobResponse) Reset() {
 	*x = CancelJobResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[40]
+	mi := &file_mimir_v1_training_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3102,7 +3251,7 @@ func (x *CancelJobResponse) String() string {
 func (*CancelJobResponse) ProtoMessage() {}
 
 func (x *CancelJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[40]
+	mi := &file_mimir_v1_training_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3115,7 +3264,7 @@ func (x *CancelJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJobResponse.ProtoReflect.Descriptor instead.
 func (*CancelJobResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{40}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *CancelJobResponse) GetJob() *Job {
@@ -3134,7 +3283,7 @@ type ResumeJobRequest struct {
 
 func (x *ResumeJobRequest) Reset() {
 	*x = ResumeJobRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[41]
+	mi := &file_mimir_v1_training_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3146,7 +3295,7 @@ func (x *ResumeJobRequest) String() string {
 func (*ResumeJobRequest) ProtoMessage() {}
 
 func (x *ResumeJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[41]
+	mi := &file_mimir_v1_training_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3159,7 +3308,7 @@ func (x *ResumeJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeJobRequest.ProtoReflect.Descriptor instead.
 func (*ResumeJobRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{41}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ResumeJobRequest) GetId() string {
@@ -3178,7 +3327,7 @@ type ResumeJobResponse struct {
 
 func (x *ResumeJobResponse) Reset() {
 	*x = ResumeJobResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[42]
+	mi := &file_mimir_v1_training_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3190,7 +3339,7 @@ func (x *ResumeJobResponse) String() string {
 func (*ResumeJobResponse) ProtoMessage() {}
 
 func (x *ResumeJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[42]
+	mi := &file_mimir_v1_training_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3203,7 +3352,7 @@ func (x *ResumeJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeJobResponse.ProtoReflect.Descriptor instead.
 func (*ResumeJobResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{42}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ResumeJobResponse) GetJob() *Job {
@@ -3222,7 +3371,7 @@ type DeleteJobRequest struct {
 
 func (x *DeleteJobRequest) Reset() {
 	*x = DeleteJobRequest{}
-	mi := &file_mimir_v1_training_proto_msgTypes[43]
+	mi := &file_mimir_v1_training_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3234,7 +3383,7 @@ func (x *DeleteJobRequest) String() string {
 func (*DeleteJobRequest) ProtoMessage() {}
 
 func (x *DeleteJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[43]
+	mi := &file_mimir_v1_training_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3247,7 +3396,7 @@ func (x *DeleteJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteJobRequest.ProtoReflect.Descriptor instead.
 func (*DeleteJobRequest) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{43}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *DeleteJobRequest) GetId() string {
@@ -3265,7 +3414,7 @@ type DeleteJobResponse struct {
 
 func (x *DeleteJobResponse) Reset() {
 	*x = DeleteJobResponse{}
-	mi := &file_mimir_v1_training_proto_msgTypes[44]
+	mi := &file_mimir_v1_training_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3277,7 +3426,7 @@ func (x *DeleteJobResponse) String() string {
 func (*DeleteJobResponse) ProtoMessage() {}
 
 func (x *DeleteJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_mimir_v1_training_proto_msgTypes[44]
+	mi := &file_mimir_v1_training_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3290,14 +3439,22 @@ func (x *DeleteJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteJobResponse.ProtoReflect.Descriptor instead.
 func (*DeleteJobResponse) Descriptor() ([]byte, []int) {
-	return file_mimir_v1_training_proto_rawDescGZIP(), []int{44}
+	return file_mimir_v1_training_proto_rawDescGZIP(), []int{46}
 }
 
 var File_mimir_v1_training_proto protoreflect.FileDescriptor
 
 const file_mimir_v1_training_proto_rawDesc = "" +
 	"\n" +
-	"\x17mimir/v1/training.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mimir/v1/model.proto\x1a\x17mimir/v1/template.proto\"\xe5\x01\n" +
+	"\x17mimir/v1/training.proto\x12\bmimir.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mimir/v1/model.proto\x1a\x17mimir/v1/template.proto\"X\n" +
+	"\x0fMakeRowsRequest\x12\x1d\n" +
+	"\n" +
+	"dataset_id\x18\x01 \x01(\tR\tdatasetId\x12\x12\n" +
+	"\x04rows\x18\x02 \x01(\x03R\x04rows\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"j\n" +
+	"\x10MakeRowsResponse\x12+\n" +
+	"\adataset\x18\x01 \x01(\v2\x11.mimir.v1.DatasetR\adataset\x12)\n" +
+	"\x05check\x18\x02 \x01(\v2\x13.mimir.v1.DataCheckR\x05check\"\xe5\x01\n" +
 	"\x13CheckDatasetRequest\x12\x1d\n" +
 	"\n" +
 	"dataset_id\x18\x01 \x01(\tR\tdatasetId\x12\x1f\n" +
@@ -3324,7 +3481,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\fmin_new_rows\x18\x03 \x01(\x03R\n" +
 	"minNewRows\"4\n" +
 	"\x11SetRepeatResponse\x12\x1f\n" +
-	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\xe6\x04\n" +
+	"\x03job\x18\x01 \x01(\v2\r.mimir.v1.JobR\x03job\"\x83\x05\n" +
 	"\aDataset\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12)\n" +
@@ -3347,7 +3504,8 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\acolumns\x18\x0f \x03(\v2\x10.mimir.v1.ColumnR\acolumns\x12#\n" +
 	"\rnumber_target\x18\x10 \x01(\bR\fnumberTarget\x12\x18\n" +
 	"\askipped\x18\x11 \x01(\x03R\askipped\x121\n" +
-	"\astorage\x18\x12 \x01(\v2\x17.mimir.v1.StorageSourceR\astorage\"s\n" +
+	"\astorage\x18\x12 \x01(\v2\x17.mimir.v1.StorageSourceR\astorage\x12\x1b\n" +
+	"\tmade_from\x18\x13 \x01(\tR\bmadeFrom\"s\n" +
 	"\rStorageSource\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x1a\n" +
 	"\bendpoint\x18\x02 \x01(\tR\bendpoint\x12\x16\n" +
@@ -3423,14 +3581,15 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x05check\x18\x02 \x01(\v2\x13.mimir.v1.DataCheckR\x05check\"&\n" +
 	"\x14DeleteDatasetRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
-	"\x15DeleteDatasetResponse\"\xb2\x01\n" +
+	"\x15DeleteDatasetResponse\"\xcc\x01\n" +
 	"\x10TrainingSettings\x12\x16\n" +
 	"\x06epochs\x18\x01 \x01(\x05R\x06epochs\x12\x1d\n" +
 	"\n" +
 	"batch_size\x18\x02 \x01(\x05R\tbatchSize\x12#\n" +
 	"\rlearning_rate\x18\x03 \x01(\x01R\flearningRate\x12\x19\n" +
 	"\bhold_out\x18\x04 \x01(\x01R\aholdOut\x12'\n" +
-	"\x06layers\x18\x05 \x03(\v2\x0f.mimir.v1.LayerR\x06layers\"E\n" +
+	"\x06layers\x18\x05 \x03(\v2\x0f.mimir.v1.LayerR\x06layers\x12\x18\n" +
+	"\abalance\x18\x06 \x01(\bR\abalance\"E\n" +
 	"\x05Layer\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x14\n" +
 	"\x05units\x18\x02 \x01(\x05R\x05units\x12\x12\n" +
@@ -3482,7 +3641,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\n" +
 	"check_note\x18\x1e \x01(\tR\tcheckNote\x12+\n" +
 	"\x06report\x18\x1f \x01(\v2\x13.mimir.v1.RunReportR\x06report\x12-\n" +
-	"\x13start_from_model_id\x18  \x01(\tR\x10startFromModelId\"\xac\x04\n" +
+	"\x13start_from_model_id\x18  \x01(\tR\x10startFromModelId\"\xc0\x04\n" +
 	"\tRunReport\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1a\n" +
 	"\bexamples\x18\x02 \x01(\x03R\bexamples\x12\x1f\n" +
@@ -3505,7 +3664,8 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x01k\x18\x10 \x01(\x05R\x01k\x12\x15\n" +
 	"\x06hit_at\x18\x11 \x03(\x01R\x05hitAt\x12\x10\n" +
 	"\x03mrr\x18\x12 \x01(\x01R\x03mrr\x12\x12\n" +
-	"\x04ndcg\x18\x13 \x01(\x01R\x04ndcg\"\x82\x01\n" +
+	"\x04ndcg\x18\x13 \x01(\x01R\x04ndcg\x12\x12\n" +
+	"\x04made\x18\x14 \x01(\x03R\x04made\"\x82\x01\n" +
 	"\n" +
 	"ClassScore\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12\x1c\n" +
@@ -3568,7 +3728,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x12JOB_STATUS_RUNNING\x10\x02\x12\x18\n" +
 	"\x14JOB_STATUS_SUCCEEDED\x10\x03\x12\x15\n" +
 	"\x11JOB_STATUS_FAILED\x10\x04\x12\x18\n" +
-	"\x14JOB_STATUS_CANCELLED\x10\x052\x89\x05\n" +
+	"\x14JOB_STATUS_CANCELLED\x10\x052\xcc\x05\n" +
 	"\x0eDatasetService\x12R\n" +
 	"\fListDatasets\x12\x1d.mimir.v1.ListDatasetsRequest\x1a\x1e.mimir.v1.ListDatasetsResponse\"\x03\x90\x02\x01\x12L\n" +
 	"\n" +
@@ -3579,7 +3739,8 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x0eRefreshDataset\x12\x1f.mimir.v1.RefreshDatasetRequest\x1a .mimir.v1.RefreshDatasetResponse\x12G\n" +
 	"\n" +
 	"TestBucket\x12\x1b.mimir.v1.TestBucketRequest\x1a\x1c.mimir.v1.TestBucketResponse\x12M\n" +
-	"\fCheckDataset\x12\x1d.mimir.v1.CheckDatasetRequest\x1a\x1e.mimir.v1.CheckDatasetResponse2\xca\x04\n" +
+	"\fCheckDataset\x12\x1d.mimir.v1.CheckDatasetRequest\x1a\x1e.mimir.v1.CheckDatasetResponse\x12A\n" +
+	"\bMakeRows\x12\x19.mimir.v1.MakeRowsRequest\x1a\x1a.mimir.v1.MakeRowsResponse2\xca\x04\n" +
 	"\x0fTrainingService\x12F\n" +
 	"\bListJobs\x12\x19.mimir.v1.ListJobsRequest\x1a\x1a.mimir.v1.ListJobsResponse\"\x03\x90\x02\x01\x12@\n" +
 	"\x06GetJob\x12\x17.mimir.v1.GetJobRequest\x1a\x18.mimir.v1.GetJobResponse\"\x03\x90\x02\x01\x12D\n" +
@@ -3603,141 +3764,147 @@ func file_mimir_v1_training_proto_rawDescGZIP() []byte {
 }
 
 var file_mimir_v1_training_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_mimir_v1_training_proto_msgTypes = make([]protoimpl.MessageInfo, 46)
+var file_mimir_v1_training_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
 var file_mimir_v1_training_proto_goTypes = []any{
 	(DatasetKind)(0),               // 0: mimir.v1.DatasetKind
 	(JobStatus)(0),                 // 1: mimir.v1.JobStatus
-	(*CheckDatasetRequest)(nil),    // 2: mimir.v1.CheckDatasetRequest
-	(*CheckDatasetResponse)(nil),   // 3: mimir.v1.CheckDatasetResponse
-	(*CompareJobsRequest)(nil),     // 4: mimir.v1.CompareJobsRequest
-	(*CompareJobsResponse)(nil),    // 5: mimir.v1.CompareJobsResponse
-	(*SetRepeatRequest)(nil),       // 6: mimir.v1.SetRepeatRequest
-	(*SetRepeatResponse)(nil),      // 7: mimir.v1.SetRepeatResponse
-	(*Dataset)(nil),                // 8: mimir.v1.Dataset
-	(*StorageSource)(nil),          // 9: mimir.v1.StorageSource
-	(*ListDatasetsRequest)(nil),    // 10: mimir.v1.ListDatasetsRequest
-	(*ListDatasetsResponse)(nil),   // 11: mimir.v1.ListDatasetsResponse
-	(*GetDatasetRequest)(nil),      // 12: mimir.v1.GetDatasetRequest
-	(*GetDatasetResponse)(nil),     // 13: mimir.v1.GetDatasetResponse
-	(*Row)(nil),                    // 14: mimir.v1.Row
-	(*CreateDatasetRequest)(nil),   // 15: mimir.v1.CreateDatasetRequest
-	(*Bucket)(nil),                 // 16: mimir.v1.Bucket
-	(*TestBucketRequest)(nil),      // 17: mimir.v1.TestBucketRequest
-	(*TestBucketResponse)(nil),     // 18: mimir.v1.TestBucketResponse
-	(*Connection)(nil),             // 19: mimir.v1.Connection
-	(*TestQueryRequest)(nil),       // 20: mimir.v1.TestQueryRequest
-	(*TestQueryResponse)(nil),      // 21: mimir.v1.TestQueryResponse
-	(*RefreshDatasetRequest)(nil),  // 22: mimir.v1.RefreshDatasetRequest
-	(*RefreshDatasetResponse)(nil), // 23: mimir.v1.RefreshDatasetResponse
-	(*CreateDatasetResponse)(nil),  // 24: mimir.v1.CreateDatasetResponse
-	(*DeleteDatasetRequest)(nil),   // 25: mimir.v1.DeleteDatasetRequest
-	(*DeleteDatasetResponse)(nil),  // 26: mimir.v1.DeleteDatasetResponse
-	(*TrainingSettings)(nil),       // 27: mimir.v1.TrainingSettings
-	(*Layer)(nil),                  // 28: mimir.v1.Layer
-	(*EpochResult)(nil),            // 29: mimir.v1.EpochResult
-	(*Job)(nil),                    // 30: mimir.v1.Job
-	(*RunReport)(nil),              // 31: mimir.v1.RunReport
-	(*ClassScore)(nil),             // 32: mimir.v1.ClassScore
-	(*ConfusionRow)(nil),           // 33: mimir.v1.ConfusionRow
-	(*GuessPoint)(nil),             // 34: mimir.v1.GuessPoint
-	(*ListJobsRequest)(nil),        // 35: mimir.v1.ListJobsRequest
-	(*ListJobsResponse)(nil),       // 36: mimir.v1.ListJobsResponse
-	(*GetJobRequest)(nil),          // 37: mimir.v1.GetJobRequest
-	(*GetJobResponse)(nil),         // 38: mimir.v1.GetJobResponse
-	(*CreateJobRequest)(nil),       // 39: mimir.v1.CreateJobRequest
-	(*CreateJobResponse)(nil),      // 40: mimir.v1.CreateJobResponse
-	(*CancelJobRequest)(nil),       // 41: mimir.v1.CancelJobRequest
-	(*CancelJobResponse)(nil),      // 42: mimir.v1.CancelJobResponse
-	(*ResumeJobRequest)(nil),       // 43: mimir.v1.ResumeJobRequest
-	(*ResumeJobResponse)(nil),      // 44: mimir.v1.ResumeJobResponse
-	(*DeleteJobRequest)(nil),       // 45: mimir.v1.DeleteJobRequest
-	(*DeleteJobResponse)(nil),      // 46: mimir.v1.DeleteJobResponse
-	nil,                            // 47: mimir.v1.CheckDatasetRequest.MatchEntry
-	(*DataCheck)(nil),              // 48: mimir.v1.DataCheck
-	(*timestamppb.Timestamp)(nil),  // 49: google.protobuf.Timestamp
-	(*Column)(nil),                 // 50: mimir.v1.Column
+	(*MakeRowsRequest)(nil),        // 2: mimir.v1.MakeRowsRequest
+	(*MakeRowsResponse)(nil),       // 3: mimir.v1.MakeRowsResponse
+	(*CheckDatasetRequest)(nil),    // 4: mimir.v1.CheckDatasetRequest
+	(*CheckDatasetResponse)(nil),   // 5: mimir.v1.CheckDatasetResponse
+	(*CompareJobsRequest)(nil),     // 6: mimir.v1.CompareJobsRequest
+	(*CompareJobsResponse)(nil),    // 7: mimir.v1.CompareJobsResponse
+	(*SetRepeatRequest)(nil),       // 8: mimir.v1.SetRepeatRequest
+	(*SetRepeatResponse)(nil),      // 9: mimir.v1.SetRepeatResponse
+	(*Dataset)(nil),                // 10: mimir.v1.Dataset
+	(*StorageSource)(nil),          // 11: mimir.v1.StorageSource
+	(*ListDatasetsRequest)(nil),    // 12: mimir.v1.ListDatasetsRequest
+	(*ListDatasetsResponse)(nil),   // 13: mimir.v1.ListDatasetsResponse
+	(*GetDatasetRequest)(nil),      // 14: mimir.v1.GetDatasetRequest
+	(*GetDatasetResponse)(nil),     // 15: mimir.v1.GetDatasetResponse
+	(*Row)(nil),                    // 16: mimir.v1.Row
+	(*CreateDatasetRequest)(nil),   // 17: mimir.v1.CreateDatasetRequest
+	(*Bucket)(nil),                 // 18: mimir.v1.Bucket
+	(*TestBucketRequest)(nil),      // 19: mimir.v1.TestBucketRequest
+	(*TestBucketResponse)(nil),     // 20: mimir.v1.TestBucketResponse
+	(*Connection)(nil),             // 21: mimir.v1.Connection
+	(*TestQueryRequest)(nil),       // 22: mimir.v1.TestQueryRequest
+	(*TestQueryResponse)(nil),      // 23: mimir.v1.TestQueryResponse
+	(*RefreshDatasetRequest)(nil),  // 24: mimir.v1.RefreshDatasetRequest
+	(*RefreshDatasetResponse)(nil), // 25: mimir.v1.RefreshDatasetResponse
+	(*CreateDatasetResponse)(nil),  // 26: mimir.v1.CreateDatasetResponse
+	(*DeleteDatasetRequest)(nil),   // 27: mimir.v1.DeleteDatasetRequest
+	(*DeleteDatasetResponse)(nil),  // 28: mimir.v1.DeleteDatasetResponse
+	(*TrainingSettings)(nil),       // 29: mimir.v1.TrainingSettings
+	(*Layer)(nil),                  // 30: mimir.v1.Layer
+	(*EpochResult)(nil),            // 31: mimir.v1.EpochResult
+	(*Job)(nil),                    // 32: mimir.v1.Job
+	(*RunReport)(nil),              // 33: mimir.v1.RunReport
+	(*ClassScore)(nil),             // 34: mimir.v1.ClassScore
+	(*ConfusionRow)(nil),           // 35: mimir.v1.ConfusionRow
+	(*GuessPoint)(nil),             // 36: mimir.v1.GuessPoint
+	(*ListJobsRequest)(nil),        // 37: mimir.v1.ListJobsRequest
+	(*ListJobsResponse)(nil),       // 38: mimir.v1.ListJobsResponse
+	(*GetJobRequest)(nil),          // 39: mimir.v1.GetJobRequest
+	(*GetJobResponse)(nil),         // 40: mimir.v1.GetJobResponse
+	(*CreateJobRequest)(nil),       // 41: mimir.v1.CreateJobRequest
+	(*CreateJobResponse)(nil),      // 42: mimir.v1.CreateJobResponse
+	(*CancelJobRequest)(nil),       // 43: mimir.v1.CancelJobRequest
+	(*CancelJobResponse)(nil),      // 44: mimir.v1.CancelJobResponse
+	(*ResumeJobRequest)(nil),       // 45: mimir.v1.ResumeJobRequest
+	(*ResumeJobResponse)(nil),      // 46: mimir.v1.ResumeJobResponse
+	(*DeleteJobRequest)(nil),       // 47: mimir.v1.DeleteJobRequest
+	(*DeleteJobResponse)(nil),      // 48: mimir.v1.DeleteJobResponse
+	nil,                            // 49: mimir.v1.CheckDatasetRequest.MatchEntry
+	(*DataCheck)(nil),              // 50: mimir.v1.DataCheck
+	(*timestamppb.Timestamp)(nil),  // 51: google.protobuf.Timestamp
+	(*Column)(nil),                 // 52: mimir.v1.Column
 }
 var file_mimir_v1_training_proto_depIdxs = []int32{
-	47, // 0: mimir.v1.CheckDatasetRequest.match:type_name -> mimir.v1.CheckDatasetRequest.MatchEntry
-	48, // 1: mimir.v1.CheckDatasetResponse.check:type_name -> mimir.v1.DataCheck
-	8,  // 2: mimir.v1.CheckDatasetResponse.dataset:type_name -> mimir.v1.Dataset
-	30, // 3: mimir.v1.CompareJobsResponse.jobs:type_name -> mimir.v1.Job
-	30, // 4: mimir.v1.SetRepeatResponse.job:type_name -> mimir.v1.Job
-	0,  // 5: mimir.v1.Dataset.kind:type_name -> mimir.v1.DatasetKind
-	49, // 6: mimir.v1.Dataset.create_time:type_name -> google.protobuf.Timestamp
-	49, // 7: mimir.v1.Dataset.refresh_time:type_name -> google.protobuf.Timestamp
-	50, // 8: mimir.v1.Dataset.columns:type_name -> mimir.v1.Column
-	9,  // 9: mimir.v1.Dataset.storage:type_name -> mimir.v1.StorageSource
-	8,  // 10: mimir.v1.ListDatasetsResponse.datasets:type_name -> mimir.v1.Dataset
-	8,  // 11: mimir.v1.GetDatasetResponse.dataset:type_name -> mimir.v1.Dataset
-	14, // 12: mimir.v1.GetDatasetResponse.sample:type_name -> mimir.v1.Row
-	0,  // 13: mimir.v1.CreateDatasetRequest.kind:type_name -> mimir.v1.DatasetKind
-	19, // 14: mimir.v1.CreateDatasetRequest.connection:type_name -> mimir.v1.Connection
-	16, // 15: mimir.v1.CreateDatasetRequest.bucket:type_name -> mimir.v1.Bucket
-	16, // 16: mimir.v1.TestBucketRequest.bucket:type_name -> mimir.v1.Bucket
-	0,  // 17: mimir.v1.TestBucketRequest.kind:type_name -> mimir.v1.DatasetKind
-	14, // 18: mimir.v1.TestBucketResponse.sample:type_name -> mimir.v1.Row
-	19, // 19: mimir.v1.TestQueryRequest.connection:type_name -> mimir.v1.Connection
-	14, // 20: mimir.v1.TestQueryResponse.sample:type_name -> mimir.v1.Row
-	8,  // 21: mimir.v1.RefreshDatasetResponse.dataset:type_name -> mimir.v1.Dataset
-	8,  // 22: mimir.v1.CreateDatasetResponse.dataset:type_name -> mimir.v1.Dataset
-	48, // 23: mimir.v1.CreateDatasetResponse.check:type_name -> mimir.v1.DataCheck
-	28, // 24: mimir.v1.TrainingSettings.layers:type_name -> mimir.v1.Layer
-	27, // 25: mimir.v1.Job.settings:type_name -> mimir.v1.TrainingSettings
-	1,  // 26: mimir.v1.Job.status:type_name -> mimir.v1.JobStatus
-	29, // 27: mimir.v1.Job.history:type_name -> mimir.v1.EpochResult
-	49, // 28: mimir.v1.Job.create_time:type_name -> google.protobuf.Timestamp
-	49, // 29: mimir.v1.Job.start_time:type_name -> google.protobuf.Timestamp
-	49, // 30: mimir.v1.Job.end_time:type_name -> google.protobuf.Timestamp
-	49, // 31: mimir.v1.Job.next_run_time:type_name -> google.protobuf.Timestamp
-	49, // 32: mimir.v1.Job.check_time:type_name -> google.protobuf.Timestamp
-	31, // 33: mimir.v1.Job.report:type_name -> mimir.v1.RunReport
-	32, // 34: mimir.v1.RunReport.classes:type_name -> mimir.v1.ClassScore
-	33, // 35: mimir.v1.RunReport.confusion:type_name -> mimir.v1.ConfusionRow
-	34, // 36: mimir.v1.RunReport.points:type_name -> mimir.v1.GuessPoint
-	30, // 37: mimir.v1.ListJobsResponse.jobs:type_name -> mimir.v1.Job
-	30, // 38: mimir.v1.GetJobResponse.job:type_name -> mimir.v1.Job
-	27, // 39: mimir.v1.CreateJobRequest.settings:type_name -> mimir.v1.TrainingSettings
-	30, // 40: mimir.v1.CreateJobResponse.job:type_name -> mimir.v1.Job
-	30, // 41: mimir.v1.CancelJobResponse.job:type_name -> mimir.v1.Job
-	30, // 42: mimir.v1.ResumeJobResponse.job:type_name -> mimir.v1.Job
-	10, // 43: mimir.v1.DatasetService.ListDatasets:input_type -> mimir.v1.ListDatasetsRequest
-	12, // 44: mimir.v1.DatasetService.GetDataset:input_type -> mimir.v1.GetDatasetRequest
-	15, // 45: mimir.v1.DatasetService.CreateDataset:input_type -> mimir.v1.CreateDatasetRequest
-	25, // 46: mimir.v1.DatasetService.DeleteDataset:input_type -> mimir.v1.DeleteDatasetRequest
-	20, // 47: mimir.v1.DatasetService.TestQuery:input_type -> mimir.v1.TestQueryRequest
-	22, // 48: mimir.v1.DatasetService.RefreshDataset:input_type -> mimir.v1.RefreshDatasetRequest
-	17, // 49: mimir.v1.DatasetService.TestBucket:input_type -> mimir.v1.TestBucketRequest
-	2,  // 50: mimir.v1.DatasetService.CheckDataset:input_type -> mimir.v1.CheckDatasetRequest
-	35, // 51: mimir.v1.TrainingService.ListJobs:input_type -> mimir.v1.ListJobsRequest
-	37, // 52: mimir.v1.TrainingService.GetJob:input_type -> mimir.v1.GetJobRequest
-	39, // 53: mimir.v1.TrainingService.CreateJob:input_type -> mimir.v1.CreateJobRequest
-	41, // 54: mimir.v1.TrainingService.CancelJob:input_type -> mimir.v1.CancelJobRequest
-	43, // 55: mimir.v1.TrainingService.ResumeJob:input_type -> mimir.v1.ResumeJobRequest
-	45, // 56: mimir.v1.TrainingService.DeleteJob:input_type -> mimir.v1.DeleteJobRequest
-	6,  // 57: mimir.v1.TrainingService.SetRepeat:input_type -> mimir.v1.SetRepeatRequest
-	4,  // 58: mimir.v1.TrainingService.CompareJobs:input_type -> mimir.v1.CompareJobsRequest
-	11, // 59: mimir.v1.DatasetService.ListDatasets:output_type -> mimir.v1.ListDatasetsResponse
-	13, // 60: mimir.v1.DatasetService.GetDataset:output_type -> mimir.v1.GetDatasetResponse
-	24, // 61: mimir.v1.DatasetService.CreateDataset:output_type -> mimir.v1.CreateDatasetResponse
-	26, // 62: mimir.v1.DatasetService.DeleteDataset:output_type -> mimir.v1.DeleteDatasetResponse
-	21, // 63: mimir.v1.DatasetService.TestQuery:output_type -> mimir.v1.TestQueryResponse
-	23, // 64: mimir.v1.DatasetService.RefreshDataset:output_type -> mimir.v1.RefreshDatasetResponse
-	18, // 65: mimir.v1.DatasetService.TestBucket:output_type -> mimir.v1.TestBucketResponse
-	3,  // 66: mimir.v1.DatasetService.CheckDataset:output_type -> mimir.v1.CheckDatasetResponse
-	36, // 67: mimir.v1.TrainingService.ListJobs:output_type -> mimir.v1.ListJobsResponse
-	38, // 68: mimir.v1.TrainingService.GetJob:output_type -> mimir.v1.GetJobResponse
-	40, // 69: mimir.v1.TrainingService.CreateJob:output_type -> mimir.v1.CreateJobResponse
-	42, // 70: mimir.v1.TrainingService.CancelJob:output_type -> mimir.v1.CancelJobResponse
-	44, // 71: mimir.v1.TrainingService.ResumeJob:output_type -> mimir.v1.ResumeJobResponse
-	46, // 72: mimir.v1.TrainingService.DeleteJob:output_type -> mimir.v1.DeleteJobResponse
-	7,  // 73: mimir.v1.TrainingService.SetRepeat:output_type -> mimir.v1.SetRepeatResponse
-	5,  // 74: mimir.v1.TrainingService.CompareJobs:output_type -> mimir.v1.CompareJobsResponse
-	59, // [59:75] is the sub-list for method output_type
-	43, // [43:59] is the sub-list for method input_type
-	43, // [43:43] is the sub-list for extension type_name
-	43, // [43:43] is the sub-list for extension extendee
-	0,  // [0:43] is the sub-list for field type_name
+	10, // 0: mimir.v1.MakeRowsResponse.dataset:type_name -> mimir.v1.Dataset
+	50, // 1: mimir.v1.MakeRowsResponse.check:type_name -> mimir.v1.DataCheck
+	49, // 2: mimir.v1.CheckDatasetRequest.match:type_name -> mimir.v1.CheckDatasetRequest.MatchEntry
+	50, // 3: mimir.v1.CheckDatasetResponse.check:type_name -> mimir.v1.DataCheck
+	10, // 4: mimir.v1.CheckDatasetResponse.dataset:type_name -> mimir.v1.Dataset
+	32, // 5: mimir.v1.CompareJobsResponse.jobs:type_name -> mimir.v1.Job
+	32, // 6: mimir.v1.SetRepeatResponse.job:type_name -> mimir.v1.Job
+	0,  // 7: mimir.v1.Dataset.kind:type_name -> mimir.v1.DatasetKind
+	51, // 8: mimir.v1.Dataset.create_time:type_name -> google.protobuf.Timestamp
+	51, // 9: mimir.v1.Dataset.refresh_time:type_name -> google.protobuf.Timestamp
+	52, // 10: mimir.v1.Dataset.columns:type_name -> mimir.v1.Column
+	11, // 11: mimir.v1.Dataset.storage:type_name -> mimir.v1.StorageSource
+	10, // 12: mimir.v1.ListDatasetsResponse.datasets:type_name -> mimir.v1.Dataset
+	10, // 13: mimir.v1.GetDatasetResponse.dataset:type_name -> mimir.v1.Dataset
+	16, // 14: mimir.v1.GetDatasetResponse.sample:type_name -> mimir.v1.Row
+	0,  // 15: mimir.v1.CreateDatasetRequest.kind:type_name -> mimir.v1.DatasetKind
+	21, // 16: mimir.v1.CreateDatasetRequest.connection:type_name -> mimir.v1.Connection
+	18, // 17: mimir.v1.CreateDatasetRequest.bucket:type_name -> mimir.v1.Bucket
+	18, // 18: mimir.v1.TestBucketRequest.bucket:type_name -> mimir.v1.Bucket
+	0,  // 19: mimir.v1.TestBucketRequest.kind:type_name -> mimir.v1.DatasetKind
+	16, // 20: mimir.v1.TestBucketResponse.sample:type_name -> mimir.v1.Row
+	21, // 21: mimir.v1.TestQueryRequest.connection:type_name -> mimir.v1.Connection
+	16, // 22: mimir.v1.TestQueryResponse.sample:type_name -> mimir.v1.Row
+	10, // 23: mimir.v1.RefreshDatasetResponse.dataset:type_name -> mimir.v1.Dataset
+	10, // 24: mimir.v1.CreateDatasetResponse.dataset:type_name -> mimir.v1.Dataset
+	50, // 25: mimir.v1.CreateDatasetResponse.check:type_name -> mimir.v1.DataCheck
+	30, // 26: mimir.v1.TrainingSettings.layers:type_name -> mimir.v1.Layer
+	29, // 27: mimir.v1.Job.settings:type_name -> mimir.v1.TrainingSettings
+	1,  // 28: mimir.v1.Job.status:type_name -> mimir.v1.JobStatus
+	31, // 29: mimir.v1.Job.history:type_name -> mimir.v1.EpochResult
+	51, // 30: mimir.v1.Job.create_time:type_name -> google.protobuf.Timestamp
+	51, // 31: mimir.v1.Job.start_time:type_name -> google.protobuf.Timestamp
+	51, // 32: mimir.v1.Job.end_time:type_name -> google.protobuf.Timestamp
+	51, // 33: mimir.v1.Job.next_run_time:type_name -> google.protobuf.Timestamp
+	51, // 34: mimir.v1.Job.check_time:type_name -> google.protobuf.Timestamp
+	33, // 35: mimir.v1.Job.report:type_name -> mimir.v1.RunReport
+	34, // 36: mimir.v1.RunReport.classes:type_name -> mimir.v1.ClassScore
+	35, // 37: mimir.v1.RunReport.confusion:type_name -> mimir.v1.ConfusionRow
+	36, // 38: mimir.v1.RunReport.points:type_name -> mimir.v1.GuessPoint
+	32, // 39: mimir.v1.ListJobsResponse.jobs:type_name -> mimir.v1.Job
+	32, // 40: mimir.v1.GetJobResponse.job:type_name -> mimir.v1.Job
+	29, // 41: mimir.v1.CreateJobRequest.settings:type_name -> mimir.v1.TrainingSettings
+	32, // 42: mimir.v1.CreateJobResponse.job:type_name -> mimir.v1.Job
+	32, // 43: mimir.v1.CancelJobResponse.job:type_name -> mimir.v1.Job
+	32, // 44: mimir.v1.ResumeJobResponse.job:type_name -> mimir.v1.Job
+	12, // 45: mimir.v1.DatasetService.ListDatasets:input_type -> mimir.v1.ListDatasetsRequest
+	14, // 46: mimir.v1.DatasetService.GetDataset:input_type -> mimir.v1.GetDatasetRequest
+	17, // 47: mimir.v1.DatasetService.CreateDataset:input_type -> mimir.v1.CreateDatasetRequest
+	27, // 48: mimir.v1.DatasetService.DeleteDataset:input_type -> mimir.v1.DeleteDatasetRequest
+	22, // 49: mimir.v1.DatasetService.TestQuery:input_type -> mimir.v1.TestQueryRequest
+	24, // 50: mimir.v1.DatasetService.RefreshDataset:input_type -> mimir.v1.RefreshDatasetRequest
+	19, // 51: mimir.v1.DatasetService.TestBucket:input_type -> mimir.v1.TestBucketRequest
+	4,  // 52: mimir.v1.DatasetService.CheckDataset:input_type -> mimir.v1.CheckDatasetRequest
+	2,  // 53: mimir.v1.DatasetService.MakeRows:input_type -> mimir.v1.MakeRowsRequest
+	37, // 54: mimir.v1.TrainingService.ListJobs:input_type -> mimir.v1.ListJobsRequest
+	39, // 55: mimir.v1.TrainingService.GetJob:input_type -> mimir.v1.GetJobRequest
+	41, // 56: mimir.v1.TrainingService.CreateJob:input_type -> mimir.v1.CreateJobRequest
+	43, // 57: mimir.v1.TrainingService.CancelJob:input_type -> mimir.v1.CancelJobRequest
+	45, // 58: mimir.v1.TrainingService.ResumeJob:input_type -> mimir.v1.ResumeJobRequest
+	47, // 59: mimir.v1.TrainingService.DeleteJob:input_type -> mimir.v1.DeleteJobRequest
+	8,  // 60: mimir.v1.TrainingService.SetRepeat:input_type -> mimir.v1.SetRepeatRequest
+	6,  // 61: mimir.v1.TrainingService.CompareJobs:input_type -> mimir.v1.CompareJobsRequest
+	13, // 62: mimir.v1.DatasetService.ListDatasets:output_type -> mimir.v1.ListDatasetsResponse
+	15, // 63: mimir.v1.DatasetService.GetDataset:output_type -> mimir.v1.GetDatasetResponse
+	26, // 64: mimir.v1.DatasetService.CreateDataset:output_type -> mimir.v1.CreateDatasetResponse
+	28, // 65: mimir.v1.DatasetService.DeleteDataset:output_type -> mimir.v1.DeleteDatasetResponse
+	23, // 66: mimir.v1.DatasetService.TestQuery:output_type -> mimir.v1.TestQueryResponse
+	25, // 67: mimir.v1.DatasetService.RefreshDataset:output_type -> mimir.v1.RefreshDatasetResponse
+	20, // 68: mimir.v1.DatasetService.TestBucket:output_type -> mimir.v1.TestBucketResponse
+	5,  // 69: mimir.v1.DatasetService.CheckDataset:output_type -> mimir.v1.CheckDatasetResponse
+	3,  // 70: mimir.v1.DatasetService.MakeRows:output_type -> mimir.v1.MakeRowsResponse
+	38, // 71: mimir.v1.TrainingService.ListJobs:output_type -> mimir.v1.ListJobsResponse
+	40, // 72: mimir.v1.TrainingService.GetJob:output_type -> mimir.v1.GetJobResponse
+	42, // 73: mimir.v1.TrainingService.CreateJob:output_type -> mimir.v1.CreateJobResponse
+	44, // 74: mimir.v1.TrainingService.CancelJob:output_type -> mimir.v1.CancelJobResponse
+	46, // 75: mimir.v1.TrainingService.ResumeJob:output_type -> mimir.v1.ResumeJobResponse
+	48, // 76: mimir.v1.TrainingService.DeleteJob:output_type -> mimir.v1.DeleteJobResponse
+	9,  // 77: mimir.v1.TrainingService.SetRepeat:output_type -> mimir.v1.SetRepeatResponse
+	7,  // 78: mimir.v1.TrainingService.CompareJobs:output_type -> mimir.v1.CompareJobsResponse
+	62, // [62:79] is the sub-list for method output_type
+	45, // [45:62] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_mimir_v1_training_proto_init() }
@@ -3753,7 +3920,7 @@ func file_mimir_v1_training_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimir_v1_training_proto_rawDesc), len(file_mimir_v1_training_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   46,
+			NumMessages:   48,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

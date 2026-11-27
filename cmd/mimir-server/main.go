@@ -53,6 +53,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/setup"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/training"
+	"github.com/gsoultan/mimir-server/internal/update"
 	"github.com/gsoultan/mimir-server/internal/webhook"
 	builtin "github.com/gsoultan/mimir-server/internal/worker"
 	"github.com/gsoultan/mimir-server/web"
@@ -62,7 +63,19 @@ import (
 // version is reported by workers; set with -ldflags "-X main.version=...".
 var version = "dev"
 
+// restart is set when an update is ready: once run returns, main starts
+// the new version in this process's place.
+var restart atomic.Bool
+
 func main() {
+	// A newer version an update kept in the data folder runs in place of
+	// this one.
+	data := update.DataDir(os.Args[1:])
+	if bin := update.Launch(data, version, os.Stderr); bin != "" {
+		if err := update.Exec(bin); err != nil {
+			fmt.Fprintln(os.Stderr, "mimir-server: couldn't start the updated version:", err)
+		}
+	}
 	if len(os.Args) > 1 {
 		if cmd, ok := commands[os.Args[1]]; ok {
 			if err := cmd(os.Args[2:]); err != nil {
@@ -75,6 +88,18 @@ func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "mimir-server:", err)
 		os.Exit(1)
+	}
+	if restart.Load() {
+		bin := update.Launch(data, version, os.Stderr)
+		if bin == "" {
+			// Exit with an error so the service manager starts it again.
+			fmt.Fprintln(os.Stderr, "mimir-server: the update isn't there any more; exiting to be started again")
+			os.Exit(1)
+		}
+		if err := update.Exec(bin); err != nil {
+			fmt.Fprintln(os.Stderr, "mimir-server: couldn't start the updated version:", err)
+			os.Exit(1)
+		}
 	}
 }
 
@@ -121,6 +146,7 @@ func run() error {
 	trainHere := flag.Bool("train-here", env.bool("MIMIR_TRAIN_HERE", true), "standalone: train runs in this process when no worker takes them, until Settings → Workers says otherwise; false leaves every run to workers, so training never slows the API served here ($MIMIR_TRAIN_HERE)")
 	webhookWorkers := flag.Int("webhook-workers", env.int("MIMIR_WEBHOOK_WORKERS", 0), "console: how many webhooks are sent to at once; each webhook still gets its events one at a time, in order (default 8) ($MIMIR_WEBHOOK_WORKERS)")
 	memoryLimit := flag.String("memory-limit", os.Getenv("MIMIR_MEMORY_LIMIT"), "console and worker: the most memory this process lets itself use, such as 6GiB or 75% (of the container's or machine's memory), or off; as it nears it, loaded models are let go, training here waits or stops and goes back in the queue, and new model loads and uploads are turned away, so the process slows down instead of running out. Default: $GOMEMLIMIT, else 85% of the container's memory limit, else of the machine's ($MIMIR_MEMORY_LIMIT)")
+	updates := flag.Bool("updates", env.bool("MIMIR_UPDATES", true), "console: let admins check for new versions and install them from the About page, by hand or automatically; the server asks GitHub only when someone checks or automatic updates are on. false turns both off, for a server whose upgrades come from a package manager or a new image only ($MIMIR_UPDATES)")
 	bf16 := flag.Bool("bf16", env.bool("MIMIR_BF16", false), "console and worker: train and run models with bfloat16 matrix products on CPUs with Intel AMX (Xeon from Sapphire Rapids on), about 1.6 times faster training of deep table models for a tenth of a point of accuracy or less; elsewhere it changes nothing ($MIMIR_BF16)")
 	flag.Parse()
 	if err := env.err(); err != nil {
@@ -332,6 +358,17 @@ func run() error {
 	if err := svc.LoadTrainingSetting(ctx); err != nil {
 		return fmt.Errorf("training setting: %w", err)
 	}
+	if *updates {
+		// An update, once ready, stops the server the way a signal does;
+		// main then starts the new version.
+		svc.Updater = &update.Updater{Current: version, DataDir: *data, Log: log, Restart: func() {
+			restart.Store(true)
+			stop()
+		}}
+	}
+	if err := svc.LoadUpdatesSetting(ctx); err != nil {
+		return fmt.Errorf("update setting: %w", err)
+	}
 	svc.MaxModelBytes = *maxModelMB << 20
 	svc.AllowPlainWorkers = *plainWorkers
 	svc.Proxies = proxies
@@ -469,6 +506,24 @@ func run() error {
 		safe.Loop(bgCtx, log, "visit plan runner", func() { svc.RunVisitPlans(bgCtx, 30*time.Second) })
 	})
 	bg.Go(func() { safe.Loop(bgCtx, log, "document reader", func() { svc.RunDocuments(bgCtx, 30*time.Second) }) })
+	bg.Go(func() { safe.Loop(bgCtx, log, "automatic updates", func() { svc.RunUpdates(bgCtx, 6*time.Hour) }) })
+	// A version an update kept is kept for good once it has served for a
+	// minute; until then, one that keeps failing to start is set aside.
+	bg.Go(func() {
+		select {
+		case <-bgCtx.Done():
+			return
+		case <-time.After(time.Minute):
+		}
+		from, err := update.Confirm(*data, version)
+		switch {
+		case err != nil:
+			log.Warn("update: couldn't record that this version started", "error", err)
+		case from != "":
+			log.Info("update: now running the new version", "version", version, "from", from)
+			svc.Updated(bgCtx, from)
+		}
+	})
 
 	if *metricsToken == "" && !loopbackOnly(*addr) {
 		log.Warn("/metrics is open to anyone who can reach this address; set -metrics-token ($MIMIR_METRICS_TOKEN) to require a token", "addr", *addr)
