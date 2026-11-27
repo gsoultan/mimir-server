@@ -491,6 +491,40 @@ message RunReport {
   // the real ones (TrainingSettings.balance). It was scored on real rows
   // only.
   int64 made = 20;
+
+  // accuracy_low and accuracy_high (class and ranked models), and mae_low
+  // and mae_high (number models), are the range the score on new examples
+  // likely falls in, 95% of the time: narrow with many examples scored,
+  // wide with few.
+  double accuracy_low = 21;
+  double accuracy_high = 22;
+  double mae_low = 23;
+  double mae_high = 24;
+  // baseline is the share a model would get right by always giving the
+  // most common answer, baseline_label (class and ranked models): the
+  // score to beat.
+  double baseline = 25;
+  string baseline_label = 26;
+  // copies counts examples set aside for scoring that were exact copies
+  // of ones it learned from; they weren't scored, so they don't flatter
+  // the score.
+  int64 copies = 27;
+
+  // Box-finding models (kind "boxes"): ap50 and ap75 average over the
+  // labels how well it finds things, a box counting right when it overlaps
+  // the real one by half or three quarters. classes score each label at
+  // the least score it answers with; support counts the real boxes.
+  double ap50 = 28;
+  double ap75 = 29;
+
+  // Fine-tuned language models (kind "text"): accuracy is the share of word
+  // pieces of the answers it guessed right first, log_loss how surprised it
+  // was by them. before_accuracy and before_loss are the same on the same
+  // examples before this run taught it, when it started fresh; 0 when not
+  // known. tokens counts the word pieces scored.
+  int64 tokens = 30;
+  double before_accuracy = 31;
+  double before_loss = 32;
 }
 
 message ClassScore {
@@ -500,6 +534,8 @@ message ClassScore {
   double f1 = 4;
   // support is how many examples really had this label.
   int64 support = 5;
+  // ap is a box-finding model's average precision on this label.
+  double ap = 6;
 }
 
 message ConfusionRow {

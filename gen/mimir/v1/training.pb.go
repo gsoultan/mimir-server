@@ -2562,9 +2562,40 @@ type RunReport struct {
 	// made counts the made-up rows of rarer answers it learned from beside
 	// the real ones (TrainingSettings.balance). It was scored on real rows
 	// only.
-	Made          int64 `protobuf:"varint,20,opt,name=made,proto3" json:"made,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Made int64 `protobuf:"varint,20,opt,name=made,proto3" json:"made,omitempty"`
+	// accuracy_low and accuracy_high (class and ranked models), and mae_low
+	// and mae_high (number models), are the range the score on new examples
+	// likely falls in, 95% of the time: narrow with many examples scored,
+	// wide with few.
+	AccuracyLow  float64 `protobuf:"fixed64,21,opt,name=accuracy_low,json=accuracyLow,proto3" json:"accuracy_low,omitempty"`
+	AccuracyHigh float64 `protobuf:"fixed64,22,opt,name=accuracy_high,json=accuracyHigh,proto3" json:"accuracy_high,omitempty"`
+	MaeLow       float64 `protobuf:"fixed64,23,opt,name=mae_low,json=maeLow,proto3" json:"mae_low,omitempty"`
+	MaeHigh      float64 `protobuf:"fixed64,24,opt,name=mae_high,json=maeHigh,proto3" json:"mae_high,omitempty"`
+	// baseline is the share a model would get right by always giving the
+	// most common answer, baseline_label (class and ranked models): the
+	// score to beat.
+	Baseline      float64 `protobuf:"fixed64,25,opt,name=baseline,proto3" json:"baseline,omitempty"`
+	BaselineLabel string  `protobuf:"bytes,26,opt,name=baseline_label,json=baselineLabel,proto3" json:"baseline_label,omitempty"`
+	// copies counts examples set aside for scoring that were exact copies
+	// of ones it learned from; they weren't scored, so they don't flatter
+	// the score.
+	Copies int64 `protobuf:"varint,27,opt,name=copies,proto3" json:"copies,omitempty"`
+	// Box-finding models (kind "boxes"): ap50 and ap75 average over the
+	// labels how well it finds things, a box counting right when it overlaps
+	// the real one by half or three quarters. classes score each label at
+	// the least score it answers with; support counts the real boxes.
+	Ap50 float64 `protobuf:"fixed64,28,opt,name=ap50,proto3" json:"ap50,omitempty"`
+	Ap75 float64 `protobuf:"fixed64,29,opt,name=ap75,proto3" json:"ap75,omitempty"`
+	// Fine-tuned language models (kind "text"): accuracy is the share of word
+	// pieces of the answers it guessed right first, log_loss how surprised it
+	// was by them. before_accuracy and before_loss are the same on the same
+	// examples before this run taught it, when it started fresh; 0 when not
+	// known. tokens counts the word pieces scored.
+	Tokens         int64   `protobuf:"varint,30,opt,name=tokens,proto3" json:"tokens,omitempty"`
+	BeforeAccuracy float64 `protobuf:"fixed64,31,opt,name=before_accuracy,json=beforeAccuracy,proto3" json:"before_accuracy,omitempty"`
+	BeforeLoss     float64 `protobuf:"fixed64,32,opt,name=before_loss,json=beforeLoss,proto3" json:"before_loss,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *RunReport) Reset() {
@@ -2737,6 +2768,90 @@ func (x *RunReport) GetMade() int64 {
 	return 0
 }
 
+func (x *RunReport) GetAccuracyLow() float64 {
+	if x != nil {
+		return x.AccuracyLow
+	}
+	return 0
+}
+
+func (x *RunReport) GetAccuracyHigh() float64 {
+	if x != nil {
+		return x.AccuracyHigh
+	}
+	return 0
+}
+
+func (x *RunReport) GetMaeLow() float64 {
+	if x != nil {
+		return x.MaeLow
+	}
+	return 0
+}
+
+func (x *RunReport) GetMaeHigh() float64 {
+	if x != nil {
+		return x.MaeHigh
+	}
+	return 0
+}
+
+func (x *RunReport) GetBaseline() float64 {
+	if x != nil {
+		return x.Baseline
+	}
+	return 0
+}
+
+func (x *RunReport) GetBaselineLabel() string {
+	if x != nil {
+		return x.BaselineLabel
+	}
+	return ""
+}
+
+func (x *RunReport) GetCopies() int64 {
+	if x != nil {
+		return x.Copies
+	}
+	return 0
+}
+
+func (x *RunReport) GetAp50() float64 {
+	if x != nil {
+		return x.Ap50
+	}
+	return 0
+}
+
+func (x *RunReport) GetAp75() float64 {
+	if x != nil {
+		return x.Ap75
+	}
+	return 0
+}
+
+func (x *RunReport) GetTokens() int64 {
+	if x != nil {
+		return x.Tokens
+	}
+	return 0
+}
+
+func (x *RunReport) GetBeforeAccuracy() float64 {
+	if x != nil {
+		return x.BeforeAccuracy
+	}
+	return 0
+}
+
+func (x *RunReport) GetBeforeLoss() float64 {
+	if x != nil {
+		return x.BeforeLoss
+	}
+	return 0
+}
+
 type ClassScore struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Label     string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
@@ -2744,7 +2859,9 @@ type ClassScore struct {
 	Recall    float64                `protobuf:"fixed64,3,opt,name=recall,proto3" json:"recall,omitempty"`
 	F1        float64                `protobuf:"fixed64,4,opt,name=f1,proto3" json:"f1,omitempty"`
 	// support is how many examples really had this label.
-	Support       int64 `protobuf:"varint,5,opt,name=support,proto3" json:"support,omitempty"`
+	Support int64 `protobuf:"varint,5,opt,name=support,proto3" json:"support,omitempty"`
+	// ap is a box-finding model's average precision on this label.
+	Ap            float64 `protobuf:"fixed64,6,opt,name=ap,proto3" json:"ap,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2810,6 +2927,13 @@ func (x *ClassScore) GetF1() float64 {
 func (x *ClassScore) GetSupport() int64 {
 	if x != nil {
 		return x.Support
+	}
+	return 0
+}
+
+func (x *ClassScore) GetAp() float64 {
+	if x != nil {
+		return x.Ap
 	}
 	return 0
 }
@@ -3713,7 +3837,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\n" +
 	"check_note\x18\x1e \x01(\tR\tcheckNote\x12+\n" +
 	"\x06report\x18\x1f \x01(\v2\x13.mimir.v1.RunReportR\x06report\x12-\n" +
-	"\x13start_from_model_id\x18  \x01(\tR\x10startFromModelId\"\xc0\x04\n" +
+	"\x13start_from_model_id\x18  \x01(\tR\x10startFromModelId\"\xa1\a\n" +
 	"\tRunReport\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1a\n" +
 	"\bexamples\x18\x02 \x01(\x03R\bexamples\x12\x1f\n" +
@@ -3737,14 +3861,28 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x06hit_at\x18\x11 \x03(\x01R\x05hitAt\x12\x10\n" +
 	"\x03mrr\x18\x12 \x01(\x01R\x03mrr\x12\x12\n" +
 	"\x04ndcg\x18\x13 \x01(\x01R\x04ndcg\x12\x12\n" +
-	"\x04made\x18\x14 \x01(\x03R\x04made\"\x82\x01\n" +
+	"\x04made\x18\x14 \x01(\x03R\x04made\x12!\n" +
+	"\faccuracy_low\x18\x15 \x01(\x01R\vaccuracyLow\x12#\n" +
+	"\raccuracy_high\x18\x16 \x01(\x01R\faccuracyHigh\x12\x17\n" +
+	"\amae_low\x18\x17 \x01(\x01R\x06maeLow\x12\x19\n" +
+	"\bmae_high\x18\x18 \x01(\x01R\amaeHigh\x12\x1a\n" +
+	"\bbaseline\x18\x19 \x01(\x01R\bbaseline\x12%\n" +
+	"\x0ebaseline_label\x18\x1a \x01(\tR\rbaselineLabel\x12\x16\n" +
+	"\x06copies\x18\x1b \x01(\x03R\x06copies\x12\x12\n" +
+	"\x04ap50\x18\x1c \x01(\x01R\x04ap50\x12\x12\n" +
+	"\x04ap75\x18\x1d \x01(\x01R\x04ap75\x12\x16\n" +
+	"\x06tokens\x18\x1e \x01(\x03R\x06tokens\x12'\n" +
+	"\x0fbefore_accuracy\x18\x1f \x01(\x01R\x0ebeforeAccuracy\x12\x1f\n" +
+	"\vbefore_loss\x18  \x01(\x01R\n" +
+	"beforeLoss\"\x92\x01\n" +
 	"\n" +
 	"ClassScore\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12\x1c\n" +
 	"\tprecision\x18\x02 \x01(\x01R\tprecision\x12\x16\n" +
 	"\x06recall\x18\x03 \x01(\x01R\x06recall\x12\x0e\n" +
 	"\x02f1\x18\x04 \x01(\x01R\x02f1\x12\x18\n" +
-	"\asupport\x18\x05 \x01(\x03R\asupport\"&\n" +
+	"\asupport\x18\x05 \x01(\x03R\asupport\x12\x0e\n" +
+	"\x02ap\x18\x06 \x01(\x01R\x02ap\"&\n" +
 	"\fConfusionRow\x12\x16\n" +
 	"\x06counts\x18\x01 \x03(\x03R\x06counts\"6\n" +
 	"\n" +

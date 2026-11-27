@@ -12,7 +12,11 @@ import { t } from "../i18n";
 // aside: one plain headline, the expert numbers, and one picture for its
 // kind of answer.
 export function RunReport({ report: r }: { report: Report }) {
-  const on = r.onTraining ? t("the examples it learned from, since none were kept aside") : t("{n1} examples it never saw while learning", { n1: r.examples.toLocaleString() });
+  const on = r.onTraining
+    ? t("the examples it learned from, since none were kept aside")
+    : r.kind === "boxes"
+      ? t("{n1} photos it never saw while learning", { n1: r.examples.toLocaleString() })
+      : t("{n1} examples it never saw while learning", { n1: r.examples.toLocaleString() });
   const v = verdict(r);
   return (
     <Stack gap="md">
@@ -28,16 +32,30 @@ export function RunReport({ report: r }: { report: Report }) {
         </Alert>
       )}
       <Text size="sm" c="dimmed">{t("Scored on")}{" "}{on}.</Text>
+      {r.copies > 0n && <Text size="sm" c="dimmed">{r.copies === 1n
+        ? t("1 row picked for scoring was an exact copy of a row it learned from, so it wasn't scored.")
+        : t("{n1} rows picked for scoring were exact copies of rows it learned from, so they weren't scored.", { n1: r.copies.toLocaleString() })}</Text>}
+      {unsure(r) && <Text size="sm" c="dimmed">{t("Only {n1} examples were scored, so on new ones the score could be quite different. More rows, or keeping more of them aside, makes it surer.", { n1: r.examples.toLocaleString() })}</Text>}
       {r.made > 0n && <Text size="sm" c="dimmed">{t("It also learned from {n1} made-up rows of the rarer answers. None of them were scored.", { n1: r.made.toLocaleString() })}</Text>}
       {r.kind === "number" && <Numbers r={r} />}
       {(r.kind === "class" || r.kind === "ranked") && <Labels r={r} />}
+      {r.kind === "boxes" && <Boxes r={r} />}
+      {r.kind === "text" && <Writing r={r} />}
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
-        <Stat label={t("Answer time")} value={`${number(r.millisPerExample, 2)} ms`} hint={t("per example, while scoring")} />
+        {r.millisPerExample > 0 && <Stat label={t("Answer time")} value={`${number(r.millisPerExample, 2)} ms`} hint={t("per example, while scoring")} />}
         <Stat label={t("Model size")} value={bytes(r.sizeBytes)} />
         <Stat label={t("Examples scored")} value={r.examples.toLocaleString()} />
       </SimpleGrid>
     </Stack>
   );
+}
+
+// unsure says the range a score likely falls in is wide: more than ten
+// points of right answers, or a miss that could be half again as large.
+function unsure(r: Report) {
+  if (r.onTraining) return false;
+  if (r.kind === "number") return r.maeHigh > 0 && r.maeHigh - r.maeLow > r.mae;
+  return r.accuracyHigh > 0 && r.accuracyHigh - r.accuracyLow > 0.2;
 }
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -54,7 +72,7 @@ function Numbers({ r }: { r: Report }) {
   return (
     <>
       <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
-        <Stat label={t("Usually off by (MAE)")} value={number(r.mae)} />
+        <Stat label={t("Usually off by (MAE)")} value={number(r.mae)} hint={r.maeHigh > 0 ? t("likely {low} to {high} on new examples", { low: number(r.maeLow), high: number(r.maeHigh) }) : undefined} />
         <Stat label={t("Big misses count more (RMSE)")} value={number(r.rmse)} />
         <Stat label={t("Explains the answers (R²)")} value={number(r.r2, 3)} hint={t("1 is perfect, 0 is no better than the average")} />
         <Stat label={t("Within 10%")} value={`${(r.within10 * 100).toFixed(1)}%`} />
@@ -108,7 +126,7 @@ function Labels({ r }: { r: Report }) {
   return (
     <>
       <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
-        <Stat label={t("Right answers")} value={`${(r.accuracy * 100).toFixed(1)}%`} />
+        <Stat label={t("Right answers")} value={`${(r.accuracy * 100).toFixed(1)}%`} hint={r.accuracyHigh > 0 ? t("likely {low}% to {high}% on new examples", { low: (r.accuracyLow * 100).toFixed(1), high: (r.accuracyHigh * 100).toFixed(1) }) : undefined} />
         <Stat label={t("Balanced score (macro F1)")} value={number(r.macroF1, 3)} hint={uneven ? t("the fairer score here: one answer is rare") : t("every answer counts the same")} />
         <Stat label={t("Sureness (log loss)")} value={number(r.logLoss, 3)} hint={t("lower is better")} />
         {r.kind === "ranked" && <Stat label={t("Right one in top {k}", { k: r.k })} value={`${((r.hitAt.at(-1) ?? 0) * 100).toFixed(1)}%`} />}
@@ -134,6 +152,51 @@ function Labels({ r }: { r: Report }) {
         </Table.ScrollContainer>
       )}
     </>
+  );
+}
+
+// Boxes scores a model that finds things in photos: overall, then for
+// each thing it finds.
+function Boxes({ r }: { r: Report }) {
+  return (
+    <>
+      <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+        <Stat label={t("Finds things (AP50)")} value={number(r.ap50, 3)} hint={t("1 is perfect; a box counts when it covers half the real one")} />
+        <Stat label={t("Finds them closely (AP75)")} value={number(r.ap75, 3)} hint={t("a box counts when it covers three quarters")} />
+      </SimpleGrid>
+      {r.classes.length > 0 && (
+        <Table.ScrollContainer minWidth={420}>
+          <Table verticalSpacing={4} fz="sm">
+            <Table.Thead><Table.Tr><Table.Th>{t("Thing")}</Table.Th><Table.Th>{t("When it finds this, it's right (precision)")}</Table.Th><Table.Th>{t("Finds it when it's there (recall)")}</Table.Th><Table.Th>AP50</Table.Th><Table.Th>{t("Real boxes")}</Table.Th></Table.Tr></Table.Thead>
+            <Table.Tbody>
+              {r.classes.map((c) => (
+                <Table.Tr key={c.label}>
+                  <Table.Td>{c.label}</Table.Td>
+                  <Table.Td>{(c.precision * 100).toFixed(1)}%</Table.Td>
+                  <Table.Td>{(c.recall * 100).toFixed(1)}%</Table.Td>
+                  <Table.Td>{number(c.ap, 3)}</Table.Td>
+                  <Table.Td>{c.support.toLocaleString()}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      )}
+      <Text size="xs" c="dimmed">{t("Precision and recall count what it answers with, things it is at least 30% sure of.")}</Text>
+    </>
+  );
+}
+
+// Writing scores a fine-tuned language model on the answers of the
+// examples kept aside, against how it did before this run taught it.
+function Writing({ r }: { r: Report }) {
+  const before = r.beforeLoss > 0;
+  return (
+    <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+      <Stat label={t("Word pieces guessed right")} value={`${(r.accuracy * 100).toFixed(1)}%`} hint={before ? t("{pct}% before this run", { pct: (r.beforeAccuracy * 100).toFixed(1) }) : t("its first guess at each word piece of the answers")} />
+      <Stat label={t("Surprise (perplexity)")} value={number(Math.exp(r.logLoss), 2)} hint={before ? t("{n} before this run; lower is better", { n: number(Math.exp(r.beforeLoss), 2) }) : t("lower is better")} />
+      <Stat label={t("Word pieces scored")} value={r.tokens.toLocaleString()} />
+    </SimpleGrid>
   );
 }
 

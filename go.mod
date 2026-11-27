@@ -17,7 +17,7 @@ require (
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/gsoultan/mimir v0.4.4
-	github.com/gsoultan/mimir-model v0.4.0
+	github.com/gsoultan/mimir-model v0.5.0
 	github.com/gsoultan/storm v1.4.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e

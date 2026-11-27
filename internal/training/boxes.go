@@ -247,8 +247,12 @@ func learnBoxes(ctx context.Context, t Task, progress Progress) (Result, error) 
 	if err := mim.Save(ctx, &buf, got.Module, &mim.SaveOptions{Metadata: map[string]any{arch.ShapeKey: got.Shape}}); err != nil {
 		return Result{}, fmt.Errorf("couldn't save the model: %w", err)
 	}
+	report := boxReport(got.Found, got.Truth, got.Labels)
+	if report != nil {
+		report.SizeBytes = int64(buf.Len())
+	}
 	return Result{
-		Weights: buf.Bytes(), History: history,
+		Weights: buf.Bytes(), History: history, Report: report,
 		Spec: arch.Spec{InputShape: []int{3, schema.SceneSize, schema.SceneSize}, Labels: got.Labels},
 	}, nil
 }
