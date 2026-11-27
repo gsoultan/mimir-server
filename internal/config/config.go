@@ -56,6 +56,12 @@ type File struct {
 	// SecretKeyFile is the file holding the secret key; empty means the
 	// data folder's secret.key.
 	SecretKeyFile string `json:"secret_key_file,omitempty"`
+	// Listen is where the console listens, such as :8080; -addr and
+	// $MIMIR_ADDR come first, and empty is :8080.
+	Listen string `json:"listen,omitempty"`
+	// TrustedProxies is reverse proxies and tunnels whose forwarded
+	// headers to believe, added to -trusted-proxies.
+	TrustedProxies string `json:"trusted_proxies,omitempty"`
 }
 
 // Path returns the file's path: explicit when set, else <dataDir>/mimir.json.

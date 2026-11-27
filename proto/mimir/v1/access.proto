@@ -127,6 +127,14 @@ message GetSetupStateResponse {
   SecretKeySource secret_key = 3;
   // Retention is what history is kept for unless Setup says otherwise.
   Retention retention = 4;
+  // ListenAddress is where the console listens now, such as :8080.
+  string listen_address = 5;
+  // ListenFixed is true when -addr or $MIMIR_ADDR sets the address, which
+  // Setup then can't change.
+  bool listen_fixed = 6;
+  // TrustedProxies is the reverse proxies already trusted by
+  // -trusted-proxies or $MIMIR_TRUSTED_PROXIES, comma-separated.
+  string trusted_proxies = 7;
 }
 
 // SecretKeySource is where the key that encrypts stored secrets (webhook
@@ -175,6 +183,15 @@ message SetupRequest {
   string secret_key = 7;
   // Retention is how long history is kept; unset keeps the defaults.
   Retention retention = 8;
+  // ListenAddress is where the console listens from now on, such as :8080
+  // or 10.0.0.5:8080; empty keeps it where it is. Ignored when
+  // GetSetupState says listen_fixed.
+  string listen_address = 9;
+  // TrustedProxies is the addresses or CIDR ranges of reverse proxies or
+  // tunnels (such as cloudflared on another machine) whose forwarded
+  // client address and https to believe, comma-separated, added to the
+  // ones the server already trusts.
+  string trusted_proxies = 10;
 }
 
 message SetupResponse {

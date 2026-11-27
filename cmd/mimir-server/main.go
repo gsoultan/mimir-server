@@ -222,6 +222,18 @@ func run() error {
 	// its default, so training can be kept off the machine that serves
 	// the API.
 
+	// Where to listen and whose forwarded headers to believe: -addr and
+	// $MIMIR_ADDR come first, then what setup saved in the configuration
+	// file; proxies from both are trusted.
+	cfgPath := config.Path(*configFile, *data)
+	addrFixed := os.Getenv("MIMIR_ADDR") != ""
+	flag.Visit(func(f *flag.Flag) { addrFixed = addrFixed || f.Name == "addr" })
+	if f, err := config.Read(cfgPath); err == nil {
+		if f.Listen != "" && !addrFixed {
+			*addr = f.Listen
+		}
+		*trustedProxies = joinList(*trustedProxies, f.TrustedProxies)
+	}
 	proxies, err := auth.ParseProxies(*trustedProxies)
 	if err != nil {
 		return fmt.Errorf("-trusted-proxies: %w", err)
@@ -234,16 +246,19 @@ func run() error {
 	// The listener starts early when first-run setup needs it, and the full
 	// handler takes its place once setup is done, on the same port.
 	var handler atomic.Pointer[http.Handler]
-	srv := &http.Server{
-		Addr:              *addr,
-		Handler:           http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { (*handler.Load()).ServeHTTP(w, r) }),
-		Protocols:         server.Protocols(),
-		TLSConfig:         tlsConfig,
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       2 * time.Minute,
+	newServer := func() *http.Server {
+		return &http.Server{
+			Addr:              *addr,
+			Handler:           http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { (*handler.Load()).ServeHTTP(w, r) }),
+			Protocols:         server.Protocols(),
+			TLSConfig:         tlsConfig,
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       2 * time.Minute,
+		}
 	}
+	srv := newServer()
 	errc := make(chan error, 1)
-	var listening sync.Once
+	listening := new(sync.Once)
 	listen := func() {
 		listening.Do(func() {
 			go func() {
@@ -259,7 +274,6 @@ func run() error {
 
 	// Flags and the environment come first, then the configuration file;
 	// with neither the console has no database yet and opens setup.
-	cfgPath := config.Path(*configFile, *data)
 	cfg := config.File{DatabaseURL: *databaseURL, LogDatabaseURL: *logDatabaseURL, SecretKeyFile: *secretKeyFile}
 	if cfg.DatabaseURL == "" {
 		f, err := config.Read(cfgPath)
@@ -270,7 +284,7 @@ func run() error {
 			cfg.LogDatabaseURL = cmp.Or(cfg.LogDatabaseURL, f.LogDatabaseURL)
 			cfg.SecretKeyFile = cmp.Or(cfg.SecretKeyFile, f.SecretKeyFile)
 		case errors.Is(err, fs.ErrNotExist):
-			done, err := firstRun(ctx, log, &handler, listen, errc, cfgPath, *data, *secretKeyFile, proxies)
+			done, err := firstRun(ctx, log, &handler, listen, errc, cfgPath, *data, *secretKeyFile, proxies, *addr, addrFixed)
 			if err != nil {
 				return err
 			}
@@ -279,6 +293,23 @@ func run() error {
 				return nil
 			}
 			cfg = *done
+			if done.TrustedProxies != "" {
+				*trustedProxies = joinList(*trustedProxies, done.TrustedProxies)
+				if proxies, err = auth.ParseProxies(*trustedProxies); err != nil {
+					return fmt.Errorf("-trusted-proxies: %w", err)
+				}
+			}
+			// Setup moved the console: stop listening where setup was
+			// and listen at the new address, where the full console
+			// starts. The address was checked as setup finished.
+			if done.Listen != "" && done.Listen != *addr {
+				log.Info("setup: moving to the new listen address", "from", *addr, "to", done.Listen)
+				srv.Close()
+				<-errc
+				*addr = done.Listen
+				srv = newServer()
+				listening = new(sync.Once)
+			}
 		default:
 			return err
 		}
@@ -553,7 +584,7 @@ func run() error {
 
 // firstRun serves first-run setup until it finishes, then returns the
 // configuration it wrote. It returns nil when the server is stopped first.
-func firstRun(ctx context.Context, log *slog.Logger, handler *atomic.Pointer[http.Handler], listen func(), errc <-chan error, cfgPath, dataDir, keyFile string, proxies auth.Proxies) (*config.File, error) {
+func firstRun(ctx context.Context, log *slog.Logger, handler *atomic.Pointer[http.Handler], listen func(), errc <-chan error, cfgPath, dataDir, keyFile string, proxies auth.Proxies, addr string, addrFixed bool) (*config.File, error) {
 	key, err := setup.FindKey(os.Getenv(secret.Env), keyFile, dataDir)
 	if err != nil {
 		return nil, err
@@ -568,6 +599,7 @@ func firstRun(ctx context.Context, log *slog.Logger, handler *atomic.Pointer[htt
 	}
 	s := setup.NewServer(token)
 	s.DataDir, s.ConfigPath, s.Key, s.Proxies, s.Log = dataDir, cfgPath, key, proxies, log
+	s.Listen, s.ListenFixed = addr, addrFixed
 	h := server.SetupHandler(s, proxies, web.Dist(), log)
 	handler.Store(&h)
 	listen()
@@ -722,4 +754,13 @@ func envOr(name, def string) string {
 		return v
 	}
 	return def
+}
+
+// joinList joins two comma-separated lists, either of which may be empty.
+func joinList(a, b string) string {
+	a, b = strings.TrimSpace(a), strings.TrimSpace(b)
+	if a == "" || b == "" {
+		return a + b
+	}
+	return a + "," + b
 }

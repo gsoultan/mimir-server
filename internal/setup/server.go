@@ -44,6 +44,10 @@ type Server struct {
 	Key        Key
 	Proxies    auth.Proxies
 	Log        *slog.Logger
+	// Listen is where the console listens now; ListenFixed is true when
+	// -addr or $MIMIR_ADDR set it, so setup leaves it alone.
+	Listen      string
+	ListenFixed bool
 	// Done gets the configuration, once, when setup succeeds.
 	Done chan config.File
 
@@ -82,7 +86,8 @@ func (s *Server) GetSetupState(context.Context, *connect.Request[mimirv1.GetSetu
 	r := api.DefaultRetention
 	return connect.NewResponse(&mimirv1.GetSetupStateResponse{
 		NeedsSetup: true, NeedsConfig: true, SecretKey: src,
-		Retention: &mimirv1.Retention{AuditDays: int32(r.AuditDays), DeliveryDays: int32(r.DeliveryDays)},
+		Retention:     &mimirv1.Retention{AuditDays: int32(r.AuditDays), DeliveryDays: int32(r.DeliveryDays)},
+		ListenAddress: s.Listen, ListenFixed: s.ListenFixed, TrustedProxies: s.Proxies.String(),
 	}), nil
 }
 
@@ -171,6 +176,19 @@ func (s *Server) Setup(ctx context.Context, req *connect.Request[mimirv1.SetupRe
 			return nil, err
 		}
 		p.Retention = &rr
+	}
+
+	if a := strings.TrimSpace(m.GetListenAddress()); a != "" && !s.ListenFixed && a != s.Listen {
+		if err := CheckListen(a); err != nil {
+			return nil, invalid(err)
+		}
+		p.Listen = a
+	}
+	if t := strings.TrimSpace(m.GetTrustedProxies()); t != "" {
+		if _, err := auth.ParseProxies(t); err != nil {
+			return nil, invalid(fmt.Errorf("Proxy addresses: %s", err))
+		}
+		p.TrustedProxies = t
 	}
 
 	// The owner is needed only for a database without accounts; check

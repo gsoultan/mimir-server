@@ -368,9 +368,17 @@ type GetSetupStateResponse struct {
 	// NeedsConfig is true.
 	SecretKey SecretKeySource `protobuf:"varint,3,opt,name=secret_key,json=secretKey,proto3,enum=mimir.v1.SecretKeySource" json:"secret_key,omitempty"`
 	// Retention is what history is kept for unless Setup says otherwise.
-	Retention     *Retention `protobuf:"bytes,4,opt,name=retention,proto3" json:"retention,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Retention *Retention `protobuf:"bytes,4,opt,name=retention,proto3" json:"retention,omitempty"`
+	// ListenAddress is where the console listens now, such as :8080.
+	ListenAddress string `protobuf:"bytes,5,opt,name=listen_address,json=listenAddress,proto3" json:"listen_address,omitempty"`
+	// ListenFixed is true when -addr or $MIMIR_ADDR sets the address, which
+	// Setup then can't change.
+	ListenFixed bool `protobuf:"varint,6,opt,name=listen_fixed,json=listenFixed,proto3" json:"listen_fixed,omitempty"`
+	// TrustedProxies is the reverse proxies already trusted by
+	// -trusted-proxies or $MIMIR_TRUSTED_PROXIES, comma-separated.
+	TrustedProxies string `protobuf:"bytes,7,opt,name=trusted_proxies,json=trustedProxies,proto3" json:"trusted_proxies,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetSetupStateResponse) Reset() {
@@ -429,6 +437,27 @@ func (x *GetSetupStateResponse) GetRetention() *Retention {
 		return x.Retention
 	}
 	return nil
+}
+
+func (x *GetSetupStateResponse) GetListenAddress() string {
+	if x != nil {
+		return x.ListenAddress
+	}
+	return ""
+}
+
+func (x *GetSetupStateResponse) GetListenFixed() bool {
+	if x != nil {
+		return x.ListenFixed
+	}
+	return false
+}
+
+func (x *GetSetupStateResponse) GetTrustedProxies() string {
+	if x != nil {
+		return x.TrustedProxies
+	}
+	return ""
 }
 
 type CheckDatabaseRequest struct {
@@ -558,9 +587,18 @@ type SetupRequest struct {
 	// key comes from the environment or the key file is already there.
 	SecretKey string `protobuf:"bytes,7,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
 	// Retention is how long history is kept; unset keeps the defaults.
-	Retention     *Retention `protobuf:"bytes,8,opt,name=retention,proto3" json:"retention,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Retention *Retention `protobuf:"bytes,8,opt,name=retention,proto3" json:"retention,omitempty"`
+	// ListenAddress is where the console listens from now on, such as :8080
+	// or 10.0.0.5:8080; empty keeps it where it is. Ignored when
+	// GetSetupState says listen_fixed.
+	ListenAddress string `protobuf:"bytes,9,opt,name=listen_address,json=listenAddress,proto3" json:"listen_address,omitempty"`
+	// TrustedProxies is the addresses or CIDR ranges of reverse proxies or
+	// tunnels (such as cloudflared on another machine) whose forwarded
+	// client address and https to believe, comma-separated, added to the
+	// ones the server already trusts.
+	TrustedProxies string `protobuf:"bytes,10,opt,name=trusted_proxies,json=trustedProxies,proto3" json:"trusted_proxies,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SetupRequest) Reset() {
@@ -647,6 +685,20 @@ func (x *SetupRequest) GetRetention() *Retention {
 		return x.Retention
 	}
 	return nil
+}
+
+func (x *SetupRequest) GetListenAddress() string {
+	if x != nil {
+		return x.ListenAddress
+	}
+	return ""
+}
+
+func (x *SetupRequest) GetTrustedProxies() string {
+	if x != nil {
+		return x.TrustedProxies
+	}
+	return ""
 }
 
 type SetupResponse struct {
@@ -2732,21 +2784,24 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\ateam_id\x18\t \x01(\tR\x06teamId\x12\x1b\n" +
 	"\tteam_name\x18\n" +
 	" \x01(\tR\bteamName\"\x16\n" +
-	"\x14GetSetupStateRequest\"\xc8\x01\n" +
+	"\x14GetSetupStateRequest\"\xbb\x02\n" +
 	"\x15GetSetupStateResponse\x12\x1f\n" +
 	"\vneeds_setup\x18\x01 \x01(\bR\n" +
 	"needsSetup\x12!\n" +
 	"\fneeds_config\x18\x02 \x01(\bR\vneedsConfig\x128\n" +
 	"\n" +
 	"secret_key\x18\x03 \x01(\x0e2\x19.mimir.v1.SecretKeySourceR\tsecretKey\x121\n" +
-	"\tretention\x18\x04 \x01(\v2\x13.mimir.v1.RetentionR\tretention\"Z\n" +
+	"\tretention\x18\x04 \x01(\v2\x13.mimir.v1.RetentionR\tretention\x12%\n" +
+	"\x0elisten_address\x18\x05 \x01(\tR\rlistenAddress\x12!\n" +
+	"\flisten_fixed\x18\x06 \x01(\bR\vlistenFixed\x12'\n" +
+	"\x0ftrusted_proxies\x18\a \x01(\tR\x0etrustedProxies\"Z\n" +
 	"\x14CheckDatabaseRequest\x12\x1f\n" +
 	"\vsetup_token\x18\x01 \x01(\tR\n" +
 	"setupToken\x12!\n" +
 	"\fdatabase_url\x18\x02 \x01(\tR\vdatabaseUrl\"T\n" +
 	"\x15CheckDatabaseResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12!\n" +
-	"\fhas_accounts\x18\x02 \x01(\bR\vhasAccounts\"\x94\x02\n" +
+	"\fhas_accounts\x18\x02 \x01(\bR\vhasAccounts\"\xe4\x02\n" +
 	"\fSetupRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -2757,7 +2812,10 @@ const file_mimir_v1_access_proto_rawDesc = "" +
 	"\x10log_database_url\x18\x06 \x01(\tR\x0elogDatabaseUrl\x12\x1d\n" +
 	"\n" +
 	"secret_key\x18\a \x01(\tR\tsecretKey\x121\n" +
-	"\tretention\x18\b \x01(\v2\x13.mimir.v1.RetentionR\tretention\"U\n" +
+	"\tretention\x18\b \x01(\v2\x13.mimir.v1.RetentionR\tretention\x12%\n" +
+	"\x0elisten_address\x18\t \x01(\tR\rlistenAddress\x12'\n" +
+	"\x0ftrusted_proxies\x18\n" +
+	" \x01(\tR\x0etrustedProxies\"U\n" +
 	"\rSetupResponse\x12\"\n" +
 	"\x04user\x18\x01 \x01(\v2\x0e.mimir.v1.UserR\x04user\x12 \n" +
 	"\fsign_in_next\x18\x02 \x01(\bR\n" +

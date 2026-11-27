@@ -45,9 +45,14 @@ function Setup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [finished, setFinished] = useState(false);
+  const [listen, setListen] = useState<string | null>(null);
+  const [proxiesInput, setProxiesInput] = useState("");
 
   // The log database starts as a copy of the main one's server and role.
   const log = logDb ?? { ...db, database: `${db.database}_log` };
+  const listenNow = state?.listenAddress ?? "";
+  const listenAddress = (listen ?? listenNow).trim();
+  const moved = needsConfig && !state?.listenFixed && listenAddress !== "" && listenAddress !== listenNow;
   const audit = auditDays ?? state?.retention?.auditDays ?? 365;
   const delivery = deliveryDays ?? state?.retention?.deliveryDays ?? 30;
 
@@ -62,7 +67,7 @@ function Setup() {
     },
   });
 
-  if (finished) return <Finished hasAccounts={hasAccounts} />;
+  if (finished) return <Finished hasAccounts={hasAccounts} movedTo={moved ? listenAddress : ""} />;
 
   type Step = { label: string; body: ReactNode; ready: boolean };
   const steps: Step[] = [{
@@ -96,6 +101,19 @@ function Setup() {
       label: t("Secret key"),
       ready: state?.secretKey !== SecretKeySource.NONE || (keyMode === "new" ? keySaved : secretKey.trim() !== ""),
       body: <KeyStep source={state?.secretKey ?? SecretKeySource.UNSPECIFIED} mode={keyMode} setMode={setKeyMode} newKey={newKey} regenerate={() => { setNewKey(newSecretKey()); setKeySaved(false); }} saved={keySaved} setSaved={setKeySaved} value={secretKey} setValue={setSecretKey} />,
+    });
+    steps.push({
+      label: t("Server"),
+      ready: state?.listenFixed || /^[^\s]*:\d{1,5}$/.test(listenAddress),
+      body: (
+        <Stack>
+          <Text size="sm" c="dimmed">{t("Where the server listens, and the tunnel or reverse proxy in front of it, if any. You can leave both as they are.")}</Text>
+          <TextInput label={t("Listen address")} description={state?.listenFixed ? t("Set by -addr or $MIMIR_ADDR, so it stays {address}.", { address: listenNow }) : t(":8080 listens on every network interface, so a tunnel or proxy on another machine can reach it. 127.0.0.1:8080 keeps it to this machine.")} disabled={state?.listenFixed} autoComplete="off" spellCheck={false} placeholder=":8080" value={listen ?? listenNow} onChange={(e) => setListen(e.currentTarget.value)} />
+          <TextInput label={t("Tunnel or proxy address (optional)")} description={t("The IP address of the machine running your tunnel (such as cloudflared) or reverse proxy, so the server sees each visitor's own address and knows they came over https. Separate several with commas.")} autoComplete="off" spellCheck={false} placeholder="192.168.1.10" value={proxiesInput} onChange={(e) => setProxiesInput(e.currentTarget.value)} />
+          {state?.trustedProxies ? <Text size="sm" c="dimmed">{t("Already trusted: {list}", { list: state.trustedProxies })}</Text> : null}
+          {moved ? <Alert color="blue" icon={<IconAlertCircle />}>{t("When setup finishes, the server moves to {address}. Point your tunnel or proxy there.", { address: listenAddress })}</Alert> : null}
+        </Stack>
+      ),
     });
   }
   steps.push({
@@ -133,6 +151,8 @@ function Setup() {
       databaseUrl: postgresUrl(db),
       logDatabaseUrl: separateLog ? postgresUrl(log) : "",
       secretKey: state?.secretKey !== SecretKeySource.NONE ? "" : keyMode === "mine" ? secretKey : newKey,
+      listenAddress: moved ? listenAddress : "",
+      trustedProxies: proxiesInput.trim(),
     }),
   });
 
@@ -237,7 +257,7 @@ function KeyStep({ source, mode, setMode, newKey, regenerate, saved, setSaved, v
 
 // Finished waits for the full server, which starts once setup is written,
 // before sending the owner to sign in.
-function Finished({ hasAccounts }: { hasAccounts: boolean }) {
+function Finished({ hasAccounts, movedTo }: { hasAccounts: boolean; movedTo: string }) {
   const navigate = useNavigate();
   const { queryClient } = Route.useRouteContext();
   const [ready, setReady] = useState(false);
@@ -265,6 +285,7 @@ function Finished({ hasAccounts }: { hasAccounts: boolean }) {
         <Group gap="xs">
           <Badge color={ready ? "teal" : "gray"} variant="light">{ready ? t("Server ready") : t("Server starting…")}</Badge>
         </Group>
+        {movedTo ? <Alert color="blue" icon={<IconAlertCircle />}>{t("The server now listens at {address}. If this page stays on starting, point your tunnel or proxy there and open the server again.", { address: movedTo })}</Alert> : null}
         <Text size="sm" c="dimmed">{t("Setup is now closed: this page won't open again. Back up the data folder's secret.key with the database.")}</Text>
         <Button fullWidth disabled={!ready} onClick={() => { queryClient.clear(); void navigate({ to: "/sign-in" }); }}>{t("Sign in")}</Button>
       </Stack>
