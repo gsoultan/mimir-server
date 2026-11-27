@@ -82,6 +82,7 @@ func newHealthChecker(ping func(context.Context) error) *healthChecker {
 	for _, name := range []string{
 		mimirv1connect.ModelServiceName,
 		mimirv1connect.PredictServiceName,
+		mimirv1connect.MediaServiceName,
 		mimirv1connect.AuthServiceName,
 		mimirv1connect.UserServiceName,
 		mimirv1connect.ApiKeyServiceName,
