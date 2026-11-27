@@ -604,9 +604,7 @@ func cadenceOf(times []time.Time) cadence {
 var seriesWords = regexp.MustCompile(`store|shop|branch|series|product|item|sku|region|location|site|city|country|machine|sensor|device|account|customer|channel|category`)
 
 // forecaster learns the values to come from the values so far with
-// boosted trees over recent values, exponential smoothing for a series
-// that forecasts better on its own, or Croston's method for a series
-// with nothing on most steps. The answer column is the value; a
+// boosted trees over recent values. The answer column is the value; a
 // date column says when, and a category column, when there is one and
 // dates repeat, which series each row is of.
 var forecaster = &Learner{
@@ -689,7 +687,17 @@ var forecaster = &Learner{
 			}
 			return forecast.Fit(ctx, long, opts...)
 		}
-		smooth := func(s []float32) *forecast.Smoothing {
+		// smooth forecasts one series on its own: by Holt-Winters
+		// smoothing, or, for a series with demand at few steps such as
+		// a slow seller, by Croston's method. Such a series is not
+		// judged by its mean error, which a forecast of 0 wins, though
+		// it plans no stock.
+		smooth := func(s []float32) interface{ Forecast(int) []float32 } {
+			if forecast.Sparse(s) {
+				if c, err := forecast.Croston(s); err == nil {
+					return c
+				}
+			}
 			season := season
 			if len(s) < 2*season {
 				season = 0
@@ -700,25 +708,10 @@ var forecaster = &Learner{
 			}
 			return m
 		}
-		// patchy fits Croston's method to a series with demand on fewer
-		// than 3 steps in 4, such as a spare part's sales, where trees and
-		// smoothing both chase the zeros.
-		patchy := func(s []float32) *forecast.Intermittent {
-			if !forecast.Sparse(s) {
-				return nil
-			}
-			m, err := forecast.Croston(s)
-			if err != nil {
-				return nil
-			}
-			return m
-		}
 		// Score it on each series' last steps, learning from the rest,
-		// then learn from everything; each series keeps whichever of
-		// the trees, smoothing and Croston forecast its last steps best.
-		const byTrees, bySmoothing, byCroston = 0, 1, 2
+		// then learn from everything.
 		back := min(cad.horizon, longest/5)
-		chosen := make([]int, len(hist))
+		smoothed := make([]bool, len(hist))
 		var mae float64
 		if back > 0 {
 			short := make([][]float32, len(hist))
@@ -752,20 +745,12 @@ var forecaster = &Learner{
 				if sm := smooth(short[i]); sm != nil {
 					se, sn = score(sm.Forecast(len(held)))
 				}
-				ce, cn := 0.0, 0
-				if cm := patchy(short[i]); cm != nil {
-					ce, cn = score(cm.Forecast(len(held)))
+				if sn > 0 && (tn == 0 || se/float64(sn) < te/float64(tn) || forecast.Sparse(short[i])) {
+					smoothed[i] = true
+					sum, n = sum+se, n+sn
+				} else {
+					sum, n = sum+te, n+tn
 				}
-				be, bn := te, tn
-				for k, c := range [][2]float64{bySmoothing: {se, float64(sn)}, byCroston: {ce, float64(cn)}} {
-					if k == byTrees || c[1] == 0 {
-						continue
-					}
-					if bn == 0 || c[0]/c[1] < be/float64(bn) {
-						chosen[i], be, bn = k, c[0], int(c[1])
-					}
-				}
-				sum, n = sum+be, n+bn
 			}
 			if n > 0 {
 				mae = sum / float64(n)
@@ -785,11 +770,8 @@ var forecaster = &Learner{
 		for i, s := range hist {
 			var f []float32
 			sm := smooth(s)
-			cm := patchy(s)
 			switch {
-			case cm != nil && (chosen[i] == byCroston || (trees == nil || len(s) < lags+2) && sm == nil):
-				f = cm.Forecast(h)
-			case sm != nil && (chosen[i] == bySmoothing || trees == nil || len(s) < lags+2):
+			case sm != nil && (smoothed[i] || trees == nil || len(s) < lags+2 || forecast.Sparse(s)):
 				f = sm.Forecast(h)
 			case trees != nil:
 				f = trees.Forecast(s, h)

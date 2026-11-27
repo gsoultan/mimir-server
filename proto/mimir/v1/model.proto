@@ -452,6 +452,10 @@ message Architecture {
   // algorithm names the method it learns with, in a data scientist's
   // words; empty for someone's own model type.
   string algorithm = 14;
+  // rules says a model of this shape can be told, per number column,
+  // that its answer only goes up or only goes down as the column rises
+  // (TrainingSettings.rules).
+  bool rules = 15;
 }
 
 // Column is one column a model reads and how it becomes numbers.

@@ -2,21 +2,12 @@
 
 ## Unreleased
 
-### More model types
+### Another model type
 
-- **Boosted trees for a count** (`number-counts`): for orders a day,
-  calls a week or faults a month. Never answers below zero, and fits
-  small counts and many zeros better than boosted trees for a number.
-- **Boosted trees for an amount that is often zero**
-  (`number-amounts`): for claims or monthly spend, zero for many rows
-  and large for a few.
 - **Spot the odd one by its neighbors** (`odd-one-local`): the local
   outlier factor, which flags a row just outside a tight group even when
   another group is loosely spread. Scores 0 to 1 like Spot the odd one.
-- **Forecasts for patchy demand:** a series with demand on fewer than 3
-  steps in 4 also tries Croston's method, and keeps it when it forecasts
-  the last steps best.
-- mimir moves to the commit with these models (gsoultan/mimir#48).
+- mimir moves to v0.4.4, which has it (gsoultan/mimir#48).
 
 ### More templates in every category
 
