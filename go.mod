@@ -15,8 +15,8 @@ require (
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/gsoultan/caduceus v0.1.2-0.20261127130252-81600d49c477
-	github.com/gsoultan/mimir v0.4.4-0.20261121182649-7d9e51db136d
-	github.com/gsoultan/mimir-model v0.4.0
+	github.com/gsoultan/mimir v0.4.4
+	github.com/gsoultan/mimir-model v0.5.0
 	github.com/gsoultan/storm/v2 v2.0.0-20261127152726-b5d903b86bed
 	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
 	github.com/modal-labs/modal-client/go v0.11.1
