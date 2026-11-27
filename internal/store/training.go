@@ -107,6 +107,9 @@ type Settings struct {
 	// rows to learn from as the most common one. The rows kept aside for
 	// scoring stay real.
 	Balance bool
+	// Rules keep a boosted-tree model's answer going one way as a number
+	// column rises, as arch.FormatRules writes them; "" is none.
+	Rules string
 }
 
 // Epoch is how one pass over the examples went.
@@ -399,6 +402,7 @@ func fromJob(r trainingjob.Row) Job {
 			HoldOut:      r.HoldOut,
 			Layers:       r.Layers,
 			Balance:      r.Balance,
+			Rules:        r.Rules,
 		},
 		Status:        JobStatus(r.Status),
 		Error:         r.Error,
@@ -454,6 +458,7 @@ func (s *Store) CreateJob(ctx context.Context, j Job) (Job, error) {
 	n.SetHoldOut(j.Settings.HoldOut)
 	n.SetLayers(j.Settings.Layers)
 	n.SetBalance(j.Settings.Balance)
+	n.SetRules(j.Settings.Rules)
 	n.SetStatus(int32(j.Status))
 	n.SetCreatedBy(j.CreatedBy)
 	n.SetCreateTime(j.Created)
