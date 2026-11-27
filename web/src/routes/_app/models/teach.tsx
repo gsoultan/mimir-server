@@ -180,6 +180,10 @@ function Wizard({ data: dataType }: { data: DataType }) {
   // The other kinds of model wait behind a button, so the step is one
   // clear choice.
   const [moreKinds, { toggle: toggleKinds }] = useDisclosure(false);
+  // Which way the answer goes as a number column rises: "up", "down",
+  // or free when a column has none.
+  const [rules, setRules] = useState<Record<string, string>>({});
+  const [showRules, { toggle: toggleRules }] = useDisclosure(false);
   const [epochs, setEpochs] = useState<number | string>(10);
   const [batch, setBatch] = useState<number | string>(32);
   const [rate, setRate] = useState<number | string>(0.005);
@@ -231,6 +235,8 @@ function Wizard({ data: dataType }: { data: DataType }) {
   function chose(d: Dataset, c?: Check) {
     setDataset(d);
     setCheck(c);
+    // A rule belongs to these examples' columns and answers.
+    setRules({});
     const allowed = archs.architectures.filter((a) => d.architectures.includes(a.name) && (role ? a.name === search.arch : !a.target));
     setArch((cur) => {
       if (tpl && d.architectures.includes(tpl.architecture)) return tpl.architecture;
@@ -354,6 +360,12 @@ function Wizard({ data: dataType }: { data: DataType }) {
   const answers = dataset?.numberTarget
     ? { what: t("a number"), count: 1 }
     : { what: dataset?.labels.length === 2 ? dataset.labels.join(t(" or ")) : t("one of {n1} answers", { n1: dataset?.labels.length ?? 0 }), count: dataset?.labels.length ?? 2 };
+  // Rules apply to boosted trees answering a number or one of two answers.
+  const ruleColumns = chosenArch?.rules && dataset && (dataset.numberTarget || dataset.labels.length === 2)
+    ? dataset.columns.filter((c) => c.kind === "number").map((c) => c.name)
+    : [];
+  const chosenRules = ruleColumns.filter((c) => rules[c]).map((c) => ({ column: c, direction: rules[c]! }));
+  const ruleAnswer = dataset?.numberTarget ? t("the answer") : t("the chance of \"{label}\"", { label: dataset?.labels[1] ?? "" });
   const chosenEpochs = expert ? Number(epochs) : presets.find((p) => p.value === preset)!.epochs;
   // Rows of rarer answers can be made up for a table model that picks
   // one answer from a few.
@@ -364,6 +376,7 @@ function Wizard({ data: dataType }: { data: DataType }) {
     settings: {
       epochs: chosenEpochs, batchSize: expert ? Number(batch) : 0, learningRate: expert ? Number(rate) : 0, holdOut: expert ? Number(holdOut) / 100 : 0.2, balance: balanceable && balance,
       layers: chosenArch?.designable ? layersOf(size, shapeSteps, inputs) : [],
+      rules: chosenRules,
     },
   });
   const steps = tpl ? [t("Your data"), t("Name it"), t("How long")] : [t("The examples"), t("What kind"), t("How long")];
@@ -577,6 +590,30 @@ function Wizard({ data: dataType }: { data: DataType }) {
                 steps={shapeSteps}
                 onChange={(sz, st) => { setSize(sz); setShapeSteps(st); }}
               />
+            )}
+            {ruleColumns.length > 0 && (
+              <Stack gap={4} mt="md">
+                <UnstyledButton onClick={toggleRules} className="self-start text-sm text-[var(--mantine-color-teal-7)] underline">
+                  {showRules ? t("Hide the up-or-down rules") : chosenRules.length > 0 ? t("Up-or-down rules ({n} set)", { n: chosenRules.length }) : t("Up-or-down rules")}
+                </UnstyledButton>
+                <Collapse expanded={showRules}>
+                  <Text size="xs" c="dimmed" mt={4}>{t("Optional. If {answer} only ever goes one way as a number rises, set that rule here, and the model always keeps to it.", { answer: ruleAnswer })}</Text>
+                  <Stack gap="xs" mt="sm">
+                    {ruleColumns.map((c) => (
+                      <Group key={c} justify="space-between" wrap="nowrap" gap="xs">
+                        <Text size="sm" className="min-w-0 flex-1">{t("When {column} rises, {answer}:", { column: c, answer: ruleAnswer })}</Text>
+                        <SegmentedControl
+                          size="xs"
+                          value={rules[c] ?? ""}
+                          onChange={(v) => setRules({ ...rules, [c]: v })}
+                          data={[{ value: "up", label: t("Goes up") }, { value: "", label: t("Either way") }, { value: "down", label: t("Goes down") }]}
+                          aria-label={t("Which way {answer} goes as {column} rises", { answer: ruleAnswer, column: c })}
+                        />
+                      </Group>
+                    ))}
+                  </Stack>
+                </Collapse>
+              </Stack>
             )}
             <Stack mt="lg">
               <TextInput label={t("Name")} required maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)} />

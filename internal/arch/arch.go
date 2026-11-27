@@ -221,6 +221,9 @@ type Architecture struct {
 	AnyText bool
 	// Designable says its hidden layers can be designed (Spec.Layers).
 	Designable bool
+	// Rules says its answer can be kept going one way as a number column
+	// rises (Inputs.Rules).
+	Rules bool
 	// Spec is the fixed shape and labels, or zero when they come from the
 	// dataset.
 	Spec Spec

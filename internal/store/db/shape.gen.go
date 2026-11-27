@@ -424,6 +424,7 @@ func _assertTrainingJobShape(m m0.TrainingJob) {
 		m.RunOn,
 		m.Layers,
 		m.Balance,
+		m.Rules,
 		m.MinNewRows,
 		m.TrainedRows,
 		m.CheckTime,
