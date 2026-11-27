@@ -19,7 +19,7 @@ require (
 	github.com/gsoultan/caduceus v0.1.1-0.20261127080509-21b46160b217
 	github.com/gsoultan/mimir v0.4.4-0.20261121182649-7d9e51db136d
 	github.com/gsoultan/mimir-model v0.4.0
-	github.com/gsoultan/storm v1.12.3-0.20261127083532-8650162bc8cc
+	github.com/gsoultan/storm v1.12.3-0.20261127084903-2fa339c995d5
 	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
 	github.com/modal-labs/modal-client/go v0.11.1
 	github.com/prometheus/client_golang v1.25.0

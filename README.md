@@ -1321,9 +1321,9 @@ the shared columns as mixins (`mixins.go`: id and creation time, display
 name, owning team) and the roles, statuses and kinds as named types
 (`enums.go`) that package store uses directly. The typed query code
 in `internal/store/db` and the migrations in `internal/store/migrations`
-are generated from them with storm's CLI
-(`go install github.com/gsoultan/storm/cmd/storm@v1.4.0`), and both are
-committed. After changing a struct, against a scratch PostgreSQL database:
+are generated from them with storm's CLI, at the version go.mod requires
+(`go install github.com/gsoultan/storm/cmd/storm@$(go list -m -f '{{.Version}}' github.com/gsoultan/storm)`),
+and both are committed. After changing a struct, against a scratch PostgreSQL database:
 
 ```sh
 export STORM_DSN='postgres://postgres@localhost:5432/scratch?sslmode=disable'
