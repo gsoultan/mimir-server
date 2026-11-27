@@ -21,8 +21,6 @@ After=network-online.target postgresql.service
 Type=exec
 User=mimir-server
 Group=mimir-server
-# MIMIR_ADDR in /etc/mimir-server/mimir-server.env overrides this address.
-Environment=MIMIR_ADDR=0.0.0.0:8080
 EnvironmentFile=-/etc/mimir-server/mimir-server.env
 ExecStart=/usr/bin/mimir-server -role standalone -data /var/lib/mimir-server
 

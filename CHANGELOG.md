@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Reachable from a tunnel, set up in the browser
+
+- **Packages listen on every interface.** The .deb, .rpm, Arch and Alpine
+  packages listen on `:8080` instead of `127.0.0.1:8080`, so a tunnel
+  (such as cloudflared) or proxy on another machine reaches first-run
+  setup with nothing to edit. Setup still needs its one-time token, and
+  everything after it a sign-in.
+- **`$MIMIR_ADDR`** sets `-addr`, so the address is one line in the env
+  file.
+- **A Server step in first-run setup** sets the listen address and the
+  tunnel or proxy to trust (`-trusted-proxies`), saved in `mimir.json`.
+  A new address takes effect as setup finishes, with no restart. `-addr`
+  and `$MIMIR_ADDR` still win; proxies from both places are trusted.
+
 ### PostgreSQL through caduceus
 
 - The server now reaches its own database through caduceus, a PostgreSQL

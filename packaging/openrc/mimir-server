@@ -16,7 +16,6 @@ name="mimir-server"
 description="mimir-server console"
 
 : "${MIMIR_ENV_FILE:=/etc/mimir-server/mimir-server.env}"
-: "${MIMIR_ADDR:=0.0.0.0:8080}"
 : "${MIMIR_DATA:=/var/lib/mimir-server}"
 
 # Every setting in the env file reaches the server as an environment
@@ -28,7 +27,7 @@ if [ -r "$MIMIR_ENV_FILE" ]; then
 fi
 
 command="/usr/bin/mimir-server"
-command_args="-role standalone -addr $MIMIR_ADDR -data $MIMIR_DATA"
+command_args="-role standalone -data $MIMIR_DATA"
 command_user="mimir-server:mimir-server"
 supervisor="supervise-daemon"
 respawn_delay=5

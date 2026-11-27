@@ -99,7 +99,8 @@ at the tunnel's hostname, but can't be finished without the one-time setup
 token from the log; a Cloudflare Access policy on the hostname keeps
 everyone else off it until setup is done.
 
-When `cloudflared` (or any proxy) runs on another machine, set
+First-run setup's Server step sets both of these in the browser, saved in
+`mimir.json`; the env file's values come first. By hand: when `cloudflared` (or any proxy) runs on another machine, set
 `MIMIR_ADDR=0.0.0.0:8080` and `MIMIR_TRUSTED_PROXIES` to that machine's
 address, point the tunnel at this machine's LAN address, and let only the
 proxy reach the port, for example

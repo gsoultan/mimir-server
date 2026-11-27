@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -103,6 +104,9 @@ type Plan struct {
 	NewKey []byte
 	// Retention is nil to keep the defaults.
 	Retention *api.Retention
+	// Listen and TrustedProxies go in the configuration file as they are;
+	// empty leaves them out.
+	Listen, TrustedProxies string
 	// Owner is created when the database has no accounts yet; nil makes
 	// none.
 	Owner *Owner
@@ -119,6 +123,23 @@ type Result struct {
 	OwnerCreated bool
 	// MigrationSteps is how many schema steps the databases took.
 	MigrationSteps int
+}
+
+// CheckListen checks addr is a host:port this machine can listen on, such
+// as :8080, 0.0.0.0:8080 or 10.0.0.5:8080, by listening on it for a moment.
+func CheckListen(addr string) error {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil || port == "" {
+		return fmt.Errorf("The listen address must be a port, such as :8080, or an address and a port, such as 10.0.0.5:8080.")
+	}
+	if host != "" && net.ParseIP(host) == nil && host != "localhost" {
+		return fmt.Errorf("The listen address must be an IP address of this machine, not %q.", host)
+	}
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("Can't listen on %s: %s", addr, err)
+	}
+	return l.Close()
 }
 
 // CheckURL checks a database URL is a PostgreSQL one, with an error fit to
@@ -216,7 +237,7 @@ func Apply(ctx context.Context, p Plan) (Result, error) {
 		}
 		res.KeySaved = true
 	}
-	res.Config = config.File{DatabaseURL: p.DatabaseURL, LogDatabaseURL: p.LogDatabaseURL}
+	res.Config = config.File{DatabaseURL: p.DatabaseURL, LogDatabaseURL: p.LogDatabaseURL, Listen: p.Listen, TrustedProxies: p.TrustedProxies}
 	if p.Key.Source == KeyEnvironment && p.Key.File != "" {
 		res.Config.SecretKeyFile = p.Key.File
 	}
