@@ -36,6 +36,8 @@ func deviceRefusal(m store.Model) string {
 		return fmt.Sprintf("This model's type (%s) isn't available on this server anymore.", m.Architecture)
 	case a.Answers() == arch.Written:
 		return "Language models run on the server only for now."
+	case a.OnConsole():
+		return a.Title + " models run on the server only for now."
 	case a.Custom:
 		return "Models in your own code run on the workers that have it, not in a browser."
 	case m.SizeBytes > MaxDeviceBytes:

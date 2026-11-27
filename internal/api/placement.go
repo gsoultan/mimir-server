@@ -44,8 +44,8 @@ func (s *Service) SetModelWorker(ctx context.Context, req *connect.Request[mimir
 	}
 	wid := req.Msg.GetWorkerId()
 	where := "any worker"
-	if a, _ := arch.Lookup(m.Architecture); wid != "" && a.Answers() == arch.Written {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("Language models run on the console itself, not on workers."))
+	if a, _ := arch.Lookup(m.Architecture); wid != "" && a.OnConsole() {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(a.Title+" models run on the console itself, not on workers."))
 	}
 	if wid != "" {
 		w, err := s.worker(ctx, wid)

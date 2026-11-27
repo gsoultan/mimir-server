@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package mimir.v1;
+
+option go_package = "github.com/gsoultan/mimir-server/gen/mimir/v1;mimirv1";
+
+// MediaService asks the models that read recordings and photos: speech to
+// text (Whisper) and photo search by words (CLIP). Their requests carry
+// whole recordings and sets of photos, so they may be larger than a
+// prediction's: up to 128 MB.
+service MediaService {
+  // Transcribe writes down what is said in a recording with a speech to
+  // text model.
+  rpc Transcribe(TranscribeRequest) returns (TranscribeResponse);
+  // MatchPhotos says how well each photo fits each text with a photo
+  // search model: to find the photos that fit some words, send one text;
+  // to sort photos into labels, send a text for each label.
+  rpc MatchPhotos(MatchPhotosRequest) returns (MatchPhotosResponse);
+}
+
+message TranscribeRequest {
+  string model_id = 1;
+  // recording is a WAV file of 8 to 32-bit integer or float samples, at
+  // any rate, of up to two hours. Its channels are mixed into one.
+  bytes recording = 2;
+  // language is the code of the spoken language, such as "en", "de" or
+  // "id"; empty to detect it.
+  string language = 3;
+  // translate asks for an English translation instead of the words as
+  // spoken.
+  bool translate = 4;
+}
+
+// TranscriptPart is what was said in one stretch of the recording.
+message TranscriptPart {
+  // start and end are seconds from the start of the recording.
+  double start = 1;
+  double end = 2;
+  string text = 3;
+}
+
+message TranscribeResponse {
+  // text is the whole transcript.
+  string text = 1;
+  // language is the code of the language, as sent or detected.
+  string language = 2;
+  repeated TranscriptPart parts = 3;
+  // seconds is the recording's length.
+  double seconds = 4;
+  int64 duration_micros = 5;
+}
+
+message MatchPhotosRequest {
+  string model_id = 1;
+  // photos are JPEG, PNG or GIF files, at most 64.
+  repeated bytes photos = 2;
+  // texts are the words to match, such as "a red dress", at most 64.
+  repeated string texts = 3;
+}
+
+// PhotoMatch is how well one photo fits each text, in the order sent.
+message PhotoMatch {
+  // similarity is from -1 to 1; a good match is often above 0.25.
+  repeated float similarity = 1;
+  // chance shares the photo out among the texts, adding up to 1, as when
+  // picking the label that fits it best.
+  repeated float chance = 2;
+}
+
+message MatchPhotosResponse {
+  // photos are in the order sent.
+  repeated PhotoMatch photos = 1;
+  int64 duration_micros = 2;
+}

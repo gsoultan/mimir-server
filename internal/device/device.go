@@ -101,7 +101,7 @@ func (r *Runner) Load(m Model, weights []byte) error {
 	switch {
 	case !ok:
 		return fmt.Errorf("This browser doesn't know the model type %s.", m.Architecture)
-	case a.Custom || a.Answers() == arch.Written:
+	case a.Custom || a.OnConsole():
 		return fmt.Errorf("%s models run on the server only.", a.Title)
 	}
 	r.models[m.ID] = loaded{m: m, a: a, spec: arch.Resolve(a, arch.Spec{InputShape: m.InputShape, Labels: m.Labels}), weights: weights}
