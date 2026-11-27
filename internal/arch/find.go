@@ -128,8 +128,8 @@ var finder = &Learner{
 		}
 		nn.Eval(f.Det)
 		var acc float64
+		var found, truth [][]vision.Detection
 		if b.Held > 0 {
-			var found, truth [][]vision.Detection
 			for lo := train; lo < n; lo += findBatch {
 				idx := make([]int, 0, findBatch)
 				for i := lo; i < min(lo+findBatch, n); i++ {
@@ -145,7 +145,7 @@ var finder = &Learner{
 			acc = vision.AveragePrecision(found, truth, k, 0.5)
 		}
 		s, err := shapeJSON(shape)
-		return Learned{Module: f, Shape: s, Labels: b.Labels, Accuracy: acc}, err
+		return Learned{Module: f, Shape: s, Labels: b.Labels, Accuracy: acc, Found: found, Truth: truth}, err
 	},
 	Build: func(shape string) (nn.Module, error) {
 		var s FindShape

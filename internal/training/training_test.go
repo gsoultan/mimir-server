@@ -51,8 +51,10 @@ func TestParseTable(t *testing.T) {
 	if _, err := ParseTable(strings.NewReader("a,b\n"+strings.Repeat("1,x\n", 12)), "", nil); err == nil {
 		t.Fatal("one class accepted")
 	}
+	// Every row here repeats, as data of a few small columns does, so the
+	// split stays random.
 	train, test, err := tb.Split(0.25, 1, 4)
-	if err != nil || train.(*examples).Len() != 9 || test.(*examples).Len() != 3 {
+	if err != nil || train.(*examples).Len() != 9 || test.(*examples).Len() != 3 || Copies(train) != 0 {
 		t.Fatalf("split: %v", err)
 	}
 	train, test, err = tb.Split(0, 1, 4)
