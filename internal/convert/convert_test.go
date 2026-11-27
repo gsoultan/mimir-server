@@ -22,6 +22,8 @@ import (
 	"io"
 	"math"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -180,6 +182,40 @@ func TestGGUF(t *testing.T) {
 		t.Errorf("long prompt: %v", err)
 	}
 	t.Logf("%q", g.Text)
+}
+
+// TestGGUFFamilies converts the tiny model of each architecture besides
+// llama that mimir-model tests its importer with, and has it write.
+func TestGGUFFamilies(t *testing.T) {
+	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/gsoultan/mimir-model").Output()
+	if err != nil {
+		t.Skipf("can't find mimir-model's files: %v", err)
+	}
+	dir := filepath.Join(strings.TrimSpace(string(out)), "testdata")
+	for _, arch := range []string{"qwen3", "gemma2", "gemma3", "phi3"} {
+		t.Run(arch, func(t *testing.T) {
+			src, err := os.ReadFile(filepath.Join(dir, arch, "tiny-q4km.gguf"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			b, f, err := convert.ToMim(src)
+			if err != nil || f != convert.GGUF {
+				t.Fatalf("convert: %v, %s", err, f)
+			}
+			lm, err := runtime.OpenLanguageModel(b)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer lm.Close()
+			g, err := lm.Generate(context.Background(), "Once upon a time", runtime.Sampling{MaxTokens: 4})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if g.PromptTokens == 0 || g.GeneratedTokens == 0 && !g.Finished {
+				t.Fatalf("generation %+v", g)
+			}
+		})
+	}
 }
 
 func TestUnsupported(t *testing.T) {
