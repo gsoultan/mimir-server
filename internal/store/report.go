@@ -78,8 +78,8 @@ type Report struct {
 	Baseline      float64 `json:"baseline,omitempty"`
 	BaselineLabel string  `json:"baseline_label,omitempty"`
 	// Copies counts examples picked for scoring that were exact copies of
-	// ones it learned from; they were moved to learning instead, so they
-	// don't flatter the score.
+	// ones it learned from; they weren't scored, so they don't flatter the
+	// score.
 	Copies int `json:"copies,omitempty"`
 
 	// Models that find things in photos ("boxes"): AP50 and AP75 average,

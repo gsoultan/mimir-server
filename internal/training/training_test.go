@@ -51,22 +51,10 @@ func TestParseTable(t *testing.T) {
 	if _, err := ParseTable(strings.NewReader("a,b\n"+strings.Repeat("1,x\n", 12)), "", nil); err == nil {
 		t.Fatal("one class accepted")
 	}
-	// Every row here is a copy of another, so none can be held out: a copy
-	// would test only its memory.
-	if train, test, err := tb.Split(0.25, 1, 4); err != nil || train.(*examples).Len() != 12 || test != nil || Copies(train) != 3 {
-		t.Fatalf("split of copies: %v", err)
-	}
-	var distinct strings.Builder
-	distinct.WriteString("a,b,label\n")
-	for i := range 12 {
-		fmt.Fprintf(&distinct, "%d,2,%c\n", i, 'x'+i%2)
-	}
-	dt, err := ParseTable(strings.NewReader(distinct.String()), "", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	train, test, err := dt.Split(0.25, 1, 4)
-	if err != nil || train.(*examples).Len() != 9 || test.(*examples).Len() != 3 {
+	// Every row here repeats, as data of a few small columns does, so the
+	// split stays random.
+	train, test, err := tb.Split(0.25, 1, 4)
+	if err != nil || train.(*examples).Len() != 9 || test.(*examples).Len() != 3 || Copies(train) != 0 {
 		t.Fatalf("split: %v", err)
 	}
 	train, test, err = tb.Split(0, 1, 4)

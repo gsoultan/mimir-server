@@ -508,7 +508,7 @@ type examples struct {
 	// made counts the made-up examples at the end of rows (see balance).
 	made int
 	// copies counts the examples picked for scoring that were copies of
-	// ones learned from, so are learned from instead (see splitBy).
+	// ones learned from, so aren't scored (see splitBy).
 	copies int
 }
 
@@ -596,10 +596,10 @@ func splitBy(when []int64, n int, holdOut float64, seed uint64, batch int, proto
 	copies := 0
 	if len(when) != n && nTest > 0 && proto.input != nil {
 		// Rows picked at random: an exact copy of a row it learns from
-		// would only test its memory, so it learns from those too. Rows
-		// held out by date are what came later, copies or not.
+		// would only test its memory, so it isn't scored. What it learns
+		// from stays the same. Rows held out by date are what came later,
+		// copies or not.
 		copies = keepCopiesTogether(perm, nTrain, proto)
-		nTrain += copies
 		nTest -= copies
 	}
 	build := func(rows []int) *examples {
@@ -610,14 +610,20 @@ func splitBy(when []int64, n int, holdOut float64, seed uint64, batch int, proto
 	tr.copies = copies
 	train = tr
 	if nTest > 0 {
-		test = build(perm[nTrain:])
+		test = build(perm[nTrain+copies:])
 	}
 	return train, test, nil
 }
 
+// maxCopyShare is, in tenths, the most of the rows picked for scoring that
+// can be copies of rows learned from for them to be left out of scoring.
+const maxCopyShare = 3
+
 // keepCopiesTogether moves the examples after perm[:nTrain] that are exact
 // copies of one before it, the same input and answer, to just after it,
-// keeping the order of the rest, and returns how many it moved.
+// keeping the order of the rest, and returns how many it moved; splitBy
+// then scores on the rest only. It moves
+// none when more than maxCopyShare tenths of them are copies.
 func keepCopiesTogether(perm []int, nTrain int, e *examples) int {
 	var buf []float32
 	key := func(i int) uint64 {
@@ -649,13 +655,20 @@ func keepCopiesTogether(perm []int, nTrain int, e *examples) int {
 			rest = append(rest, i)
 		}
 	}
+	// Many copies means the data simply repeats, as a few small columns
+	// do: the same rows will come up in use, so a random pick already
+	// scores it as it will be used, and moving them all would leave only
+	// the unusual rows to score on.
+	if len(copies)*10 > (len(perm)-nTrain)*maxCopyShare {
+		return 0
+	}
 	copy(perm[nTrain:], copies)
 	copy(perm[nTrain+len(copies):], rest)
 	return len(copies)
 }
 
 // Copies returns how many examples picked for scoring were exact copies
-// of ones learned from, and so were learned from instead.
+// of ones learned from, and so weren't scored.
 func Copies(train Set) int {
 	if e, ok := train.(*examples); ok {
 		return e.copies
@@ -737,7 +750,7 @@ type Loaded struct {
 	// store.Settings.Balance).
 	Made int
 	// Copies counts examples picked for scoring that were exact copies of
-	// ones in Train, so went to Train instead.
+	// ones in Train, so were left out of Test.
 	Copies int
 }
 

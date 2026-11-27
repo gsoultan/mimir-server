@@ -33,8 +33,8 @@ export function RunReport({ report: r }: { report: Report }) {
       )}
       <Text size="sm" c="dimmed">{t("Scored on")}{" "}{on}.</Text>
       {r.copies > 0n && <Text size="sm" c="dimmed">{r.copies === 1n
-        ? t("1 row picked for scoring was an exact copy of a row it learned from, so it learned from it too and it wasn't scored.")
-        : t("{n1} rows picked for scoring were exact copies of rows it learned from, so it learned from them too and they weren't scored.", { n1: r.copies.toLocaleString() })}</Text>}
+        ? t("1 row picked for scoring was an exact copy of a row it learned from, so it wasn't scored.")
+        : t("{n1} rows picked for scoring were exact copies of rows it learned from, so they weren't scored.", { n1: r.copies.toLocaleString() })}</Text>}
       {unsure(r) && <Text size="sm" c="dimmed">{t("Only {n1} examples were scored, so on new ones the score could be quite different. More rows, or keeping more of them aside, makes it surer.", { n1: r.examples.toLocaleString() })}</Text>}
       {r.made > 0n && <Text size="sm" c="dimmed">{t("It also learned from {n1} made-up rows of the rarer answers. None of them were scored.", { n1: r.made.toLocaleString() })}</Text>}
       {r.kind === "number" && <Numbers r={r} />}

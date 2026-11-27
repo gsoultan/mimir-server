@@ -70,34 +70,40 @@ func TestScorerBaselineAndRange(t *testing.T) {
 }
 
 func TestSplitKeepsCopiesTogether(t *testing.T) {
-	// 50 rows, each twice: a random split would put many pairs on both
-	// sides. None may be.
+	// 100 rows, the last 10 copies of the first 10, as a row exported
+	// twice: none may be both scored and learned from, and what it learns
+	// from stays the same.
 	const n = 100
+	of := func(i int) int {
+		if i >= 90 {
+			return i - 90
+		}
+		return i
+	}
 	cls := make([]int32, n)
-	proto := &examples{shape: []int{1}, input: func(dst []float32, i int) []float32 { return append(dst, float32(i%50)) }, cls: cls}
-	train, test, err := split(n, 0.2, 3, 8, proto)
-	if err != nil {
-		t.Fatal(err)
-	}
-	learned := map[int]bool{}
-	for _, i := range train.(*examples).rows {
-		learned[i%50] = true
-	}
-	moved := Copies(train)
-	if moved == 0 {
-		t.Fatal("no copies moved")
-	}
-	held := 0
-	if test != nil {
+	proto := &examples{shape: []int{1}, input: func(dst []float32, i int) []float32 { return append(dst, float32(of(i))) }, cls: cls}
+	moved := 0
+	for seed := range uint64(20) {
+		train, test, err := split(n, 0.2, seed, 8, proto)
+		if err != nil {
+			t.Fatal(err)
+		}
+		learned := map[int]bool{}
+		for _, i := range train.(*examples).rows {
+			learned[of(i)] = true
+		}
 		for _, i := range test.(*examples).rows {
-			held++
-			if learned[i%50] {
-				t.Fatalf("row %d is held out and learned from", i)
+			if learned[of(i)] {
+				t.Fatalf("seed %d: row %d is held out and learned from", seed, i)
 			}
 		}
+		if train.(*examples).Len() != 80 || test.(*examples).Len()+Copies(train) != 20 {
+			t.Fatalf("seed %d: %d learned, %d held, %d moved", seed, train.(*examples).Len(), test.(*examples).Len(), Copies(train))
+		}
+		moved += Copies(train)
 	}
-	if train.(*examples).Len()+held != n || held+moved != 20 {
-		t.Fatalf("%d learned, %d held, %d moved", train.(*examples).Len(), held, moved)
+	if moved == 0 {
+		t.Fatal("no copies moved")
 	}
 
 	// Distinct rows: nothing moves.
@@ -105,10 +111,15 @@ func TestSplitKeepsCopiesTogether(t *testing.T) {
 	if train, test, _ := split(n, 0.2, 3, 8, proto); Copies(train) != 0 || test.(*examples).Len() != 20 {
 		t.Fatalf("distinct rows moved: %d", Copies(train))
 	}
+	// Data that simply repeats, 5 rows over and over, is split at random.
+	proto.input = func(dst []float32, i int) []float32 { return append(dst, float32(i%5)) }
+	if train, test, _ := split(n, 0.2, 3, 8, proto); Copies(train) != 0 || test.(*examples).Len() != 20 {
+		t.Fatalf("repeating rows moved: %d", Copies(train))
+	}
 	// The same input with another answer isn't a copy.
-	proto.input = func(dst []float32, i int) []float32 { return append(dst, float32(i%50)) }
+	proto.input = func(dst []float32, i int) []float32 { return append(dst, float32(of(i))) }
 	for i := range cls {
-		cls[i] = int32(i / 50)
+		cls[i] = int32(i / 90)
 	}
 	if train, _, _ := split(n, 0.2, 3, 8, proto); Copies(train) != 0 {
 		t.Fatalf("different answers moved: %d", Copies(train))
