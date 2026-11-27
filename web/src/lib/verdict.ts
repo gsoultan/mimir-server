@@ -19,17 +19,23 @@ export type Verdict = {
 const pct = (x: number) => Math.round(x * 100);
 
 export function verdict(r: RunReport): Verdict | undefined {
-  if (r.kind === "class" && r.classes.length > 0) return classes(r);
+  if (r.kind === "class" && (r.classes.length > 0 || r.baselineLabel !== "")) return classes(r);
   if (r.kind === "number" && r.examples > 0n) return numbers(r);
   return undefined;
 }
 
 function classes(r: RunReport): Verdict {
+  // The most common answer and how often it is right. The server works it
+  // out for any number of answers; older reports only have the per-answer
+  // table, which is left out when there are many answers.
   const total = r.classes.reduce((n, c) => n + Number(c.support), 0);
-  const top = [...r.classes].sort((a, b) => Number(b.support) - Number(a.support))[0]!;
-  const base = total > 0 ? Number(top.support) / total : 0;
+  const top = [...r.classes].sort((a, b) => Number(b.support) - Number(a.support))[0];
+  const label = r.baselineLabel || top?.label || "";
+  const base = r.baselineLabel ? r.baseline : top && total > 0 ? Number(top.support) / total : 0;
+  // Several answers to tell apart; one alone has nothing to learn.
+  const several = r.classes.length > 1 || (r.classes.length === 0 && base < 1);
   const acc = r.accuracy;
-  const always = t("Always guessing {label} would get {base} of 100 right", { label: top.label, base: pct(base) });
+  const always = t("Always guessing {label} would get {base} of 100 right", { label, base: pct(base) });
   // The answer it misses most, among those with enough examples to judge.
   const judged = r.classes.filter((c) => Number(c.support) >= 5);
   const worst = [...judged].sort((a, b) => a.recall - b.recall)[0];
@@ -40,7 +46,7 @@ function classes(r: RunReport): Verdict {
       ? t("It misses {label} most: it finds it {recall} of 100 times, from only {n3} examples kept aside. More rows that say {label2} would help most.", { label: miss.label, recall: pct(miss.recall), n3: Number(miss.support).toLocaleString(), label2: miss.label })
       : t("It misses {label} most: it finds it {recall} of 100 times. A column that tells {label2} apart from the others would help most.", { label: miss.label, recall: pct(miss.recall), label2: miss.label })
     : undefined;
-  if (r.classes.length > 1 && acc >= 0.995 && total >= 50) {
+  if (several && acc >= 0.995 && total >= 50) {
     return {
       level: "weak",
       title: t("It gets every answer right, which is suspicious"),
@@ -48,7 +54,7 @@ function classes(r: RunReport): Verdict {
       next: t("A column probably gives the answer away: one only known once the answer is, or the answer under another name. The data check names it. Take it out of the file and teach again, or the model will do far worse in use."),
     };
   }
-  if (r.classes.length > 1 && acc <= base + 0.02) {
+  if (several && acc <= base + 0.02) {
     return {
       level: "none",
       title: t("It hasn't learned much yet"),
@@ -56,13 +62,13 @@ function classes(r: RunReport): Verdict {
       next: next ?? t("The columns it has may not say anything about the answer. Add a column that does, or check that the answer column is the right one."),
     };
   }
-  if (r.classes.length > 1 && acc < base + 0.1) {
+  if (several && acc < base + 0.1) {
     return { level: "weak", title: t("It has learned a little"), body: t("{always}; the model gets {acc}.", { always, acc: pct(acc) }), next: next ?? t("More rows, or a Thorough run, usually lifts a score like this.") };
   }
   return {
     level: "good",
     title: t("It gets {acc} of 100 right", { acc: pct(acc) }),
-    body: r.classes.length > 1 ? t("{always}, so the model has clearly learned from the columns.", { always }) : "",
+    body: several ? t("{always}, so the model has clearly learned from the columns.", { always }) : "",
     next,
   };
 }

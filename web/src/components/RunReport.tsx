@@ -28,6 +28,10 @@ export function RunReport({ report: r }: { report: Report }) {
         </Alert>
       )}
       <Text size="sm" c="dimmed">{t("Scored on")}{" "}{on}.</Text>
+      {r.copies > 0n && <Text size="sm" c="dimmed">{r.copies === 1n
+        ? t("1 row picked for scoring was an exact copy of a row it learned from, so it learned from it too and it wasn't scored.")
+        : t("{n1} rows picked for scoring were exact copies of rows it learned from, so it learned from them too and they weren't scored.", { n1: r.copies.toLocaleString() })}</Text>}
+      {unsure(r) && <Text size="sm" c="dimmed">{t("Only {n1} examples were scored, so on new ones the score could be quite different. More rows, or keeping more of them aside, makes it surer.", { n1: r.examples.toLocaleString() })}</Text>}
       {r.made > 0n && <Text size="sm" c="dimmed">{t("It also learned from {n1} made-up rows of the rarer answers. None of them were scored.", { n1: r.made.toLocaleString() })}</Text>}
       {r.kind === "number" && <Numbers r={r} />}
       {(r.kind === "class" || r.kind === "ranked") && <Labels r={r} />}
@@ -38,6 +42,14 @@ export function RunReport({ report: r }: { report: Report }) {
       </SimpleGrid>
     </Stack>
   );
+}
+
+// unsure says the range a score likely falls in is wide: more than ten
+// points of right answers, or a miss that could be half again as large.
+function unsure(r: Report) {
+  if (r.onTraining) return false;
+  if (r.kind === "number") return r.maeHigh > 0 && r.maeHigh - r.maeLow > r.mae;
+  return r.accuracyHigh > 0 && r.accuracyHigh - r.accuracyLow > 0.2;
 }
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -54,7 +66,7 @@ function Numbers({ r }: { r: Report }) {
   return (
     <>
       <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
-        <Stat label={t("Usually off by (MAE)")} value={number(r.mae)} />
+        <Stat label={t("Usually off by (MAE)")} value={number(r.mae)} hint={r.maeHigh > 0 ? t("likely {low} to {high} on new examples", { low: number(r.maeLow), high: number(r.maeHigh) }) : undefined} />
         <Stat label={t("Big misses count more (RMSE)")} value={number(r.rmse)} />
         <Stat label={t("Explains the answers (R²)")} value={number(r.r2, 3)} hint={t("1 is perfect, 0 is no better than the average")} />
         <Stat label={t("Within 10%")} value={`${(r.within10 * 100).toFixed(1)}%`} />
@@ -108,7 +120,7 @@ function Labels({ r }: { r: Report }) {
   return (
     <>
       <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
-        <Stat label={t("Right answers")} value={`${(r.accuracy * 100).toFixed(1)}%`} />
+        <Stat label={t("Right answers")} value={`${(r.accuracy * 100).toFixed(1)}%`} hint={r.accuracyHigh > 0 ? t("likely {low}% to {high}% on new examples", { low: (r.accuracyLow * 100).toFixed(1), high: (r.accuracyHigh * 100).toFixed(1) }) : undefined} />
         <Stat label={t("Balanced score (macro F1)")} value={number(r.macroF1, 3)} hint={uneven ? t("the fairer score here: one answer is rare") : t("every answer counts the same")} />
         <Stat label={t("Sureness (log loss)")} value={number(r.logLoss, 3)} hint={t("lower is better")} />
         {r.kind === "ranked" && <Stat label={t("Right one in top {k}", { k: r.k })} value={`${((r.hitAt.at(-1) ?? 0) * 100).toFixed(1)}%`} />}

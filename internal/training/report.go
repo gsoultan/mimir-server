@@ -231,6 +231,13 @@ func (s *scorer) report() *store.Report {
 		if spread := s.realSq - s.realSum*s.realSum/n; spread > 0 {
 			r.R2 = 1 - s.sqSum/spread
 		}
+		// How far the average miss on new examples may be from this one:
+		// the spread of the misses over the square root of how many.
+		if n > 1 {
+			sd := math.Sqrt(max(s.sqSum/n-r.MAE*r.MAE, 0))
+			half := z95 * sd / math.Sqrt(n)
+			r.MAELow, r.MAEHigh = max(r.MAE-half, 0), r.MAE+half
+		}
 		return r
 	}
 	var right, f1Sum float64
@@ -262,6 +269,19 @@ func (s *scorer) report() *store.Report {
 		}
 	}
 	r.Accuracy = right / n
+	r.AccuracyLow, r.AccuracyHigh = wilson(right, n)
+	// The score to beat: always giving the answer most of these have.
+	var most int64
+	for i, label := range s.labels {
+		var real int64
+		for _, c := range s.confusion[i] {
+			real += c
+		}
+		if real > most {
+			most, r.BaselineLabel = real, label
+		}
+	}
+	r.Baseline = float64(most) / n
 	if s.n > 0 {
 		r.LogLoss = s.logLoss / float64(s.n)
 	}
@@ -278,6 +298,23 @@ func (s *scorer) report() *store.Report {
 		}
 	}
 	return r
+}
+
+// z95 is how many standard errors either side of a score hold the real
+// one 95% of the time.
+const z95 = 1.959964
+
+// wilson returns the range a share of right answers on new examples likely
+// falls in, 95% of the time, from right of n: the Wilson score interval,
+// which stays inside 0 to 1 and is fair to small n and to shares near 0 or 1.
+func wilson(right, n float64) (lo, hi float64) {
+	if n <= 0 {
+		return 0, 0
+	}
+	p, z2 := right/n, z95*z95
+	mid := (p + z2/(2*n)) / (1 + z2/n)
+	half := z95 * math.Sqrt(p*(1-p)/n+z2/(4*n*n)) / (1 + z2/n)
+	return max(mid-half, 0), min(mid+half, 1)
 }
 
 func argmax(row []float32) int {

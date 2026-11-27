@@ -2495,7 +2495,24 @@ type RunReport struct {
 	// made counts the made-up rows of rarer answers it learned from beside
 	// the real ones (TrainingSettings.balance). It was scored on real rows
 	// only.
-	Made          int64 `protobuf:"varint,20,opt,name=made,proto3" json:"made,omitempty"`
+	Made int64 `protobuf:"varint,20,opt,name=made,proto3" json:"made,omitempty"`
+	// accuracy_low and accuracy_high (class and ranked models), and mae_low
+	// and mae_high (number models), are the range the score on new examples
+	// likely falls in, 95% of the time: narrow with many examples scored,
+	// wide with few.
+	AccuracyLow  float64 `protobuf:"fixed64,21,opt,name=accuracy_low,json=accuracyLow,proto3" json:"accuracy_low,omitempty"`
+	AccuracyHigh float64 `protobuf:"fixed64,22,opt,name=accuracy_high,json=accuracyHigh,proto3" json:"accuracy_high,omitempty"`
+	MaeLow       float64 `protobuf:"fixed64,23,opt,name=mae_low,json=maeLow,proto3" json:"mae_low,omitempty"`
+	MaeHigh      float64 `protobuf:"fixed64,24,opt,name=mae_high,json=maeHigh,proto3" json:"mae_high,omitempty"`
+	// baseline is the share a model would get right by always giving the
+	// most common answer, baseline_label (class and ranked models): the
+	// score to beat.
+	Baseline      float64 `protobuf:"fixed64,25,opt,name=baseline,proto3" json:"baseline,omitempty"`
+	BaselineLabel string  `protobuf:"bytes,26,opt,name=baseline_label,json=baselineLabel,proto3" json:"baseline_label,omitempty"`
+	// copies counts examples set aside for scoring that were exact copies
+	// of ones it learned from; they were moved to learning, so they don't
+	// flatter the score.
+	Copies        int64 `protobuf:"varint,27,opt,name=copies,proto3" json:"copies,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2666,6 +2683,55 @@ func (x *RunReport) GetNdcg() float64 {
 func (x *RunReport) GetMade() int64 {
 	if x != nil {
 		return x.Made
+	}
+	return 0
+}
+
+func (x *RunReport) GetAccuracyLow() float64 {
+	if x != nil {
+		return x.AccuracyLow
+	}
+	return 0
+}
+
+func (x *RunReport) GetAccuracyHigh() float64 {
+	if x != nil {
+		return x.AccuracyHigh
+	}
+	return 0
+}
+
+func (x *RunReport) GetMaeLow() float64 {
+	if x != nil {
+		return x.MaeLow
+	}
+	return 0
+}
+
+func (x *RunReport) GetMaeHigh() float64 {
+	if x != nil {
+		return x.MaeHigh
+	}
+	return 0
+}
+
+func (x *RunReport) GetBaseline() float64 {
+	if x != nil {
+		return x.Baseline
+	}
+	return 0
+}
+
+func (x *RunReport) GetBaselineLabel() string {
+	if x != nil {
+		return x.BaselineLabel
+	}
+	return ""
+}
+
+func (x *RunReport) GetCopies() int64 {
+	if x != nil {
+		return x.Copies
 	}
 	return 0
 }
@@ -3641,7 +3707,7 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\n" +
 	"check_note\x18\x1e \x01(\tR\tcheckNote\x12+\n" +
 	"\x06report\x18\x1f \x01(\v2\x13.mimir.v1.RunReportR\x06report\x12-\n" +
-	"\x13start_from_model_id\x18  \x01(\tR\x10startFromModelId\"\xc0\x04\n" +
+	"\x13start_from_model_id\x18  \x01(\tR\x10startFromModelId\"\x97\x06\n" +
 	"\tRunReport\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1a\n" +
 	"\bexamples\x18\x02 \x01(\x03R\bexamples\x12\x1f\n" +
@@ -3665,7 +3731,14 @@ const file_mimir_v1_training_proto_rawDesc = "" +
 	"\x06hit_at\x18\x11 \x03(\x01R\x05hitAt\x12\x10\n" +
 	"\x03mrr\x18\x12 \x01(\x01R\x03mrr\x12\x12\n" +
 	"\x04ndcg\x18\x13 \x01(\x01R\x04ndcg\x12\x12\n" +
-	"\x04made\x18\x14 \x01(\x03R\x04made\"\x82\x01\n" +
+	"\x04made\x18\x14 \x01(\x03R\x04made\x12!\n" +
+	"\faccuracy_low\x18\x15 \x01(\x01R\vaccuracyLow\x12#\n" +
+	"\raccuracy_high\x18\x16 \x01(\x01R\faccuracyHigh\x12\x17\n" +
+	"\amae_low\x18\x17 \x01(\x01R\x06maeLow\x12\x19\n" +
+	"\bmae_high\x18\x18 \x01(\x01R\amaeHigh\x12\x1a\n" +
+	"\bbaseline\x18\x19 \x01(\x01R\bbaseline\x12%\n" +
+	"\x0ebaseline_label\x18\x1a \x01(\tR\rbaselineLabel\x12\x16\n" +
+	"\x06copies\x18\x1b \x01(\x03R\x06copies\"\x82\x01\n" +
 	"\n" +
 	"ClassScore\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12\x1c\n" +

@@ -85,7 +85,7 @@ func learn(ctx context.Context, t Task, l Loaded, spec arch.Spec, progress Progr
 	report, err := Score(ctx, mod, scored, t.Arch, spec.Labels)
 	if err == nil {
 		report.OnTraining = l.Test == nil
-		report.Made = l.Made
+		report.Made, report.Copies = l.Made, l.Copies
 	} else if ctx.Err() != nil {
 		return Result{}, context.Cause(ctx)
 	}

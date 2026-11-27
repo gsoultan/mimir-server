@@ -17,9 +17,11 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	"encoding/binary"
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"iter"
 	"maps"
@@ -505,6 +507,9 @@ type examples struct {
 	epoch atomic.Int64
 	// made counts the made-up examples at the end of rows (see balance).
 	made int
+	// copies counts the examples picked for scoring that were copies of
+	// ones learned from, so are learned from instead (see splitBy).
+	copies int
 }
 
 // Len returns the number of examples.
@@ -588,15 +593,74 @@ func splitBy(when []int64, n int, holdOut float64, seed uint64, batch int, proto
 	if nTrain < 1 {
 		return nil, nil, fmt.Errorf("%w: nothing left to learn from", ErrBadTable)
 	}
+	copies := 0
+	if len(when) != n && nTest > 0 && proto.input != nil {
+		// Rows picked at random: an exact copy of a row it learns from
+		// would only test its memory, so it learns from those too. Rows
+		// held out by date are what came later, copies or not.
+		copies = keepCopiesTogether(perm, nTrain, proto)
+		nTrain += copies
+		nTest -= copies
+	}
 	build := func(rows []int) *examples {
 		e := &examples{rows: rows, shape: proto.shape, input: proto.input, cls: proto.cls, num: proto.num, batch: max(1, min(batch, len(rows))), seed: seed}
 		return e
 	}
-	train = build(perm[:nTrain])
+	tr := build(perm[:nTrain])
+	tr.copies = copies
+	train = tr
 	if nTest > 0 {
 		test = build(perm[nTrain:])
 	}
 	return train, test, nil
+}
+
+// keepCopiesTogether moves the examples after perm[:nTrain] that are exact
+// copies of one before it, the same input and answer, to just after it,
+// keeping the order of the rest, and returns how many it moved.
+func keepCopiesTogether(perm []int, nTrain int, e *examples) int {
+	var buf []float32
+	key := func(i int) uint64 {
+		h := fnv.New64a()
+		var b [4]byte
+		buf = e.input(buf[:0], i)
+		for _, v := range buf {
+			binary.LittleEndian.PutUint32(b[:], math.Float32bits(v))
+			h.Write(b[:])
+		}
+		switch {
+		case e.cls != nil:
+			binary.LittleEndian.PutUint32(b[:], uint32(e.cls[i]))
+		case e.num != nil:
+			binary.LittleEndian.PutUint32(b[:], math.Float32bits(e.num[i]))
+		}
+		h.Write(b[:])
+		return h.Sum64()
+	}
+	learned := make(map[uint64]bool, nTrain)
+	for _, i := range perm[:nTrain] {
+		learned[key(i)] = true
+	}
+	var copies, rest []int
+	for _, i := range perm[nTrain:] {
+		if learned[key(i)] {
+			copies = append(copies, i)
+		} else {
+			rest = append(rest, i)
+		}
+	}
+	copy(perm[nTrain:], copies)
+	copy(perm[nTrain+len(copies):], rest)
+	return len(copies)
+}
+
+// Copies returns how many examples picked for scoring were exact copies
+// of ones learned from, and so were learned from instead.
+func Copies(train Set) int {
+	if e, ok := train.(*examples); ok {
+		return e.copies
+	}
+	return 0
 }
 
 // Split shuffles a table and keeps holdOut of it aside for scoring, with
@@ -672,6 +736,9 @@ type Loaded struct {
 	// Made counts the made-up rows of rare answers added to Train (see
 	// store.Settings.Balance).
 	Made int
+	// Copies counts examples picked for scoring that were exact copies of
+	// ones in Train, so went to Train instead.
+	Copies int
 }
 
 // Load returns a source's training and scoring batches for architecture
@@ -781,6 +848,7 @@ func fromTable(t *Table, a arch.Architecture, s store.Settings, seed uint64, sha
 	}
 	var err error
 	l.Train, l.Test, err = splitBy(t.When, t.Rows, s.HoldOut, seed, s.BatchSize, proto)
+	l.Copies = Copies(l.Train)
 	if l.Test != nil && t.DateColumn != "" {
 		l.HeldOutBy = t.DateColumn
 	}
@@ -827,6 +895,7 @@ func loadPhotos(ctx context.Context, src Source, a arch.Architecture, s store.Se
 		},
 		cls: cls,
 	})
+	l.Copies = Copies(l.Train)
 	return l, err
 }
 
@@ -870,6 +939,7 @@ func loadSounds(ctx context.Context, src Source, s store.Settings, seed uint64) 
 		},
 		cls: cls,
 	})
+	l.Copies = Copies(l.Train)
 	return l, err
 }
 

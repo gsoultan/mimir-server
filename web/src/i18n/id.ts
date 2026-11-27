@@ -2521,4 +2521,9 @@ export const id: Record<string, string> = {
   " · made up": " · buatan",
   "Make up extra rows of the rarer answers": "Buat baris tambahan untuk jawaban yang lebih jarang",
   "When one answer is much rarer than the others, the model can learn to ignore it. This makes up new rows of each rarer answer, between real rows that have it, until every answer has as many as the most common one. The rows kept aside for scoring stay real.": "Kalau satu jawaban jauh lebih jarang daripada yang lain, model bisa belajar mengabaikannya. Ini membuat baris baru untuk setiap jawaban yang lebih jarang, di antara baris asli yang memilikinya, sampai setiap jawaban punya sebanyak jawaban yang paling sering. Baris yang disisihkan untuk penilaian tetap asli.",
+  "1 row picked for scoring was an exact copy of a row it learned from, so it learned from it too and it wasn't scored.": "1 baris yang dipilih untuk penilaian ternyata salinan persis dari baris yang dipelajari model, jadi baris itu ikut dipelajari dan tidak dinilai.",
+  "{n1} rows picked for scoring were exact copies of rows it learned from, so it learned from them too and they weren't scored.": "{n1} baris yang dipilih untuk penilaian ternyata salinan persis dari baris yang dipelajari model, jadi baris-baris itu ikut dipelajari dan tidak dinilai.",
+  "Only {n1} examples were scored, so on new ones the score could be quite different. More rows, or keeping more of them aside, makes it surer.": "Hanya {n1} contoh yang dinilai, jadi pada contoh baru skornya bisa cukup berbeda. Lebih banyak baris, atau menyisihkan lebih banyak baris, membuatnya lebih pasti.",
+  "likely {low}% to {high}% on new examples": "kemungkinan {low}% sampai {high}% pada contoh baru",
+  "likely {low} to {high} on new examples": "kemungkinan {low} sampai {high} pada contoh baru",
 };

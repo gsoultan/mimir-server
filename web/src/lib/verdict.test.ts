@@ -23,6 +23,14 @@ test("compares with always guessing the common answer", () => {
   expect(perfect.next).toContain("gives the answer away");
 });
 
+test("uses the server's baseline when there are too many answers to list", () => {
+  const many = (accuracy: number) => create(RunReportSchema, { kind: "class", examples: 500n, accuracy, baseline: 0.4, baselineLabel: "shoes" });
+  const good = verdict(many(0.8))!;
+  expect(good.level).toBe("good");
+  expect(good.body).toContain("Always guessing shoes would get 40 of 100 right");
+  expect(verdict(many(0.41))!.level).toBe("none");
+});
+
 test("reads a number model's fit", () => {
   const r = create(RunReportSchema, { kind: "number", examples: 50n, mae: 12.4, r2: 0.62, within10: 0.7 });
   const v = verdict(r)!;

@@ -63,6 +63,24 @@ type Report struct {
 	HitAt []float64 `json:"hit_at,omitempty"`
 	MRR   float64   `json:"mrr,omitempty"`
 	NDCG  float64   `json:"ndcg,omitempty"`
+
+	// AccuracyLow and AccuracyHigh (class and ranked models), and MAELow
+	// and MAEHigh (number models), are the range the score on new examples
+	// likely falls in, 95% of the time: narrow with many examples scored,
+	// wide with few.
+	AccuracyLow  float64 `json:"accuracy_low,omitempty"`
+	AccuracyHigh float64 `json:"accuracy_high,omitempty"`
+	MAELow       float64 `json:"mae_low,omitempty"`
+	MAEHigh      float64 `json:"mae_high,omitempty"`
+	// Baseline is the share always giving the most common answer,
+	// BaselineLabel, gets right (class and ranked models): the score to
+	// beat.
+	Baseline      float64 `json:"baseline,omitempty"`
+	BaselineLabel string  `json:"baseline_label,omitempty"`
+	// Copies counts examples picked for scoring that were exact copies of
+	// ones it learned from; they were moved to learning instead, so they
+	// don't flatter the score.
+	Copies int `json:"copies,omitempty"`
 }
 
 // ClassScore is how a model did on one label.
