@@ -113,9 +113,10 @@ func reportProto(r *store.Report) *mimirv1.RunReport {
 		K: int32(r.K), HitAt: r.HitAt, Mrr: r.MRR, Ndcg: r.NDCG, Made: int64(r.Made),
 		AccuracyLow: r.AccuracyLow, AccuracyHigh: r.AccuracyHigh, MaeLow: r.MAELow, MaeHigh: r.MAEHigh,
 		Baseline: r.Baseline, BaselineLabel: r.BaselineLabel, Copies: int64(r.Copies),
+		Ap50: r.AP50, Ap75: r.AP75, Tokens: r.Tokens, BeforeAccuracy: r.BeforeAccuracy, BeforeLoss: r.BeforeLoss,
 	}
 	for _, c := range r.Classes {
-		out.Classes = append(out.Classes, &mimirv1.ClassScore{Label: c.Label, Precision: c.Precision, Recall: c.Recall, F1: c.F1, Support: c.Support})
+		out.Classes = append(out.Classes, &mimirv1.ClassScore{Label: c.Label, Precision: c.Precision, Recall: c.Recall, F1: c.F1, Support: c.Support, Ap: c.AP})
 	}
 	for _, row := range r.Confusion {
 		out.Confusion = append(out.Confusion, &mimirv1.ConfusionRow{Counts: row})

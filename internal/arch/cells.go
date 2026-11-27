@@ -30,6 +30,7 @@ import (
 	"github.com/gsoultan/mimir/recommend"
 	"github.com/gsoultan/mimir/tensor"
 	"github.com/gsoultan/mimir/tree"
+	"github.com/gsoultan/mimir/vision"
 
 	"github.com/gsoultan/mimir-server/internal/schema"
 )
@@ -74,6 +75,10 @@ type Learned struct {
 	// Accuracy and MAE score the model on rows it didn't learn from,
 	// when it has a way to; 0 otherwise.
 	Accuracy, MAE float64
+	// Found and Truth are, for a model that finds things in photos, what it
+	// found in each photo kept aside and what is really there, for a
+	// detailed report; empty when no photo was kept aside.
+	Found, Truth [][]vision.Detection
 }
 
 // errCells reports a table a Cells learner can't learn from; its message

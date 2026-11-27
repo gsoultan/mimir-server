@@ -496,6 +496,22 @@ message RunReport {
   // of ones it learned from; they were moved to learning, so they don't
   // flatter the score.
   int64 copies = 27;
+
+  // Box-finding models (kind "boxes"): ap50 and ap75 average over the
+  // labels how well it finds things, a box counting right when it overlaps
+  // the real one by half or three quarters. classes score each label at
+  // the least score it answers with; support counts the real boxes.
+  double ap50 = 28;
+  double ap75 = 29;
+
+  // Fine-tuned language models (kind "text"): accuracy is the share of word
+  // pieces of the answers it guessed right first, log_loss how surprised it
+  // was by them. before_accuracy and before_loss are the same on the same
+  // examples before this run taught it, when it started fresh; 0 when not
+  // known. tokens counts the word pieces scored.
+  int64 tokens = 30;
+  double before_accuracy = 31;
+  double before_loss = 32;
 }
 
 message ClassScore {
@@ -505,6 +521,8 @@ message ClassScore {
   double f1 = 4;
   // support is how many examples really had this label.
   int64 support = 5;
+  // ap is a box-finding model's average precision on this label.
+  double ap = 6;
 }
 
 message ConfusionRow {

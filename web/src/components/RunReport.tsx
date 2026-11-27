@@ -12,7 +12,11 @@ import { t } from "../i18n";
 // aside: one plain headline, the expert numbers, and one picture for its
 // kind of answer.
 export function RunReport({ report: r }: { report: Report }) {
-  const on = r.onTraining ? t("the examples it learned from, since none were kept aside") : t("{n1} examples it never saw while learning", { n1: r.examples.toLocaleString() });
+  const on = r.onTraining
+    ? t("the examples it learned from, since none were kept aside")
+    : r.kind === "boxes"
+      ? t("{n1} photos it never saw while learning", { n1: r.examples.toLocaleString() })
+      : t("{n1} examples it never saw while learning", { n1: r.examples.toLocaleString() });
   const v = verdict(r);
   return (
     <Stack gap="md">
@@ -35,6 +39,8 @@ export function RunReport({ report: r }: { report: Report }) {
       {r.made > 0n && <Text size="sm" c="dimmed">{t("It also learned from {n1} made-up rows of the rarer answers. None of them were scored.", { n1: r.made.toLocaleString() })}</Text>}
       {r.kind === "number" && <Numbers r={r} />}
       {(r.kind === "class" || r.kind === "ranked") && <Labels r={r} />}
+      {r.kind === "boxes" && <Boxes r={r} />}
+      {r.kind === "text" && <Writing r={r} />}
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
         <Stat label={t("Answer time")} value={`${number(r.millisPerExample, 2)} ms`} hint={t("per example, while scoring")} />
         <Stat label={t("Model size")} value={bytes(r.sizeBytes)} />
@@ -146,6 +152,51 @@ function Labels({ r }: { r: Report }) {
         </Table.ScrollContainer>
       )}
     </>
+  );
+}
+
+// Boxes scores a model that finds things in photos: overall, then for
+// each thing it finds.
+function Boxes({ r }: { r: Report }) {
+  return (
+    <>
+      <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+        <Stat label={t("Finds things (AP50)")} value={number(r.ap50, 3)} hint={t("1 is perfect; a box counts when it covers half the real one")} />
+        <Stat label={t("Finds them closely (AP75)")} value={number(r.ap75, 3)} hint={t("a box counts when it covers three quarters")} />
+      </SimpleGrid>
+      {r.classes.length > 0 && (
+        <Table.ScrollContainer minWidth={420}>
+          <Table verticalSpacing={4} fz="sm">
+            <Table.Thead><Table.Tr><Table.Th>{t("Thing")}</Table.Th><Table.Th>{t("When it finds this, it's right (precision)")}</Table.Th><Table.Th>{t("Finds it when it's there (recall)")}</Table.Th><Table.Th>AP50</Table.Th><Table.Th>{t("Real boxes")}</Table.Th></Table.Tr></Table.Thead>
+            <Table.Tbody>
+              {r.classes.map((c) => (
+                <Table.Tr key={c.label}>
+                  <Table.Td>{c.label}</Table.Td>
+                  <Table.Td>{(c.precision * 100).toFixed(1)}%</Table.Td>
+                  <Table.Td>{(c.recall * 100).toFixed(1)}%</Table.Td>
+                  <Table.Td>{number(c.ap, 3)}</Table.Td>
+                  <Table.Td>{c.support.toLocaleString()}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      )}
+      <Text size="xs" c="dimmed">{t("Precision and recall count what it answers with, things it is at least 30% sure of.")}</Text>
+    </>
+  );
+}
+
+// Writing scores a fine-tuned language model on the answers of the
+// examples kept aside, against how it did before this run taught it.
+function Writing({ r }: { r: Report }) {
+  const before = r.beforeLoss > 0;
+  return (
+    <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="xs">
+      <Stat label={t("Word pieces guessed right")} value={`${(r.accuracy * 100).toFixed(1)}%`} hint={before ? t("{pct}% before this run", { pct: (r.beforeAccuracy * 100).toFixed(1) }) : t("its first guess at each word piece of the answers")} />
+      <Stat label={t("Surprise (perplexity)")} value={number(Math.exp(r.logLoss), 2)} hint={before ? t("{n} before this run; lower is better", { n: number(Math.exp(r.beforeLoss), 2) }) : t("lower is better")} />
+      <Stat label={t("Word pieces scored")} value={r.tokens.toLocaleString()} />
+    </SimpleGrid>
   );
 }
 

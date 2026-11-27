@@ -21,6 +21,8 @@ const pct = (x: number) => Math.round(x * 100);
 export function verdict(r: RunReport): Verdict | undefined {
   if (r.kind === "class" && (r.classes.length > 0 || r.baselineLabel !== "")) return classes(r);
   if (r.kind === "number" && r.examples > 0n) return numbers(r);
+  if (r.kind === "boxes" && r.classes.length > 0) return boxes(r);
+  if (r.kind === "text" && r.beforeLoss > 0 && !r.onTraining) return writing(r);
   return undefined;
 }
 
@@ -82,4 +84,37 @@ function numbers(r: RunReport): Verdict {
     return { level: "weak", title: t("It has learned a little"), body: t("{off}. It explains {r2} of 100 of what makes the number vary; the rest it can't see from these columns.", { off, r2: pct(r.r2) }), next: t("More rows, or a column that explains the rest, usually helps most.") };
   }
   return { level: "good", title: `${off}`, body: t("{within10} of 100 answers land within a tenth of the real number, and it explains {r2} of 100 of what makes it vary.", { within10: pct(r.within10), r2: pct(r.r2) }) };
+}
+
+function boxes(r: RunReport): Verdict {
+  // The thing it misses most, among those with enough boxes to judge.
+  const judged = r.classes.filter((c) => Number(c.support) >= 5);
+  const worst = [...judged].sort((a, b) => a.recall - b.recall)[0];
+  const next = worst && worst.recall < 0.7
+    ? t("It misses {label} most: it finds {recall} of 100 of them. More photos with {label2} boxed would help most.", { label: worst.label, recall: pct(worst.recall), label2: worst.label })
+    : undefined;
+  if (r.ap50 < 0.2) {
+    return { level: "none", title: t("It hasn't learned to find things yet"), body: t("On photos it never saw, it rarely puts a box in the right place."), next: next ?? t("More photos, with every thing in them boxed, usually help most.") };
+  }
+  if (r.ap50 < 0.5) {
+    return { level: "weak", title: t("It finds some things"), body: t("On photos it never saw, it finds some things but misses or misplaces many."), next: next ?? t("More photos, with every thing in them boxed, usually help most.") };
+  }
+  return { level: "good", title: t("It finds things well"), body: t("On photos it never saw, most of its boxes land on the right thing."), next };
+}
+
+function writing(r: RunReport): Verdict {
+  const now = pct(r.accuracy), was = pct(r.beforeAccuracy);
+  if (r.logLoss >= r.beforeLoss - 0.01) {
+    return {
+      level: "none",
+      title: t("This run didn't teach it much"),
+      body: t("On examples it never saw, it guesses {now} of 100 word pieces of the answers right; it guessed {was} before.", { now, was }),
+      next: t("More examples, or examples that show the same way of answering, usually help most."),
+    };
+  }
+  return {
+    level: "good",
+    title: t("It learned to answer more like your examples"),
+    body: t("On examples it never saw, it guesses {now} of 100 word pieces of the answers right, up from {was} before this run.", { now, was }),
+  };
 }
