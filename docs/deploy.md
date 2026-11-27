@@ -75,7 +75,7 @@ install -m 0644 deploy/systemd/mimir-server.service /etc/systemd/system/
 systemctl daemon-reload
 ```
 
-The unit runs the console as `mimir`, listening on `127.0.0.1:8080` only,
+The unit runs the console as `mimir`, listening on `127.0.0.1:8080` only (the .deb, .rpm, Arch and Alpine packages listen on `0.0.0.0:8080`),
 with its data folder at `/var/lib/mimir` (model weights, uploaded examples,
 the configuration file and, by default, the secret key). Settings that
 aren't flags in the unit go in `/etc/mimir/mimir.env`; every flag with an
