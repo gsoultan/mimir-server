@@ -119,8 +119,11 @@ any other, so nothing downstream sees the original format.
   and its weights carry over as they are.
 - **GGUF**, under **Language model**: decoder-only language models of the
   `llama` architecture (Llama 1 to 3, TinyLlama, Mistral without sliding
-  windows, SmolLM) or `qwen2` (Qwen 2 and 2.5), with F32, F16, BF16, Q8_0,
-  Q4_0, Q4_K or Q6_K weights, so the common Q4_K_M and Q8_0 downloads work;
+  windows, SmolLM), `qwen2` and `qwen3` (Qwen 2, 2.5 and 3, the dense
+  models), `gemma2` and `gemma3` (Gemma 2 and 3, text only) or `phi3` (Phi
+  3, 3.5 and 4; not yet Phi 4 mini, whose tokenizer isn't supported), with
+  F32, F16, BF16, Q8_0, Q5_0, Q4_0, Q4_K or Q6_K weights, so the common
+  Q4_K_M and Q8_0 downloads work;
   Q5_K_M, Q3_K, Q2_K and the IQ types don't yet. The weights are kept as
   they are, and the server adds the forward pass GGUF doesn't carry, with a
   key-value cache of the model's context length, up to 4096 tokens.
@@ -132,8 +135,9 @@ any other, so nothing downstream sees the original format.
   not on workers; workers can fine-tune them (see below).
 
   A chat is written out in the format the model was trained on: ChatML
-  (Qwen, SmolLM), Llama 3, Zephyr (TinyLlama Chat), `[INST]` (Llama 2,
-  Mistral) or Gemma, picked from the markers in the model's chat template.
+  (Qwen, SmolLM), Qwen 3's with thinking off, Phi 4's, Llama 3, Zephyr
+  (TinyLlama Chat), Phi 3's, `[INST]` (Llama 2, Mistral) or Gemma, picked
+  from the markers in the model's chat template.
   The template itself is never run (running a GGUF Jinja template was
   CVE-2024-34359); a model with none gets a plain "User: / Assistant:"
   format. Each language model keeps default instructions (the system

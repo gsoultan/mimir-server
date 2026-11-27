@@ -61,6 +61,12 @@ func TestChatFormats(t *testing.T) {
 	}{
 		{"{% for m in messages %}<|im_start|>{{ m.role }}", nil, "chatml",
 			"<|im_start|>system\nBe brief.<|im_end|>\n<|im_start|>user\nHi<|im_end|>\n<|im_start|>assistant\nHello!<|im_end|>\n<|im_start|>user\nBye<|im_end|>\n<|im_start|>assistant\n"},
+		{"{%- if enable_thinking is defined and enable_thinking is false %}<|im_start|>", nil, "qwen3",
+			"<|im_start|>system\nBe brief.<|im_end|>\n<|im_start|>user\nHi<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nHello!<|im_end|>\n<|im_start|>user\nBye<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"},
+		{"{{'<|im_start|>' + message['role'] + '<|im_sep|>' + message['content'] + '<|im_end|>'}}", nil, "phi4",
+			"<|im_start|>system<|im_sep|>Be brief.<|im_end|><|im_start|>user<|im_sep|>Hi<|im_end|><|im_start|>assistant<|im_sep|>Hello!<|im_end|><|im_start|>user<|im_sep|>Bye<|im_end|><|im_start|>assistant<|im_sep|>"},
+		{"{{'<|user|>' + '\n' + message['content'] + '<|end|>' + '\n'}}", nil, "phi3",
+			"<|system|>\nBe brief.<|end|>\n<|user|>\nHi<|end|>\n<|assistant|>\nHello!<|end|>\n<|user|>\nBye<|end|>\n<|assistant|>\n"},
 		{"", []string{"a", "<|start_header_id|>"}, "llama3", ""},
 		{"{{ '<|user|>\\n' + message['content'] + eos_token }}", nil, "zephyr",
 			"<|system|>\nBe brief.</s>\n<|user|>\nHi</s>\n<|assistant|>\nHello!</s>\n<|user|>\nBye</s>\n<|assistant|>\n"},

@@ -235,7 +235,7 @@ func Fit(ctx context.Context, t Task, progress Progress) (Result, error) {
 		}
 		if report, err = Score(ctx, model, set, t.Arch, spec.Labels); err == nil {
 			report.OnTraining = testSet == nil
-			report.Made = l.Made
+			report.Made, report.Copies = l.Made, l.Copies
 		} else if ctx.Err() != nil {
 			return Result{}, context.Cause(ctx)
 		}

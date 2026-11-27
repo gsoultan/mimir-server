@@ -16,9 +16,10 @@
 // An ONNX model of the convolutional subset mim's importer knows (Conv,
 // BatchNormalization, Gemm, MatMul, pooling, the common activations and
 // shape operators, in float32, opsets 7 to 22) keeps its graph and runs as
-// it is. A GGUF language model of the llama or qwen2 architecture (Llama
-// 1 to 3, TinyLlama, Mistral, SmolLM, Qwen 2 and 2.5) gets the forward
-// pass mim builds for it, with its weights kept byte for byte in their
+// it is. A GGUF language model of an architecture in
+// importer.LlamaArchitectures (Llama 1 to 3, TinyLlama, Mistral, SmolLM,
+// Qwen 2, 2.5 and 3, Gemma 2 and 3, Phi 3 and 4) gets the forward pass mim
+// builds for it, with its weights kept byte for byte in their
 // quantization. A ZIP of a Hugging Face Transformers folder of Whisper
 // (speech to text) or CLIP (photo search by words), its config.json,
 // tokenizer.json and safetensors weights, gets the metadata mimir runs it
@@ -30,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	mim "github.com/gsoultan/mimir-model"
@@ -169,11 +171,11 @@ func gguf(b []byte) (*importer.Source, error) {
 		return nil, unsupported("%s", trim(err))
 	}
 	arch, _ := src.Metadata["general.architecture"].(string)
-	if arch != "llama" && arch != "qwen2" {
+	if !slices.Contains(importer.LlamaArchitectures, arch) {
 		if arch == "" {
 			arch = "unnamed"
 		}
-		return nil, unsupported("GGUF models of the %q architecture can't be converted yet; llama (Llama, TinyLlama, Mistral, SmolLM) and qwen2 (Qwen 2 and 2.5) can", arch)
+		return nil, unsupported("GGUF models of the %q architecture can't be converted yet; llama (Llama, TinyLlama, Mistral, SmolLM), qwen2 and qwen3 (Qwen 2, 2.5 and 3), gemma2 and gemma3 (Gemma 2 and 3) and phi3 (Phi 3 and 4) can", arch)
 	}
 	c, err := importer.LlamaConfigOf(src, 0)
 	if err != nil {

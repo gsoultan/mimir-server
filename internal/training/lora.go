@@ -324,6 +324,18 @@ func fitLoRA(ctx context.Context, t Task, progress Progress) (Result, error) {
 	steps := (len(trainSet) + batch - 1) / batch
 	var lastWrite time.Time
 	progress(len(history), 0, steps, history)
+	// How it does on the examples kept aside before this run teaches it,
+	// to set against how it does after. A run picked up from a checkpoint
+	// has already learned some, so it has no before.
+	var before *scored
+	if start == 0 && len(test) > 0 {
+		loss, right, total, err := score(ctx, model, seqs, learn, test)
+		if err != nil {
+			return Result{}, err
+		}
+		before = &scored{loss, right, total}
+	}
+	var last *scored
 	for epoch := start + 1; epoch <= s.Epochs; epoch++ {
 		began := time.Now()
 		opt.SetLR(schedule(epoch))
@@ -354,6 +366,7 @@ func fitLoRA(ctx context.Context, t Task, progress Progress) (Result, error) {
 			return Result{}, err
 		}
 		ep.Accuracy = float64(right) / float64(max(total, 1))
+		last = &scored{loss, right, total}
 		if len(test) > 0 {
 			ep.ValLoss = loss
 		}
@@ -367,12 +380,54 @@ func fitLoRA(ctx context.Context, t Task, progress Progress) (Result, error) {
 		progress(epoch, 0, steps, history)
 	}
 
+	if last == nil {
+		// Every epoch was done before; score it as it stands.
+		scoreOn := test
+		if len(scoreOn) == 0 {
+			scoreOn = trainSet
+		}
+		loss, right, total, err := score(ctx, model, seqs, learn, scoreOn)
+		if err != nil {
+			return Result{}, err
+		}
+		last = &scored{loss, right, total}
+	}
+
 	var buf bytes.Buffer
 	sum := sha256.Sum256(t.BaseWeights)
 	if err := model.WriteAdapter(ctx, &buf, hex.EncodeToString(sum[:]), ""); err != nil {
 		return Result{}, fmt.Errorf("couldn't save the fine-tune: %w", err)
 	}
-	return Result{Weights: buf.Bytes(), History: history}, nil
+	report := textReport(*last, before, len(test), len(trainSet))
+	report.SizeBytes = int64(buf.Len())
+	return Result{Weights: buf.Bytes(), History: history, Report: report}, nil
+}
+
+// scored is how a language model did on some examples: its loss per word
+// piece of their answers, and how many of those it guessed right first.
+type scored struct {
+	loss         float64
+	right, total int
+}
+
+// textReport is a fine-tune's report from its scores after the run, and
+// before it when known, on held examples kept aside; with none kept aside
+// it was scored on the trained ones.
+func textReport(after scored, before *scored, held, trained int) *store.Report {
+	r := &store.Report{Kind: "text", Examples: held, LogLoss: after.loss, Tokens: int64(after.total)}
+	if held == 0 {
+		r.Examples, r.OnTraining = trained, true
+	}
+	if after.total > 0 {
+		// No range here: the word pieces of one answer hang together, so
+		// they aren't the independent tries a range would need.
+		r.Accuracy = float64(after.right) / float64(after.total)
+	}
+	if before != nil && before.total > 0 {
+		r.BeforeLoss = before.loss
+		r.BeforeAccuracy = float64(before.right) / float64(before.total)
+	}
+	return r
 }
 
 // tokenize turns the examples of w into the tokens of the language model
