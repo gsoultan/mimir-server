@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // Webhook is an endpoint that gets told about events. Events lists the
 // event types it wants; empty means every event.

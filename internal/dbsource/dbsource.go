@@ -21,15 +21,11 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/stdlib"
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 )
@@ -45,7 +41,7 @@ const (
 )
 
 // Drivers lists what can be connected to, by the name used in the API.
-var Drivers = map[string]string{"postgres": "pgx", "mysql": "mysql", "sqlite": "sqlite"}
+var Drivers = map[string]string{"postgres": "postgres", "mysql": "mysql", "sqlite": "sqlite"}
 
 // Result is a query's rows as text, ready to be written as CSV.
 type Result struct {
@@ -99,8 +95,11 @@ func Fetch(ctx context.Context, driver, dsn, query string, limit int, guard Guar
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
+	if driver == "postgres" {
+		return fetchPostgres(ctx, dsn, query, limit, guard)
+	}
 
-	db, err := open(name, dsn, guard)
+	db, err := open(name, dsn)
 	if err != nil {
 		return Result{}, fmt.Errorf("%w: %v", ErrBadQuery, err)
 	}
@@ -163,24 +162,9 @@ func Fetch(ctx context.Context, driver, dsn, query string, limit int, guard Guar
 	return res, nil
 }
 
-// open opens a database for one fetch.
-func open(name, dsn string, guard Guard) (*sql.DB, error) {
-	switch name {
-	case "pgx":
-		cfg, err := pgx.ParseConfig(dsn)
-		if err != nil {
-			return nil, err
-		}
-		d := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 5 * time.Minute}
-		if guard != nil {
-			database := cfg.Database
-			d.Control = func(network, address string, _ syscall.RawConn) error {
-				return guard(network, address, database)
-			}
-		}
-		cfg.DialFunc = d.DialContext
-		return stdlib.OpenDB(*cfg), nil
-	case "mysql":
+// open opens a MySQL or SQLite database for one fetch.
+func open(name, dsn string) (*sql.DB, error) {
+	if name == "mysql" {
 		cfg, err := mysql.ParseDSN(dsn)
 		if err != nil {
 			return nil, err

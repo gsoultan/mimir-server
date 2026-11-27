@@ -13,7 +13,7 @@
 package tables
 
 import (
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 )
 
 // Collection is a team's set of documents to answer questions from. Its

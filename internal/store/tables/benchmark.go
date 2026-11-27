@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // Benchmark is a fixed set of test examples, frozen from a table dataset,
 // that every model of that kind is scored on the same way. The rows are a

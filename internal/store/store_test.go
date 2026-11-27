@@ -434,7 +434,7 @@ func TestLibpqURL(t *testing.T) {
 
 func TestRefuseOwnDatabase(t *testing.T) {
 	s := open(t)
-	ours := s.pool.Config().ConnConfig
+	ours := s.pool.Config()
 	port := strconv.Itoa(int(ours.Port))
 	for _, tc := range []struct {
 		network, address, database string

@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // ModelVersion is one set of weights a model has had: its first upload or
 // training run, and each keep-learning pass after. The model's own row

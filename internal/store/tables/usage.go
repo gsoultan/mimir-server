@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // Usage counts predictions per month, person and key ("" for the web app).
 type Usage struct {

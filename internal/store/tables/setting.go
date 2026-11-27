@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // Setting is a small key/value pair, such as alert and retention choices.
 type Setting struct {

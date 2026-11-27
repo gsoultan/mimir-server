@@ -15,7 +15,7 @@ package tables
 import (
 	"time"
 
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 )
 
 // VisitPlan plans salespeople's visits for the coming days: it asks a

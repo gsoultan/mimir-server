@@ -15,7 +15,7 @@ package tables
 import (
 	"time"
 
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 )
 
 // SignInIdentity ties an account to a person at an outside sign-in

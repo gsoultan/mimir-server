@@ -15,7 +15,7 @@ package tables
 import (
 	"time"
 
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 )
 
 // WorkerSample is one minute of a worker's stats, for its charts.

@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 )
 
 // Delivery is one event on its way to one webhook: an outbox row while

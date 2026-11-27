@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gsoultan/storm"
-	"github.com/gsoultan/storm/runtime"
+	"github.com/gsoultan/storm/v2"
+	"github.com/gsoultan/storm/v2/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/store/db/apikey"
 	"github.com/gsoultan/mimir-server/internal/store/db/apikeymodel"

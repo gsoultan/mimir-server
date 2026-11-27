@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 
 	"github.com/gsoultan/mimir-server/internal/secret"
 	"github.com/gsoultan/mimir-server/internal/store/db/dataset"

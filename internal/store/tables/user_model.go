@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // UserModel grants a user one model when the user's AllModels is false.
 type UserModel struct {

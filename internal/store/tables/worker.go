@@ -15,7 +15,7 @@ package tables
 import (
 	"time"
 
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 )
 
 // Worker is a process that runs models for this server. Only its token's

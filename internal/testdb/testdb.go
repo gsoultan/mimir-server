@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/gsoultan/caduceus"
 )
 
 // Env names the variable holding the server tests create databases on.
@@ -51,25 +51,25 @@ func URL(t testing.TB) string {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	conn, err := pgx.Connect(ctx, admin)
+	conn, err := caduceus.Connect(ctx, admin, caduceus.Options{})
 	if err != nil {
 		t.Fatalf("testdb: connect to %s: %v", Env, err)
 	}
 	defer conn.Close(context.Background())
 	// The name is ours, made of [a-z0-9_]; identifiers can't be parameters.
-	if _, err := conn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
+	if _, err := conn.Exec(ctx, "CREATE DATABASE "+caduceus.QuoteIdentifier(name)); err != nil {
 		t.Fatalf("testdb: create database: %v", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		conn, err := pgx.Connect(ctx, admin)
+		conn, err := caduceus.Connect(ctx, admin, caduceus.Options{})
 		if err != nil {
 			t.Errorf("testdb: connect to drop %s: %v", name, err)
 			return
 		}
 		defer conn.Close(context.Background())
-		if _, err := conn.Exec(ctx, "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
+		if _, err := conn.Exec(ctx, "DROP DATABASE IF EXISTS "+caduceus.QuoteIdentifier(name)+" WITH (FORCE)"); err != nil {
 			t.Errorf("testdb: drop %s: %v", name, err)
 		}
 	})

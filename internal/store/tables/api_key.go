@@ -15,7 +15,7 @@ package tables
 import (
 	"time"
 
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 )
 
 // APIKey is a credential for apps, owned by a user.

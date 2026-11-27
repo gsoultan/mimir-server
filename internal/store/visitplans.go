@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gsoultan/storm"
-	"github.com/gsoultan/storm/runtime"
+	"github.com/gsoultan/storm/v2"
+	"github.com/gsoultan/storm/v2/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/store/db/visitplan"
 	"github.com/gsoultan/mimir-server/internal/store/db/visitplansalesperson"
