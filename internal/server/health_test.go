@@ -28,7 +28,7 @@ import (
 
 	"connectrpc.com/connect"
 	"connectrpc.com/grpchealth"
-	"github.com/jackc/pgx/v5"
+	"github.com/gsoultan/caduceus"
 
 	mimirv1 "github.com/gsoultan/mimir-server/gen/mimir/v1"
 	"github.com/gsoultan/mimir-server/gen/mimir/v1/mimirv1connect"
@@ -77,12 +77,12 @@ func TestHealthAndReadiness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	admin, err := pgx.Connect(ctx, os.Getenv(testdb.Env))
+	admin, err := caduceus.Connect(ctx, os.Getenv(testdb.Env), caduceus.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer admin.Close(ctx)
-	if _, err := admin.Exec(ctx, "DROP DATABASE "+pgx.Identifier{strings.TrimPrefix(u.Path, "/")}.Sanitize()+" WITH (FORCE)"); err != nil {
+	if _, err := admin.Exec(ctx, "DROP DATABASE "+caduceus.QuoteIdentifier(strings.TrimPrefix(u.Path, "/"))+" WITH (FORCE)"); err != nil {
 		t.Fatal(err)
 	}
 

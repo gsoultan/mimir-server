@@ -22,8 +22,10 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/gsoultan/caduceus"
 	"github.com/gsoultan/storm"
 	"github.com/gsoultan/storm/migrate"
+	"github.com/gsoultan/storm/schema"
 	schemapg "github.com/gsoultan/storm/schema/pg"
 
 	"github.com/gsoultan/mimir-server/internal/store/tables"
@@ -109,7 +111,11 @@ func Empty(ctx context.Context, databaseURL string) (bool, error) {
 		return false, err
 	}
 	defer pool.Close()
-	cur, err := schemapg.Introspect(ctx, pool, "public")
+	var cur *schema.Schema
+	err = pool.Acquire(ctx, func(c *caduceus.Conn) error {
+		cur, err = schemapg.IntrospectCaduceus(ctx, c, "public")
+		return err
+	})
 	if err != nil {
 		return false, fmt.Errorf("store: read the schema: %w", err)
 	}
@@ -144,12 +150,11 @@ func Plan(ctx context.Context, databaseURL string, log bool) ([]Step, error) {
 	if err != nil {
 		return nil, fmt.Errorf("store: model: %w", err)
 	}
-	c, err := pool.Acquire(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("store: connect: %w", err)
-	}
-	defer c.Release()
-	plan, err := migrate.For(ctx, c.Conn(), "public", want)
+	var plan migrate.Plan
+	err = pool.Acquire(ctx, func(c *caduceus.Conn) error {
+		plan, err = migrate.ForCaduceus(ctx, c, "public", want, migrate.Options{})
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("store: plan: %w", err)
 	}
@@ -162,7 +167,7 @@ func Plan(ctx context.Context, databaseURL string, log bool) ([]Step, error) {
 
 // libpqURL turns the server's database URL into one pg_dump accepts: the
 // password comes out (it is returned for PGPASSWORD), and so do the pool
-// options only pgx understands. A keyword=value string is passed through.
+// options only the pool understands. A keyword=value string is passed through.
 func libpqURL(databaseURL string) (conn, password string, err error) {
 	if !strings.HasPrefix(databaseURL, "postgres://") && !strings.HasPrefix(databaseURL, "postgresql://") {
 		return databaseURL, "", nil

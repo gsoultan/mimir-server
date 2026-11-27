@@ -1,6 +1,6 @@
 module github.com/gsoultan/mimir-server
 
-go 1.27.0
+go 1.27.3
 
 toolchain go1.27.4
 
@@ -16,10 +16,10 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
+	github.com/gsoultan/caduceus v0.1.1-0.20261127080509-21b46160b217
 	github.com/gsoultan/mimir v0.4.4-0.20261121182649-7d9e51db136d
 	github.com/gsoultan/mimir-model v0.4.0
-	github.com/gsoultan/storm v1.4.0
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/gsoultan/storm v1.12.3-0.20261127083532-8650162bc8cc
 	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
 	github.com/modal-labs/modal-client/go v0.11.1
 	github.com/prometheus/client_golang v1.25.0
@@ -52,6 +52,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/pgx/v5 v5.11.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/kisielk/og-rek v1.3.0 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect

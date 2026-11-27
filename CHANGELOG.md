@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### PostgreSQL through caduceus
+
+- The server now reaches its own database through caduceus, a PostgreSQL
+  driver with no dependencies, by way of storm's caduceus adapter. That
+  covers queries, transactions, startup migrations, upgrade plans and the
+  empty-database check before a restore. pgx is no longer used directly.
+- A PostgreSQL data source ("learn from a database") connects through
+  caduceus too, still read-only and still checked against this server's
+  own database before each connection. The CSV it produces is unchanged.
+  MySQL and SQLite sources keep their own drivers.
+- `pool_max_conns`, `pool_max_conn_lifetime` and `pool_max_conn_idle_time`
+  in the database URL work as before. `pool_min_conns` and
+  `pool_health_check_period` are still accepted but no longer do anything:
+  connections open as they are needed, and each one is checked as it is
+  handed out.
+
 ### Updates from the About page
 
 - **Check now and Update now.** Owners see an Updates card on the About

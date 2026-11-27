@@ -35,13 +35,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gsoultan/caduceus"
+	"github.com/gsoultan/caduceus/wire"
 	"github.com/gsoultan/mimir-server/internal/mapfile"
 	"github.com/gsoultan/storm"
 	"github.com/gsoultan/storm/migrate"
 	"github.com/gsoultan/storm/runtime"
-	"github.com/gsoultan/storm/runtime/pgxdrv"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/gsoultan/storm/runtime/caduceusdrv"
 
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/secret"
@@ -139,13 +139,13 @@ func (m Model) PinnedWorker() (id string, pinned bool) { return m.WorkerID, m.Wo
 
 // Store is safe for concurrent use.
 type Store struct {
-	pool *pgxpool.Pool
-	ex   pgxdrv.Pool
+	pool *caduceusdrv.Pool
+	ex   *caduceusdrv.Pool
 	url  string
 	// logPool and logURL are the separate log database, nil and "" when
 	// the audit log is in the main one; logEx runs audit queries either way.
-	logPool *pgxpool.Pool
-	logEx   pgxdrv.Pool
+	logPool *caduceusdrv.Pool
+	logEx   *caduceusdrv.Pool
 	logURL  string
 	weights string // directory holding <id>.mim files
 	applied int    // migration steps Open applied
@@ -156,10 +156,8 @@ type Store struct {
 // Pool limits used unless the database URL sets its own pool_* options.
 const (
 	defaultMaxConns        = 16
-	defaultMinConns        = 1
 	defaultMaxConnLifetime = time.Hour
 	defaultMaxConnIdleTime = 5 * time.Minute
-	defaultHealthCheck     = 30 * time.Second
 	defaultConnectTimeout  = 10 * time.Second
 )
 
@@ -205,7 +203,7 @@ func Open(ctx context.Context, databaseURL, dir string, opts ...Option) (*Store,
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{pool: pool, ex: pgxdrv.Pool{P: pool}, url: databaseURL, weights: weights, box: box}
+	s := &Store{pool: pool, ex: pool, url: databaseURL, weights: weights, box: box}
 	s.logEx = s.ex
 	if err := s.migrate(ctx); err != nil {
 		pool.Close()
@@ -225,15 +223,15 @@ func Open(ctx context.Context, databaseURL, dir string, opts ...Option) (*Store,
 }
 
 // connect opens a pool on databaseURL and checks the database answers.
-func connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
-	cfg, err := pgxpool.ParseConfig(databaseURL)
+func connect(ctx context.Context, databaseURL string) (*caduceusdrv.Pool, error) {
+	cfg, err := caduceusdrv.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("store: database URL: %w", err)
 	}
-	poolDefaults(cfg, databaseURL)
-	pool, err := pgxdrv.NewPoolConfig(ctx, cfg)
+	poolDefaults(&cfg, databaseURL)
+	pool, err := caduceusdrv.NewPoolConfig(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("store: connect: %w", err)
+		return nil, fmt.Errorf("store: connect to %s: %w", Redact(databaseURL), err)
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
@@ -254,13 +252,13 @@ func (s *Store) openLog(ctx context.Context, databaseURL string) error {
 		pool.Close()
 		return fmt.Errorf("store: log model: %w", err)
 	}
-	res, err := migrate.AutoPool(ctx, pool, want, migrate.AutoOptions{Accept: acceptReplaced})
+	res, err := migrate.AutoCaduceusPool(ctx, pool, want, migrate.AutoOptions{Accept: acceptReplaced})
 	if err != nil {
 		pool.Close()
 		return fmt.Errorf("store: migrate log database: %w", err)
 	}
 	s.applied += len(res.Applied)
-	s.logPool, s.logEx, s.logURL = pool, pgxdrv.Pool{P: pool}, databaseURL
+	s.logPool, s.logEx, s.logURL = pool, pool, databaseURL
 	return nil
 }
 
@@ -273,14 +271,14 @@ func CheckDatabase(ctx context.Context, databaseURL string) (version string, has
 		return "", false, err
 	}
 	defer pool.Close()
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
+	// The server reports its version when a connection starts.
+	if err := pool.Acquire(ctx, func(c *caduceus.Conn) error {
+		version = "PostgreSQL " + c.Wire().ParameterStatus("server_version")
+		return nil
+	}); err != nil {
 		return "", false, fmt.Errorf("store: connect: %w", err)
 	}
-	// The server reports its version when a connection starts.
-	version = "PostgreSQL " + conn.Conn().PgConn().ParameterStatus("server_version")
-	conn.Release()
-	n, err := user.New().Count(ctx, pgxdrv.Pool{P: pool})
+	n, err := user.New().Count(ctx, pool)
 	if err != nil {
 		// A new database has no users table yet.
 		return version, false, nil
@@ -289,13 +287,10 @@ func CheckDatabase(ctx context.Context, databaseURL string) (version string, has
 }
 
 // poolDefaults sets the pool's limits, leaving any the URL names alone.
-func poolDefaults(cfg *pgxpool.Config, databaseURL string) {
+func poolDefaults(cfg *caduceusdrv.PoolConfig, databaseURL string) {
 	set := func(opt string) bool { return strings.Contains(databaseURL, opt) }
 	if !set("pool_max_conns") {
 		cfg.MaxConns = defaultMaxConns
-	}
-	if !set("pool_min_conns") {
-		cfg.MinConns = defaultMinConns
 	}
 	if !set("pool_max_conn_lifetime") {
 		cfg.MaxConnLifetime = defaultMaxConnLifetime
@@ -303,11 +298,8 @@ func poolDefaults(cfg *pgxpool.Config, databaseURL string) {
 	if !set("pool_max_conn_idle_time") {
 		cfg.MaxConnIdleTime = defaultMaxConnIdleTime
 	}
-	if !set("pool_health_check_period") {
-		cfg.HealthCheckPeriod = defaultHealthCheck
-	}
 	if !set("connect_timeout") {
-		cfg.ConnConfig.ConnectTimeout = defaultConnectTimeout
+		cfg.Conn.ConnectTimeout = defaultConnectTimeout
 	}
 }
 
@@ -318,7 +310,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("store: model: %w", err)
 	}
-	res, err := migrate.AutoPool(ctx, s.pool, want, migrate.AutoOptions{Accept: acceptReplaced})
+	res, err := migrate.AutoCaduceusPool(ctx, s.pool, want, migrate.AutoOptions{Accept: acceptReplaced})
 	if err != nil {
 		return fmt.Errorf("store: migrate: %w", err)
 	}
@@ -833,11 +825,11 @@ func writeFileAtomic(path string, b []byte) error {
 // hashes and sessions and so is never a source of examples. It compares
 // host, port and database name; an unparsable string is not this one.
 func (s *Store) IsOwnDatabase(dsn string) bool {
-	theirs, err := pgconn.ParseConfig(dsn)
+	theirs, err := wire.ParseConfig(dsn)
 	if err != nil {
 		return false
 	}
-	ours := s.pool.Config().ConnConfig
+	ours := s.pool.Config()
 	return theirs.Database == ours.Database && theirs.Port == ours.Port && sameHost(theirs.Host, ours.Host)
 }
 
@@ -860,11 +852,11 @@ var ErrOwnDatabase = errors.New("that is this server's own database; point at an
 // address) reaches the same answer as the name in our own URL. Another
 // database on the same server is fine.
 func (s *Store) RefuseOwnDatabase(network, address, database string) error {
-	ours := s.pool.Config().ConnConfig
+	ours := s.pool.Config()
 	if database != ours.Database {
 		return nil
 	}
-	ends := []*pgconn.FallbackConfig{{Host: ours.Host, Port: ours.Port}}
+	ends := []*wire.FallbackConfig{{Host: ours.Host, Port: ours.Port}}
 	ends = append(ends, ours.Fallbacks...)
 	ip, port, socket := dialled(network, address)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/gsoultan/caduceus"
 
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/testdb"
@@ -31,7 +31,7 @@ func TestUpgradeFrom0001(t *testing.T) {
 	ctx := context.Background()
 	url := testdb.URL(t)
 
-	conn, err := pgx.Connect(ctx, url)
+	conn, err := caduceus.Connect(ctx, url, caduceus.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
