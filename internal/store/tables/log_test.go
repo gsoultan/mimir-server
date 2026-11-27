@@ -16,7 +16,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 )
 
 // The log database's audit_events must match the main one's column for

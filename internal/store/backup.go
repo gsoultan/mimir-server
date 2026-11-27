@@ -23,10 +23,10 @@ import (
 	"strings"
 
 	"github.com/gsoultan/caduceus"
-	"github.com/gsoultan/storm"
-	"github.com/gsoultan/storm/migrate"
-	"github.com/gsoultan/storm/migrate/caduceusmigrate"
-	"github.com/gsoultan/storm/schema"
+	"github.com/gsoultan/storm/v2"
+	"github.com/gsoultan/storm/v2/migrate"
+	"github.com/gsoultan/storm/v2/schema"
+	schemapg "github.com/gsoultan/storm/v2/schema/pg"
 
 	"github.com/gsoultan/mimir-server/internal/store/tables"
 )
@@ -113,7 +113,7 @@ func Empty(ctx context.Context, databaseURL string) (bool, error) {
 	defer pool.Close()
 	var cur *schema.Schema
 	err = pool.Acquire(ctx, func(c *caduceus.Conn) error {
-		cur, err = caduceusmigrate.Introspect(ctx, c, "public")
+		cur, err = schemapg.Introspect(ctx, c, "public")
 		return err
 	})
 	if err != nil {
@@ -152,7 +152,7 @@ func Plan(ctx context.Context, databaseURL string, log bool) ([]Step, error) {
 	}
 	var plan migrate.Plan
 	err = pool.Acquire(ctx, func(c *caduceus.Conn) error {
-		plan, err = caduceusmigrate.For(ctx, c, "public", want, migrate.Options{})
+		plan, err = migrate.ForWith(ctx, c, "public", want, migrate.Options{})
 		return err
 	})
 	if err != nil {

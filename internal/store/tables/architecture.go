@@ -12,7 +12,7 @@
 
 package tables
 
-import "github.com/gsoultan/storm"
+import "github.com/gsoultan/storm/v2"
 
 // Architecture is a model type someone wrote in their own code and runs on
 // workers, described here so the server knows what its models read and

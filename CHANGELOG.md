@@ -7,7 +7,8 @@
 - The server now reaches its own database through caduceus, a PostgreSQL
   driver with no dependencies, by way of storm's caduceus adapter. That
   covers queries, transactions, startup migrations, upgrade plans and the
-  empty-database check before a restore. pgx is no longer used directly.
+  empty-database check before a restore. The server moves to storm v2,
+  which runs on caduceus only, so pgx is no longer a dependency at all.
 - A PostgreSQL data source ("learn from a database") connects through
   caduceus too, still read-only and still checked against this server's
   own database before each connection. The CSV it produces is unchanged.

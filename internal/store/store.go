@@ -38,11 +38,10 @@ import (
 	"github.com/gsoultan/caduceus"
 	"github.com/gsoultan/caduceus/wire"
 	"github.com/gsoultan/mimir-server/internal/mapfile"
-	"github.com/gsoultan/storm"
-	"github.com/gsoultan/storm/migrate"
-	"github.com/gsoultan/storm/migrate/caduceusmigrate"
-	"github.com/gsoultan/storm/runtime"
-	"github.com/gsoultan/storm/runtime/caduceusdrv"
+	"github.com/gsoultan/storm/v2"
+	"github.com/gsoultan/storm/v2/migrate"
+	"github.com/gsoultan/storm/v2/runtime"
+	"github.com/gsoultan/storm/v2/runtime/caduceusdrv"
 
 	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/secret"
@@ -253,7 +252,7 @@ func (s *Store) openLog(ctx context.Context, databaseURL string) error {
 		pool.Close()
 		return fmt.Errorf("store: log model: %w", err)
 	}
-	res, err := caduceusmigrate.AutoPool(ctx, pool, want, migrate.AutoOptions{Accept: acceptReplaced})
+	res, err := migrate.AutoPool(ctx, pool, want, migrate.AutoOptions{Accept: acceptReplaced})
 	if err != nil {
 		pool.Close()
 		return fmt.Errorf("store: migrate log database: %w", err)
@@ -311,7 +310,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("store: model: %w", err)
 	}
-	res, err := caduceusmigrate.AutoPool(ctx, s.pool, want, migrate.AutoOptions{Accept: acceptReplaced})
+	res, err := migrate.AutoPool(ctx, s.pool, want, migrate.AutoOptions{Accept: acceptReplaced})
 	if err != nil {
 		return fmt.Errorf("store: migrate: %w", err)
 	}

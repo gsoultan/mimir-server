@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gsoultan/storm/runtime"
+	"github.com/gsoultan/storm/v2/runtime"
 
 	"github.com/gsoultan/mimir-server/internal/store/db/auditevent"
 	"github.com/gsoultan/mimir-server/internal/store/db/delivery"

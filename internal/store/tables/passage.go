@@ -13,7 +13,7 @@
 package tables
 
 import (
-	"github.com/gsoultan/storm"
+	"github.com/gsoultan/storm/v2"
 )
 
 // Passage is a piece of a document, a few paragraphs long: its text, kept

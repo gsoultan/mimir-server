@@ -28,7 +28,7 @@ import (
 
 // parts are the mimir projects the server is built on, in the order the
 // About page lists them.
-var parts = []string{"github.com/gsoultan/mimir", "github.com/gsoultan/mimir-model", "github.com/gsoultan/storm"}
+var parts = []string{"github.com/gsoultan/mimir", "github.com/gsoultan/mimir-model", "github.com/gsoultan/storm/v2"}
 
 // started is when this process started, close enough for "running for".
 var started = time.Now()
