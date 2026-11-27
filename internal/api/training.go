@@ -34,6 +34,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/cluster"
 	"github.com/gsoultan/mimir-server/internal/dbsource"
 	"github.com/gsoultan/mimir-server/internal/s3source"
+	"github.com/gsoultan/mimir-server/internal/schema"
 	"github.com/gsoultan/mimir-server/internal/store"
 	"github.com/gsoultan/mimir-server/internal/templates"
 	"github.com/gsoultan/mimir-server/internal/training"
@@ -455,7 +456,10 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 		return nil, err
 	}
 	st := req.Msg.GetSettings()
-	set := store.Settings{Epochs: int(st.GetEpochs()), BatchSize: int(st.GetBatchSize()), LearningRate: st.GetLearningRate(), HoldOut: st.GetHoldOut()}
+	set := store.Settings{Epochs: int(st.GetEpochs()), BatchSize: int(st.GetBatchSize()), LearningRate: st.GetLearningRate(), HoldOut: st.GetHoldOut(), Balance: st.GetBalance()}
+	if set.Balance && !canBalance(d, a) {
+		return nil, invalid("Making up rows of rarer answers works for a table whose model picks one answer from a few.")
+	}
 	if ls := st.GetLayers(); len(ls) > 0 {
 		if !a.Designable {
 			return nil, invalid("%s models can't be designed step by step. Pick a table model, or leave the shape as it is.", a.Title)
@@ -468,6 +472,11 @@ func (s *Service) CreateJob(ctx context.Context, req *connect.Request[mimirv1.Cr
 			return nil, invalid("That design can't be built: %s.", strings.TrimPrefix(err.Error(), arch.ErrBadLayers.Error()+": "))
 		}
 		set.Layers = arch.FormatLayers(design)
+	}
+	if rs := st.GetRules(); len(rs) > 0 {
+		if set.Rules, err = rulesOf(a, d, rs); err != nil {
+			return nil, err
+		}
 	}
 	def := training.SettingsFor(d)
 	if set.Epochs == 0 {
@@ -726,6 +735,36 @@ func (s *Service) TrainingDone(ctx context.Context, j store.Job) {
 
 // helpers
 
+// rulesOf checks a new run's up-or-down rules for a model of a learning
+// from d, and writes them as arch.FormatRules does.
+func rulesOf(a arch.Architecture, d store.Dataset, rs []*mimirv1.ColumnRule) (string, error) {
+	if !a.Rules {
+		return "", invalid("%s can't be told which way its answer goes. Pick boosted trees, or leave every column free.", a.Title)
+	}
+	if a.Answers() == arch.Class && len(d.Labels) != 2 {
+		return "", invalid("Which way the answer goes only applies to a number or a yes-or-no answer, and %s has %d possible answers.", d.Name, len(d.Labels))
+	}
+	rules := map[string]int{}
+	for _, r := range rs {
+		dir, err := arch.ParseDirection(r.GetDirection())
+		if err != nil {
+			return "", invalid("The way for %s is up or down.", r.GetColumn())
+		}
+		if _, dup := rules[r.GetColumn()]; dup {
+			return "", invalid("%s has two rules. Keep one.", r.GetColumn())
+		}
+		rules[r.GetColumn()] = dir
+	}
+	var cols []schema.Column
+	if len(d.Columns) > 0 {
+		cols = d.Columns
+	}
+	if err := arch.CheckRules(rules, cols); err != nil {
+		return "", invalid("That rule can't be kept: %s.", strings.TrimPrefix(err.Error(), arch.ErrBadRules.Error()+": "))
+	}
+	return arch.FormatRules(rules), nil
+}
+
 func (s *Service) getDataset(ctx context.Context, id string) (store.Dataset, error) {
 	if !store.ValidID(id) {
 		return store.Dataset{}, connect.NewError(connect.CodeNotFound, errors.New("No such dataset."))
@@ -802,7 +841,7 @@ func datasetProto(d store.Dataset) *mimirv1.Dataset {
 		InputShape: int64s(d.InputShape), Target: d.Target, SizeBytes: d.SizeBytes, CreateTime: timestamppb.New(d.Created),
 		Architectures: training.Architectures(d),
 		Driver:        d.Driver, Query: d.Query, // never the connection string
-		Columns: columnsProto(d.Columns), NumberTarget: d.NumberTarget, Skipped: d.Skipped,
+		Columns: columnsProto(d.Columns), NumberTarget: d.NumberTarget, Skipped: d.Skipped, MadeFrom: d.MadeFrom,
 	}
 	if d.Driver == s3source.Driver {
 		// The path is in storage, not a query; the keys stay here.
@@ -819,7 +858,7 @@ func datasetProto(d store.Dataset) *mimirv1.Dataset {
 func jobProto(j store.Job, datasetName string) *mimirv1.Job {
 	out := &mimirv1.Job{
 		Id: j.ID, Name: j.Name, Description: j.Description, Architecture: j.Architecture, DatasetId: j.DatasetID, DatasetName: datasetName,
-		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut, Layers: cluster.LayersToProto(j.Settings.Layers)},
+		Settings: &mimirv1.TrainingSettings{Epochs: int32(j.Settings.Epochs), BatchSize: int32(j.Settings.BatchSize), LearningRate: j.Settings.LearningRate, HoldOut: j.Settings.HoldOut, Layers: cluster.LayersToProto(j.Settings.Layers), Balance: j.Settings.Balance, Rules: cluster.RulesToProto(j.Settings.Rules)},
 		Status:   mimirv1.JobStatus(j.Status), Error: j.Error, Epoch: int32(j.Epoch), ModelId: j.ModelID, Worker: j.Worker, CreatedBy: j.CreatedBy,
 		RepeatSeconds: j.RepeatSeconds, ParentId: j.ParentID, BaseModelId: j.BaseModelID, Note: j.Note, RunOn: j.RunOn,
 		MinNewRows: j.MinNewRows, TrainedRows: j.TrainedRows, CheckNote: j.CheckNote, StartFromModelId: j.StartFrom,
@@ -848,4 +887,12 @@ func jobEvent(j store.Job, datasetName string) map[string]any {
 		"id": j.ID, "name": j.Name, "architecture": j.Architecture, "dataset": datasetName, "status": j.Status.String(),
 		"epoch": j.Epoch, "epochs": j.Settings.Epochs, "accuracy": accuracy(j), "model_id": j.ModelID, "error": j.Error,
 	}
+}
+
+// canBalance reports whether a run of a on d can make up rows of its
+// rarer answers: a table whose model picks one of a few answers, from the
+// rows as numbers.
+func canBalance(d store.Dataset, a arch.Architecture) bool {
+	cells := a.Learner != nil && (a.Learner.Cells != nil || a.Learner.Boxes != nil)
+	return d.Kind == store.DatasetTable && a.Target == arch.AnswerTarget && a.Answers() == arch.Class && !a.NumberTarget && len(d.Labels) >= 2 && !cells
 }

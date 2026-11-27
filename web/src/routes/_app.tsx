@@ -3,7 +3,7 @@ import { useMutation } from "@connectrpc/connect-query";
 import { Alert, AppShell, Avatar, Button, Drawer, Group, Menu, NavLink, ScrollArea, Stack, Text, UnstyledButton, useMantineColorScheme } from "@mantine/core";
 import { useDisclosure, useHotkeys, useMediaQuery } from "@mantine/hooks";
 import { Spotlight, spotlight, type SpotlightActionData } from "@mantine/spotlight";
-import { IconAlertCircle, IconBox, IconDeviceDesktop, IconKey, IconLogout, IconMenu2, IconMoon, IconPlus, IconSearch, IconSelector, IconShieldLock, IconSun, IconWifiOff } from "@tabler/icons-react";
+import { IconAlertCircle, IconBox, IconDeviceDesktop, IconKey, IconLanguage, IconLogout, IconMenu2, IconMoon, IconPlus, IconSearch, IconSelector, IconShieldLock, IconSun, IconWifiOff } from "@tabler/icons-react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useMemo } from "react";
@@ -14,6 +14,7 @@ import { listModels, setupState, whoAmI } from "../api/queries";
 import { aboutItem, deviceItem, groups, isActive, nav, settingsItem, type NavItem } from "../components/nav";
 import { ChangePasswordModal } from "../components/ChangePasswordModal";
 import { roleLabel } from "../lib/roles";
+import { lang, languages, setLang, t } from "../i18n";
 
 // Every screen under _app needs a signed-in person. The guard runs before
 // any page loads, so an expired session lands on sign-in, not an error.
@@ -52,24 +53,22 @@ function ErrorPage({ error, reset }: { error: unknown; reset: () => void }) {
   if (!navigator.onLine) {
     return (
       <Stack align="flex-start" p="xl" className="mx-auto max-w-2xl">
-        <Alert color="gray" icon={<IconWifiOff />} title="You're offline" className="w-full">
-          mimir needs the server for this page. Models saved on this device still answer.
-        </Alert>
+        <Alert color="gray" icon={<IconWifiOff />} title={t("You're offline")} className="w-full">{t("mimir needs the server for this page. Models saved on this device still answer.")}</Alert>
         <Group>
-          <Button component={Link} to="/device">Models on this device</Button>
-          <Button variant="default" onClick={reset}>Try again</Button>
+          <Button component={Link} to="/device">{t("Models on this device")}</Button>
+          <Button variant="default" onClick={reset}>{t("Try again")}</Button>
         </Group>
       </Stack>
     );
   }
   return (
     <Stack align="flex-start" p="xl" className="mx-auto max-w-2xl">
-      <Alert color={code === Code.PermissionDenied ? "yellow" : "red"} icon={<IconAlertCircle />} title={code === Code.PermissionDenied ? "This page isn't for your account" : "Something went wrong"} className="w-full">
+      <Alert color={code === Code.PermissionDenied ? "yellow" : "red"} icon={<IconAlertCircle />} title={code === Code.PermissionDenied ? t("This page isn't for your account") : t("Something went wrong")} className="w-full">
         {message(error)}
       </Alert>
       <Group>
-        <Button component={Link} to="/" onClick={reset}>Go home</Button>
-        <Button variant="default" onClick={reset}>Try again</Button>
+        <Button component={Link} to="/" onClick={reset}>{t("Go home")}</Button>
+        <Button variant="default" onClick={reset}>{t("Try again")}</Button>
       </Group>
     </Stack>
   );
@@ -90,7 +89,7 @@ function Layout() {
   const canBuild = can("models.write");
   // Settings holds People too, so people who may see either get it.
   const settings: NavItem | undefined = can("audit.read") ? settingsItem
-    : can("users.read") ? { ...settingsItem, to: "/users", label: "People" } : undefined;
+    : can("users.read") ? { ...settingsItem, to: "/users", label: t("People") } : undefined;
   const signOut = useMutation(AuthService.method.signOut, {
     onSuccess: () => { queryClient.clear(); location.assign("/sign-in"); },
   });
@@ -99,12 +98,12 @@ function Layout() {
   // Search finds pages and models, and offers the common next steps.
   const actions = useMemo<SpotlightActionData[]>(() => [
     ...nav.filter((n) => !n.needs || can(n.needs)).filter((n) => n.to !== "/settings" || settings?.to === "/settings").map((n) => ({
-      id: "page:" + n.to, label: n.label, group: "Pages", leftSection: <n.icon size={18} stroke={1.8} />,
+      id: "page:" + n.to, label: n.label, group: t("Pages"), leftSection: <n.icon size={18} stroke={1.8} />,
       onClick: () => void navigate({ to: n.to }),
     })),
     ...(models?.models ?? []).flatMap((m) => [
-      { id: "model:" + m.id, label: m.name, description: m.description || "Model", group: "Models", leftSection: <IconBox size={18} stroke={1.8} />, onClick: () => void navigate({ to: "/models/$id", params: { id: m.id } }) },
-      { id: "try:" + m.id, label: `Try ${m.name}`, group: "Actions", keywords: [m.name], leftSection: <IconSearch size={18} stroke={1.8} />, onClick: () => void navigate({ to: "/try", search: { model: m.id } }) },
+      { id: "model:" + m.id, label: m.name, description: m.description || t("Model"), group: t("Models"), leftSection: <IconBox size={18} stroke={1.8} />, onClick: () => void navigate({ to: "/models/$id", params: { id: m.id } }) },
+      { id: "try:" + m.id, label: t("Try {name}", { name: m.name }), group: t("Actions"), keywords: [m.name], leftSection: <IconSearch size={18} stroke={1.8} />, onClick: () => void navigate({ to: "/try", search: { model: m.id } }) },
     ]),
   ], [me, models, navigate]);
 
@@ -137,15 +136,15 @@ function Layout() {
       {/* Phones only: the brand, search and the account. */}
       <AppShell.Header px="md" hiddenFrom="sm">
         <Group h="100%" justify="space-between">
-          <Link to="/" className="flex items-center gap-2 no-underline" style={{ color: "inherit" }} aria-label="mimir home">
+          <Link to="/" className="flex items-center gap-2 no-underline" style={{ color: "inherit" }} aria-label={t("mimir home")}>
             <img src="/icon.svg" alt="" width={28} height={28} />
             <Text fw={750} ff="var(--font-display)" fz={20}>mimir</Text>
           </Link>
           <Group gap="xs">
-            <UnstyledButton onClick={() => spotlight.open()} aria-label="Search" p={6} c="dimmed"><IconSearch size={22} stroke={1.8} /></UnstyledButton>
+            <UnstyledButton onClick={() => spotlight.open()} aria-label={t("Search")} p={6} c="dimmed"><IconSearch size={22} stroke={1.8} /></UnstyledButton>
             <Menu position="bottom-end" width={240}>
               <Menu.Target>
-                <UnstyledButton aria-label="Account menu"><Avatar size={32} radius="xl" color="teal">{initial(me.user?.name)}</Avatar></UnstyledButton>
+                <UnstyledButton aria-label={t("Account menu")}><Avatar size={32} radius="xl" color="teal">{initial(me.user?.name)}</Avatar></UnstyledButton>
               </Menu.Target>
               <AccountItems email={me.user?.email ?? ""} team={me.user?.teamName ?? ""} onPassword={change.open} onSignOut={() => signOut.mutate({})} />
             </Menu>
@@ -153,14 +152,14 @@ function Layout() {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="sm" aria-label="Main menu">
+      <AppShell.Navbar p="sm" aria-label={t("Main menu")}>
         <AppShell.Section>
-          <Link to="/" className="flex items-center gap-2 px-2 pb-4 pt-1 no-underline" style={{ color: "inherit" }} aria-label="mimir home">
+          <Link to="/" className="flex items-center gap-2 px-2 pb-4 pt-1 no-underline" style={{ color: "inherit" }} aria-label={t("mimir home")}>
             <img src="/icon.svg" alt="" width={28} height={28} />
             <Text fw={750} ff="var(--font-display)" fz={21}>mimir</Text>
           </Link>
           <button type="button" className="side-search" onClick={() => spotlight.open()}>
-            <IconSearch size={16} /> Search or jump to… <kbd>{isMac() ? "⌘" : "Ctrl"} K</kbd>
+            <IconSearch size={16} />{" "}{t("Search or jump to…")}{" "}<kbd>{isMac() ? "⌘" : "Ctrl"} K</kbd>
           </button>
         </AppShell.Section>
         <AppShell.Section grow component={ScrollArea} mt="sm">{links()}</AppShell.Section>
@@ -174,13 +173,12 @@ function Layout() {
         <Outlet />
       </AppShell.Main>
 
-      <AppShell.Footer aria-label="Quick menu" hiddenFrom="sm" className="tab-bar">
+      <AppShell.Footer aria-label={t("Quick menu")} hiddenFrom="sm" className="tab-bar">
         <nav className="grid h-full" style={{ gridTemplateColumns: `repeat(${bar.length + 1}, 1fr)` }}>
           {bar.map((n) => n === "build" ? (
             <UnstyledButton key="build" component={Link} to="/models/build" aria-current={path.startsWith("/models/build") || path.startsWith("/templates") ? "page" : undefined}
               className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold">
-              <span className="plus"><IconPlus size={20} /></span>Build
-            </UnstyledButton>
+              <span className="plus"><IconPlus size={20} /></span>{t("Build")}</UnstyledButton>
           ) : (
             <UnstyledButton key={n.to} component={Link} to={n.to} aria-current={isActive(path, n) ? "page" : undefined}
               className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold">
@@ -189,16 +187,15 @@ function Layout() {
           ))}
           <UnstyledButton onClick={menu.toggle} className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold"
             aria-current={!bar.some((n) => n !== "build" && isActive(path, n)) && !path.startsWith("/models/build") ? "page" : undefined}>
-            <IconMenu2 size={23} stroke={1.8} />More
-          </UnstyledButton>
+            <IconMenu2 size={23} stroke={1.8} />{t("More")}</UnstyledButton>
         </nav>
       </AppShell.Footer>
 
-      <Drawer opened={menuOpen} onClose={menu.close} position="bottom" size="auto" radius="lg" title="Menu" hiddenFrom="sm"
+      <Drawer opened={menuOpen} onClose={menu.close} position="bottom" size="auto" radius="lg" title={t("Menu")} hiddenFrom="sm"
         styles={{ content: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }, body: { paddingBottom: 24 } }}>
         {links(menu.close)}
         <Stack gap={2} mt="sm" pt="sm" style={{ borderTop: "1px solid var(--mimir-line)" }}>
-          {canBuild && <SideLink item={{ to: "/models/build", label: "Build a model", short: "Build", icon: IconPlus }} active={false} onClick={menu.close} />}
+          {canBuild && <SideLink item={{ to: "/models/build", label: t("Build a model"), short: t("Build"), icon: IconPlus }} active={false} onClick={menu.close} />}
           {settings && <SideLink item={settings} active={isActive(path, settings)} onClick={menu.close} />}
           <SideLink item={deviceItem} active={isActive(path, deviceItem)} onClick={menu.close} />
         </Stack>
@@ -206,12 +203,12 @@ function Layout() {
 
       <Spotlight
         actions={actions}
-        nothingFound="Nothing matches"
+        nothingFound={t("Nothing matches")}
         highlightQuery
         limit={12}
         scrollable
         maxHeight={420}
-        searchProps={{ leftSection: <IconSearch size={18} />, placeholder: "Search pages and models" }}
+        searchProps={{ leftSection: <IconSearch size={18} />, placeholder: t("Search pages and models") }}
         shortcut={null}
       />
       <ChangePasswordModal opened={changing} onClose={change.close} />
@@ -240,7 +237,7 @@ function AccountMenu({ name, email, team, role, onPassword, onSignOut }: { name:
   return (
     <Menu position="top-start" width={240}>
       <Menu.Target>
-        <UnstyledButton className="flex w-full items-center gap-3 rounded-md p-2 hover:bg-[var(--mantine-color-default-hover)]" aria-label="Account menu">
+        <UnstyledButton className="flex w-full items-center gap-3 rounded-md p-2 hover:bg-[var(--mantine-color-default-hover)]" aria-label={t("Account menu")}>
           <Avatar size={32} radius="xl" color="teal">{initial(name)}</Avatar>
           <div className="min-w-0 flex-1">
             <Text size="sm" fw={650} truncate>{name}</Text>
@@ -257,27 +254,33 @@ function AccountMenu({ name, email, team, role, onPassword, onSignOut }: { name:
 function AccountItems({ email, team, onPassword, onSignOut }: { email: string; team: string; onPassword: () => void; onSignOut: () => void }) {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
   const look = [
-    { value: "light" as const, label: "Light", icon: IconSun },
-    { value: "dark" as const, label: "Dark", icon: IconMoon },
-    { value: "auto" as const, label: "Match device", icon: IconDeviceDesktop },
+    { value: "light" as const, label: t("Light"), icon: IconSun },
+    { value: "dark" as const, label: t("Dark"), icon: IconMoon },
+    { value: "auto" as const, label: t("Match device"), icon: IconDeviceDesktop },
   ];
   return (
     <Menu.Dropdown>
       <Menu.Label>{email}</Menu.Label>
-      {team && <Menu.Label>Team: {team}</Menu.Label>}
-      <Menu.Item component={Link} to="/device" leftSection={<deviceItem.icon size={16} />}>On this device</Menu.Item>
-      <Menu.Item component={Link} to="/security" leftSection={<IconShieldLock size={16} />}>Security</Menu.Item>
-      <Menu.Item leftSection={<IconKey size={16} />} onClick={onPassword}>Change password</Menu.Item>
+      {team && <Menu.Label>{t("Team:")}{" "}{team}</Menu.Label>}
+      <Menu.Item component={Link} to="/device" leftSection={<deviceItem.icon size={16} />}>{t("On this device")}</Menu.Item>
+      <Menu.Item component={Link} to="/security" leftSection={<IconShieldLock size={16} />}>{t("Security")}</Menu.Item>
+      <Menu.Item leftSection={<IconKey size={16} />} onClick={onPassword}>{t("Change password")}</Menu.Item>
       <Menu.Divider />
-      <Menu.Label>Look</Menu.Label>
+      <Menu.Label>{t("Look")}</Menu.Label>
       {look.map((l) => (
         <Menu.Item key={l.value} leftSection={<l.icon size={16} />} onClick={() => setColorScheme(l.value)}
-          rightSection={colorScheme === l.value ? <Text size="xs" c="teal" fw={700}>On</Text> : null}>{l.label}</Menu.Item>
+          rightSection={colorScheme === l.value ? <Text size="xs" c="teal" fw={700}>{t("On")}</Text> : null}>{l.label}</Menu.Item>
       ))}
       <Menu.Divider />
-      <Menu.Item component={Link} to="/about" leftSection={<aboutItem.icon size={16} />}>About mimir</Menu.Item>
+      <Menu.Label>{t("Language")}</Menu.Label>
+      {languages.map((l) => (
+        <Menu.Item key={l.value} leftSection={<IconLanguage size={16} />} onClick={() => setLang(l.value)} lang={l.value}
+          rightSection={lang === l.value ? <Text size="xs" c="teal" fw={700}>{t("On")}</Text> : null}>{l.label}</Menu.Item>
+      ))}
       <Menu.Divider />
-      <Menu.Item leftSection={<IconLogout size={16} />} onClick={onSignOut}>Sign out</Menu.Item>
+      <Menu.Item component={Link} to="/about" leftSection={<aboutItem.icon size={16} />}>{t("About mimir")}</Menu.Item>
+      <Menu.Divider />
+      <Menu.Item leftSection={<IconLogout size={16} />} onClick={onSignOut}>{t("Sign out")}</Menu.Item>
     </Menu.Dropdown>
   );
 }

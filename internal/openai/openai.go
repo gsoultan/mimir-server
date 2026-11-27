@@ -212,12 +212,21 @@ func (s settings) writing(m store.Model) (api.Writing, error) {
 	return w, nil
 }
 
+type chatMessage struct {
+	Role    string  `json:"role"`
+	Content content `json:"content"`
+	// ToolCalls are an assistant's calls; ToolCallID says which call a
+	// tool message answers.
+	ToolCalls  []toolCall `json:"tool_calls"`
+	ToolCallID string     `json:"tool_call_id"`
+}
+
 type chatRequest struct {
 	settings
-	Messages []struct {
-		Role    string  `json:"role"`
-		Content content `json:"content"`
-	} `json:"messages"`
+	Messages          []chatMessage   `json:"messages"`
+	Tools             []tool          `json:"tools"`
+	ToolChoice        json.RawMessage `json:"tool_choice"`
+	ParallelToolCalls *bool           `json:"parallel_tool_calls"`
 }
 
 func (h *handler) chat(w http.ResponseWriter, r *http.Request) {
@@ -241,23 +250,48 @@ func (h *handler) chat(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return
 	}
+	tu, err := readTools(req.Tools, req.ToolChoice, req.ParallelToolCalls)
+	if err != nil {
+		fail(w, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return
+	}
 	// System and developer messages, wherever they are, become the
-	// instructions; without any, the model's own apply.
+	// instructions; without any, the model's own apply. Earlier tool calls
+	// and their answers are written as the model writes and reads them,
+	// answers to calls made together in one user turn.
 	var instructions []string
+	answers := false // the last message is answers to tool calls
 	for _, msg := range req.Messages {
+		tool := false
 		switch msg.Role {
 		case "system", "developer":
 			instructions = append(instructions, string(msg.Content))
-		case runtime.RoleUser, runtime.RoleAssistant:
+		case runtime.RoleUser:
 			wr.Messages = append(wr.Messages, runtime.Message{Role: msg.Role, Content: string(msg.Content)})
+		case runtime.RoleAssistant:
+			wr.Messages = append(wr.Messages, runtime.Message{Role: msg.Role, Content: writeCalls(string(msg.Content), msg.ToolCalls)})
+		case "tool":
+			tool = true
+			if answers {
+				wr.Messages[len(wr.Messages)-1].Content += "\n" + writeResponse(string(msg.Content))
+			} else {
+				wr.Messages = append(wr.Messages, runtime.Message{Role: runtime.RoleUser, Content: writeResponse(string(msg.Content))})
+			}
 		default:
-			fail(w, http.StatusBadRequest, "invalid_request_error", fmt.Sprintf("Messages can be from system, developer, user or assistant, not %q: these models don't call tools.", msg.Role))
+			fail(w, http.StatusBadRequest, "invalid_request_error", fmt.Sprintf("Messages can be from system, developer, user, assistant or tool, not %q.", msg.Role))
 			return
 		}
+		answers = tool
 	}
 	system := m.Language.Instructions
 	if instructions != nil {
 		system = strings.Join(instructions, "\n\n")
+	}
+	if tu != nil {
+		if strings.TrimSpace(system) != "" {
+			system += "\n\n"
+		}
+		system += tu.instructions()
 	}
 	if strings.TrimSpace(system) != "" {
 		wr.Messages = append([]runtime.Message{{Role: runtime.RoleSystem, Content: system}}, wr.Messages...)
@@ -265,7 +299,7 @@ func (h *handler) chat(w http.ResponseWriter, r *http.Request) {
 	if wr.Messages == nil {
 		wr.Messages = []runtime.Message{} // a chat, though an empty one
 	}
-	h.answer(w, r, api.APIName(m.Name), req.settings, wr, "chat.completion", func(wr api.Writing) (api.Written, error) {
+	h.answer(w, r, api.APIName(m.Name), req.settings, wr, "chat.completion", tu, func(wr api.Writing) (api.Written, error) {
 		return h.svc.Write(r.Context(), m, wr)
 	})
 }
@@ -273,7 +307,13 @@ func (h *handler) chat(w http.ResponseWriter, r *http.Request) {
 // grounded answers a chat sent to a collection from its documents:
 // system and developer messages add to the collection's instructions,
 // and the answer cites the passages it was given as [1], [2] and so on.
+// Collections call no tools: tools offered are left unused, and a chat
+// that must call one is refused.
 func (h *handler) grounded(w http.ResponseWriter, r *http.Request, c store.Collection, req chatRequest) {
+	if tu, err := readTools(req.Tools, req.ToolChoice, req.ParallelToolCalls); err != nil || (tu != nil && tu.must) {
+		fail(w, http.StatusBadRequest, "invalid_request_error", "Collections answer from their documents and don't call tools; leave tool_choice out or set it to auto or none.")
+		return
+	}
 	var extra []string
 	var chat []runtime.Message
 	for _, msg := range req.Messages {
@@ -297,7 +337,7 @@ func (h *handler) grounded(w http.ResponseWriter, r *http.Request, c store.Colle
 		fail(w, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return
 	}
-	h.answer(w, r, api.APIName(c.Name), req.settings, wr, "chat.completion", func(wr api.Writing) (api.Written, error) {
+	h.answer(w, r, api.APIName(c.Name), req.settings, wr, "chat.completion", nil, func(wr api.Writing) (api.Written, error) {
 		res, _, err := h.svc.WriteGrounded(r.Context(), g, wr, func([]store.Passage) func(string) error { return wr.OnText })
 		return res, err
 	})
@@ -333,7 +373,7 @@ func (h *handler) completions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	wr.Prompt = prompt
-	h.answer(w, r, api.APIName(m.Name), req.settings, wr, "text_completion", func(wr api.Writing) (api.Written, error) {
+	h.answer(w, r, api.APIName(m.Name), req.settings, wr, "text_completion", nil, func(wr api.Writing) (api.Written, error) {
 		return h.svc.Write(r.Context(), m, wr)
 	})
 }
@@ -406,7 +446,8 @@ func encodeFloats(v []float32) string {
 
 // answer has write write the answer and sends it whole, or as events
 // when the request asked to stream; name is the model's, as apps call it.
-func (h *handler) answer(w http.ResponseWriter, r *http.Request, name string, s settings, wr api.Writing, object string, write func(api.Writing) (api.Written, error)) {
+// With tools, the tool calls in the answer are sent as such.
+func (h *handler) answer(w http.ResponseWriter, r *http.Request, name string, s settings, wr api.Writing, object string, tu *toolUse, write func(api.Writing) (api.Written, error)) {
 	id := newID(object)
 	created := time.Now().Unix()
 	chat := object == "chat.completion"
@@ -418,7 +459,17 @@ func (h *handler) answer(w http.ResponseWriter, r *http.Request, name string, s 
 		}
 		choice := map[string]any{"index": 0, "finish_reason": finish(res)}
 		if chat {
-			choice["message"] = map[string]any{"role": "assistant", "content": res.Text}
+			msg := map[string]any{"role": "assistant", "content": res.Text}
+			if tu != nil {
+				if before, calls := tu.read(res.Text); len(calls) > 0 {
+					msg["content"], msg["tool_calls"] = nil, calls
+					if t := strings.TrimSpace(before); t != "" {
+						msg["content"] = t
+					}
+					choice["finish_reason"] = "tool_calls"
+				}
+			}
+			choice["message"] = msg
 		} else {
 			choice["text"] = res.Text
 		}
@@ -474,10 +525,16 @@ func (h *handler) answer(w http.ResponseWriter, r *http.Request, name string, s 
 		return map[string]any{"id": id, "object": chunkObject, "created": created, "model": name, "choices": []any{c}}
 	}
 	first := true
-	wr.OnText = func(t string) error {
+	text := func(t string) error {
 		err := event(chunk(t, first, nil))
 		first = false
 		return err
+	}
+	wr.OnText = text
+	var st *streamer
+	if tu != nil {
+		st = &streamer{send: text}
+		wr.OnText = st.write
 	}
 	res, err := write(wr)
 	if err != nil {
@@ -489,7 +546,28 @@ func (h *handler) answer(w http.ResponseWriter, r *http.Request, name string, s 
 		_ = event(map[string]any{"error": map[string]any{"message": msg, "type": typ}})
 		return
 	}
-	last := chunk("", first, finish(res))
+	reason := finish(res)
+	if st != nil {
+		// Send what was held back: the calls, or text that wasn't one.
+		if before, calls := tu.read(res.Text); len(calls) > 0 {
+			if len(before) > st.sent {
+				_ = text(before[st.sent:])
+			}
+			c := chunk("", first, nil)
+			deltas := make([]map[string]any, len(calls))
+			for i, call := range calls {
+				deltas[i] = map[string]any{"index": i, "id": call.ID, "type": call.Type, "function": call.Function}
+			}
+			c["choices"].([]any)[0].(map[string]any)["delta"].(map[string]any)["tool_calls"] = deltas
+			if event(c) != nil {
+				return
+			}
+			first, reason = false, "tool_calls"
+		} else if len(res.Text) > st.sent {
+			_ = text(res.Text[st.sent:])
+		}
+	}
+	last := chunk("", first, reason)
 	if s.StreamOptions.IncludeUsage {
 		last["usage"] = usage(res)
 	}

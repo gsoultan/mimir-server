@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 // Helpers for the speech and photo models: a recording made into the
 // 16 kHz mono WAV the speech model listens to, and photos made small
 // before they are sent.
@@ -67,12 +68,12 @@ export async function shrinkPhoto(file: Blob): Promise<{ bytes: Uint8Array; url:
   canvas.width = Math.max(1, Math.round(img.width * scale));
   canvas.height = Math.max(1, Math.round(img.height * scale));
   const g = canvas.getContext("2d");
-  if (!g) throw new Error("This browser can't read photos.");
+  if (!g) throw new Error(t("This browser can't read photos."));
   g.imageSmoothingQuality = "high";
   g.drawImage(img, 0, 0, canvas.width, canvas.height);
   img.close();
   const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/jpeg", 0.92));
-  if (!blob) throw new Error("This browser can't read photos.");
+  if (!blob) throw new Error(t("This browser can't read photos."));
   return { bytes: new Uint8Array(await blob.arrayBuffer()), url: URL.createObjectURL(blob) };
 }
 

@@ -12,6 +12,7 @@ import { AnchorLink, ButtonLink } from "../../../components/links";
 import { Row, RowList } from "../../../components/ui";
 import { Page } from "../../../components/Page";
 import { bytes } from "../../../lib/format";
+import { t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/documents/")({
   loader: ({ context }) => Promise.all([
@@ -31,21 +32,21 @@ function Collections() {
 
   return (
     <Page
-      title="Ask your documents"
-      intro="Put handbooks, policies and notes in a collection, then ask questions in plain words. Answers show which passages they came from, and nothing leaves this server."
-      actions={canWrite && data.collections.length > 0 && <Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>New collection</Button>}
+      title={t("Ask your documents")}
+      intro={t("Put handbooks, policies and notes in a collection, then ask questions in plain words. Answers show which passages they came from, and nothing leaves this server.")}
+      actions={canWrite && data.collections.length > 0 && <Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>{t("New collection")}</Button>}
     >
       {data.collections.length === 0 ? (
         <Card withBorder padding="xl" className="text-center">
-          <Text fw={650}>No collections yet</Text>
+          <Text fw={650}>{t("No collections yet")}</Text>
           <Text c="dimmed" mb="md">
             {language.length === 0
-              ? "Add a language model first, such as a Llama, Qwen or Gemma file. It reads your documents and writes the answers."
-              : canWrite ? "Make a collection, add your files, and ask away." : "Someone who can add models makes collections; you can ask them here."}
+              ? t("Add a language model first, such as a Llama, Qwen or Gemma file. It reads your documents and writes the answers.")
+              : canWrite ? t("Make a collection, add your files, and ask away.") : t("Someone who can add models makes collections; you can ask them here.")}
           </Text>
           {canWrite && (language.length > 0
-            ? <Group justify="center"><Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>New collection</Button></Group>
-            : <Group justify="center"><ButtonLink variant="default" to="/models/new">Upload a language model</ButtonLink></Group>)}
+            ? <Group justify="center"><Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>{t("New collection")}</Button></Group>
+            : <Group justify="center"><ButtonLink variant="default" to="/models/new">{t("Upload a language model")}</ButtonLink></Group>)}
         </Card>
       ) : (
         <RowList>
@@ -54,9 +55,9 @@ function Collections() {
               key={c.id}
               icon={<IconFolder size={20} />}
               title={<AnchorLink to="/documents/$id" params={{ id: c.id }} c="inherit" fw={650}>{c.name}</AnchorLink>}
-              detail={`${c.documents} ${c.documents === 1 ? "document" : "documents"} · ${bytes(c.bytes)} · answered by ${c.languageModelName || "a deleted model"}`}
+              detail={t("{documents} · {bytes} · answered by {model}", { documents: c.documents === 1 ? t("1 document") : t("{n} documents", { n: c.documents }), bytes: bytes(c.bytes), model: c.languageModelName || t("a deleted model") })}
             >
-              <ButtonLink size="xs" variant="default" to="/documents/$id" params={{ id: c.id }}>Ask</ButtonLink>
+              <ButtonLink size="xs" variant="default" to="/documents/$id" params={{ id: c.id }}>{t("Ask")}</ButtonLink>
             </Row>
           ))}
         </RowList>
@@ -86,21 +87,21 @@ function NewCollection({ open, onClose, models }: { open: boolean; onClose: () =
   };
 
   return (
-    <Modal opened={open} onClose={close} title="New collection" radius="lg" size="lg" centered>
+    <Modal opened={open} onClose={close} title={t("New collection")} radius="lg" size="lg" centered>
       <Stack gap="md">
         {create.error && <Alert color="red" icon={<IconAlertCircle />}>{message(create.error)}</Alert>}
-        <TextInput label="Name" placeholder="Shop handbook" maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)}
-          description="Apps that speak the OpenAI API ask it by this name." data-autofocus />
-        <Select label="Model that answers" data={models} value={answering ?? embedding} onChange={setAnswering} allowDeselect={false} searchable
-          description="It writes the answers from the passages found. You can change it later." />
-        <Select label="Model that reads the documents" data={models} value={embedding} onChange={setEmbedding} allowDeselect={false} searchable
-          description="It turns each passage into numbers for finding it by meaning. It can't be changed later; a small model is quicker." />
-        <Textarea label="Instructions" placeholder="Answer our shop's customers in a friendly tone." autosize minRows={2} maxLength={8000}
-          value={instructions} onChange={(e) => setInstructions(e.currentTarget.value)} description="Optional: who the answers are for, and how to write them." />
+        <TextInput label={t("Name")} placeholder={t("Shop handbook")} maxLength={100} value={name} onChange={(e) => setName(e.currentTarget.value)}
+          description={t("Apps that speak the OpenAI API ask it by this name.")} data-autofocus />
+        <Select label={t("Model that answers")} data={models} value={answering ?? embedding} onChange={setAnswering} allowDeselect={false} searchable
+          description={t("It writes the answers from the passages found. You can change it later.")} />
+        <Select label={t("Model that reads the documents")} data={models} value={embedding} onChange={setEmbedding} allowDeselect={false} searchable
+          description={t("It turns each passage into numbers for finding it by meaning. It can't be changed later; a small model is quicker.")} />
+        <Textarea label={t("Instructions")} placeholder={t("Answer our shop's customers in a friendly tone.")} autosize minRows={2} maxLength={8000}
+          value={instructions} onChange={(e) => setInstructions(e.currentTarget.value)} description={t("Optional: who the answers are for, and how to write them.")} />
         <Group justify="flex-end">
-          <Button variant="default" onClick={close}>Cancel</Button>
+          <Button variant="default" onClick={close}>{t("Cancel")}</Button>
           <Button loading={create.isPending} disabled={!name.trim() || !embedding}
-            onClick={() => create.mutate({ name: name.trim(), embeddingModelId: embedding!, languageModelId: answering ?? embedding!, instructions })}>Make it</Button>
+            onClick={() => create.mutate({ name: name.trim(), embeddingModelId: embedding!, languageModelId: answering ?? embedding!, instructions })}>{t("Make it")}</Button>
         </Group>
       </Stack>
     </Modal>

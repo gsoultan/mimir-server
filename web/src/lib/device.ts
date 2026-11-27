@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { transport } from "../api/client";
 import { ArchitectureSchema, ModelSchema, ModelService, type Architecture, type Model } from "../api/gen/mimir/v1/model_pb";
 import { device, modelsCache, runtimeCache, type Ask, type Reply, type Request } from "./device-shared";
+import { t } from "../i18n";
 
 export { device };
 
@@ -127,7 +128,7 @@ export function answer(q: Omit<Ask, "type" | "seq">): Promise<Answer> {
       waiting.delete(e.data.seq);
     };
     worker.onerror = () => {
-      for (const done of waiting.values()) done({ error: "The model stopped on this device. Try again." });
+      for (const done of waiting.values()) done({ error: t("The model stopped on this device. Try again.") });
       waiting.clear();
       worker = undefined;
     };

@@ -50,6 +50,8 @@ func _assertAnswerShape(m m0.Answer) {
 		m.TruthLabel,
 		m.TruthValue,
 		m.Correct,
+		m.ShadowOf,
+		m.Agrees,
 	}
 }
 
@@ -146,6 +148,22 @@ func _assertCollectionShape(m m0.Collection) {
 	}
 }
 
+// _assertDataCheckShape fails to compile if m0.DataCheck gains, loses, renames or
+// reorders a field. Regenerate: `storm generate`.
+func _assertDataCheckShape(m m0.DataCheck) {
+	type shape m0.DataCheck
+	_ = shape{
+		m.Model,
+		m.VersionID,
+		m.Baseline,
+		m.CheckTime,
+		m.Questions,
+		m.Changes,
+		m.AlertTime,
+		m.AlertColumns,
+	}
+}
+
 // _assertDatasetShape fails to compile if m0.Dataset gains, loses, renames or
 // reorders a field. Regenerate: `storm generate`.
 func _assertDatasetShape(m m0.Dataset) {
@@ -168,6 +186,7 @@ func _assertDatasetShape(m m0.Dataset) {
 		m.Columns,
 		m.NumberTarget,
 		m.Skipped,
+		m.MadeFrom,
 	}
 }
 
@@ -235,6 +254,11 @@ func _assertModelShape(m m0.Model) {
 		m.OnDevice,
 		m.VersionID,
 		m.BaseModelID,
+		m.TrialVersionID,
+		m.TrialShare,
+		m.TrialShadow,
+		m.TrialStart,
+		m.NewVersionShare,
 	}
 }
 
@@ -399,6 +423,8 @@ func _assertTrainingJobShape(m m0.TrainingJob) {
 		m.Note,
 		m.RunOn,
 		m.Layers,
+		m.Balance,
+		m.Rules,
 		m.MinNewRows,
 		m.TrainedRows,
 		m.CheckTime,

@@ -1,12 +1,13 @@
 import type { Template } from "../api/gen/mimir/v1/template_pb";
 import { DatasetKind } from "../api/gen/mimir/v1/training_pb";
+import { locale, t } from "../i18n";
 
 // What a template answers, in plain words.
 export const kinds = [
-  { id: "yes_no", label: "Yes or no", title: "Will something happen?", hint: "Yes or no. Will a customer leave, a machine fail, a payment be fraud." },
-  { id: "group", label: "Pick a group", title: "Which group does it belong to?", hint: "One of a few answers. Which team, which grade, which reason." },
-  { id: "number", label: "A number", title: "How much or how many?", hint: "A number. Units next week, energy per shift." },
-  { id: "ranked", label: "A ranked list", title: "What should come first?", hint: "A list, best first. Products to offer a customer, the next step for a lead." },
+  { id: "yes_no", label: t("Yes or no"), title: t("Will something happen?"), hint: t("Yes or no. Will a customer leave, a machine fail, a payment be fraud.") },
+  { id: "group", label: t("Pick a group"), title: t("Which group does it belong to?"), hint: t("One of a few answers. Which team, which grade, which reason.") },
+  { id: "number", label: t("A number"), title: t("How much or how many?"), hint: t("A number. Units next week, energy per shift.") },
+  { id: "ranked", label: t("A ranked list"), title: t("What should come first?"), hint: t("A list, best first. Products to offer a customer, the next step for a lead.") },
 ] as const;
 
 export type DataType = "table" | "text" | "photos" | "photo_table" | "sounds" | "boxes";
@@ -14,46 +15,46 @@ export type DataType = "table" | "text" | "photos" | "photo_table" | "sounds" | 
 // What the examples look like: the cards people pick from first.
 export const dataTypes: { id: DataType; title: string; chip: string; hint: string; examples: string; pic: string; scratch: string }[] = [
   {
-    id: "table", title: "A table", chip: "A table",
-    hint: "Rows and columns, like Excel, Google Sheets or a database. Columns hold numbers or short words.",
-    examples: "sales, machine readings, HR records",
+    id: "table", title: t("A table"), chip: t("A table"),
+    hint: t("Rows and columns, like Excel, Google Sheets or a database. Columns hold numbers or short words."),
+    examples: t("sales, machine readings, HR records"),
     pic: "plan   seats  left\nteam   25     no\nbasic  4      yes",
-    scratch: "Upload my own table",
+    scratch: t("Upload my own table"),
   },
   {
-    id: "text", title: "Text", chip: "Text",
-    hint: "Reviews, messages, notes or comments. Put each text in one cell of a table, next to its answer.",
-    examples: "reviews, tickets, survey comments",
+    id: "text", title: t("Text"), chip: t("Text"),
+    hint: t("Reviews, messages, notes or comments. Put each text in one cell of a table, next to its answer."),
+    examples: t("reviews, tickets, survey comments"),
     pic: "review               mood\n“Fast, works great”   pos\n“Box was crushed”     neg",
-    scratch: "Upload my own table with text",
+    scratch: t("Upload my own table with text"),
   },
   {
-    id: "photos", title: "Photos in folders", chip: "Photos",
-    hint: "Only photos. One folder per answer, and the folder name is the answer.",
-    examples: "defects, produce grades, documents",
+    id: "photos", title: t("Photos in folders"), chip: t("Photos"),
+    hint: t("Only photos. One folder per answer, and the folder name is the answer."),
+    examples: t("defects, produce grades, documents"),
     pic: "ok/      □ □ □\nscratch/ □ □\ndent/    □",
-    scratch: "Upload my own photo folders",
+    scratch: t("Upload my own photo folders"),
   },
   {
-    id: "photo_table", title: "Photos with details", chip: "Photos with details",
-    hint: "A table where every row also has a photo, plus text or numbers. Upload one ZIP with both.",
-    examples: "listings, claims, inspections",
+    id: "photo_table", title: t("Photos with details"), chip: t("Photos with details"),
+    hint: t("A table where every row also has a photo, plus text or numbers. Upload one ZIP with both."),
+    examples: t("listings, claims, inspections"),
     pic: "photo      title     price\n□ L-1001   iPhone..  0.35\n□ L-1002   Table..   1.02",
-    scratch: "Upload my own ZIP of a table and photos",
+    scratch: t("Upload my own ZIP of a table and photos"),
   },
   {
-    id: "sounds", title: "Sounds in folders", chip: "Sounds",
-    hint: "Short recordings as WAV files. One folder per answer, and the folder name is the answer.",
-    examples: "machine noises, bird calls, spoken words",
+    id: "sounds", title: t("Sounds in folders"), chip: t("Sounds"),
+    hint: t("Short recordings as WAV files. One folder per answer, and the folder name is the answer."),
+    examples: t("machine noises, bird calls, spoken words"),
     pic: "normal/  ♪ ♪ ♪\nworn/    ♪ ♪\nbroken/  ♪",
-    scratch: "Upload my own sound folders",
+    scratch: t("Upload my own sound folders"),
   },
   {
-    id: "boxes", title: "Photos with boxes", chip: "Photos with boxes",
-    hint: "Photos and a boxes.csv saying where each thing in them is: the photo, what it is, and its box in pixels.",
-    examples: "scratches, packages on a shelf, people in a doorway",
+    id: "boxes", title: t("Photos with boxes"), chip: t("Photos with boxes"),
+    hint: t("Photos and a boxes.csv saying where each thing in them is: the photo, what it is, and its box in pixels."),
+    examples: t("scratches, packages on a shelf, people in a doorway"),
     pic: "photo     what     left top\n0001.jpg  scratch  112  40\n0002.jpg  dent     300  210",
-    scratch: "Upload my own photos and boxes",
+    scratch: t("Upload my own photos and boxes"),
   },
 ];
 
@@ -78,11 +79,11 @@ export const categoryColor = (id: string) => categoryColors[id] ?? ["#EEF2EF", "
 
 // The colour of a column kind's pill.
 export const columnKinds: Record<string, { label: string; color: string; hint: string }> = {
-  number: { label: "Number", color: "blue", hint: "any number, no currency signs" },
-  category: { label: "Category", color: "grape", hint: "a word from a short list, like a plan name" },
-  yesno: { label: "Yes / no", color: "teal", hint: "yes or no, 1 or 0, true or false" },
-  text: { label: "Text", color: "cyan", hint: "words as people wrote them, one per cell" },
-  photo: { label: "Photo", color: "yellow", hint: "the photo's file name, like photos/1001.jpg" },
+  number: { label: t("Number"), color: "blue", hint: t("any number, no currency signs") },
+  category: { label: t("Category"), color: "grape", hint: t("a word from a short list, like a plan name") },
+  yesno: { label: t("Yes / no"), color: "teal", hint: t("yes or no, 1 or 0, true or false") },
+  text: { label: t("Text"), color: "cyan", hint: t("words as people wrote them, one per cell") },
+  photo: { label: t("Photo"), color: "yellow", hint: t("the photo's file name, like photos/1001.jpg") },
 };
 
 export const kindColor = (kind: string) => (kind === "yes_no" ? "teal" : kind === "number" ? "orange" : kind === "ranked" ? "violet" : "indigo");
@@ -114,10 +115,11 @@ export function dataTypeOfKind(k: DatasetKind): DataType[] {
   return ["table", "text"];
 }
 
-// count reads a number of things with its word: "1 row", "3 rows".
+// count reads a number of things with its word: "1 row", "3 rows". The
+// words are English and translated here, so each needs an entry in id.ts.
 export function count(n: number | bigint, one: string, many = `${one}s`) {
   const v = Number(n);
-  return `${v.toLocaleString()} ${v === 1 ? one : many}`;
+  return `${v.toLocaleString(locale)} ${t(v === 1 ? one : many)}`;
 }
 
 // matches says whether a template fits a search: any word of the query in

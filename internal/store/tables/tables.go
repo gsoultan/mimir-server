@@ -40,6 +40,6 @@ func All() []any {
 		&Setting{}, &Dataset{}, &TrainingJob{}, &Worker{}, &WorkerSample{}, &Usage{},
 		&Architecture{}, &ModelVersion{}, &Benchmark{}, &BenchmarkScore{}, &SignInIdentity{},
 		&Answer{}, &AnswerDay{}, &Scoring{}, &Collection{}, &Document{}, &Passage{},
-		&VisitPlan{}, &VisitPlanSalesperson{},
+		&VisitPlan{}, &VisitPlanSalesperson{}, &DataCheck{},
 	}
 }

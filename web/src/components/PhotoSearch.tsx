@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { message, transport } from "../api/client";
 import { MediaService } from "../api/gen/mimir/v1/media_pb";
+import { t } from "../i18n";
 import { shrinkPhoto } from "../lib/media";
 
 const media = createClient(MediaService, transport);
@@ -49,8 +50,9 @@ export function PhotoSearch({ modelId }: { modelId: string }) {
     }
     setPhotos((p) => [...p, ...added]);
     setReading(false);
-    if (files.length > room) setError(`Up to ${maxPhotos} photos at once, so ${files.length - room} were left out.`);
-    else if (unread > 0) setError(`${unread === 1 ? "One file isn't a photo" : `${unread} files aren't photos`} this browser can read.`);
+    const left = files.length - room;
+    if (left > 0) setError(left === 1 ? t("Up to {max} photos at once, so one was left out.", { max: maxPhotos }) : t("Up to {max} photos at once, so {left} were left out.", { max: maxPhotos, left }));
+    else if (unread > 0) setError(unread === 1 ? t("One file isn't a photo this browser can read.") : t("{unread} files aren't photos this browser can read.", { unread }));
   };
   const remove = (i: number) => {
     setResult(undefined);
@@ -90,15 +92,15 @@ export function PhotoSearch({ modelId }: { modelId: string }) {
           <Stack gap="sm">
             <Dropzone
               onDrop={(f) => void add(f)}
-              onReject={() => setError("Pick JPG, PNG, GIF or WebP photos.")}
+              onReject={() => setError(t("Pick JPG, PNG, GIF or WebP photos."))}
               accept={["image/jpeg", "image/png", "image/gif", "image/webp"]}
               disabled={busy || reading || photos.length >= maxPhotos}
               loading={reading}
               radius="md"
             >
               <Stack align="center" gap={2} py="md" className="pointer-events-none">
-                <Text fw={600}>Drop photos here</Text>
-                <Text size="sm" c="dimmed">or click to choose them, up to {maxPhotos}</Text>
+                <Text fw={600}>{t("Drop photos here")}</Text>
+                <Text size="sm" c="dimmed">{t("or click to choose them, up to {max}", { max: maxPhotos })}</Text>
               </Stack>
             </Dropzone>
             {photos.length > 0 && (
@@ -106,7 +108,7 @@ export function PhotoSearch({ modelId }: { modelId: string }) {
                 {photos.map((p, i) => (
                   <div key={p.url} className="relative">
                     <img src={p.url} alt={p.name} className="h-16 w-16 rounded-md object-cover" />
-                    <ActionIcon size="xs" radius="xl" variant="default" className="!absolute -right-1.5 -top-1.5" aria-label={`Remove ${p.name}`} onClick={() => remove(i)} disabled={busy}>
+                    <ActionIcon size="xs" radius="xl" variant="default" className="!absolute -right-1.5 -top-1.5" aria-label={t("Remove {name}", { name: p.name })} onClick={() => remove(i)} disabled={busy}>
                       <IconX size={12} />
                     </ActionIcon>
                   </div>
@@ -114,28 +116,28 @@ export function PhotoSearch({ modelId }: { modelId: string }) {
               </Group>
             )}
             <Stack gap={4}>
-              <Text size="sm" fw={500}>What to do</Text>
+              <Text size="sm" fw={500}>{t("What to do")}</Text>
               <SegmentedControl
                 className="self-start"
-                data={[{ value: "find", label: "Find photos" }, { value: "sort", label: "Sort into labels" }]}
+                data={[{ value: "find", label: t("Find photos") }, { value: "sort", label: t("Sort into labels") }]}
                 value={mode}
                 onChange={(v) => { setResult(undefined); setMode(v === "sort" ? "sort" : "find"); }}
               />
             </Stack>
             {mode === "find" ? (
               <TextInput
-                label="Describe the photo"
-                description="In English, the way you would caption it."
-                placeholder="a dog playing on the beach"
+                label={t("Describe the photo")}
+                description={t("In English, the way you would caption it.")}
+                placeholder={t("a dog playing on the beach")}
                 maxLength={300}
                 value={query}
                 onChange={(e) => { setResult(undefined); setQuery(e.currentTarget.value); }}
               />
             ) : (
               <TagsInput
-                label="Labels"
-                description="Two or more, in English. Press Enter after each."
-                placeholder="a cat, a dog, a car"
+                label={t("Labels")}
+                description={t("Two or more, in English. Press Enter after each.")}
+                placeholder={t("a cat, a dog, a car")}
                 maxTags={maxLabels}
                 value={labels}
                 onChange={(v) => { setResult(undefined); setLabels(v.map((l) => l.slice(0, 300))); }}
@@ -145,23 +147,23 @@ export function PhotoSearch({ modelId }: { modelId: string }) {
           </Stack>
         </Card>
         {busy
-          ? <Button size="lg" variant="default" leftSection={<IconPlayerStopFilled size={16} />} onClick={() => cancel.current?.abort()}>Stop</Button>
-          : <Button size="lg" disabled={!ready} onClick={() => void match()}>{mode === "find" ? "Find" : "Sort"}</Button>}
+          ? <Button size="lg" variant="default" leftSection={<IconPlayerStopFilled size={16} />} onClick={() => cancel.current?.abort()}>{t("Stop")}</Button>
+          : <Button size="lg" disabled={!ready} onClick={() => void match()}>{mode === "find" ? t("Find") : t("Sort")}</Button>}
       </Stack>
       <Stack>
         {error && <Alert color="red" icon={<IconAlertCircle />}>{error}</Alert>}
         {busy ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
-            <Group gap="sm"><Loader size="sm" /><Text>Looking at the photos…</Text></Group>
+            <Group gap="sm"><Loader size="sm" /><Text>{t("Looking at the photos…")}</Text></Group>
           </Card>
         ) : result && result.similarity.length === photos.length ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
             {result.mode === "find" ? <Found result={result} photos={photos} /> : <Sorted result={result} photos={photos} />}
-            <Text size="xs" c="dimmed" mt="md">Looked at {photos.length} photo{photos.length === 1 ? "" : "s"} in {result.seconds.toFixed(1)} s.</Text>
+            <Text size="xs" c="dimmed" mt="md">{photos.length === 1 ? t("Looked at 1 photo in {seconds} s.", { seconds: result.seconds.toFixed(1) }) : t("Looked at {count} photos in {seconds} s.", { count: photos.length, seconds: result.seconds.toFixed(1) })}</Text>
           </Card>
         ) : (
           <Card withBorder radius="lg" padding="lg" className="border-dashed">
-            <Text c="dimmed">Add some photos. Then describe the one you're looking for to see them best match first, or give labels to see which label fits each photo.</Text>
+            <Text c="dimmed">{t("Add some photos. Then describe the one you're looking for to see them best match first, or give labels to see which label fits each photo.")}</Text>
           </Card>
         )}
       </Stack>
@@ -177,16 +179,16 @@ function Found({ result, photos }: { result: Result; photos: Photo[] }) {
   const order = scores.map((_, i) => i).sort((a, b) => scores[b]! - scores[a]!);
   return (
     <Stack gap="sm">
-      <Text fw={650}>Best match first for “{result.texts[0]}”</Text>
+      <Text fw={650}>{t("Best match first for “{text}”", { text: result.texts[0] ?? "" })}</Text>
       {order.map((i, rank) => (
         <Group key={photos[i]!.url} gap="sm" wrap="nowrap">
           <img src={photos[i]!.url} alt={photos[i]!.name} className="h-16 w-16 shrink-0 rounded-md object-cover" />
           <Stack gap={4} className="min-w-0 flex-1">
             <Group gap="xs" wrap="nowrap">
               <Text size="sm" truncate>{photos[i]!.name}</Text>
-              {rank === 0 && <Badge size="sm" variant="light" color="teal">Best match</Badge>}
+              {rank === 0 && <Badge size="sm" variant="light" color="teal">{t("Best match")}</Badge>}
             </Group>
-            <Progress value={hi > lo ? 10 + (90 * (scores[i]! - lo)) / (hi - lo) : 100} size="sm" color="teal" aria-label="How well it fits" />
+            <Progress value={hi > lo ? 10 + (90 * (scores[i]! - lo)) / (hi - lo) : 100} size="sm" color="teal" aria-label={t("How well it fits")} />
           </Stack>
         </Group>
       ))}
@@ -205,7 +207,7 @@ function Sorted({ result, photos }: { result: Result; photos: Photo[] }) {
           <Stack key={p.url} gap={4}>
             <img src={p.url} alt={p.name} className="aspect-square w-full rounded-md object-cover" />
             <Text size="sm" fw={600} lineClamp={2}>{result.texts[best]}</Text>
-            <Text size="xs" c="dimmed">{Math.round((chance[best] ?? 0) * 100)}% sure</Text>
+            <Text size="xs" c="dimmed">{t("{percent}% sure", { percent: Math.round((chance[best] ?? 0) * 100) })}</Text>
           </Stack>
         );
       })}

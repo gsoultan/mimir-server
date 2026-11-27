@@ -105,6 +105,11 @@ type Model struct {
 	// other model. A fine-tune's file is a LoRA adapter that runs on top
 	// of that model's file.
 	BaseModelID string
+	// Trial is the version tried on some of its questions, if any.
+	Trial Trial
+	// NewVersionShare is the percent of questions a version keep-learning
+	// makes is tried on first; 0 puts a better one live at once.
+	NewVersionShare int
 }
 
 // FineTune reports whether the model is a fine-tune of another.
@@ -412,6 +417,11 @@ func fromModel(r model.Row) Model {
 		OnDevice:     r.OnDevice,
 		VersionID:    r.VersionID,
 		BaseModelID:  r.BaseModelID,
+		Trial: Trial{
+			VersionID: r.TrialVersionID, Share: int(r.TrialShare), Shadow: r.TrialShadow,
+			Start: r.TrialStart.V.UTC(),
+		},
+		NewVersionShare: int(r.NewVersionShare),
 	}
 }
 

@@ -55,6 +55,12 @@ type Answer struct {
 	TruthLabel string
 	TruthValue float64
 	Correct    bool
+	// ShadowOf is, for a version on trial's answer to a copy of a
+	// question, the id of the live version's answer the asker got; Agrees
+	// says the two were the same. Shadow answers are not counted in the
+	// model's daily answers.
+	ShadowOf string
+	Agrees   bool
 }
 
 // Judge reports whether a's answer matches the truth: the same label, or
@@ -104,6 +110,8 @@ func (s *Store) AddAnswers(ctx context.Context, as []Answer) error {
 		n.SetValue(a.Value)
 		n.SetConfidence(a.Confidence)
 		n.SetFields(runtime.JSON(fields))
+		n.SetShadowOf(a.ShadowOf)
+		n.SetAgrees(a.Agrees)
 		n.DoNothing() // a retried flush stores nothing twice
 		op, err := n.Op()
 		if err != nil {
@@ -115,7 +123,7 @@ func (s *Store) AddAnswers(ctx context.Context, as []Answer) error {
 		// Only answers stored now are counted, so a retry counts nothing twice.
 		days := map[dayKey]int64{}
 		err := ex.Batch(ctx, ops, func(i int, _ runtime.Rows, affected int64, err error) error {
-			if err == nil && affected > 0 {
+			if err == nil && affected > 0 && as[i].ShadowOf == "" {
 				days[dayKey{as[i].ModelID, Day(as[i].Time)}]++
 			}
 			return err
@@ -163,6 +171,7 @@ func fromAnswer(r answer.Row) Answer {
 		ID: r.ID, ModelID: r.ModelID, VersionID: r.VersionID, Time: r.CreateTime.UTC(),
 		Label: r.Label, Value: r.Value, Number: r.Label == "", Confidence: r.Confidence,
 		Checked: r.FeedbackTime.Valid, TruthLabel: r.TruthLabel, TruthValue: r.TruthValue, Correct: r.Correct,
+		ShadowOf: r.ShadowOf, Agrees: r.Agrees,
 	}
 	json.Unmarshal(r.Fields, &a.Fields)
 	return a
@@ -213,7 +222,10 @@ func (s *Store) SetFeedback(ctx context.Context, id, label string, value float64
 		if err != nil {
 			return err
 		}
-		return ex.Batch(ctx, []runtime.BatchOp{op}, nil)
+		if err := ex.Batch(ctx, []runtime.BatchOp{op}, nil); err != nil {
+			return err
+		}
+		return judgeShadows(ctx, ex, id, label, value)
 	})
 	if err != nil {
 		return Answer{}, err
@@ -221,10 +233,33 @@ func (s *Store) SetFeedback(ctx context.Context, id, label string, value float64
 	return a, nil
 }
 
-// ListAnswers returns a model's newest answers, up to limit.
+// judgeShadows judges the answers versions on trial gave to copies of
+// answer id's question by the same feedback. They are not in the daily
+// counts, so only their rows change.
+func judgeShadows(ctx context.Context, ex storm.Executor, id, label string, value float64) error {
+	rows, err := answer.New().Where(answer.ShadowOf.Eq(id)).Unordered().ForUpdate().All(ctx, ex, nil)
+	if err != nil {
+		return fmt.Errorf("store: shadow answers: %w", err)
+	}
+	for _, r := range rows {
+		u := answer.MutateKey(r.ID)
+		u.SetFeedbackTime(now())
+		u.SetTruthLabel(label)
+		u.SetTruthValue(value)
+		u.SetCorrect(fromAnswer(r).Judge(label, value))
+		if err := u.Update(ctx, ex); err != nil {
+			return fmt.Errorf("store: judge shadow answer: %w", err)
+		}
+	}
+	return nil
+}
+
+// ListAnswers returns a model's newest answers, up to limit, leaving out
+// those versions on trial gave to copies of questions.
 func (s *Store) ListAnswers(ctx context.Context, modelID string, limit int) ([]Answer, error) {
 	rows, err := answer.New().
 		Where(answer.ModelID.Eq(modelID)).
+		Where(answer.ShadowOf.Eq("")).
 		Order(answer.CreateTime.Desc()).
 		Limit(int64(limit)).
 		All(ctx, s.ex, nil)

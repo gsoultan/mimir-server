@@ -52,6 +52,17 @@ type Model struct {
 	// then a LoRA adapter, which runs on top of that model's file. "" for
 	// every other model.
 	BaseModelID string
+	// A trial: TrialVersionID, another of the model's versions, answers
+	// TrialShare percent of its questions from TrialStart on, or with
+	// TrialShadow a copy of every question while the live version's
+	// answer is the one sent. "" when no version is on trial.
+	TrialVersionID string
+	TrialShare     int32
+	TrialShadow    bool
+	TrialStart     *time.Time
+	// NewVersionShare is the share of questions a version keep-learning
+	// makes tries first; 0 puts a better version live at once.
+	NewVersionShare int32
 }
 
 // Aggregates: how many models each team has, and how many are placed on
@@ -81,6 +92,10 @@ func (m *Model) Schema(t *storm.Table) {
 	t.Col(&m.OnDevice).Default("false")
 	t.Col(&m.VersionID).Default("''")
 	t.Col(&m.BaseModelID).Default("''")
+	t.Col(&m.TrialVersionID).Default("''")
+	t.Col(&m.TrialShare).Default("0")
+	t.Col(&m.TrialShadow).Default("false")
+	t.Col(&m.NewVersionShare).Default("0")
 	// A team's models, newest first; also the team key's index.
 	t.Col(&m.Team).NoIndex()
 	t.Index(&m.Team, storm.Desc(&m.CreateTime), storm.Desc(&m.ID))
@@ -96,4 +111,6 @@ func (m *Model) Schema(t *storm.Table) {
 	t.Check(storm.RawSQL(`length(instructions) <= 8000`))
 	t.Check(storm.RawSQL(`temperature >= 0 AND temperature <= 2`))
 	t.Check(storm.RawSQL(`max_tokens >= 1 AND max_tokens <= 1024`))
+	t.Check(storm.RawSQL(`trial_share >= 0 AND trial_share <= 100`))
+	t.Check(storm.RawSQL(`new_version_share >= 0 AND new_version_share <= 100`))
 }

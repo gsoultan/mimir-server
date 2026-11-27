@@ -140,7 +140,7 @@ func TestOpenAI(t *testing.T) {
 	ctx := context.Background()
 	srv := newServer(t)
 	c := owner(t, srv)
-	m := languageModel(t, c, "Tiny Llama")
+	m := longLanguageModel(t, c, "Tiny Llama") // room for tools' instructions
 	other := languageModel(t, c, "Hidden")
 	created, err := c.keys.CreateApiKey(ctx, connect.NewRequest(&mimirv1.CreateApiKeyRequest{
 		Name: "app", Access: &mimirv1.Access{Role: mimirv1.Role_ROLE_VIEWER, ModelIds: []string{m.GetId()}},
@@ -215,6 +215,22 @@ func TestOpenAI(t *testing.T) {
 		t.Fatalf("last event %v", last)
 	}
 
+	// A chat with tools, an earlier call and its answer: the model reads
+	// them all, and answers in text or with calls of the tools offered.
+	toolChat := `"model":"tiny-llama","max_tokens":5,"tools":[{"type":"function","function":{"name":"get_weather","parameters":{"type":"object","properties":{"city":{"type":"string"}}}}}],` +
+		`"messages":[{"role":"user","content":"Weather in Oslo?"},{"role":"assistant","content":null,"tool_calls":[{"id":"call_1","type":"function","function":{"name":"get_weather","arguments":"{\"city\":\"Oslo\"}"}}]},{"role":"tool","tool_call_id":"call_1","content":"Sunny"}]`
+	res = call("POST", "/v1/chat/completions", key, `{`+toolChat+`}`)
+	body = decode(res)
+	if choices, _ := body["choices"].([]any); res.StatusCode != 200 || len(choices) != 1 {
+		t.Fatalf("chat with tools: %d %v", res.StatusCode, body)
+	} else if r := choices[0].(map[string]any)["finish_reason"]; r != "stop" && r != "length" && r != "tool_calls" {
+		t.Errorf("finish_reason %v", r)
+	}
+	res = call("POST", "/v1/chat/completions", key, `{"stream":true,`+toolChat+`}`)
+	if b, _ := io.ReadAll(res.Body); res.StatusCode != 200 || !strings.HasSuffix(strings.TrimSpace(string(b)), "data: [DONE]") {
+		t.Fatalf("streamed chat with tools: %d %s", res.StatusCode, b)
+	}
+
 	res = call("POST", "/v1/completions", key, `{"model":"`+m.GetId()+`","prompt":"Once upon a time","max_tokens":4,"temperature":0}`)
 	body = decode(res)
 	if res.StatusCode != 200 || body["object"] != "text_completion" {
@@ -268,7 +284,9 @@ func TestOpenAI(t *testing.T) {
 		{"bad key", "/v1/models", "mimir_nope", "", 401},
 		{"model the key can't use", "/v1/chat/completions", key, `{"model":"hidden","messages":[{"role":"user","content":"hi"}]}`, 404},
 		{"unknown model", "/v1/chat/completions", key, `{"model":"nope","messages":[{"role":"user","content":"hi"}]}`, 404},
-		{"tool message", "/v1/chat/completions", key, `{"model":"tiny-llama","messages":[{"role":"tool","content":"hi"}]}`, 400},
+		{"function message", "/v1/chat/completions", key, `{"model":"tiny-llama","messages":[{"role":"function","content":"hi"}]}`, 400},
+		{"tool that isn't a function", "/v1/chat/completions", key, `{"model":"tiny-llama","tools":[{"type":"retrieval"}],"messages":[{"role":"user","content":"hi"}]}`, 400},
+		{"choice of a missing tool", "/v1/chat/completions", key, `{"model":"tiny-llama","tools":[{"type":"function","function":{"name":"a"}}],"tool_choice":{"type":"function","function":{"name":"b"}},"messages":[{"role":"user","content":"hi"}]}`, 400},
 		{"no messages", "/v1/chat/completions", key, `{"model":"tiny-llama","messages":[]}`, 400},
 		{"two answers", "/v1/chat/completions", key, `{"model":"tiny-llama","n":2,"messages":[{"role":"user","content":"hi"}]}`, 400},
 		{"bad JSON", "/v1/completions", key, `{`, 400},

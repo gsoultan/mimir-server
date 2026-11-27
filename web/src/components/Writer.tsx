@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { message, transport } from "../api/client";
 import { PredictService } from "../api/gen/mimir/v1/model_pb";
 import { wordChoices } from "../lib/chats";
+import { t } from "../i18n";
 
 const predict = createClient(PredictService, transport);
 
@@ -59,9 +60,9 @@ export function Writer({ modelId }: { modelId: string }) {
         <Card withBorder radius="lg" padding="lg">
           <Stack gap="sm">
             <Textarea
-              label="Start of the text"
-              description="The model carries on from where you stop."
-              placeholder="Once upon a time"
+              label={t("Start of the text")}
+              description={t("The model carries on from where you stop.")}
+              placeholder={t("Once upon a time")}
               autosize
               minRows={4}
               maxRows={14}
@@ -69,14 +70,14 @@ export function Writer({ modelId }: { modelId: string }) {
               onChange={(e) => { if (!writing) setResult(undefined); setPrompt(e.currentTarget.value); }}
             />
             <Stack gap={4}>
-              <Text size="sm" fw={500}>Word choice</Text>
+              <Text size="sm" fw={500}>{t("Word choice")}</Text>
               <SegmentedControl className="self-start" data={wordChoices} value={style} onChange={setStyle} />
             </Stack>
           </Stack>
         </Card>
         {writing
-          ? <Button size="lg" variant="default" leftSection={<IconPlayerStopFilled size={16} />} onClick={() => stop.current?.abort()}>Stop</Button>
-          : <Button size="lg" disabled={!prompt.trim()} onClick={() => void write()}>Write</Button>}
+          ? <Button size="lg" variant="default" leftSection={<IconPlayerStopFilled size={16} />} onClick={() => stop.current?.abort()}>{t("Stop")}</Button>
+          : <Button size="lg" disabled={!prompt.trim()} onClick={() => void write()}>{t("Write")}</Button>}
       </Stack>
       <Stack>
         {error && <Alert color="red" icon={<IconAlertCircle />}>{error}</Alert>}
@@ -89,15 +90,15 @@ export function Writer({ modelId }: { modelId: string }) {
             </Text>
             <Text size="xs" c="dimmed" mt="md">
               {writing
-                ? "Writing…"
+                ? t("Writing…")
                 : result.tokens > 0
-                ? `Wrote ${result.tokens} word pieces in ${result.seconds.toFixed(1)} s${result.finished ? " and came to an end." : "."}`
-                : "Stopped."}
+                ? t("Wrote {tokens} word pieces in {n2} s{n3}", { tokens: result.tokens, n2: result.seconds.toFixed(1), n3: result.finished ? t(" and came to an end.") : "." })
+                : t("Stopped.")}
             </Text>
           </Card>
         ) : (
           <Card withBorder radius="lg" padding="lg" className="border-dashed">
-            <Text c="dimmed">Write the start of a text, then press Write. The model adds up to a paragraph or so. Steady always writes the same thing; Varied and Wild pick less likely words.</Text>
+            <Text c="dimmed">{t("Write the start of a text, then press Write. The model adds up to a paragraph or so. Steady always writes the same thing; Varied and Wild pick less likely words.")}</Text>
           </Card>
         )}
       </Stack>

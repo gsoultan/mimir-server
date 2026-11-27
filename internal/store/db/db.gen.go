@@ -15,6 +15,7 @@ import (
 	"github.com/gsoultan/mimir-server/internal/store/db/benchmark"
 	"github.com/gsoultan/mimir-server/internal/store/db/benchmarkscore"
 	"github.com/gsoultan/mimir-server/internal/store/db/collection"
+	"github.com/gsoultan/mimir-server/internal/store/db/datacheck"
 	"github.com/gsoultan/mimir-server/internal/store/db/dataset"
 	"github.com/gsoultan/mimir-server/internal/store/db/delivery"
 	"github.com/gsoultan/mimir-server/internal/store/db/document"
@@ -70,9 +71,10 @@ var FlushOrder = map[string]int{
 	"api_key_models":          24,
 	"benchmark_scores":        25,
 	"collections":             26,
-	"documents":               27,
-	"model_versions":          28,
-	"passages":                29,
+	"data_checks":             27,
+	"documents":               28,
+	"model_versions":          29,
+	"passages":                30,
 }
 
 // NewUnit stages writes across this context and flushes them in foreign-key
@@ -1385,6 +1387,121 @@ func (p CollectionWithTeamQuery) All(ctx context.Context, ex runtime.Executor) (
 			return nil, fmt.Errorf("storm: %s references a missing %s row", "collections", "teams")
 		}
 		out[i].Team = &targets[j]
+	}
+	return out, nil
+}
+
+// DataCheckWithModelRow is data_checks with its Model loaded.
+type DataCheckWithModelRow struct {
+	datacheck.Row
+	Model model.Row
+}
+
+type DataCheckWithModelQuery struct {
+	q datacheck.Query
+}
+
+// DataCheckWithModel starts the plan.
+func DataCheckWithModel() DataCheckWithModelQuery { return DataCheckWithModelQuery{q: datacheck.New()} }
+
+func (p DataCheckWithModelQuery) Where(ps ...datacheck.Pred) DataCheckWithModelQuery {
+	p.q = p.q.Where(ps...)
+	return p
+}
+
+func (p DataCheckWithModelQuery) WhereIf(cond bool, pr datacheck.Pred) DataCheckWithModelQuery {
+	p.q = p.q.WhereIf(cond, pr)
+	return p
+}
+
+func (p DataCheckWithModelQuery) Any(ps ...datacheck.Pred) DataCheckWithModelQuery {
+	p.q = p.q.Any(ps...)
+	return p
+}
+
+func (p DataCheckWithModelQuery) Not(pr datacheck.Pred) DataCheckWithModelQuery {
+	p.q = p.q.Not(pr)
+	return p
+}
+
+func (p DataCheckWithModelQuery) NotAny(ps ...datacheck.Pred) DataCheckWithModelQuery {
+	p.q = p.q.NotAny(ps...)
+	return p
+}
+
+func (p DataCheckWithModelQuery) Order(ts ...datacheck.Sort) DataCheckWithModelQuery {
+	p.q = p.q.Order(ts...)
+	return p
+}
+
+func (p DataCheckWithModelQuery) Limit(n int64) DataCheckWithModelQuery {
+	p.q = p.q.Limit(n)
+	return p
+}
+
+func (p DataCheckWithModelQuery) Offset(n int64) DataCheckWithModelQuery {
+	p.q = p.q.Offset(n)
+	return p
+}
+
+// After pages the PARENTS past one already seen — keyset pagination over
+// the plan. It takes the plan's row type, so the cursor is a row you
+// actually received rather than one you had to unwrap.
+func (p DataCheckWithModelQuery) After(r DataCheckWithModelRow) DataCheckWithModelQuery {
+	p.q = p.q.After(r.Row)
+	return p
+}
+
+// Err reports a parent query that outgrew its buffers or was given a
+// mixed ordering to page. Terminals return it too; this is for checking
+// a composed plan before running it.
+func (p DataCheckWithModelQuery) Err() error { return p.q.Err() }
+
+// All runs the plan in exactly TWO round trips. Distinct parent keys are
+// de-duplicated before the second, so a thousand rows pointing at three
+// orgs fetch three orgs.
+func (p DataCheckWithModelQuery) All(ctx context.Context, ex runtime.Executor) ([]DataCheckWithModelRow, error) {
+	parents, err := p.q.All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	out := make([]DataCheckWithModelRow, len(parents))
+	seen := make(map[string]bool, len(parents))
+	ids := make([]string, 0, len(parents))
+	for i, r := range parents {
+		out[i] = DataCheckWithModelRow{Row: r}
+		key := r.ModelID
+		if !seen[key] {
+			seen[key] = true
+			ids = append(ids, key)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	targets, err := model.New().Unordered().
+		Where(model.ID.In(ids...)).
+		Limit(int64(len(ids))).
+		All(ctx, ex, nil)
+	if err != nil {
+		return nil, err
+	}
+	by := make(map[string]int, len(targets))
+	for i := range targets {
+		by[targets[i].ID] = i
+	}
+	for i := range out {
+		key := out[i].Row.ModelID
+		j, ok := by[key]
+		if !ok {
+			// A foreign key pointing at a row that is not there. The database
+			// forbids it, so reaching this means the constraint was dropped.
+			return nil, fmt.Errorf("storm: %s references a missing %s row", "data_checks", "models")
+		}
+		out[i].Model = targets[j]
 	}
 	return out, nil
 }

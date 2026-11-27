@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { message, transport } from "../api/client";
 import { MediaService, type TranscribeResponse } from "../api/gen/mimir/v1/media_pb";
+import { t } from "../i18n";
 import { clock, toSpeech } from "../lib/media";
 
 const media = createClient(MediaService, transport);
@@ -12,10 +13,10 @@ const media = createClient(MediaService, transport);
 // languages the speech models know, the most spoken first. The model
 // finds the language itself when none is picked.
 const languages = [
-  ["en", "English"], ["zh", "Chinese"], ["es", "Spanish"], ["hi", "Hindi"], ["ar", "Arabic"], ["pt", "Portuguese"],
-  ["id", "Indonesian"], ["ms", "Malay"], ["fr", "French"], ["de", "German"], ["ja", "Japanese"], ["ru", "Russian"],
-  ["ko", "Korean"], ["it", "Italian"], ["tr", "Turkish"], ["vi", "Vietnamese"], ["th", "Thai"], ["nl", "Dutch"],
-  ["pl", "Polish"], ["uk", "Ukrainian"], ["sv", "Swedish"], ["tl", "Tagalog"], ["jw", "Javanese"], ["su", "Sundanese"],
+  ["en", t("English")], ["zh", t("Chinese")], ["es", t("Spanish")], ["hi", t("Hindi")], ["ar", t("Arabic")], ["pt", t("Portuguese")],
+  ["id", t("Indonesian")], ["ms", t("Malay")], ["fr", t("French")], ["de", t("German")], ["ja", t("Japanese")], ["ru", t("Russian")],
+  ["ko", t("Korean")], ["it", t("Italian")], ["tr", t("Turkish")], ["vi", t("Vietnamese")], ["th", t("Thai")], ["nl", t("Dutch")],
+  ["pl", t("Polish")], ["uk", t("Ukrainian")], ["sv", t("Swedish")], ["tl", t("Tagalog")], ["jw", t("Javanese")], ["su", t("Sundanese")],
 ].map(([value, label]) => ({ value: value!, label: label! }));
 const languageName = (code: string) => languages.find((l) => l.value === code)?.label ?? code;
 
@@ -41,8 +42,8 @@ export function Listen({ modelId }: { modelId: string }) {
   }, [file]);
   useEffect(() => {
     if (!recording) return;
-    const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
+    const tick = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(tick);
   }, [recording]);
 
   const pick = (f: File | null) => { setResult(undefined); setError(undefined); setFile(f); };
@@ -53,14 +54,14 @@ export function Listen({ modelId }: { modelId: string }) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setError("The browser didn't let this page use the microphone. Allow it in the address bar, or choose a recording instead.");
+      setError(t("The browser didn't let this page use the microphone. Allow it in the address bar, or choose a recording instead."));
       return;
     }
     const rec = new MediaRecorder(stream);
     const parts: Blob[] = [];
     rec.ondataavailable = (e) => parts.push(e.data);
     rec.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop());
+      stream.getTracks().forEach((track) => track.stop());
       setRecording(undefined);
       const type = rec.mimeType || "audio/webm";
       pick(new File(parts, `Recording.${type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm"}`, { type }));
@@ -82,7 +83,7 @@ export function Listen({ modelId }: { modelId: string }) {
       try {
         rec = await toSpeech(file);
       } catch {
-        throw new Error("This browser can't play that file. Try a WAV, MP3 or M4A recording.");
+        throw new Error(t("This browser can't play that file. Try a WAV, MP3 or M4A recording."));
       }
       const res = await media.transcribe({ modelId, recording: rec.wav, language: language ?? "", translate }, { signal: ctl.signal });
       setResult(res);
@@ -100,11 +101,11 @@ export function Listen({ modelId }: { modelId: string }) {
         <Card withBorder radius="lg" padding="lg">
           <Stack gap="sm">
             <FileInput
-              label="Recording"
-              description="Speech in any sound or video file the browser plays, such as WAV, MP3 or M4A, up to 2 hours."
+              label={t("Recording")}
+              description={t("Speech in any sound or video file the browser plays, such as WAV, MP3 or M4A, up to 2 hours.")}
               accept="audio/*,video/*"
               leftSection={<IconMusic size={18} />}
-              placeholder="Choose a recording"
+              placeholder={t("Choose a recording")}
               value={file}
               onChange={pick}
               disabled={busy || !!recording}
@@ -112,18 +113,18 @@ export function Listen({ modelId }: { modelId: string }) {
             />
             {recording ? (
               <Button variant="light" color="red" className="self-start" leftSection={<IconPlayerStopFilled size={16} />} onClick={recording.stop}>
-                Stop recording ({clock((now - recording.since) / 1000)})
+                {t("Stop recording ({time})", { time: clock((now - recording.since) / 1000) })}
               </Button>
             ) : (
               <Button variant="default" className="self-start" leftSection={<IconMicrophone size={16} />} onClick={() => void record()} disabled={busy}>
-                Record from the microphone
+                {t("Record from the microphone")}
               </Button>
             )}
-            {heard && <audio controls src={heard} className="w-full" aria-label="The recording you picked" />}
+            {heard && <audio controls src={heard} className="w-full" aria-label={t("The recording you picked")} />}
             <Select
-              label="Language spoken"
-              description="Leave empty and the model works it out."
-              placeholder="Find it out"
+              label={t("Language spoken")}
+              description={t("Leave empty and the model works it out.")}
+              placeholder={t("Find it out")}
               data={languages}
               value={language}
               onChange={(v) => { setResult(undefined); setLanguage(v); }}
@@ -131,27 +132,27 @@ export function Listen({ modelId }: { modelId: string }) {
               clearable
             />
             <Switch
-              label="Translate into English"
-              description="Write down the English meaning instead of the words as spoken."
+              label={t("Translate into English")}
+              description={t("Write down the English meaning instead of the words as spoken.")}
               checked={translate}
               onChange={(e) => { setResult(undefined); setTranslate(e.currentTarget.checked); }}
             />
           </Stack>
         </Card>
         {busy
-          ? <Button size="lg" variant="default" leftSection={<IconPlayerStopFilled size={16} />} onClick={() => cancel.current?.abort()}>Stop</Button>
-          : <Button size="lg" disabled={!file || !!recording} onClick={() => void transcribe()}>Write it down</Button>}
+          ? <Button size="lg" variant="default" leftSection={<IconPlayerStopFilled size={16} />} onClick={() => cancel.current?.abort()}>{t("Stop")}</Button>
+          : <Button size="lg" disabled={!file || !!recording} onClick={() => void transcribe()}>{t("Write it down")}</Button>}
       </Stack>
       <Stack>
         {error && <Alert color="red" icon={<IconAlertCircle />}>{error}</Alert>}
         {busy ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
-            <Group gap="sm"><Loader size="sm" /><Text>Listening… a long recording takes a while.</Text></Group>
+            <Group gap="sm"><Loader size="sm" /><Text>{t("Listening… a long recording takes a while.")}</Text></Group>
           </Card>
         ) : result ? (
           <Card withBorder radius="lg" padding="lg" aria-live="polite">
             {result.parts.length === 0 ? (
-              <Text c="dimmed">The model heard no speech in this recording.</Text>
+              <Text c="dimmed">{t("The model heard no speech in this recording.")}</Text>
             ) : (
               <Stack gap="sm">
                 {result.parts.map((p, i) => (
@@ -164,18 +165,18 @@ export function Listen({ modelId }: { modelId: string }) {
             )}
             <Group justify="space-between" mt="md" gap="xs">
               <Text size="xs" c="dimmed">
-                {`${result.language ? `${languageName(result.language)}. ` : ""}Heard ${clock(result.seconds)} in ${(Number(result.durationMicros) / 1e6).toFixed(1)} s.`}
+                {result.language ? `${languageName(result.language)}. ` : ""}{t("Heard {length} in {seconds} s.", { length: clock(result.seconds), seconds: (Number(result.durationMicros) / 1e6).toFixed(1) })}
               </Text>
               {result.text && (
                 <CopyButton value={result.text}>
-                  {({ copied, copy }) => <Button variant="subtle" color="gray" size="compact-xs" leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />} onClick={copy}>{copied ? "Copied" : "Copy"}</Button>}
+                  {({ copied, copy }) => <Button variant="subtle" color="gray" size="compact-xs" leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />} onClick={copy}>{copied ? t("Copied") : t("Copy")}</Button>}
                 </CopyButton>
               )}
             </Group>
           </Card>
         ) : (
           <Card withBorder radius="lg" padding="lg" className="border-dashed">
-            <Text c="dimmed">Choose a recording or record one, then press Write it down. The model writes what it hears, with the time each part starts.</Text>
+            <Text c="dimmed">{t("Choose a recording or record one, then press Write it down. The model writes what it hears, with the time each part starts.")}</Text>
           </Card>
         )}
       </Stack>

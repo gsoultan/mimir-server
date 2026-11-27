@@ -15,6 +15,7 @@ import { Row, RowList } from "../../../components/ui";
 import { Page } from "../../../components/Page";
 import { headlineText } from "../../../lib/benchmark";
 import { ago } from "../../../lib/format";
+import { t } from "../../../i18n";
 
 export const Route = createFileRoute("/_app/benchmarks/")({
   loader: ({ context }) => Promise.all([
@@ -32,21 +33,21 @@ function Benchmarks() {
 
   return (
     <Page
-      title="Benchmarks"
-      crumbs={[{ label: "Models", to: "/models" }, { label: "Benchmarks" }]}
-      intro="A fixed test every model takes the same way, so you can see which is really better. Its rows are kept out of training, so no model learns its own test."
-      actions={data.benchmarks.length > 0 && <Button leftSection={<IconPlus size={18} />} disabled={tables.length === 0} onClick={() => setAdding(true)}>New benchmark</Button>}
+      title={t("Benchmarks")}
+      crumbs={[{ label: t("Models"), to: "/models" }, { label: t("Benchmarks") }]}
+      intro={t("A fixed test every model takes the same way, so you can see which is really better. Its rows are kept out of training, so no model learns its own test.")}
+      actions={data.benchmarks.length > 0 && <Button leftSection={<IconPlus size={18} />} disabled={tables.length === 0} onClick={() => setAdding(true)}>{t("New benchmark")}</Button>}
     >
       {data.benchmarks.length === 0 ? (
         <Card withBorder padding="xl" className="text-center">
           <ThemeIcon size={44} radius="xl" variant="light" mx="auto" mb="sm"><IconTrophy size={22} /></ThemeIcon>
-          <Text fw={650}>No benchmarks yet</Text>
+          <Text fw={650}>{t("No benchmarks yet")}</Text>
           <Text c="dimmed" mb="md">
             {tables.length === 0
-              ? "Upload a table of examples first; a benchmark keeps some of its rows aside as the test."
-              : "Pick a table of examples and keep a fifth of its rows aside. Every model taught from it is then scored on those same rows."}
+              ? t("Upload a table of examples first; a benchmark keeps some of its rows aside as the test.")
+              : t("Pick a table of examples and keep a fifth of its rows aside. Every model taught from it is then scored on those same rows.")}
           </Text>
-          {tables.length > 0 && <Group justify="center"><Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>New benchmark</Button></Group>}
+          {tables.length > 0 && <Group justify="center"><Button leftSection={<IconPlus size={18} />} onClick={() => setAdding(true)}>{t("New benchmark")}</Button></Group>}
         </Card>
       ) : (
         <RowList>
@@ -55,20 +56,20 @@ function Benchmarks() {
               key={b.id}
               tone={b.scored > 0 ? "ok" : "idle"}
               icon={<IconTrophy size={20} />}
-              title={<Group gap="xs" wrap="nowrap"><AnchorLink fw={650} truncate to="/benchmarks/$id" params={{ id: b.id }} c="inherit">{b.name}</AnchorLink><Badge variant="light" color="gray">{b.kind === "number" ? "Numbers" : "Labels"}</Badge></Group>}
+              title={<Group gap="xs" wrap="nowrap"><AnchorLink fw={650} truncate to="/benchmarks/$id" params={{ id: b.id }} c="inherit">{b.name}</AnchorLink><Badge variant="light" color="gray">{b.kind === "number" ? t("Numbers") : t("Labels")}</Badge></Group>}
               detail={<>
                 {b.scored === 0
-                  ? "No model scored yet"
-                  : <>Best so far: <Text span fw={600} c="var(--mantine-color-text)">{b.leaderName}</Text>, {headlineText(b, b.leaderHeadline)} · {b.scored} {b.scored === 1 ? "model" : "models"} scored</>}
-                <br />{b.rows.toLocaleString()} rows from {b.datasetName || "deleted examples"} · answers {b.target} · made {ago(b.createTime)}
+                  ? t("No model scored yet")
+                  : <>{t("Best so far:")}{" "}<Text span fw={600} c="var(--mantine-color-text)">{b.leaderName}</Text>, {headlineText(b, b.leaderHeadline)} · {b.scored} {b.scored === 1 ? "model" : "models"}{" "}{t("scored")}</>}
+                <br />{b.rows.toLocaleString()}{" "}{t("rows from")}{" "}{b.datasetName || t("deleted examples")}{" "}{t("· answers")}{" "}{b.target}{" "}{t("· made")}{" "}{ago(b.createTime)}
               </>}
             >
-              <ButtonLink size="xs" variant="default" to="/benchmarks/$id" params={{ id: b.id }}>Open</ButtonLink>
+              <ButtonLink size="xs" variant="default" to="/benchmarks/$id" params={{ id: b.id }}>{t("Open")}</ButtonLink>
             </Row>
           ))}
         </RowList>
       )}
-      <NewBenchmark open={adding} onClose={() => setAdding(false)} tables={tables.map((d) => ({ value: d.id, label: `${d.name} (${d.rows.toLocaleString()} rows)` }))} />
+      <NewBenchmark open={adding} onClose={() => setAdding(false)} tables={tables.map((d) => ({ value: d.id, label: t("{name} ({n2} rows)", { name: d.name, n2: d.rows.toLocaleString() }) }))} />
     </Page>
   );
 }
@@ -84,7 +85,7 @@ function NewBenchmark({ open, onClose, tables }: { open: boolean; onClose: () =>
   const create = useMutation(BenchmarkService.method.createBenchmark, {
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: allBenchmarkQueries });
-      notifications.show({ message: `${res.benchmark?.name} is ready, with ${res.benchmark?.rows} rows.` });
+      notifications.show({ message: t("{name} is ready, with {rows} rows.", { name: res.benchmark?.name, rows: res.benchmark?.rows }) });
       close();
     },
   });
@@ -99,34 +100,30 @@ function NewBenchmark({ open, onClose, tables }: { open: boolean; onClose: () =>
   };
 
   return (
-    <Modal opened={open} onClose={close} title="New benchmark" radius="lg" centered>
+    <Modal opened={open} onClose={close} title={t("New benchmark")} radius="lg" centered>
       <Stack gap="md">
         {create.error && <Alert color="red" icon={<IconAlertCircle />}>{message(create.error)}</Alert>}
-        <TextInput label="Name" placeholder="Fruit test" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
-        <Textarea label="What it tests" placeholder="Optional" autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
-        <Select label="Examples" data={tables} value={datasetId} onChange={setDatasetId} allowDeselect={false}
-          description="The test rows come from this table, and training on it leaves them out." />
+        <TextInput label={t("Name")} placeholder={t("Fruit test")} value={name} onChange={(e) => setName(e.currentTarget.value)} required />
+        <Textarea label={t("What it tests")} placeholder={t("Optional")} autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
+        <Select label={t("Examples")} data={tables} value={datasetId} onChange={setDatasetId} allowDeselect={false}
+          description={t("The test rows come from this table, and training on it leaves them out.")} />
         {csv ? (
           <Group gap="xs">
-            <Text size="sm">Test rows: <b>{csvName}</b></Text>
-            <Button size="compact-xs" variant="subtle" onClick={() => pickFile(undefined)}>Use rows from the table instead</Button>
+            <Text size="sm">{t("Test rows:")}{" "}<b>{csvName}</b></Text>
+            <Button size="compact-xs" variant="subtle" onClick={() => pickFile(undefined)}>{t("Use rows from the table instead")}</Button>
           </Group>
         ) : (
           <>
-            <NumberInput label="Rows to keep aside" suffix="%" min={5} max={50} value={percent} onChange={(v) => setPercent(Number(v) || 20)}
-              description="A fifth is usually enough: plenty to judge by, and most of the examples still go into learning." />
-            <Button component="label" variant="default" leftSection={<IconUpload size={18} />}>
-              Or upload the test rows
-              <input type="file" accept=".csv,text/csv" hidden onChange={(e) => pickFile(e.currentTarget.files?.[0])} />
+            <NumberInput label={t("Rows to keep aside")} suffix="%" min={5} max={50} value={percent} onChange={(v) => setPercent(Number(v) || 20)}
+              description={t("A fifth is usually enough: plenty to judge by, and most of the examples still go into learning.")} />
+            <Button component="label" variant="default" leftSection={<IconUpload size={18} />}>{t("Or upload the test rows")}<input type="file" accept=".csv,text/csv" hidden onChange={(e) => pickFile(e.currentTarget.files?.[0])} />
             </Button>
           </>
         )}
         <Group justify="flex-end">
-          <Button variant="default" onClick={close}>Cancel</Button>
+          <Button variant="default" onClick={close}>{t("Cancel")}</Button>
           <Button loading={create.isPending} disabled={!datasetId || name.trim() === ""}
-            onClick={() => create.mutate({ name: name.trim(), description: description.trim(), datasetId: datasetId!, share: csv ? 0 : percent / 100, csv })}>
-            Make the benchmark
-          </Button>
+            onClick={() => create.mutate({ name: name.trim(), description: description.trim(), datasetId: datasetId!, share: csv ? 0 : percent / 100, csv })}>{t("Make the benchmark")}</Button>
         </Group>
       </Stack>
     </Modal>

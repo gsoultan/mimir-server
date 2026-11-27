@@ -47,7 +47,7 @@ const (
 )
 
 // KeptVersions is how many versions a model keeps. When a new one makes
-// more, the oldest go, but never the one answering now.
+// more, the oldest go, but never the one answering now or on trial.
 const KeptVersions = 20
 
 // Version is one set of weights a model has had.
@@ -312,6 +312,9 @@ func (s *Store) putLive(ctx context.Context, ex storm.Executor, v Version) error
 	u.SetAccuracy(v.Accuracy)
 	u.SetColumns(doc(v.Columns))
 	u.SetVersionID(v.ID)
+	// A trial compares a version with the one live; a new live one ends it,
+	// whether it is the version tried or not.
+	clearTrial(&u)
 	if err := u.Update(ctx, ex); err != nil {
 		if errors.Is(err, runtime.ErrNoRow) {
 			return ErrNotFound
@@ -344,7 +347,7 @@ func insertVersion(ctx context.Context, ex storm.Executor, v Version) error {
 }
 
 // prune removes a model's oldest versions past KeptVersions, never the
-// live one. A failure only leaves extra versions, so it is not reported.
+// live one or the one on trial. A failure only leaves extra versions, so it is not reported.
 func (s *Store) prune(ctx context.Context, modelID string) {
 	m, err := s.Get(ctx, modelID)
 	if err != nil {
@@ -359,7 +362,7 @@ func (s *Store) prune(ctx context.Context, modelID string) {
 		return
 	}
 	for _, r := range rows {
-		if r.ID == m.VersionID {
+		if r.ID == m.VersionID || r.ID == m.Trial.VersionID {
 			continue
 		}
 		if err := modelversion.Delete(ctx, s.ex, r.ID); err == nil {

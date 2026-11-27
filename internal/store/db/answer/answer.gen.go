@@ -32,6 +32,8 @@ type Row struct {
 	TruthLabel   string
 	TruthValue   float64
 	Correct      bool
+	ShadowOf     string
+	Agrees       bool
 }
 
 // Operator ids. Argument-taking operators are numbered first, so the
@@ -70,7 +72,7 @@ const (
 	opNotExists runtime.Op = 27
 )
 
-const nCols = 12
+const nCols = 14
 
 // Query is a value type: composing one allocates nothing. Predicates
 // are a postfix token stream, so disjunction and negation are
@@ -260,6 +262,20 @@ func (q *Query) cursor(col uint32, r Row) {
 		}
 		q.bools[q.nbo] = r.Correct
 		q.nbo++
+	case 12:
+		if int(q.ns) >= len(q.strs) {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = r.ShadowOf
+		q.ns++
+	case 13:
+		if int(q.nbo) >= len(q.bools) {
+			q.over = true
+			return
+		}
+		q.bools[q.nbo] = r.Agrees
+		q.nbo++
 	}
 }
 
@@ -438,6 +454,8 @@ var (
 	TruthLabel   = TextCol{9}
 	TruthValue   = Float64Col{10}
 	Correct      = BoolCol{11}
+	ShadowOf     = TextCol{12}
+	Agrees       = BoolCol{13}
 )
 
 // TextCol addresses a text column.
@@ -744,6 +762,13 @@ func (q *Query) leaf(p Pred) {
 			}
 			q.anyStr[q.nas] = p.anyStr
 			q.nas++
+		case 12:
+			if int(q.nas) >= 3 {
+				q.over = true
+				return
+			}
+			q.anyStr[q.nas] = p.anyStr
+			q.nas++
 		}
 		q.push(runtime.MakeLeaf(uint32(p.op), uint32(p.col)))
 		return
@@ -831,6 +856,20 @@ func (q *Query) leaf(p Pred) {
 		q.f64s[q.nf] = p.f64
 		q.nf++
 	case 11:
+		if int(q.nbo) >= 4 {
+			q.over = true
+			return
+		}
+		q.bools[q.nbo] = p.bol
+		q.nbo++
+	case 12:
+		if int(q.ns) >= 6 {
+			q.over = true
+			return
+		}
+		q.strs[q.ns] = p.str
+		q.ns++
+	case 13:
 		if int(q.nbo) >= 4 {
 			q.over = true
 			return
@@ -935,8 +974,21 @@ func (q Query) TruthValueLt(v float64) Query           { return q.Where(TruthVal
 func (q Query) TruthValueLte(v float64) Query          { return q.Where(TruthValue.Lte(v)) }
 func (q Query) CorrectEq(v bool) Query                 { return q.Where(Correct.Eq(v)) }
 func (q Query) CorrectNotEq(v bool) Query              { return q.Where(Correct.NotEq(v)) }
+func (q Query) ShadowOfEq(v string) Query              { return q.Where(ShadowOf.Eq(v)) }
+func (q Query) ShadowOfNotEq(v string) Query           { return q.Where(ShadowOf.NotEq(v)) }
+func (q Query) ShadowOfGt(v string) Query              { return q.Where(ShadowOf.Gt(v)) }
+func (q Query) ShadowOfGte(v string) Query             { return q.Where(ShadowOf.Gte(v)) }
+func (q Query) ShadowOfLt(v string) Query              { return q.Where(ShadowOf.Lt(v)) }
+func (q Query) ShadowOfLte(v string) Query             { return q.Where(ShadowOf.Lte(v)) }
+func (q Query) ShadowOfEqLower(v string) Query         { return q.Where(ShadowOf.EqLower(v)) }
+func (q Query) ShadowOfLike(v string) Query            { return q.Where(ShadowOf.Like(v)) }
+func (q Query) ShadowOfILike(v string) Query           { return q.Where(ShadowOf.ILike(v)) }
+func (q Query) ShadowOfIn(v ...string) Query           { return q.Where(ShadowOf.In(v...)) }
+func (q Query) ShadowOfNotIn(v ...string) Query        { return q.Where(ShadowOf.NotIn(v...)) }
+func (q Query) AgreesEq(v bool) Query                  { return q.Where(Agrees.Eq(v)) }
+func (q Query) AgreesNotEq(v bool) Query               { return q.Where(Agrees.NotEq(v)) }
 
-const selectPrefix = `SELECT "id", "create_time", "model_id", "version_id", "label", "value", "confidence", "fields", "feedback_time", "truth_label", "truth_value", "correct" FROM "answers"`
+const selectPrefix = `SELECT "id", "create_time", "model_id", "version_id", "label", "value", "confidence", "fields", "feedback_time", "truth_label", "truth_value", "correct", "shadow_of", "agrees" FROM "answers"`
 const countPrefix = `SELECT count(*) FROM "answers"`
 const existsPrefix = `SELECT 1 FROM "answers"`
 const existsSuffix = ` LIMIT 1`
@@ -1045,6 +1097,18 @@ var orderTable = [nCols][4]string{
 		"\"correct\" ASC NULLS FIRST",
 		"\"correct\" DESC NULLS LAST",
 	},
+	{ // shadow_of
+		"\"shadow_of\"",
+		"\"shadow_of\" DESC",
+		"\"shadow_of\" ASC NULLS FIRST",
+		"\"shadow_of\" DESC NULLS LAST",
+	},
+	{ // agrees
+		"\"agrees\"",
+		"\"agrees\" DESC",
+		"\"agrees\" ASC NULLS FIRST",
+		"\"agrees\" DESC NULLS LAST",
+	},
 }
 
 // identTable is each column's bare quoted name, for the left side of a
@@ -1062,6 +1126,8 @@ var identTable = [nCols]string{
 	"\"truth_label\"",
 	"\"truth_value\"",
 	"\"correct\"",
+	"\"shadow_of\"",
+	"\"agrees\"",
 }
 
 var lowering = runtime.Lowering{
@@ -1094,7 +1160,7 @@ func orderOf(dir, col uint32) string {
 
 // fragTable is every predicate this table can produce, lowered at build
 // time. Runtime splices; it never formats.
-var fragTable = [12][28]runtime.Frag{
+var fragTable = [14][28]runtime.Frag{
 	{ // id
 		{}, // opNone
 		{A: "\"id\" = $", B: ""},
@@ -1455,6 +1521,66 @@ var fragTable = [12][28]runtime.Frag{
 		{},
 		{},
 	},
+	{ // shadow_of
+		{}, // opNone
+		{A: "\"shadow_of\" = $", B: ""},
+		{A: "\"shadow_of\" <> $", B: ""},
+		{A: "\"shadow_of\" > $", B: ""},
+		{A: "\"shadow_of\" >= $", B: ""},
+		{A: "\"shadow_of\" < $", B: ""},
+		{A: "\"shadow_of\" <= $", B: ""},
+		{A: "lower(\"shadow_of\") = lower($", B: ")"},
+		{A: "\"shadow_of\" LIKE $", B: ""},
+		{A: "\"shadow_of\" ILIKE $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{A: "\"shadow_of\" = ANY($", B: ")"},
+		{A: "\"shadow_of\" <> ALL($", B: ")"},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
+	{ // agrees
+		{}, // opNone
+		{A: "\"agrees\" = $", B: ""},
+		{A: "\"agrees\" <> $", B: ""},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	},
 }
 
 func fragOf(op, col uint32) runtime.Frag {
@@ -1623,6 +1749,8 @@ func scan(rv [][]byte, r *Row, sl *runtime.Slab) error {
 	r.TruthLabel = sl.Str(rv[9])
 	r.TruthValue = runtime.Float8(rv[10])
 	r.Correct = runtime.Bool(rv[11])
+	r.ShadowOf = sl.Str(rv[12])
+	r.Agrees = runtime.Bool(rv[13])
 	return nil
 }
 
@@ -1709,6 +1837,10 @@ func (q Query) bindPreds(b *binder) []any {
 				b.anyStr[nas] = q.anyStr[nas]
 				v = append(v, &b.anyStr[nas])
 				nas++
+			case 12:
+				b.anyStr[nas] = q.anyStr[nas]
+				v = append(v, &b.anyStr[nas])
+				nas++
 			}
 			continue
 		}
@@ -1758,6 +1890,14 @@ func (q Query) bindPreds(b *binder) []any {
 			v = append(v, &b.f64s[nf])
 			nf++
 		case 11:
+			b.bools[nbo] = q.bools[nbo]
+			v = append(v, &b.bools[nbo])
+			nbo++
+		case 12:
+			b.strs[ns] = q.strs[ns]
+			v = append(v, &b.strs[ns])
+			ns++
+		case 13:
 			b.bools[nbo] = q.bools[nbo]
 			v = append(v, &b.bools[nbo])
 			nbo++
@@ -1896,9 +2036,101 @@ func (q Query) Prepare(b *Binder) (string, []any) {
 	return stmtFor(q.stream(&buf), q.offset > 0, q.lock).SQL, q.bind(b)
 }
 
+// PerVersionRow is the "PerVersion" aggregation over answers.
+//
+// One row per group. The grouping columns come first, in declaration
+// order, and the result is ordered by them: PostgreSQL promises no
+// order for a GROUP BY, and an unordered report shuffles between
+// requests for no reason anyone can see.
+type PerVersionRow struct {
+	VersionID string
+	Answers   int64
+	Feedback  int64
+	Correct   int64
+	Agree     int64
+	Shadow    int64
+}
+
+const perVersionPrefix = `SELECT "version_id" AS "version_id", count(*) AS "answers", count(*) FILTER (WHERE "feedback_time" IS NOT NULL) AS "feedback", count(*) FILTER (WHERE "correct" = true) AS "correct", count(*) FILTER (WHERE "agrees" = true) AS "agree", count(*) FILTER (WHERE "shadow_of" <> '') AS "shadow" FROM "answers"`
+const perVersionSuffix = ` GROUP BY "version_id" ORDER BY "version_id"`
+
+var (
+	perVersionCache       = runtime.NewTreeCache()
+	perVersionOffsetCache = runtime.NewTreeCache()
+)
+
+func perVersionStmtFor(toks []runtime.Tok, withOffset bool) *runtime.Stmt {
+	c, suffix := perVersionCache, perVersionSuffix+limitSuffix
+	if withOffset {
+		c, suffix = perVersionOffsetCache, perVersionSuffix+limitOffsetSuffix
+	}
+	if st := c.Get(toks); st != nil {
+		return st
+	}
+	return c.Put(toks, runtime.SpliceTree(perVersionPrefix, toks, lowering, suffix))
+}
+
+func scanPerVersion(rv [][]byte, r *PerVersionRow, sl *runtime.Slab) error {
+	r.VersionID = sl.Str(rv[0])
+	r.Answers = runtime.Int8(rv[1])
+	r.Feedback = runtime.Int8(rv[2])
+	r.Correct = runtime.Int8(rv[3])
+	r.Agree = runtime.Int8(rv[4])
+	r.Shadow = runtime.Int8(rv[5])
+	return nil
+}
+
+// AllPerVersion runs the "PerVersion" aggregation. Predicates compose exactly as on All —
+// they filter the rows that go INTO the groups, which is the WHERE clause
+// and not a HAVING. Limit and offset page the groups.
+func (q Query) AllPerVersion(ctx context.Context, ex runtime.Executor) ([]PerVersionRow, error) {
+	var sl runtime.Slab
+	return q.AllPerVersionInto(ctx, ex, nil, &sl)
+}
+
+// AllPerVersionInto lets the caller own the output slice and the arena.
+func (q Query) AllPerVersionInto(ctx context.Context, ex runtime.Executor, dst []PerVersionRow, sl *runtime.Slab) ([]PerVersionRow, error) {
+	if err := q.Err(); err != nil {
+		return dst, err
+	}
+	if q.no > 0 {
+		return dst, errPerVersionOrdered
+	}
+	if q.lock != 0 {
+		return dst, errPerVersionLocked
+	}
+	var buf [21]runtime.Tok
+	st := perVersionStmtFor(q.preds(&buf), q.offset > 0)
+	if st.Err != nil {
+		return dst, st.Err
+	}
+	sl.Reserve(st.SlabHint())
+	b := binders.Get()
+	defer putBinder(b)
+	rows, err := ex.Query(ctx, st.SQL, q.bind(b))
+	if err != nil {
+		return dst, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		dst = append(dst, PerVersionRow{})
+		if err := scanPerVersion(rows.RawValues(), &dst[len(dst)-1], sl); err != nil {
+			return dst, err
+		}
+	}
+	st.ObserveSlab(sl.Size())
+	return dst, rows.Err()
+}
+
+var errPerVersionLocked = errors.New(
+	"storm: a grouped read cannot be row-locked — the server refuses a row lock with a GROUP BY, and locking the rows a group summarises is not what the caller asked for; lock the base read instead")
+
+var errPerVersionOrdered = errors.New(
+	"storm: Order() on an aggregation — its rows are groups, not table rows, and answers.PerVersion is already ordered by its grouping columns; sort the returned slice if you need another order")
+
 // insertSQL does not vary: the column list is fixed by the table, so
 // the placeholders are known at build time and nothing is spliced.
-const insertSQL = `INSERT INTO "answers" ("id", "create_time", "model_id", "version_id", "label", "value", "confidence", "fields", "feedback_time", "truth_label", "truth_value", "correct") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING "id", "create_time", "model_id", "version_id", "label", "value", "confidence", "fields", "feedback_time", "truth_label", "truth_value", "correct"`
+const insertSQL = `INSERT INTO "answers" ("id", "create_time", "model_id", "version_id", "label", "value", "confidence", "fields", "feedback_time", "truth_label", "truth_value", "correct", "shadow_of", "agrees") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING "id", "create_time", "model_id", "version_id", "label", "value", "confidence", "fields", "feedback_time", "truth_label", "truth_value", "correct", "shadow_of", "agrees"`
 
 const updatePrefix = `UPDATE "answers" SET `
 const deletePrefix = `DELETE FROM "answers"`
@@ -1916,9 +2148,11 @@ const (
 	dTruthLabel   uint64 = 1 << 7
 	dTruthValue   uint64 = 1 << 8
 	dCorrect      uint64 = 1 << 9
+	dShadowOf     uint64 = 1 << 10
+	dAgrees       uint64 = 1 << 11
 )
 
-const nUpdatable = 10
+const nUpdatable = 12
 
 // setFrags is every assignment this table can make, lowered at build time.
 var setFrags = [nUpdatable]runtime.Frag{
@@ -1932,6 +2166,8 @@ var setFrags = [nUpdatable]runtime.Frag{
 	{A: "\"truth_label\" = $", B: ""},   // truth_label
 	{A: "\"truth_value\" = $", B: ""},   // truth_value
 	{A: "\"correct\" = $", B: ""},       // correct
+	{A: "\"shadow_of\" = $", B: ""},     // shadow_of
+	{A: "\"agrees\" = $", B: ""},        // agrees
 }
 
 // exprFrags is the SERVER-side assignment each column may take instead
@@ -1948,6 +2184,8 @@ var exprFrags = [nUpdatable]runtime.Frag{
 	{},                                      // truth_label has no server-side form
 	{},                                      // truth_value has no server-side form
 	{},                                      // correct has no server-side form
+	{},                                      // shadow_of has no server-side form
+	{},                                      // agrees has no server-side form
 }
 
 // pkFrags addresses one row.
@@ -1971,9 +2209,11 @@ const (
 	iTruthLabel   uint64 = 1 << 9
 	iTruthValue   uint64 = 1 << 10
 	iCorrect      uint64 = 1 << 11
+	iShadowOf     uint64 = 1 << 12
+	iAgrees       uint64 = 1 << 13
 )
 
-const nInsertable = 12
+const nInsertable = 14
 
 // insCols is the quoted column name for each insert bit.
 var insCols = [nInsertable]string{
@@ -1989,6 +2229,8 @@ var insCols = [nInsertable]string{
 	"\"truth_label\"",
 	"\"truth_value\"",
 	"\"correct\"",
+	"\"shadow_of\"",
+	"\"agrees\"",
 }
 
 // insParts and insPlaceholder come from the back end at build time; the
@@ -1997,7 +2239,7 @@ var insParts = runtime.InsertParts{Open: " (", Sep: ", ", Mid: ") VALUES (", Clo
 var insPlaceholder = runtime.Placeholder{}
 
 const insPrefix = "INSERT INTO \"answers\""
-const insReturning = " RETURNING \"id\", \"create_time\", \"model_id\", \"version_id\", \"label\", \"value\", \"confidence\", \"fields\", \"feedback_time\", \"truth_label\", \"truth_value\", \"correct\""
+const insReturning = " RETURNING \"id\", \"create_time\", \"model_id\", \"version_id\", \"label\", \"value\", \"confidence\", \"fields\", \"feedback_time\", \"truth_label\", \"truth_value\", \"correct\", \"shadow_of\", \"agrees\""
 
 var insCache = runtime.NewMaskCache()
 
@@ -2016,7 +2258,7 @@ var updOpCache = runtime.NewMaskCache()
 // part of it. Without it m.Row() would hold what the row held BEFORE
 // the statement, so a caller reading back the counter it just
 // incremented would get the old number and never know.
-const updReturning = " RETURNING \"id\", \"create_time\", \"model_id\", \"version_id\", \"label\", \"value\", \"confidence\", \"fields\", \"feedback_time\", \"truth_label\", \"truth_value\", \"correct\""
+const updReturning = " RETURNING \"id\", \"create_time\", \"model_id\", \"version_id\", \"label\", \"value\", \"confidence\", \"fields\", \"feedback_time\", \"truth_label\", \"truth_value\", \"correct\", \"shadow_of\", \"agrees\""
 
 // Masks reports how many distinct UPDATE shapes have compiled.
 func Masks() int { return updCache.Masks() }
@@ -2141,6 +2383,18 @@ func (m *Mut) SetCorrect(v bool) {
 	m.row.Correct = v
 	m.dirty |= dCorrect
 	m.expr &^= dCorrect
+}
+
+func (m *Mut) SetShadowOf(v string) {
+	m.row.ShadowOf = v
+	m.dirty |= dShadowOf
+	m.expr &^= dShadowOf
+}
+
+func (m *Mut) SetAgrees(v bool) {
+	m.row.Agrees = v
+	m.dirty |= dAgrees
+	m.expr &^= dAgrees
 }
 
 // Ins stages a new row. Unlike Mut it has a setter for every insertable
@@ -2287,6 +2541,16 @@ func (n *Ins) SetCorrect(v bool) {
 	n.set |= iCorrect
 }
 
+func (n *Ins) SetShadowOf(v string) {
+	n.row.ShadowOf = v
+	n.set |= iShadowOf
+}
+
+func (n *Ins) SetAgrees(v bool) {
+	n.row.Agrees = v
+	n.set |= iAgrees
+}
+
 // The conflict encoding. One byte holds both which unique index an
 // upsert names and what it does on collision, so the insert statement
 // cache stays keyed by one mask and one byte:
@@ -2336,7 +2600,7 @@ var conflictSpecs = []string{
 
 // assignable is the columns target i may overwrite, given the mask.
 func assignable(i uint8, mask uint64) []string {
-	set := make([]string, 0, 10)
+	set := make([]string, 0, 12)
 	switch i {
 	case 0:
 		if mask&(1<<2) != 0 {
@@ -2368,6 +2632,12 @@ func assignable(i uint8, mask uint64) []string {
 		}
 		if mask&(1<<11) != 0 {
 			set = append(set, "correct")
+		}
+		if mask&(1<<12) != 0 {
+			set = append(set, "shadow_of")
+		}
+		if mask&(1<<13) != 0 {
+			set = append(set, "agrees")
 		}
 	}
 	return set
@@ -2447,6 +2717,8 @@ var assignFor = map[string]string{
 	"truth_label":   "\"truth_label\" = EXCLUDED.\"truth_label\"",
 	"truth_value":   "\"truth_value\" = EXCLUDED.\"truth_value\"",
 	"correct":       "\"correct\" = EXCLUDED.\"correct\"",
+	"shadow_of":     "\"shadow_of\" = EXCLUDED.\"shadow_of\"",
+	"agrees":        "\"agrees\" = EXCLUDED.\"agrees\"",
 }
 
 func assignExcluded(c string) string { return assignFor[c] }
@@ -2521,6 +2793,10 @@ func (n *Ins) Insert(ctx context.Context, ex runtime.Executor) (Row, error) {
 			args = append(args, n.row.TruthValue)
 		case 11:
 			args = append(args, n.row.Correct)
+		case 12:
+			args = append(args, n.row.ShadowOf)
+		case 13:
+			args = append(args, n.row.Agrees)
 		}
 	}
 	var out Row
@@ -2558,7 +2834,7 @@ func Inserts() int { return insCache.Masks() }
 // not treat a zero as 'unset': that guess is why other ORMs cannot insert
 // a false, a 0 or an empty string into a column with a default.
 func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
-	args := make([]any, 0, 12)
+	args := make([]any, 0, 14)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.ModelID)
@@ -2571,6 +2847,8 @@ func Insert(ctx context.Context, ex runtime.Executor, r *Row) error {
 	args = append(args, r.TruthLabel)
 	args = append(args, r.TruthValue)
 	args = append(args, r.Correct)
+	args = append(args, r.ShadowOf)
+	args = append(args, r.Agrees)
 	rows, err := ex.Query(ctx, insertSQL, args)
 	if err != nil {
 		return err
@@ -2609,13 +2887,15 @@ var copyCols = []string{
 	"truth_label",
 	"truth_value",
 	"correct",
+	"shadow_of",
+	"agrees",
 }
 
 // rowSource walks a []Row for CopyFrom without copying any of it.
 type rowSource struct {
 	rows []Row
 	i    int
-	buf  [12]any
+	buf  [14]any
 }
 
 func (s *rowSource) Next() bool {
@@ -2645,6 +2925,8 @@ func (s *rowSource) Values() []any {
 	s.buf[9] = &r.TruthLabel
 	s.buf[10] = &r.TruthValue
 	s.buf[11] = &r.Correct
+	s.buf[12] = &r.ShadowOf
+	s.buf[13] = &r.Agrees
 	return s.buf[:]
 }
 
@@ -2687,8 +2969,10 @@ func InsertOp(r Row) runtime.BatchOp {
 	mask |= 1 << 9
 	mask |= 1 << 10
 	mask |= 1 << 11
+	mask |= 1 << 12
+	mask |= 1 << 13
 	st := stmtForInsertNoReturn(mask, 0, 0)
-	args := make([]any, 0, 12)
+	args := make([]any, 0, 14)
 	args = append(args, r.ID)
 	args = append(args, r.CreateTime)
 	args = append(args, r.ModelID)
@@ -2701,6 +2985,8 @@ func InsertOp(r Row) runtime.BatchOp {
 	args = append(args, r.TruthLabel)
 	args = append(args, r.TruthValue)
 	args = append(args, r.Correct)
+	args = append(args, r.ShadowOf)
+	args = append(args, r.Agrees)
 	return runtime.BatchOp{SQL: st.SQL, Args: args}
 }
 
@@ -2758,6 +3044,10 @@ func (n *Ins) Op() (runtime.BatchOp, error) {
 			args = append(args, n.row.TruthValue)
 		case 11:
 			args = append(args, n.row.Correct)
+		case 12:
+			args = append(args, n.row.ShadowOf)
+		case 13:
+			args = append(args, n.row.Agrees)
 		}
 	}
 	return runtime.BatchOp{SQL: st.SQL, Args: args}, nil
@@ -2833,6 +3123,10 @@ func (m *Mut) UpdateOp() (runtime.BatchOp, bool) {
 			args = append(args, m.row.TruthValue)
 		case 9:
 			args = append(args, m.row.Correct)
+		case 10:
+			args = append(args, m.row.ShadowOf)
+		case 11:
+			args = append(args, m.row.Agrees)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -2935,6 +3229,10 @@ func (m *Mut) Update(ctx context.Context, ex runtime.Executor) error {
 			args = append(args, m.row.TruthValue)
 		case 9:
 			args = append(args, m.row.Correct)
+		case 10:
+			args = append(args, m.row.ShadowOf)
+		case 11:
+			args = append(args, m.row.Agrees)
 		}
 	}
 	args = append(args, m.row.ID)
@@ -3103,6 +3401,10 @@ func (q Query) UpdateAll(ctx context.Context, ex runtime.Executor, m Mut) (int64
 			args = append(args, m.row.TruthValue)
 		case 9:
 			args = append(args, m.row.Correct)
+		case 10:
+			args = append(args, m.row.ShadowOf)
+		case 11:
+			args = append(args, m.row.Agrees)
 		}
 	}
 	args = append(args, q.bindPreds(b)...)

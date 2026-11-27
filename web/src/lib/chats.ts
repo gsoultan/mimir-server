@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 // Chats with a language model, kept in this browser only: one list per
 // model, newest first, for 30 days.
 
@@ -46,20 +47,20 @@ function store(modelId: string, all: SavedChat[]) {
 
 // titleOf names a chat after its first message.
 export function titleOf(turns: ChatTurn[]): string {
-  const first = turns.find((t) => t.role === "user")?.content.trim().replace(/\s+/g, " ") ?? "New chat";
+  const first = turns.find((t) => t.role === "user")?.content.trim().replace(/\s+/g, " ") ?? t("New chat");
   return first.length > 48 ? first.slice(0, 47) + "…" : first;
 }
 
 // Word choice and answer length, in plain words, as model settings.
 export const wordChoices = [
-  { value: "0", label: "Steady" },
-  { value: "0.7", label: "Varied" },
-  { value: "1.2", label: "Wild" },
+  { value: "0", label: t("Steady") },
+  { value: "0.7", label: t("Varied") },
+  { value: "1.2", label: t("Wild") },
 ];
 export const lengths = [
-  { value: "48", label: "A line" },
-  { value: "256", label: "A paragraph" },
-  { value: "768", label: "A page" },
+  { value: "48", label: t("A line") },
+  { value: "256", label: t("A paragraph") },
+  { value: "768", label: t("A page") },
 ];
 
 // nearest picks the choice closest to v, so a custom value still shows

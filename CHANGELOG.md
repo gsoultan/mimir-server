@@ -2,6 +2,74 @@
 
 ## Unreleased
 
+### Updates from the About page
+
+- **Check now and Update now.** Owners see an Updates card on the About
+  page: it asks GitHub for the newest release, says whether it is newer,
+  and installs it in one click. The server downloads the file for this
+  machine, checks it against the release's `SHA256SUMS`, runs it once to
+  be sure it works here, then restarts on it in the same process.
+- **Update automatically.** A switch, off by default, that looks every 6
+  hours and installs new versions by itself. A failed automatic update
+  sends an alert. Nothing contacts GitHub unless someone presses Check now
+  or turns this on.
+- The new version is kept in the data folder (`updates/`), never written
+  over the installed binary, so it works for archive, Linux package and
+  container installs alike. A newer package or image wins over it, and a
+  kept version that fails to start three times is set aside.
+- `-updates=false` (`$MIMIR_UPDATES`) turns all of it off.
+- Releases now include static Linux archives (`*_static.tar.gz`), which
+  the container image and Alpine package update from.
+- `SettingsService.GetUpdates`, `CheckForUpdates`, `InstallUpdate` and
+  `UpdateAutoUpdates`.
+
+### Too little data, or a rare answer
+
+- **Make up more rows like yours.** On the teach page, a table with too
+  few rows can be grown: the server learns how each column's values
+  spread and how the columns go together (a Gaussian copula, as SDV's
+  GaussianCopulaSynthesizer does) and saves the new rows as a separate
+  dataset marked made up. IDs are made new; text cells are reused.
+  `DatasetService.MakeRows`.
+- **Balance rare answers.** A switch on the last step of teaching a table
+  model makes up rows of each rarer answer between real rows that have it
+  (SMOTE), until every answer has as many as the most common one. The
+  rows kept aside for scoring stay real, and the run's report says how
+  many were made. `TrainingSettings.balance`.
+- Database: `datasets.made_from` and `training_jobs.balance` (migration
+  0022, through storm).
+
+### Try new versions first
+
+- A model version can be tried on part of the questions (5 to 50%) or on
+  a copy of every question on the side, before it answers everyone. The
+  Versions tab compares it with the live version on real answers, and puts
+  it live or stops the trial in one click.
+- Keep-learning can try each better pass on a share of the questions
+  first, instead of putting it live at once.
+
+### Warn when the questions change
+
+- Every hour the server compares the last week's questions to each table
+  model with the examples its live version learned from, column by
+  column, with no feedback needed. When a column looks a lot different
+  (a number range that moved, values it never saw, a column left empty)
+  the model's page says so in plain words, the home page lists it under
+  what needs a look, owners get an email or Telegram alert, and a
+  `model.data_changed` webhook goes out, once per change.
+  `ModelService.GetModelQuality` returns the same check.
+
+### AI assistants and agents
+
+- **MCP server.** Claude, ChatGPT, Cursor and other MCP clients can use
+  the models at `/mcp` with a mimir API key: list the models and
+  collections, ask a model about one row, score a table of up to 1,000
+  rows, and search or ask a collection of documents.
+- **Tool calling** in the OpenAI-compatible chat API: `tools`,
+  `tool_choice`, `parallel_tool_calls`, assistant `tool_calls` and `tool`
+  messages, streamed or not, so agent frameworks work with mimir's
+  language models.
+
 ### More model types
 
 - **Speech to text** writes down what is said in a recording, up to two
