@@ -559,6 +559,12 @@ var learned = []Architecture{
 		Input:       Table, AnyText: true, Output: Number, Target: NoTarget, Learner: oddOne,
 	},
 	{
+		Name:        "odd-one-local",
+		Title:       "Spot the odd one by its neighbors",
+		Description: "Like Spot the odd one, but compares each row with the 20 most similar ones: a row just outside a tight group scores high even when another group is loosely spread. Good when your data has kinds of rows that vary by different amounts, like small shops and big distributors. It scores from 0 to 1, about 0.5 or less is usual, and keeps up to 5,000 rows to compare with.",
+		Input:       Table, AnyText: true, Output: Number, Target: NoTarget, Learner: oddLocal,
+	},
+	{
 		Name:        "recommend",
 		Title:       "Recommend",
 		Description: "Learns from who picked which item, such as purchases, clicks or ratings, and lists the items each person is likeliest to want. Someone it hasn't seen gets the items most people like.",

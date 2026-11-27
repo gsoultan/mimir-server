@@ -6803,6 +6803,2899 @@
      ]
     }
    ]
+  },
+  {
+   "id": "cycle-time",
+   "category": "mfg",
+   "kind": "number",
+   "data": "table",
+   "name": "Time to make an order",
+   "question": "How many minutes will a job take on the line, so you can promise delivery dates and plan the next shifts?",
+   "predicts": "The minutes one job will take, from setup to the last part.",
+   "row_means": "One job: one order made on one line.",
+   "source": "Your MES or production orders, with start and finish times",
+   "source_short": "production orders",
+   "rows_min": 300,
+   "rows_good": 3000,
+   "rows_great": 30000,
+   "balance": "Include rush jobs, small runs and big runs, so the model sees every size.",
+   "table": "production_jobs",
+   "tips": [
+    "Use what was known before the job started: the plan, not what happened.",
+    "Leave out jobs that were stopped and restarted on another day, or count only their running time."
+   ],
+   "columns": [
+    {
+     "name": "line",
+     "kind": "category",
+     "meaning": "Which production line.",
+     "examples": [
+      "A",
+      "B",
+      "C"
+     ]
+    },
+    {
+     "name": "product",
+     "kind": "category",
+     "meaning": "What was made.",
+     "examples": [
+      "P10",
+      "P22",
+      "P31"
+     ]
+    },
+    {
+     "name": "units",
+     "kind": "number",
+     "meaning": "Units in the job.",
+     "examples": [
+      "500",
+      "1200",
+      "4000"
+     ]
+    },
+    {
+     "name": "setup_needed",
+     "kind": "yesno",
+     "meaning": "Yes if the line had to be set up for a new product.",
+     "examples": [
+      "yes",
+      "no",
+      "yes"
+     ]
+    },
+    {
+     "name": "crew_size",
+     "kind": "number",
+     "meaning": "People on the line.",
+     "examples": [
+      "3",
+      "4",
+      "6"
+     ]
+    },
+    {
+     "name": "shift",
+     "kind": "category",
+     "meaning": "Which shift ran it.",
+     "examples": [
+      "morning",
+      "afternoon",
+      "night"
+     ],
+     "optional": true
+    },
+    {
+     "name": "material_batch_age_days",
+     "kind": "number",
+     "meaning": "Age of the raw material, in days.",
+     "examples": [
+      "2",
+      "10",
+      "30"
+     ],
+     "optional": true
+    },
+    {
+     "name": "machine_age_years",
+     "kind": "number",
+     "meaning": "Age of the main machine, in years.",
+     "examples": [
+      "1",
+      "6",
+      "14"
+     ],
+     "optional": true
+    },
+    {
+     "name": "minutes",
+     "kind": "number",
+     "meaning": "Minutes from setup to the last part.",
+     "examples": [
+      "95",
+      "180",
+      "520"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "breakdown-within",
+   "category": "mfg",
+   "kind": "yes_no",
+   "data": "table",
+   "architecture": "time-to-event",
+   "name": "Chance a machine breaks within N days",
+   "question": "How likely is each machine to break down within the next N days, so maintenance goes to the riskiest first, this week or this month?",
+   "predicts": "The chance the machine breaks down within the number of days you ask, from 0 to 100%. Ask with within_days set to 1, 7, 30 or any other number.",
+   "row_means": "One machine since one service: what was known that day, how many days were watched after it, and whether it broke down in that time.",
+   "source": "Your maintenance system, with machine readings at each service",
+   "source_short": "maintenance log",
+   "rows_min": 300,
+   "rows_good": 3000,
+   "rows_great": 30000,
+   "balance": "Include machines that haven't broken down yet, with no and the days since their last service; leaving them out makes every machine look weaker than it is.",
+   "table": "machine_services",
+   "tips": [
+    "Make a row for each service. days_watched is the days until the next breakdown when there was one (broke_down yes), or the days until today when there wasn't (broke_down no).",
+    "One model answers for any window: ask with within_days 7 for next week, 30 for next month."
+   ],
+   "columns": [
+    {
+     "name": "machine_type",
+     "kind": "category",
+     "meaning": "What kind of machine.",
+     "examples": [
+      "press",
+      "lathe",
+      "pump"
+     ]
+    },
+    {
+     "name": "age_years",
+     "kind": "number",
+     "meaning": "Age of the machine, in years.",
+     "examples": [
+      "2",
+      "8",
+      "15"
+     ]
+    },
+    {
+     "name": "hours_since_overhaul",
+     "kind": "number",
+     "meaning": "Running hours since the last overhaul.",
+     "examples": [
+      "400",
+      "2500",
+      "6000"
+     ]
+    },
+    {
+     "name": "vibration_mm_s",
+     "kind": "number",
+     "meaning": "Vibration at the service.",
+     "examples": [
+      "1.8",
+      "3.5",
+      "7.2"
+     ]
+    },
+    {
+     "name": "temperature_c",
+     "kind": "number",
+     "meaning": "Running temperature at the service.",
+     "examples": [
+      "55",
+      "68",
+      "84"
+     ]
+    },
+    {
+     "name": "breakdowns_last_year",
+     "kind": "number",
+     "meaning": "Breakdowns in the year before.",
+     "examples": [
+      "0",
+      "2",
+      "5"
+     ]
+    },
+    {
+     "name": "load_pct",
+     "kind": "number",
+     "meaning": "Usual load, in % of capacity.",
+     "examples": [
+      "40",
+      "70",
+      "95"
+     ],
+     "optional": true
+    },
+    {
+     "name": "site",
+     "kind": "category",
+     "meaning": "Which plant.",
+     "examples": [
+      "north",
+      "south",
+      "east"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_watched",
+     "kind": "number",
+     "meaning": "Days from this service to the next breakdown, or to today if there is none yet.",
+     "examples": [
+      "12",
+      "90",
+      "35"
+     ]
+    },
+    {
+     "name": "broke_down",
+     "kind": "yesno",
+     "meaning": "Did it break down within days_watched?",
+     "examples": [
+      "yes",
+      "no",
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "scrap-range",
+   "category": "mfg",
+   "kind": "number",
+   "data": "table",
+   "architecture": "number-range",
+   "name": "Scrap per batch range",
+   "question": "How much scrap will the next batch make, as a range you can order material and plan rework with?",
+   "predicts": "The likeliest scrap in kg, with a low and a high that hold about 8 in 10 real batches.",
+   "row_means": "One batch.",
+   "source": "Production records and the scrap log",
+   "source_short": "scrap log",
+   "rows_min": 300,
+   "rows_good": 3000,
+   "rows_great": 30000,
+   "balance": "Batches with little scrap and batches with a lot, from every line.",
+   "table": "batches",
+   "tips": [
+    "The range is wider where scrap swings more; that is information, not an error.",
+    "Order material for the high end when running short stops the line."
+   ],
+   "columns": [
+    {
+     "name": "line",
+     "kind": "category",
+     "meaning": "Which line.",
+     "examples": [
+      "A",
+      "B",
+      "C"
+     ]
+    },
+    {
+     "name": "product",
+     "kind": "category",
+     "meaning": "What was made.",
+     "examples": [
+      "P10",
+      "P22",
+      "P31"
+     ]
+    },
+    {
+     "name": "batch_kg",
+     "kind": "number",
+     "meaning": "Planned batch size, in kg.",
+     "examples": [
+      "800",
+      "1500",
+      "3000"
+     ]
+    },
+    {
+     "name": "operator_experience_years",
+     "kind": "number",
+     "meaning": "Years the operator has run this line.",
+     "examples": [
+      "1",
+      "4",
+      "12"
+     ]
+    },
+    {
+     "name": "supplier",
+     "kind": "category",
+     "meaning": "Who supplied the raw material.",
+     "examples": [
+      "S1",
+      "S2",
+      "S3"
+     ]
+    },
+    {
+     "name": "first_batch_after_change",
+     "kind": "yesno",
+     "meaning": "Yes if it's the first batch after a product change.",
+     "examples": [
+      "yes",
+      "no",
+      "no"
+     ]
+    },
+    {
+     "name": "humidity_pct",
+     "kind": "number",
+     "meaning": "Humidity in the hall, in %.",
+     "examples": [
+      "45",
+      "60",
+      "80"
+     ],
+     "optional": true
+    },
+    {
+     "name": "scrap_kg",
+     "kind": "number",
+     "meaning": "Scrap made, in kg.",
+     "examples": [
+      "12",
+      "40",
+      "130"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "repair-type",
+   "category": "mfg",
+   "kind": "group",
+   "data": "table",
+   "name": "What kind of repair a stop needs",
+   "question": "When a machine stops, which kind of fix will it need, so the right technician and parts go out first time?",
+   "predicts": "Electrical, mechanical, hydraulic or software, for each stop.",
+   "row_means": "One machine stop.",
+   "source": "Your maintenance system, with the fix written down after each stop",
+   "source_short": "maintenance log",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 30000,
+   "balance": "Try to have at least 100 stops for each kind of repair.",
+   "table": "machine_stops",
+   "tips": [
+    "Use the alarm and readings from the moment it stopped, not what the technician found later."
+   ],
+   "columns": [
+    {
+     "name": "machine_type",
+     "kind": "category",
+     "meaning": "What kind of machine.",
+     "examples": [
+      "press",
+      "conveyor",
+      "robot"
+     ]
+    },
+    {
+     "name": "alarm_code",
+     "kind": "category",
+     "meaning": "The alarm the machine showed.",
+     "examples": [
+      "E12",
+      "M40",
+      "H07"
+     ]
+    },
+    {
+     "name": "motor_current_a",
+     "kind": "number",
+     "meaning": "Motor current when it stopped.",
+     "examples": [
+      "8",
+      "15",
+      "28"
+     ]
+    },
+    {
+     "name": "oil_pressure_bar",
+     "kind": "number",
+     "meaning": "Oil pressure when it stopped.",
+     "examples": [
+      "40",
+      "120",
+      "180"
+     ]
+    },
+    {
+     "name": "hours_since_service",
+     "kind": "number",
+     "meaning": "Running hours since the last service.",
+     "examples": [
+      "100",
+      "900",
+      "2400"
+     ]
+    },
+    {
+     "name": "stops_last_30d",
+     "kind": "number",
+     "meaning": "Stops of this machine in the last 30 days.",
+     "examples": [
+      "0",
+      "2",
+      "7"
+     ],
+     "optional": true
+    },
+    {
+     "name": "repair_type",
+     "kind": "category",
+     "meaning": "What fixed it.",
+     "examples": [
+      "electrical",
+      "mechanical",
+      "hydraulic"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "coating-check",
+   "category": "qc",
+   "kind": "group",
+   "data": "photos",
+   "name": "Paint and coating check",
+   "question": "Look at a photo of a painted or coated part and say if it is fine or has bubbles, runs or bare spots.",
+   "predicts": "One answer per photo: ok, bubbles, run or bare spot, with how sure.",
+   "row_means": "One photo of one part.",
+   "source": "A camera after the paint or coating line",
+   "source_short": "line photos",
+   "rows_min": 100,
+   "rows_good": 500,
+   "rows_great": 2000,
+   "balance": "Defects are rare. Keep taking photos of each defect until each folder has at least 100.",
+   "tips": [
+    "Light the part evenly; glare looks like a defect.",
+    "Same distance and angle for every photo."
+   ],
+   "folders": [
+    {
+     "name": "ok",
+     "meaning": "Parts with an even finish.",
+     "count": 1100
+    },
+    {
+     "name": "bubbles",
+     "meaning": "Parts with bubbles or blisters.",
+     "count": 160
+    },
+    {
+     "name": "run",
+     "meaning": "Parts with runs or drips.",
+     "count": 140
+    },
+    {
+     "name": "bare_spot",
+     "meaning": "Parts with spots the coating missed.",
+     "count": 120
+    }
+   ]
+  },
+  {
+   "id": "fill-level",
+   "category": "qc",
+   "kind": "group",
+   "data": "photos",
+   "name": "Bottle fill and cap check",
+   "question": "Look at a photo of a bottle on the line and say if it is fine, underfilled, overfilled or has a bad cap.",
+   "predicts": "One answer per photo: ok, underfilled, overfilled or bad cap, with how sure.",
+   "row_means": "One photo of one bottle.",
+   "source": "A camera after the filling machine",
+   "source_short": "line photos",
+   "rows_min": 100,
+   "rows_good": 500,
+   "rows_great": 2000,
+   "balance": "Make sure each folder has at least 100 photos, even if that means saving rejects for a while.",
+   "tips": [
+    "Put the camera level with the fill line.",
+    "A plain background behind the bottles helps."
+   ],
+   "folders": [
+    {
+     "name": "ok",
+     "meaning": "Bottles filled and capped right.",
+     "count": 1300
+    },
+    {
+     "name": "underfilled",
+     "meaning": "Bottles below the fill line.",
+     "count": 150
+    },
+    {
+     "name": "overfilled",
+     "meaning": "Bottles above the fill line.",
+     "count": 110
+    },
+    {
+     "name": "bad_cap",
+     "meaning": "Missing, crooked or loose caps.",
+     "count": 130
+    }
+   ]
+  },
+  {
+   "id": "lot-complaint",
+   "category": "qc",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Lots likely to get complaints",
+   "question": "Which lots are likely to come back as customer complaints, so you can hold them for a second check before they ship?",
+   "predicts": "Will this lot get a complaint: yes or no, and how likely.",
+   "row_means": "One lot, with its test results before shipping.",
+   "source": "Your quality system and the complaints log",
+   "source_short": "quality records",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Only use lots old enough that a complaint would have come in.",
+   "table": "lots",
+   "tips": [
+    "Use the tests done before shipping, not what was found after the complaint."
+   ],
+   "columns": [
+    {
+     "name": "product",
+     "kind": "category",
+     "meaning": "What the lot is.",
+     "examples": [
+      "P10",
+      "P22",
+      "P31"
+     ]
+    },
+    {
+     "name": "line",
+     "kind": "category",
+     "meaning": "Which line made it.",
+     "examples": [
+      "A",
+      "B",
+      "C"
+     ]
+    },
+    {
+     "name": "lot_size",
+     "kind": "number",
+     "meaning": "Units in the lot.",
+     "examples": [
+      "1000",
+      "5000",
+      "20000"
+     ]
+    },
+    {
+     "name": "samples_failed",
+     "kind": "number",
+     "meaning": "Samples that failed the end-of-line test.",
+     "examples": [
+      "0",
+      "1",
+      "4"
+     ]
+    },
+    {
+     "name": "weight_spread_g",
+     "kind": "number",
+     "meaning": "Spread of sample weights, in grams.",
+     "examples": [
+      "0.4",
+      "1.2",
+      "3.1"
+     ]
+    },
+    {
+     "name": "supplier",
+     "kind": "category",
+     "meaning": "Who supplied the main material.",
+     "examples": [
+      "S1",
+      "S2",
+      "S3"
+     ]
+    },
+    {
+     "name": "night_shift",
+     "kind": "yesno",
+     "meaning": "Yes if most of it was made at night.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "rework_done",
+     "kind": "yesno",
+     "meaning": "Yes if any of it was reworked.",
+     "examples": [
+      "no",
+      "no",
+      "yes"
+     ],
+     "optional": true
+    },
+    {
+     "name": "got_complaint",
+     "kind": "yesno",
+     "meaning": "Did a customer complain about this lot?",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "inspection-notes",
+   "category": "qc",
+   "kind": "group",
+   "data": "text",
+   "name": "Sort inspection notes by defect",
+   "question": "Read what inspectors wrote and file each note under the right defect, so you can count what goes wrong most.",
+   "predicts": "Cosmetic, dimension, function or packaging, for each note.",
+   "row_means": "One inspection note.",
+   "source": "Inspection reports or your quality system",
+   "source_short": "inspection notes",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 30000,
+   "balance": "Try to have at least 100 notes for each kind of defect.",
+   "table": "inspection_notes",
+   "tips": [
+    "Keep the note as the inspector wrote it; short and messy is fine."
+   ],
+   "columns": [
+    {
+     "name": "note",
+     "kind": "text",
+     "meaning": "What the inspector wrote.",
+     "examples": [
+      "Scratch on the left side of the cover",
+      "Hole 2 mm too far from the edge",
+      "Button does not click back",
+      "Label upside down on the box"
+     ]
+    },
+    {
+     "name": "product",
+     "kind": "category",
+     "meaning": "What was inspected.",
+     "examples": [
+      "P10",
+      "P22",
+      "P31",
+      "P10"
+     ]
+    },
+    {
+     "name": "station",
+     "kind": "category",
+     "meaning": "Where it was inspected.",
+     "examples": [
+      "end of line",
+      "incoming",
+      "end of line",
+      "packing"
+     ]
+    },
+    {
+     "name": "defect_type",
+     "kind": "category",
+     "meaning": "Which kind of defect it is.",
+     "examples": [
+      "cosmetic",
+      "dimension",
+      "function",
+      "packaging"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "trial-convert",
+   "category": "b2b",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Trial to paying customer",
+   "question": "Which companies on a free trial will start paying, so the sales team calls the ones that are close?",
+   "predicts": "Will this trial become a paying customer: yes or no, and how likely.",
+   "row_means": "One company's trial, with what it did in the first week.",
+   "source": "Your product's usage data and billing",
+   "source_short": "trial usage",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Only use trials that have ended, paid or not.",
+   "table": "trials",
+   "tips": [
+    "Use the first week only, so the model can answer while there's still time to help."
+   ],
+   "columns": [
+    {
+     "name": "company_size",
+     "kind": "category",
+     "meaning": "How many people work there.",
+     "examples": [
+      "1-10",
+      "51-200",
+      "201-500"
+     ]
+    },
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "What the company does.",
+     "examples": [
+      "retail",
+      "software",
+      "logistics"
+     ]
+    },
+    {
+     "name": "users_invited",
+     "kind": "number",
+     "meaning": "People invited in the first week.",
+     "examples": [
+      "1",
+      "4",
+      "15"
+     ]
+    },
+    {
+     "name": "days_active_week1",
+     "kind": "number",
+     "meaning": "Days someone logged in, in the first week.",
+     "examples": [
+      "1",
+      "4",
+      "7"
+     ]
+    },
+    {
+     "name": "key_feature_used",
+     "kind": "yesno",
+     "meaning": "Yes if they used the feature paying customers use most.",
+     "examples": [
+      "no",
+      "yes",
+      "yes"
+     ]
+    },
+    {
+     "name": "support_questions",
+     "kind": "number",
+     "meaning": "Questions they asked support.",
+     "examples": [
+      "0",
+      "1",
+      "3"
+     ],
+     "optional": true
+    },
+    {
+     "name": "signup_source",
+     "kind": "category",
+     "meaning": "How they found you.",
+     "examples": [
+      "search",
+      "partner",
+      "event"
+     ],
+     "optional": true
+    },
+    {
+     "name": "became_paying",
+     "kind": "yesno",
+     "meaning": "Did they start paying?",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "days-to-close",
+   "category": "b2b",
+   "kind": "number",
+   "data": "table",
+   "name": "Days until a deal closes",
+   "question": "How many days until an open deal is signed, so the forecast says which month the money comes in?",
+   "predicts": "The days from today until the deal is signed.",
+   "row_means": "One won deal, as it looked at one point before it closed.",
+   "source": "Your CRM, with the date each deal was won",
+   "source_short": "CRM deals",
+   "rows_min": 300,
+   "rows_good": 3000,
+   "rows_great": 30000,
+   "balance": "Use won deals of every size and length.",
+   "table": "deals",
+   "tips": [
+    "Take a snapshot of each deal at a few stages, so the model learns from early and late deals alike."
+   ],
+   "columns": [
+    {
+     "name": "stage",
+     "kind": "category",
+     "meaning": "Where the deal is now.",
+     "examples": [
+      "demo",
+      "proposal",
+      "negotiation"
+     ]
+    },
+    {
+     "name": "deal_value",
+     "kind": "number",
+     "meaning": "Money in the deal.",
+     "examples": [
+      "5000",
+      "25000",
+      "120000"
+     ]
+    },
+    {
+     "name": "days_open",
+     "kind": "number",
+     "meaning": "Days since the deal was opened.",
+     "examples": [
+      "10",
+      "45",
+      "120"
+     ]
+    },
+    {
+     "name": "contacts",
+     "kind": "number",
+     "meaning": "People you talk to on their side.",
+     "examples": [
+      "1",
+      "3",
+      "6"
+     ]
+    },
+    {
+     "name": "legal_review",
+     "kind": "yesno",
+     "meaning": "Yes if their legal team needs to sign off.",
+     "examples": [
+      "no",
+      "yes",
+      "yes"
+     ]
+    },
+    {
+     "name": "segment",
+     "kind": "category",
+     "meaning": "Size band of the business.",
+     "examples": [
+      "smb",
+      "mid-market",
+      "enterprise"
+     ]
+    },
+    {
+     "name": "existing_customer",
+     "kind": "yesno",
+     "meaning": "Yes if they already buy from you.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_to_close",
+     "kind": "number",
+     "meaning": "Days from this snapshot until it was signed.",
+     "examples": [
+      "14",
+      "40",
+      "95"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cart-abandon",
+   "category": "b2c",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Carts likely to be left",
+   "question": "Which shoppers are about to leave without paying, so you can show help or a reminder in time?",
+   "predicts": "Will this cart be left without buying: yes or no, and how likely.",
+   "row_means": "One shopping session with something in the cart.",
+   "source": "Your web shop or app analytics",
+   "source_short": "shop sessions",
+   "rows_min": 1000,
+   "rows_good": 20000,
+   "rows_great": 200000,
+   "balance": "Use sessions from every day of the week, sales days and quiet ones.",
+   "table": "cart_sessions",
+   "tips": [
+    "Use what was known while the shopper was still there, not whether they came back later."
+   ],
+   "columns": [
+    {
+     "name": "items_in_cart",
+     "kind": "number",
+     "meaning": "Items in the cart.",
+     "examples": [
+      "1",
+      "3",
+      "8"
+     ]
+    },
+    {
+     "name": "cart_value",
+     "kind": "number",
+     "meaning": "Money in the cart.",
+     "examples": [
+      "15",
+      "60",
+      "240"
+     ]
+    },
+    {
+     "name": "minutes_on_site",
+     "kind": "number",
+     "meaning": "Minutes on the site so far.",
+     "examples": [
+      "2",
+      "9",
+      "25"
+     ]
+    },
+    {
+     "name": "device",
+     "kind": "category",
+     "meaning": "Phone, tablet or computer.",
+     "examples": [
+      "phone",
+      "computer",
+      "tablet"
+     ]
+    },
+    {
+     "name": "returning_customer",
+     "kind": "yesno",
+     "meaning": "Yes if they've bought before.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    },
+    {
+     "name": "shipping_cost_shown",
+     "kind": "number",
+     "meaning": "Shipping cost shown at checkout.",
+     "examples": [
+      "0",
+      "5",
+      "12"
+     ]
+    },
+    {
+     "name": "traffic_source",
+     "kind": "category",
+     "meaning": "How they arrived.",
+     "examples": [
+      "search",
+      "social",
+      "email"
+     ],
+     "optional": true
+    },
+    {
+     "name": "abandoned",
+     "kind": "yesno",
+     "meaning": "Did they leave without paying?",
+     "examples": [
+      "yes",
+      "no",
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "return-risk",
+   "category": "b2c",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Orders likely to be returned",
+   "question": "Which orders are likely to come back, so you can suggest another size or check the order before it ships?",
+   "predicts": "Will this order be returned: yes or no, and how likely.",
+   "row_means": "One order.",
+   "source": "Your shop orders and the returns log",
+   "source_short": "orders and returns",
+   "rows_min": 1000,
+   "rows_good": 10000,
+   "rows_great": 100000,
+   "balance": "Only use orders older than your return window.",
+   "table": "orders",
+   "tips": [
+    "Use what was known when the order was placed."
+   ],
+   "columns": [
+    {
+     "name": "category",
+     "kind": "category",
+     "meaning": "What kind of product.",
+     "examples": [
+      "shoes",
+      "dresses",
+      "electronics"
+     ]
+    },
+    {
+     "name": "price",
+     "kind": "number",
+     "meaning": "Price of the order.",
+     "examples": [
+      "25",
+      "80",
+      "300"
+     ]
+    },
+    {
+     "name": "sizes_in_order",
+     "kind": "number",
+     "meaning": "Sizes of the same item in the order.",
+     "examples": [
+      "1",
+      "1",
+      "3"
+     ]
+    },
+    {
+     "name": "customer_return_rate_pct",
+     "kind": "number",
+     "meaning": "Share of their past orders they sent back, in %.",
+     "examples": [
+      "0",
+      "10",
+      "45"
+     ]
+    },
+    {
+     "name": "discount_pct",
+     "kind": "number",
+     "meaning": "Discount on the order, in %.",
+     "examples": [
+      "0",
+      "20",
+      "50"
+     ]
+    },
+    {
+     "name": "first_order",
+     "kind": "yesno",
+     "meaning": "Yes if it's their first order.",
+     "examples": [
+      "yes",
+      "no",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "payment",
+     "kind": "category",
+     "meaning": "How they paid.",
+     "examples": [
+      "card",
+      "cash on delivery",
+      "wallet"
+     ],
+     "optional": true
+    },
+    {
+     "name": "returned",
+     "kind": "yesno",
+     "meaning": "Was it sent back?",
+     "examples": [
+      "no",
+      "no",
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "customer-value",
+   "category": "b2c",
+   "kind": "number",
+   "data": "table",
+   "name": "Spend in the next 12 months",
+   "question": "How much will each customer spend in the next year, so you know who is worth keeping and what to spend winning them?",
+   "predicts": "The money a customer will spend in the next 12 months.",
+   "row_means": "One customer, as they looked a year ago.",
+   "source": "Order history from your shop or loyalty programme",
+   "source_short": "order history",
+   "rows_min": 1000,
+   "rows_good": 10000,
+   "rows_great": 100000,
+   "balance": "Include customers who spent nothing in the year after, with 0.",
+   "table": "customers",
+   "tips": [
+    "Take the columns from a year ago and the spend from the year after, so the model learns to look ahead."
+   ],
+   "columns": [
+    {
+     "name": "orders_last_12m",
+     "kind": "number",
+     "meaning": "Orders in the year before.",
+     "examples": [
+      "1",
+      "4",
+      "18"
+     ]
+    },
+    {
+     "name": "spend_last_12m",
+     "kind": "number",
+     "meaning": "Money spent in the year before.",
+     "examples": [
+      "30",
+      "250",
+      "1800"
+     ]
+    },
+    {
+     "name": "days_since_last_order",
+     "kind": "number",
+     "meaning": "Days since their last order.",
+     "examples": [
+      "5",
+      "60",
+      "300"
+     ]
+    },
+    {
+     "name": "months_as_customer",
+     "kind": "number",
+     "meaning": "Months since their first order.",
+     "examples": [
+      "2",
+      "18",
+      "60"
+     ]
+    },
+    {
+     "name": "channel",
+     "kind": "category",
+     "meaning": "Where they buy most.",
+     "examples": [
+      "app",
+      "web",
+      "store"
+     ]
+    },
+    {
+     "name": "member",
+     "kind": "yesno",
+     "meaning": "Yes if they're in the loyalty programme.",
+     "examples": [
+      "no",
+      "yes",
+      "yes"
+     ],
+     "optional": true
+    },
+    {
+     "name": "city_size",
+     "kind": "category",
+     "meaning": "Size of their town.",
+     "examples": [
+      "small",
+      "medium",
+      "big"
+     ],
+     "optional": true
+    },
+    {
+     "name": "spend_next_12m",
+     "kind": "number",
+     "meaning": "Money spent in the year after.",
+     "examples": [
+      "0",
+      "180",
+      "2100"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "shopper-recommend",
+   "category": "b2c",
+   "kind": "ranked",
+   "data": "table",
+   "architecture": "recommend",
+   "name": "Products to show each shopper",
+   "question": "Which products should the shop show each shopper on the home page or in an email, from what they and shoppers like them bought?",
+   "predicts": "The 10 products each shopper is likeliest to want, best first. A new shopper gets the products most shoppers buy.",
+   "row_means": "One purchase: a shopper and a product they bought.",
+   "source": "Order lines from your shop or loyalty programme",
+   "source_short": "order lines",
+   "rows_min": 1000,
+   "rows_good": 20000,
+   "rows_great": 500000,
+   "balance": "Shoppers with a few purchases each help most.",
+   "table": "purchases",
+   "tips": [
+    "Ask with a shopper_id to get their list.",
+    "Teach it again every week, so it keeps up with the season."
+   ],
+   "columns": [
+    {
+     "name": "shopper_id",
+     "kind": "category",
+     "meaning": "Who bought.",
+     "examples": [
+      "U-1042",
+      "U-2318",
+      "U-1042"
+     ]
+    },
+    {
+     "name": "quantity",
+     "kind": "number",
+     "meaning": "How many they bought.",
+     "examples": [
+      "1",
+      "2",
+      "1"
+     ],
+     "optional": true
+    },
+    {
+     "name": "product",
+     "kind": "category",
+     "meaning": "What they bought.",
+     "examples": [
+      "SKU-2041",
+      "SKU-1187",
+      "SKU-3305"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "basket-pairs",
+   "category": "b2c",
+   "kind": "ranked",
+   "data": "table",
+   "architecture": "goes-together",
+   "name": "Items in the same basket",
+   "question": "Which items end up in the same shopping basket far more often than chance, to place them side by side or bundle them?",
+   "predicts": "For any item, the 10 items that go with it most, best first.",
+   "row_means": "One basket line: a receipt and an item on it.",
+   "source": "Receipts from your point of sale or web shop",
+   "source_short": "receipts",
+   "rows_min": 1000,
+   "rows_good": 20000,
+   "rows_great": 500000,
+   "balance": "Baskets of two or more items teach it.",
+   "table": "receipt_lines",
+   "tips": [
+    "Give it receipt ids, not shopper ids, so it learns what is bought in one go.",
+    "Teach it again every month as the range changes."
+   ],
+   "columns": [
+    {
+     "name": "receipt_id",
+     "kind": "category",
+     "meaning": "Which basket.",
+     "examples": [
+      "R-50231",
+      "R-50231",
+      "R-50232"
+     ]
+    },
+    {
+     "name": "quantity",
+     "kind": "number",
+     "meaning": "How many of the item.",
+     "examples": [
+      "1",
+      "2",
+      "1"
+     ],
+     "optional": true
+    },
+    {
+     "name": "item",
+     "kind": "category",
+     "meaning": "What was bought.",
+     "examples": [
+      "SKU-2041",
+      "SKU-1187",
+      "SKU-3305"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "review-topic",
+   "category": "b2c",
+   "kind": "group",
+   "data": "text",
+   "name": "What reviews are about",
+   "question": "Read each review and say what it's mainly about, so the right team sees the complaints that are theirs.",
+   "predicts": "Delivery, quality, size or price, for each review.",
+   "row_means": "One review.",
+   "source": "Reviews from your shop, app store or marketplace",
+   "source_short": "customer reviews",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Try to have at least 100 reviews for each topic.",
+   "table": "reviews",
+   "tips": [
+    "Keep the review as the customer wrote it; spelling mistakes are fine."
+   ],
+   "columns": [
+    {
+     "name": "review_text",
+     "kind": "text",
+     "meaning": "What the customer wrote.",
+     "examples": [
+      "Took two weeks to arrive",
+      "Stitching came apart after one wash",
+      "Runs small, order one size up",
+      "Cheaper in the shop next door"
+     ]
+    },
+    {
+     "name": "product_category",
+     "kind": "category",
+     "meaning": "What kind of product.",
+     "examples": [
+      "home",
+      "fashion",
+      "fashion",
+      "phones"
+     ]
+    },
+    {
+     "name": "stars",
+     "kind": "number",
+     "meaning": "Stars they gave.",
+     "examples": [
+      "2",
+      "1",
+      "3",
+      "3"
+     ],
+     "optional": true
+    },
+    {
+     "name": "topic",
+     "kind": "category",
+     "meaning": "What the review is about.",
+     "examples": [
+      "delivery",
+      "quality",
+      "size",
+      "price"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "paid-within",
+   "category": "fin",
+   "kind": "yes_no",
+   "data": "table",
+   "architecture": "time-to-event",
+   "name": "Chance an invoice is paid within N days",
+   "question": "How likely is each open invoice to be paid within the next N days, so cash planning and reminders start with the right ones?",
+   "predicts": "The chance the invoice is paid within the number of days you ask, from 0 to 100%. Ask with within_days set to 7, 30 or any other number.",
+   "row_means": "One invoice: what was known when it was sent, how many days were watched after it, and whether it was paid in that time.",
+   "source": "Invoices and payments from your accounting system",
+   "source_short": "accounts receivable",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Include invoices still unpaid, with no and the days since they were sent.",
+   "table": "invoices",
+   "tips": [
+    "days_watched is the days until payment when it was paid (paid yes), or the days until today when it wasn't (paid no).",
+    "Ask with within_days 30 to see which invoices to chase this month."
+   ],
+   "columns": [
+    {
+     "name": "amount",
+     "kind": "number",
+     "meaning": "Money on the invoice.",
+     "examples": [
+      "800",
+      "4500",
+      "22000"
+     ]
+    },
+    {
+     "name": "payment_terms_days",
+     "kind": "number",
+     "meaning": "Days the customer has to pay.",
+     "examples": [
+      "14",
+      "30",
+      "60"
+     ]
+    },
+    {
+     "name": "customer_avg_days_late",
+     "kind": "number",
+     "meaning": "How late this customer usually pays, in days.",
+     "examples": [
+      "0",
+      "6",
+      "25"
+     ]
+    },
+    {
+     "name": "segment",
+     "kind": "category",
+     "meaning": "Size band of the customer.",
+     "examples": [
+      "smb",
+      "mid-market",
+      "enterprise"
+     ]
+    },
+    {
+     "name": "disputed",
+     "kind": "yesno",
+     "meaning": "Yes if the customer questioned the invoice.",
+     "examples": [
+      "no",
+      "no",
+      "yes"
+     ]
+    },
+    {
+     "name": "reminders_sent",
+     "kind": "number",
+     "meaning": "Reminders sent so far.",
+     "examples": [
+      "0",
+      "1",
+      "3"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_watched",
+     "kind": "number",
+     "meaning": "Days from sending to payment, or to today if it isn't paid yet.",
+     "examples": [
+      "21",
+      "45",
+      "90"
+     ]
+    },
+    {
+     "name": "paid",
+     "kind": "yesno",
+     "meaning": "Was it paid within days_watched?",
+     "examples": [
+      "yes",
+      "yes",
+      "no"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "expense-check",
+   "category": "fin",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Expense claims to check",
+   "question": "Which expense claims look wrong and deserve a second look before they're paid?",
+   "predicts": "Should this claim be checked: yes or no, and how likely.",
+   "row_means": "One expense claim.",
+   "source": "Your expense system, with the claims that were rejected or corrected",
+   "source_short": "expense claims",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Wrong claims are rare. Use at least a year of claims so there are enough of them.",
+   "table": "expense_claims",
+   "tips": [
+    "Use the claims your finance team already checked, with what they decided."
+   ],
+   "columns": [
+    {
+     "name": "amount",
+     "kind": "number",
+     "meaning": "Money claimed.",
+     "examples": [
+      "35",
+      "220",
+      "1400"
+     ]
+    },
+    {
+     "name": "category",
+     "kind": "category",
+     "meaning": "What it's for.",
+     "examples": [
+      "meals",
+      "travel",
+      "hotel"
+     ]
+    },
+    {
+     "name": "receipt_attached",
+     "kind": "yesno",
+     "meaning": "Yes if a receipt is attached.",
+     "examples": [
+      "yes",
+      "yes",
+      "no"
+     ]
+    },
+    {
+     "name": "weekend",
+     "kind": "yesno",
+     "meaning": "Yes if the spend was on a weekend.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    },
+    {
+     "name": "days_after_spend",
+     "kind": "number",
+     "meaning": "Days between the spend and the claim.",
+     "examples": [
+      "2",
+      "15",
+      "75"
+     ]
+    },
+    {
+     "name": "claims_this_month",
+     "kind": "number",
+     "meaning": "Claims the person made this month.",
+     "examples": [
+      "1",
+      "4",
+      "12"
+     ],
+     "optional": true
+    },
+    {
+     "name": "department",
+     "kind": "category",
+     "meaning": "Which department.",
+     "examples": [
+      "sales",
+      "operations",
+      "it"
+     ],
+     "optional": true
+    },
+    {
+     "name": "needed_fix",
+     "kind": "yesno",
+     "meaning": "Was it rejected or corrected?",
+     "examples": [
+      "no",
+      "no",
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "transaction-category",
+   "category": "fin",
+   "kind": "group",
+   "data": "text",
+   "name": "Sort bank transactions",
+   "question": "Read each bank or card transaction and file it under the right account, so bookkeeping isn't done by hand.",
+   "predicts": "Rent, salaries, supplies, travel or software, for each transaction.",
+   "row_means": "One bank or card transaction.",
+   "source": "Bank statements, with the account your bookkeeper chose",
+   "source_short": "bank statements",
+   "rows_min": 1000,
+   "rows_good": 10000,
+   "rows_great": 100000,
+   "balance": "Try to have at least 100 transactions for each account.",
+   "table": "transactions",
+   "tips": [
+    "Keep the description exactly as the bank wrote it."
+   ],
+   "columns": [
+    {
+     "name": "description",
+     "kind": "text",
+     "meaning": "The text on the bank statement.",
+     "examples": [
+      "TRF PT GEDUNG MAJU SEWA NOV",
+      "PAYROLL BATCH 11/24",
+      "TOKO ATK SINAR KERTAS",
+      "GARUDA ID TICKET 12345",
+      "CLOUD HOSTING MONTHLY"
+     ]
+    },
+    {
+     "name": "amount",
+     "kind": "number",
+     "meaning": "Money that went out.",
+     "examples": [
+      "15000",
+      "82000",
+      "120",
+      "650",
+      "90"
+     ]
+    },
+    {
+     "name": "method",
+     "kind": "category",
+     "meaning": "How it was paid.",
+     "examples": [
+      "transfer",
+      "transfer",
+      "card",
+      "card",
+      "card"
+     ],
+     "optional": true
+    },
+    {
+     "name": "account",
+     "kind": "category",
+     "meaning": "Where your bookkeeper filed it.",
+     "examples": [
+      "rent",
+      "salaries",
+      "supplies",
+      "travel",
+      "software"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "days-late",
+   "category": "fin",
+   "kind": "number",
+   "data": "table",
+   "name": "Days late on a payment",
+   "question": "How many days late will a customer pay this invoice, so your cash forecast uses real dates instead of the due date?",
+   "predicts": "The days after the due date the invoice will be paid; 0 means on time.",
+   "row_means": "One paid invoice.",
+   "source": "Invoices and payments from your accounting system",
+   "source_short": "accounts receivable",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Include invoices paid on time, with 0.",
+   "table": "invoices",
+   "tips": [
+    "Use what was known when the invoice was sent."
+   ],
+   "columns": [
+    {
+     "name": "amount",
+     "kind": "number",
+     "meaning": "Money on the invoice.",
+     "examples": [
+      "800",
+      "4500",
+      "22000"
+     ]
+    },
+    {
+     "name": "payment_terms_days",
+     "kind": "number",
+     "meaning": "Days the customer has to pay.",
+     "examples": [
+      "14",
+      "30",
+      "60"
+     ]
+    },
+    {
+     "name": "customer_avg_days_late",
+     "kind": "number",
+     "meaning": "How late this customer usually pays, in days.",
+     "examples": [
+      "0",
+      "6",
+      "25"
+     ]
+    },
+    {
+     "name": "invoices_open",
+     "kind": "number",
+     "meaning": "Other unpaid invoices of this customer.",
+     "examples": [
+      "0",
+      "2",
+      "6"
+     ]
+    },
+    {
+     "name": "industry",
+     "kind": "category",
+     "meaning": "What the customer does.",
+     "examples": [
+      "retail",
+      "construction",
+      "food"
+     ]
+    },
+    {
+     "name": "month_end",
+     "kind": "yesno",
+     "meaning": "Yes if the due date is in the last week of a month.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "days_late",
+     "kind": "number",
+     "meaning": "Days after the due date it was paid.",
+     "examples": [
+      "0",
+      "5",
+      "32"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "salary-range",
+   "category": "hr",
+   "kind": "number",
+   "data": "table",
+   "architecture": "number-range",
+   "name": "Salary range for a role",
+   "question": "What should a role pay, as a range, so offers are fair and in line with the people already doing similar work?",
+   "predicts": "The likeliest monthly salary, with a low and a high that hold about 8 in 10 people in similar roles.",
+   "row_means": "One person, with their role and their salary.",
+   "source": "Your HR or payroll system",
+   "source_short": "payroll",
+   "rows_min": 200,
+   "rows_good": 2000,
+   "rows_great": 20000,
+   "balance": "People at every level and in every department.",
+   "table": "employees",
+   "tips": [
+    "Leave out names, gender, age and anything else a salary must not depend on.",
+    "Check the range against market data before you use it for offers."
+   ],
+   "columns": [
+    {
+     "name": "job_family",
+     "kind": "category",
+     "meaning": "The kind of work.",
+     "examples": [
+      "sales",
+      "engineering",
+      "finance"
+     ]
+    },
+    {
+     "name": "level",
+     "kind": "category",
+     "meaning": "How senior the role is.",
+     "examples": [
+      "junior",
+      "mid",
+      "senior"
+     ]
+    },
+    {
+     "name": "years_experience",
+     "kind": "number",
+     "meaning": "Years of work in this field.",
+     "examples": [
+      "1",
+      "5",
+      "12"
+     ]
+    },
+    {
+     "name": "location",
+     "kind": "category",
+     "meaning": "Where they work.",
+     "examples": [
+      "jakarta",
+      "surabaya",
+      "remote"
+     ]
+    },
+    {
+     "name": "team_size",
+     "kind": "number",
+     "meaning": "People they lead.",
+     "examples": [
+      "0",
+      "0",
+      "6"
+     ],
+     "optional": true
+    },
+    {
+     "name": "monthly_salary",
+     "kind": "number",
+     "meaning": "Monthly salary before tax.",
+     "examples": [
+      "8000000",
+      "15000000",
+      "32000000"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "absence-risk",
+   "category": "hr",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Long absence risk",
+   "question": "Who is likely to be off for more than a week in the next three months, so managers can check in and plan cover early?",
+   "predicts": "Will this person be off for more than a week: yes or no, and how likely.",
+   "row_means": "One person at the start of a quarter.",
+   "source": "Your HR system and the absence log",
+   "source_short": "absence records",
+   "rows_min": 300,
+   "rows_good": 3000,
+   "rows_great": 30000,
+   "balance": "Use several quarters, so there are enough long absences.",
+   "table": "employees",
+   "tips": [
+    "Use it to offer help and plan cover, not to judge people.",
+    "Leave out health details; the model doesn't need them."
+   ],
+   "columns": [
+    {
+     "name": "department",
+     "kind": "category",
+     "meaning": "Where they work.",
+     "examples": [
+      "warehouse",
+      "office",
+      "store"
+     ]
+    },
+    {
+     "name": "days_off_last_year",
+     "kind": "number",
+     "meaning": "Days off sick in the year before.",
+     "examples": [
+      "0",
+      "6",
+      "20"
+     ]
+    },
+    {
+     "name": "overtime_hours_last_q",
+     "kind": "number",
+     "meaning": "Overtime in the last quarter.",
+     "examples": [
+      "0",
+      "30",
+      "90"
+     ]
+    },
+    {
+     "name": "shift_work",
+     "kind": "yesno",
+     "meaning": "Yes if they work shifts.",
+     "examples": [
+      "no",
+      "yes",
+      "yes"
+     ]
+    },
+    {
+     "name": "tenure_years",
+     "kind": "number",
+     "meaning": "Years at the company.",
+     "examples": [
+      "1",
+      "4",
+      "10"
+     ]
+    },
+    {
+     "name": "commute_km",
+     "kind": "number",
+     "meaning": "Distance from home to work.",
+     "examples": [
+      "3",
+      "15",
+      "40"
+     ],
+     "optional": true
+    },
+    {
+     "name": "long_absence",
+     "kind": "yesno",
+     "meaning": "Were they off for more than a week in the quarter?",
+     "examples": [
+      "no",
+      "no",
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "leave-within",
+   "category": "hr",
+   "kind": "yes_no",
+   "data": "table",
+   "architecture": "time-to-event",
+   "name": "Chance someone leaves within N months",
+   "question": "How likely is each person to leave within the next N months, so managers have the right talk in time?",
+   "predicts": "The chance the person leaves within the number of months you ask, from 0 to 100%. Ask with within_days set to 3, 6, 12 or any other number of months.",
+   "row_means": "One person since one review: what was known that day, how many months were watched after it, and whether they left in that time.",
+   "source": "Your HR system, with leaving dates",
+   "source_short": "HR records",
+   "rows_min": 300,
+   "rows_good": 3000,
+   "rows_great": 30000,
+   "balance": "Include people who are still here, with no and the months since their review.",
+   "table": "employees",
+   "tips": [
+    "months_watched is the months until they left when they did (left yes), or the months until today when they didn't (left no).",
+    "Use it to start conversations, not to make decisions about people."
+   ],
+   "columns": [
+    {
+     "name": "department",
+     "kind": "category",
+     "meaning": "Where they work.",
+     "examples": [
+      "sales",
+      "engineering",
+      "support"
+     ]
+    },
+    {
+     "name": "tenure_years",
+     "kind": "number",
+     "meaning": "Years at the company.",
+     "examples": [
+      "1",
+      "3",
+      "8"
+     ]
+    },
+    {
+     "name": "last_rating",
+     "kind": "number",
+     "meaning": "Last performance rating, 1 to 5.",
+     "examples": [
+      "3",
+      "4",
+      "5"
+     ]
+    },
+    {
+     "name": "months_since_raise",
+     "kind": "number",
+     "meaning": "Months since their last raise.",
+     "examples": [
+      "4",
+      "14",
+      "30"
+     ]
+    },
+    {
+     "name": "manager_changes_2y",
+     "kind": "number",
+     "meaning": "New managers in the last two years.",
+     "examples": [
+      "0",
+      "1",
+      "3"
+     ]
+    },
+    {
+     "name": "overtime_hours_month",
+     "kind": "number",
+     "meaning": "Usual overtime in a month.",
+     "examples": [
+      "0",
+      "10",
+      "35"
+     ],
+     "optional": true
+    },
+    {
+     "name": "months_watched",
+     "kind": "number",
+     "meaning": "Months from this review until they left, or until today.",
+     "examples": [
+      "4",
+      "12",
+      "18"
+     ]
+    },
+    {
+     "name": "left",
+     "kind": "yesno",
+     "meaning": "Did they leave within months_watched?",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "course-recommend",
+   "category": "hr",
+   "kind": "ranked",
+   "data": "table",
+   "architecture": "recommend",
+   "name": "Courses to suggest to each person",
+   "question": "Which training courses should each person see next, from what they and colleagues like them took?",
+   "predicts": "The 10 courses each person is likeliest to take, best first. A new starter gets the courses most people take.",
+   "row_means": "One course someone finished.",
+   "source": "Your learning system",
+   "source_short": "learning records",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 100000,
+   "balance": "People who finished a few courses each help most.",
+   "table": "course_completions",
+   "tips": [
+    "Ask with an employee_id to get their list."
+   ],
+   "columns": [
+    {
+     "name": "employee_id",
+     "kind": "category",
+     "meaning": "Who took the course.",
+     "examples": [
+      "E-1042",
+      "E-2318",
+      "E-1042"
+     ]
+    },
+    {
+     "name": "hours",
+     "kind": "number",
+     "meaning": "Hours the course took.",
+     "examples": [
+      "2",
+      "6",
+      "1"
+     ],
+     "optional": true
+    },
+    {
+     "name": "course",
+     "kind": "category",
+     "meaning": "Which course.",
+     "examples": [
+      "CRS-201",
+      "CRS-118",
+      "CRS-330"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "exit-reason",
+   "category": "hr",
+   "kind": "group",
+   "data": "text",
+   "name": "Why people leave",
+   "question": "Read what people said when they left and sort it by the main reason, so you can see what to fix first.",
+   "predicts": "Pay, manager, growth or workload, for each answer.",
+   "row_means": "One exit interview or leaving survey.",
+   "source": "Exit interviews or leaving surveys",
+   "source_short": "exit interviews",
+   "rows_min": 200,
+   "rows_good": 2000,
+   "rows_great": 20000,
+   "balance": "Try to have at least 50 answers for each reason.",
+   "table": "exit_interviews",
+   "tips": [
+    "Remove names before you upload."
+   ],
+   "columns": [
+    {
+     "name": "answer",
+     "kind": "text",
+     "meaning": "What they said about why they're leaving.",
+     "examples": [
+      "Got a better offer elsewhere",
+      "My manager never listened",
+      "No path to the next level",
+      "Too many late nights"
+     ]
+    },
+    {
+     "name": "department",
+     "kind": "category",
+     "meaning": "Where they worked.",
+     "examples": [
+      "sales",
+      "support",
+      "engineering",
+      "warehouse"
+     ]
+    },
+    {
+     "name": "tenure_years",
+     "kind": "number",
+     "meaning": "Years at the company.",
+     "examples": [
+      "2",
+      "1",
+      "4",
+      "3"
+     ],
+     "optional": true
+    },
+    {
+     "name": "reason",
+     "kind": "category",
+     "meaning": "The main reason.",
+     "examples": [
+      "pay",
+      "manager",
+      "growth",
+      "workload"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "delivery-time-range",
+   "category": "log",
+   "kind": "number",
+   "data": "table",
+   "architecture": "number-range",
+   "name": "Delivery time range",
+   "question": "How many hours will a delivery take, as a range you can tell customers and plan routes with?",
+   "predicts": "The likeliest hours from pick-up to delivery, with a low and a high that hold about 8 in 10 real deliveries.",
+   "row_means": "One delivery.",
+   "source": "Your transport or courier system",
+   "source_short": "delivery records",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Deliveries near and far, on quiet days and busy ones.",
+   "table": "deliveries",
+   "tips": [
+    "Promise the high end when being late costs more than being early."
+   ],
+   "columns": [
+    {
+     "name": "distance_km",
+     "kind": "number",
+     "meaning": "Distance from pick-up to drop-off.",
+     "examples": [
+      "5",
+      "40",
+      "300"
+     ]
+    },
+    {
+     "name": "vehicle",
+     "kind": "category",
+     "meaning": "What carried it.",
+     "examples": [
+      "motorbike",
+      "van",
+      "truck"
+     ]
+    },
+    {
+     "name": "stops_on_route",
+     "kind": "number",
+     "meaning": "Other stops on the route.",
+     "examples": [
+      "0",
+      "8",
+      "25"
+     ]
+    },
+    {
+     "name": "weekday",
+     "kind": "category",
+     "meaning": "Day of the week.",
+     "examples": [
+      "Mon",
+      "Wed",
+      "Sat"
+     ]
+    },
+    {
+     "name": "rain",
+     "kind": "yesno",
+     "meaning": "Yes if it rained.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    },
+    {
+     "name": "region",
+     "kind": "category",
+     "meaning": "Delivery area.",
+     "examples": [
+      "city",
+      "suburb",
+      "rural"
+     ],
+     "optional": true
+    },
+    {
+     "name": "hours",
+     "kind": "number",
+     "meaning": "Hours from pick-up to delivery.",
+     "examples": [
+      "1.5",
+      "6",
+      "30"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "stockout",
+   "category": "log",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Stock-out warning",
+   "question": "Which items will run out in a store or warehouse next week, so you can reorder or move stock now?",
+   "predicts": "Will this item run out next week: yes or no, and how likely.",
+   "row_means": "One item in one location in one week.",
+   "source": "Your stock and sales records",
+   "source_short": "stock records",
+   "rows_min": 1000,
+   "rows_good": 10000,
+   "rows_great": 100000,
+   "balance": "Use many weeks and locations, so there are enough stock-outs.",
+   "table": "stock_weeks",
+   "tips": [
+    "Use stock at the start of the week and sales before it."
+   ],
+   "columns": [
+    {
+     "name": "stock_on_hand",
+     "kind": "number",
+     "meaning": "Units on the shelf at the start of the week.",
+     "examples": [
+      "5",
+      "40",
+      "200"
+     ]
+    },
+    {
+     "name": "avg_weekly_sales",
+     "kind": "number",
+     "meaning": "Average units sold a week, last 4 weeks.",
+     "examples": [
+      "10",
+      "35",
+      "120"
+     ]
+    },
+    {
+     "name": "days_to_next_delivery",
+     "kind": "number",
+     "meaning": "Days until the next delivery comes.",
+     "examples": [
+      "1",
+      "4",
+      "10"
+     ]
+    },
+    {
+     "name": "on_promo",
+     "kind": "yesno",
+     "meaning": "Yes if there's a promotion next week.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    },
+    {
+     "name": "category",
+     "kind": "category",
+     "meaning": "What kind of item.",
+     "examples": [
+      "drinks",
+      "snacks",
+      "household"
+     ]
+    },
+    {
+     "name": "supplier_late_rate_pct",
+     "kind": "number",
+     "meaning": "Share of the supplier's deliveries that came late, in %.",
+     "examples": [
+      "0",
+      "10",
+      "40"
+     ],
+     "optional": true
+    },
+    {
+     "name": "ran_out",
+     "kind": "yesno",
+     "meaning": "Did it run out that week?",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "best-carrier",
+   "category": "log",
+   "kind": "group",
+   "data": "table",
+   "name": "Best carrier for a shipment",
+   "question": "Which carrier will get a shipment there on time, so each one goes with the right company?",
+   "predicts": "The carrier that delivered shipments like this best, for each shipment.",
+   "row_means": "One shipment that arrived on time, with the carrier that took it.",
+   "source": "Your shipping records",
+   "source_short": "shipping records",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Try to have at least 100 on-time shipments for each carrier.",
+   "table": "shipments",
+   "tips": [
+    "Use only shipments that arrived on time and undamaged, so the model learns what each carrier does well."
+   ],
+   "columns": [
+    {
+     "name": "weight_kg",
+     "kind": "number",
+     "meaning": "Weight of the shipment.",
+     "examples": [
+      "2",
+      "25",
+      "400"
+     ]
+    },
+    {
+     "name": "distance_km",
+     "kind": "number",
+     "meaning": "Distance to the destination.",
+     "examples": [
+      "10",
+      "200",
+      "1200"
+     ]
+    },
+    {
+     "name": "destination",
+     "kind": "category",
+     "meaning": "Kind of destination.",
+     "examples": [
+      "city",
+      "rural",
+      "island"
+     ]
+    },
+    {
+     "name": "fragile",
+     "kind": "yesno",
+     "meaning": "Yes if it's fragile.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    },
+    {
+     "name": "cash_on_delivery",
+     "kind": "yesno",
+     "meaning": "Yes if the receiver pays on delivery.",
+     "examples": [
+      "no",
+      "no",
+      "yes"
+     ],
+     "optional": true
+    },
+    {
+     "name": "carrier",
+     "kind": "category",
+     "meaning": "Carrier that took it.",
+     "examples": [
+      "carrier_a",
+      "carrier_b",
+      "carrier_c"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "failed-delivery",
+   "category": "log",
+   "kind": "group",
+   "data": "text",
+   "name": "Why a delivery failed",
+   "question": "Read the driver's note on a failed delivery and say why it failed, so the next try is planned right.",
+   "predicts": "Nobody home, wrong address, refused or no access, for each note.",
+   "row_means": "One failed delivery.",
+   "source": "Driver notes from your delivery app",
+   "source_short": "driver notes",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 30000,
+   "balance": "Try to have at least 100 notes for each reason.",
+   "table": "failed_deliveries",
+   "tips": [
+    "Keep the note as the driver wrote it; short is fine."
+   ],
+   "columns": [
+    {
+     "name": "driver_note",
+     "kind": "text",
+     "meaning": "What the driver wrote.",
+     "examples": [
+      "Rang twice, nobody answered",
+      "House number does not exist",
+      "Customer said they did not order it",
+      "Gate locked, guard would not let me in"
+     ]
+    },
+    {
+     "name": "region",
+     "kind": "category",
+     "meaning": "Delivery area.",
+     "examples": [
+      "city",
+      "suburb",
+      "city",
+      "rural"
+     ]
+    },
+    {
+     "name": "attempt",
+     "kind": "number",
+     "meaning": "Which try this was.",
+     "examples": [
+      "1",
+      "1",
+      "2",
+      "1"
+     ],
+     "optional": true
+    },
+    {
+     "name": "reason",
+     "kind": "category",
+     "meaning": "Why it failed.",
+     "examples": [
+      "nobody home",
+      "wrong address",
+      "refused",
+      "no access"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pallet-check",
+   "category": "log",
+   "kind": "group",
+   "data": "photos",
+   "name": "Pallet load check",
+   "question": "Look at a photo of a loaded pallet and say if it's fine to ship, badly wrapped or leaning.",
+   "predicts": "One answer per photo: ok, bad wrap or leaning, with how sure.",
+   "row_means": "One photo of one pallet.",
+   "source": "A camera at the loading dock, or phone photos from the team",
+   "source_short": "dock photos",
+   "rows_min": 100,
+   "rows_good": 500,
+   "rows_great": 2000,
+   "balance": "Keep taking photos of bad pallets until each folder has at least 100.",
+   "tips": [
+    "Take the photo from the same side and height each time.",
+    "Get the whole pallet in the frame."
+   ],
+   "folders": [
+    {
+     "name": "ok",
+     "meaning": "Pallets fine to ship.",
+     "count": 900
+    },
+    {
+     "name": "bad_wrap",
+     "meaning": "Torn or loose wrap.",
+     "count": 150
+    },
+    {
+     "name": "leaning",
+     "meaning": "Loads that lean or overhang.",
+     "count": 130
+    }
+   ]
+  },
+  {
+   "id": "low-satisfaction",
+   "category": "sup",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Unhappy after a ticket",
+   "question": "Which customers are likely to rate their support badly, so a team lead can step in before the ticket closes?",
+   "predicts": "Will the customer give a bad rating: yes or no, and how likely.",
+   "row_means": "One closed ticket with a rating.",
+   "source": "Your helpdesk, with satisfaction ratings",
+   "source_short": "helpdesk",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Only use tickets where the customer left a rating.",
+   "table": "tickets",
+   "tips": [
+    "Use what was known before the ticket closed."
+   ],
+   "columns": [
+    {
+     "name": "hours_to_first_reply",
+     "kind": "number",
+     "meaning": "Hours until the first answer.",
+     "examples": [
+      "0.5",
+      "4",
+      "30"
+     ]
+    },
+    {
+     "name": "replies",
+     "kind": "number",
+     "meaning": "Messages back and forth.",
+     "examples": [
+      "2",
+      "5",
+      "12"
+     ]
+    },
+    {
+     "name": "reopened",
+     "kind": "yesno",
+     "meaning": "Yes if the customer reopened it.",
+     "examples": [
+      "no",
+      "no",
+      "yes"
+     ]
+    },
+    {
+     "name": "transferred",
+     "kind": "number",
+     "meaning": "Times it moved to another team.",
+     "examples": [
+      "0",
+      "1",
+      "3"
+     ]
+    },
+    {
+     "name": "channel",
+     "kind": "category",
+     "meaning": "Email, chat or phone.",
+     "examples": [
+      "chat",
+      "email",
+      "phone"
+     ]
+    },
+    {
+     "name": "customer_tier",
+     "kind": "category",
+     "meaning": "The customer's plan.",
+     "examples": [
+      "free",
+      "pro",
+      "enterprise"
+     ],
+     "optional": true
+    },
+    {
+     "name": "bad_rating",
+     "kind": "yesno",
+     "meaning": "Did they give 1 or 2 out of 5?",
+     "examples": [
+      "no",
+      "no",
+      "yes"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "resolve-time",
+   "category": "sup",
+   "kind": "number",
+   "data": "table",
+   "name": "Time to solve a ticket",
+   "question": "How many hours will a ticket take to solve, so you can tell customers honestly and spot the ones that will miss their deadline?",
+   "predicts": "The hours from opening to solved.",
+   "row_means": "One solved ticket.",
+   "source": "Your helpdesk",
+   "source_short": "helpdesk",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Quick tickets and long ones, from every team.",
+   "table": "tickets",
+   "tips": [
+    "Use what was known when the ticket came in."
+   ],
+   "columns": [
+    {
+     "name": "team",
+     "kind": "category",
+     "meaning": "Team that took it.",
+     "examples": [
+      "billing",
+      "technical",
+      "delivery"
+     ]
+    },
+    {
+     "name": "priority",
+     "kind": "category",
+     "meaning": "Priority it was given.",
+     "examples": [
+      "low",
+      "normal",
+      "high"
+     ]
+    },
+    {
+     "name": "channel",
+     "kind": "category",
+     "meaning": "Email, chat or phone.",
+     "examples": [
+      "email",
+      "chat",
+      "phone"
+     ]
+    },
+    {
+     "name": "open_tickets_in_queue",
+     "kind": "number",
+     "meaning": "Tickets already waiting in the team's queue.",
+     "examples": [
+      "5",
+      "30",
+      "120"
+     ]
+    },
+    {
+     "name": "customer_tier",
+     "kind": "category",
+     "meaning": "The customer's plan.",
+     "examples": [
+      "free",
+      "pro",
+      "enterprise"
+     ]
+    },
+    {
+     "name": "attachments",
+     "kind": "number",
+     "meaning": "Files the customer attached.",
+     "examples": [
+      "0",
+      "1",
+      "3"
+     ],
+     "optional": true
+    },
+    {
+     "name": "hours_to_solve",
+     "kind": "number",
+     "meaning": "Hours from opening to solved.",
+     "examples": [
+      "1",
+      "8",
+      "72"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ticket-urgency",
+   "category": "sup",
+   "kind": "group",
+   "data": "text",
+   "name": "How urgent a message is",
+   "question": "Read what the customer wrote and say how urgent it is, so the most pressing tickets are answered first.",
+   "predicts": "Low, normal or urgent, for each ticket.",
+   "row_means": "One ticket.",
+   "source": "Your helpdesk, with the priority your team gave",
+   "source_short": "helpdesk",
+   "rows_min": 1000,
+   "rows_good": 10000,
+   "rows_great": 50000,
+   "balance": "Urgent tickets are rare; try to have at least 100.",
+   "table": "tickets",
+   "tips": [
+    "Use the customer's first message only."
+   ],
+   "columns": [
+    {
+     "name": "message",
+     "kind": "text",
+     "meaning": "The customer's first message.",
+     "examples": [
+      "Could you add dark mode one day?",
+      "How do I change my invoice address?",
+      "Our whole team can't log in and we have a launch today"
+     ]
+    },
+    {
+     "name": "channel",
+     "kind": "category",
+     "meaning": "Email, chat or phone.",
+     "examples": [
+      "email",
+      "chat",
+      "phone"
+     ]
+    },
+    {
+     "name": "customer_tier",
+     "kind": "category",
+     "meaning": "The customer's plan.",
+     "examples": [
+      "free",
+      "pro",
+      "enterprise"
+     ],
+     "optional": true
+    },
+    {
+     "name": "priority",
+     "kind": "category",
+     "meaning": "How urgent it was.",
+     "examples": [
+      "low",
+      "normal",
+      "urgent"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "churn-after-ticket",
+   "category": "sup",
+   "kind": "yes_no",
+   "data": "table",
+   "name": "Customers who may leave after support",
+   "question": "Which customers who contacted support are likely to cancel in the next month, so someone reaches out first?",
+   "predicts": "Will this customer cancel within a month: yes or no, and how likely.",
+   "row_means": "One customer after a support contact.",
+   "source": "Your helpdesk and billing system",
+   "source_short": "helpdesk and billing",
+   "rows_min": 500,
+   "rows_good": 5000,
+   "rows_great": 50000,
+   "balance": "Only use contacts more than a month old.",
+   "table": "support_contacts",
+   "tips": [
+    "Use what was known when the ticket closed."
+   ],
+   "columns": [
+    {
+     "name": "tickets_90d",
+     "kind": "number",
+     "meaning": "Tickets they opened in the last 90 days.",
+     "examples": [
+      "1",
+      "3",
+      "8"
+     ]
+    },
+    {
+     "name": "solved_first_time",
+     "kind": "yesno",
+     "meaning": "Yes if the first answer solved it.",
+     "examples": [
+      "yes",
+      "no",
+      "yes"
+     ]
+    },
+    {
+     "name": "hours_to_solve",
+     "kind": "number",
+     "meaning": "Hours to solve the last ticket.",
+     "examples": [
+      "2",
+      "20",
+      "96"
+     ]
+    },
+    {
+     "name": "months_as_customer",
+     "kind": "number",
+     "meaning": "Months since they signed up.",
+     "examples": [
+      "2",
+      "14",
+      "40"
+     ]
+    },
+    {
+     "name": "plan",
+     "kind": "category",
+     "meaning": "Which plan they're on.",
+     "examples": [
+      "basic",
+      "pro",
+      "business"
+     ]
+    },
+    {
+     "name": "bad_rating",
+     "kind": "yesno",
+     "meaning": "Yes if they rated the last ticket badly.",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ],
+     "optional": true
+    },
+    {
+     "name": "cancelled",
+     "kind": "yesno",
+     "meaning": "Did they cancel within a month?",
+     "examples": [
+      "no",
+      "yes",
+      "no"
+     ]
+    }
+   ]
   }
  ]
 }
